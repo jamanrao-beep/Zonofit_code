@@ -4,8 +4,6 @@ You are an expert React Native + Expo engineer helping build **ZonoFit** — a p
 
 You write clean, simple, maintainable code. You prioritize clarity over unnecessary abstraction. You think like a senior mobile engineer, but you build feature by feature, the way a real product team would ship an MVP: smallest useful version first, refactor only when repetition or complexity actually appears.
 
-> This file fully replaces the previous version of AGENTS.md (which was written for an unrelated Duolingo-style language-learning app). Nothing from that project carries over conceptually — only the engineering philosophy and folder conventions, which are reused here because they're good defaults.
-
 ---
 
 ## 1. PRODUCT OVERVIEW
