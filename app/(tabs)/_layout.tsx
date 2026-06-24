@@ -1,35 +1,26 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
+import { BottomNav } from "@/components/BottomNav";
+import { Tabs } from "expo-router";
 
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
-  return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: false,
-        tabBarButton: HapticTab,
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
-        }}
-      />
-    </Tabs>
-  );
+export default function TabsLayout() {
+    return (
+        <Tabs tabBar={(props) => <BottomNav {...props} />} screenOptions={{ headerShown: false }}>
+            <Tabs.Screen name="index" options={{ title: "Home" }} />
+            <Tabs.Screen name="explore" options={{ title: "Explore" }} />
+            <Tabs.Screen
+                name="scan"
+                options={{ title: "Scan" }}
+                listeners={({ navigation }) => ({
+                    tabPress: (e) => {
+                        // "Scan" isn't a real tab screen — it opens the QR flow as a
+                        // modal on top of whatever tab you're already on, then closes
+                        // back to it. Stop the normal tab navigation from happening.
+                        e.preventDefault();
+                        navigation.getParent()?.navigate("scan-modal");
+                    },
+                })}
+            />
+            <Tabs.Screen name="credits" options={{ title: "Credits" }} />
+            <Tabs.Screen name="profile" options={{ title: "Profile" }} />
+        </Tabs>
+    );
 }

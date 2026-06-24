@@ -5,7 +5,7 @@ export default function ExploreScreen() {
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: "#F0F3ED" }}>
             <View className="flex-1 items-center justify-center">
-                <Text className="text-2xl font-bold">Home</Text>
+                <Text className="text-2xl font-bold">Credits</Text>
                 <Text className="text-[#6B756E] mt-1">Real screen comes later</Text>
             </View>
         </SafeAreaView>
