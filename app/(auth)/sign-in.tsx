@@ -9,10 +9,22 @@ export default function SignInScreen() {
   const { signIn, setActive, isLoaded } = useSignIn();
   const router = useRouter();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [phone, setPhone] = useState("");
+  const [pendingVerification, setPendingVerification] = useState(false);
+  const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const formatPhoneNumber = (input: string) => {
+    const cleaned = input.replace(/\D/g, "");
+    if (input.startsWith("+")) {
+      return input;
+    }
+    if (cleaned.length === 10) {
+      return `+91${cleaned}`;
+    }
+    return `+${cleaned}`;
+  };
 
   const onSignInPress = async () => {
     if (!isLoaded) return;
@@ -20,24 +32,120 @@ export default function SignInScreen() {
     setLoading(true);
 
     try {
+      const formattedPhone = formatPhoneNumber(phone);
       const result = await signIn.create({
-        identifier: email,
-        password,
+        identifier: formattedPhone,
       });
 
-      if (result.status === "complete") {
-        await setActive({ session: result.createdSessionId });
-        router.replace("/(tabs)");
-      } else {
-        console.warn("Sign in status not complete:", result.status);
+      // Find the phone code factor to trigger the OTP SMS code sending
+      const phoneCodeFactor = result.supportedFirstFactors?.find(
+        (factor: any) => factor.strategy === "phone_code"
+      );
+
+      if (!phoneCodeFactor) {
+        throw new Error("Phone number sign-in is not supported on this account or configuration.");
       }
+
+      await signIn.prepareFirstFactor({
+        strategy: "phone_code",
+        phoneNumberId: (phoneCodeFactor as any).phoneNumberId,
+      });
+
+      setPendingVerification(true);
     } catch (err: any) {
       console.error(err);
-      setError(err.errors?.[0]?.longMessage || "An error occurred during sign in.");
+      setError(err.errors?.[0]?.longMessage || err.message || "An error occurred during sign in.");
     } finally {
       setLoading(false);
     }
   };
+
+  const onPressVerify = async () => {
+    if (!isLoaded) return;
+    setError("");
+    setLoading(true);
+
+    try {
+      const completeSignIn = await signIn.attemptFirstFactor({
+        strategy: "phone_code",
+        code,
+      });
+
+      if (completeSignIn.status === "complete") {
+        await setActive({ session: completeSignIn.createdSessionId });
+        router.replace("/(tabs)");
+      } else {
+        console.warn("Sign in status not complete:", completeSignIn.status);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setError(err.errors?.[0]?.longMessage || "Verification failed. Check the code.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (pendingVerification) {
+    return (
+      <SafeAreaView className="flex-1 bg-[#F0F3ED] px-6 justify-center">
+        <View className="bg-white rounded-3xl p-6 shadow-sm border border-black/5">
+          <View className="mb-6">
+            <Text className="text-3xl font-bold tracking-tight text-[#1F2520] text-center">
+              Verify Phone
+            </Text>
+            <Text className="text-sm text-[#6B756E] mt-2 text-center">
+              Enter the code sent to {formatPhoneNumber(phone)}
+            </Text>
+          </View>
+
+          {error ? (
+            <View className="bg-red-50 border border-red-200 rounded-2xl p-3 mb-4">
+              <Text className="text-red-600 text-xs font-medium text-center">{error}</Text>
+            </View>
+          ) : null}
+
+          <View className="space-y-4">
+            <View>
+              <Text className="text-xs font-semibold text-[#1F2520] mb-1.5 ml-1">
+                Verification Code
+              </Text>
+              <TextInput
+                keyboardType="number-pad"
+                value={code}
+                onChangeText={setCode}
+                placeholder="Enter code (e.g. 123456)"
+                placeholderTextColor="#A0A5A1"
+                className="h-12 px-4 bg-[#F5F7F4] rounded-2xl text-[#1F2520] font-medium border border-transparent focus:border-[#6BCB77] text-center text-lg tracking-widest"
+              />
+            </View>
+
+            <Pressable
+              onPress={onPressVerify}
+              disabled={loading || !code}
+              className={`h-12 rounded-2xl items-center justify-center mt-6 ${loading || !code ? "bg-[#6BCB77]/65" : "bg-[#6BCB77]"
+                }`}
+              style={({ pressed }) => pressed && { opacity: 0.9 }}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text className="text-white font-bold text-base">Verify & Sign In</Text>
+              )}
+            </Pressable>
+
+            <Pressable
+              onPress={() => setPendingVerification(false)}
+              className="mt-4 py-2"
+            >
+              <Text className="text-sm font-semibold text-[#6B756E] text-center">
+                Back to Edit Phone
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-[#F0F3ED] px-6 justify-center">
@@ -60,28 +168,14 @@ export default function SignInScreen() {
         <View className="space-y-4">
           <View>
             <Text className="text-xs font-semibold text-[#1F2520] mb-1.5 ml-1">
-              Email Address
+              Phone Number
             </Text>
             <TextInput
               autoCapitalize="none"
-              keyboardType="email-address"
-              value={email}
-              onChangeText={setEmail}
-              placeholder="Enter your email"
-              placeholderTextColor="#A0A5A1"
-              className="h-12 px-4 bg-[#F5F7F4] rounded-2xl text-[#1F2520] font-medium border border-transparent focus:border-[#6BCB77]"
-            />
-          </View>
-
-          <View className="mt-4">
-            <Text className="text-xs font-semibold text-[#1F2520] mb-1.5 ml-1">
-              Password
-            </Text>
-            <TextInput
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Enter your password"
+              keyboardType="phone-pad"
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="Enter phone number (e.g. 9876543210)"
               placeholderTextColor="#A0A5A1"
               className="h-12 px-4 bg-[#F5F7F4] rounded-2xl text-[#1F2520] font-medium border border-transparent focus:border-[#6BCB77]"
             />
@@ -89,15 +183,15 @@ export default function SignInScreen() {
 
           <Pressable
             onPress={onSignInPress}
-            disabled={loading || !email || !password}
-            className={`h-12 rounded-2xl items-center justify-center mt-6 ${loading || !email || !password ? "bg-[#6BCB77]/65" : "bg-[#6BCB77]"
+            disabled={loading || !phone}
+            className={`h-12 rounded-2xl items-center justify-center mt-6 ${loading || !phone ? "bg-[#6BCB77]/65" : "bg-[#6BCB77]"
               }`}
             style={({ pressed }) => pressed && { opacity: 0.9 }}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text className="text-white font-bold text-base">Sign In</Text>
+              <Text className="text-white font-bold text-base">Send Verification Code</Text>
             )}
           </Pressable>
         </View>

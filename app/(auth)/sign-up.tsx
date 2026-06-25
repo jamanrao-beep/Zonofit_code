@@ -1,60 +1,122 @@
 import { GoogleAuthButton } from "@/components/GoogleAuthButton";
-import { useSignUp } from "@clerk/clerk-expo";
+import { useSignUp, useSignIn } from "@clerk/clerk-expo";
 import { Link, useRouter } from "expo-router";
 import { useState } from "react";
 import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function SignUpScreen() {
-    const { signUp, setActive, isLoaded } = useSignUp();
+    const { signUp, setActive, isLoaded: isSignUpLoaded } = useSignUp();
+    const { signIn, isLoaded: isSignInLoaded } = useSignIn();
     const router = useRouter();
 
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
+    const [phone, setPhone] = useState("");
+    const [username, setUsername] = useState("");
     const [pendingVerification, setPendingVerification] = useState(false);
+    const [isSignInVerification, setIsSignInVerification] = useState(false);
     const [code, setCode] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
+    const formatPhoneNumber = (input: string) => {
+        const cleaned = input.replace(/\D/g, "");
+        if (input.startsWith("+")) {
+            return input;
+        }
+        if (cleaned.length === 10) {
+            return `+91${cleaned}`;
+        }
+        return `+${cleaned}`;
+    };
+
     const onSignUpPress = async () => {
-        if (!isLoaded) return;
+        if (!isSignUpLoaded || !isSignInLoaded) return;
         setError("");
         setLoading(true);
 
+        const formattedPhone = formatPhoneNumber(phone);
+
         try {
             await signUp.create({
-                emailAddress: email,
-                password,
+                phoneNumber: formattedPhone,
+                username: username || undefined,
             });
 
-            await signUp.prepareEmailAddressVerification({
-                strategy: "email_code",
+            await signUp.preparePhoneNumberVerification({
+                strategy: "phone_code",
             });
 
+            setIsSignInVerification(false);
             setPendingVerification(true);
         } catch (err: any) {
-            console.error(err);
-            setError(err.errors?.[0]?.longMessage || "An error occurred during sign up.");
+            console.error("Sign up error:", err);
+            
+            // Check if phone number is already registered
+            if (err.errors?.[0]?.code === "form_identifier_exists") {
+                try {
+                    // Fallback to Sign In flow
+                    const result = await signIn.create({
+                        identifier: formattedPhone,
+                    });
+
+                    const phoneCodeFactor = result.supportedFirstFactors?.find(
+                        (factor: any) => factor.strategy === "phone_code"
+                    );
+
+                    if (!phoneCodeFactor) {
+                        throw new Error("Phone number sign-in is not supported on this account configuration.");
+                    }
+
+                    await signIn.prepareFirstFactor({
+                        strategy: "phone_code",
+                        phoneNumberId: (phoneCodeFactor as any).phoneNumberId,
+                    });
+
+                    setIsSignInVerification(true);
+                    setPendingVerification(true);
+                } catch (signInErr: any) {
+                    console.error("Auto sign-in initialization error:", signInErr);
+                    setError(signInErr.errors?.[0]?.longMessage || signInErr.message || "Phone number exists, and sign in failed.");
+                }
+            } else {
+                setError(err.errors?.[0]?.longMessage || "An error occurred during sign up.");
+            }
         } finally {
             setLoading(false);
         }
     };
 
     const onPressVerify = async () => {
-        if (!isLoaded) return;
+        if (!isSignUpLoaded || !isSignInLoaded) return;
         setError("");
         setLoading(true);
 
         try {
-            const completeSignUp = await signUp.attemptEmailAddressVerification({
-                code,
-            });
+            if (isSignInVerification) {
+                // Verify sign-in OTP
+                const completeSignIn = await signIn.attemptFirstFactor({
+                    strategy: "phone_code",
+                    code,
+                });
 
-            if (completeSignUp.status === "complete") {
-                await setActive({ session: completeSignUp.createdSessionId });
-                router.replace("/(tabs)");
+                if (completeSignIn.status === "complete") {
+                    await setActive({ session: completeSignIn.createdSessionId });
+                    router.replace("/(tabs)");
+                } else {
+                    console.warn("Sign in status not complete:", completeSignIn.status);
+                }
             } else {
-                console.warn("Sign up status not complete:", completeSignUp.status);
+                // Verify sign-up OTP
+                const completeSignUp = await signUp.attemptPhoneNumberVerification({
+                    code,
+                });
+
+                if (completeSignUp.status === "complete") {
+                    await setActive({ session: completeSignUp.createdSessionId });
+                    router.replace("/(tabs)");
+                } else {
+                    console.warn("Sign up status not complete:", completeSignUp.status);
+                }
             }
         } catch (err: any) {
             console.error(err);
@@ -70,10 +132,10 @@ export default function SignUpScreen() {
                 <View className="bg-white rounded-3xl p-6 shadow-sm border border-black/5">
                     <View className="mb-6">
                         <Text className="text-3xl font-bold tracking-tight text-[#1F2520] text-center">
-                            Verify Email
+                            Verify Phone
                         </Text>
                         <Text className="text-sm text-[#6B756E] mt-2 text-center">
-                            Enter the code sent to {email}
+                            Enter the code sent to {formatPhoneNumber(phone)}
                         </Text>
                     </View>
 
@@ -117,7 +179,7 @@ export default function SignUpScreen() {
                             className="mt-4 py-2"
                         >
                             <Text className="text-sm font-semibold text-[#6B756E] text-center">
-                                Back to Edit Email
+                                Back to Edit Phone
                             </Text>
                         </Pressable>
                     </View>
@@ -147,14 +209,13 @@ export default function SignUpScreen() {
                 <View className="space-y-4">
                     <View>
                         <Text className="text-xs font-semibold text-[#1F2520] mb-1.5 ml-1">
-                            Email Address
+                            Username
                         </Text>
                         <TextInput
                             autoCapitalize="none"
-                            keyboardType="email-address"
-                            value={email}
-                            onChangeText={setEmail}
-                            placeholder="Enter your email"
+                            value={username}
+                            onChangeText={setUsername}
+                            placeholder="Choose a username"
                             placeholderTextColor="#A0A5A1"
                             className="h-12 px-4 bg-[#F5F7F4] rounded-2xl text-[#1F2520] font-medium border border-transparent focus:border-[#6BCB77]"
                         />
@@ -162,13 +223,14 @@ export default function SignUpScreen() {
 
                     <View className="mt-4">
                         <Text className="text-xs font-semibold text-[#1F2520] mb-1.5 ml-1">
-                            Password
+                            Phone Number
                         </Text>
                         <TextInput
-                            secureTextEntry
-                            value={password}
-                            onChangeText={setPassword}
-                            placeholder="Choose a secure password"
+                            autoCapitalize="none"
+                            keyboardType="phone-pad"
+                            value={phone}
+                            onChangeText={setPhone}
+                            placeholder="Enter phone number (e.g. 9876543210)"
                             placeholderTextColor="#A0A5A1"
                             className="h-12 px-4 bg-[#F5F7F4] rounded-2xl text-[#1F2520] font-medium border border-transparent focus:border-[#6BCB77]"
                         />
@@ -176,15 +238,15 @@ export default function SignUpScreen() {
 
                     <Pressable
                         onPress={onSignUpPress}
-                        disabled={loading || !email || !password}
-                        className={`h-12 rounded-2xl items-center justify-center mt-6 ${loading || !email || !password ? "bg-[#6BCB77]/65" : "bg-[#6BCB77]"
+                        disabled={loading || !phone || !username}
+                        className={`h-12 rounded-2xl items-center justify-center mt-6 ${loading || !phone || !username ? "bg-[#6BCB77]/65" : "bg-[#6BCB77]"
                             }`}
                         style={({ pressed }) => pressed && { opacity: 0.9 }}
                     >
                         {loading ? (
                             <ActivityIndicator color="#fff" />
                         ) : (
-                            <Text className="text-white font-bold text-base">Sign Up</Text>
+                            <Text className="text-white font-bold text-base">Send Verification Code</Text>
                         )}
                     </Pressable>
                 </View>

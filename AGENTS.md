@@ -272,6 +272,8 @@ GetStream / Stream Vision Agents, video-based AI teacher infrastructure, and any
 
 ### Backend
 
+Use a Node.js + PostgreSQL database stack. Use **Prisma ORM** for database schema management, relational models, and migrations. Enable the **PostGIS** extension in PostgreSQL for handling location-based queries (e.g., gym distances).
+
 Use server-side API routes / functions for anything touching money or trust: credit balance reads/writes, credit purchase, credit↔INR conversion, booking creation, check-in validation, payment webhooks. Never expose secrets (payment keys, Clerk secret key, partner API keys) in the mobile app.
 
 ---
