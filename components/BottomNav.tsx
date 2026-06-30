@@ -22,11 +22,26 @@ export function BottomNav({ state, navigation }: BottomTabBarProps) {
 
     return (
         <View
-            // Insets vary per device -> dynamic, so this stays inline per the
-            // Style Exception Rules rather than a NativeWind class.
-            style={{ paddingBottom: insets.bottom || 12 }}
-            className="absolute bottom-0 left-0 right-0 flex-row items-end justify-around bg-white/90 border-t border-black/5 rounded-t-[28px] px-2 pt-2"
+            style={{ 
+                paddingBottom: insets.bottom || 24,
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                paddingHorizontal: 20,
+            }}
+            className="pointer-events-box-none"
         >
+            <View 
+                className="flex-row items-center justify-between bg-white rounded-[32px] px-2 py-2 border border-black/5"
+                style={{
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 8 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 24,
+                    elevation: 8,
+                }}
+            >
             {state.routes.map((route: { key: string; name: string }, index: number) => {
                 const isFocused = state.index === index;
                 const isScan = route.name === "scan";
@@ -42,21 +57,20 @@ export function BottomNav({ state, navigation }: BottomTabBarProps) {
 
                 if (isScan) {
                     return (
-                        <Pressable key={route.key} onPress={onPress} className="items-center -mb-1">
+                        <Pressable key={route.key} onPress={onPress} className="items-center mx-1 flex-1 -mt-7">
                             <View
-                                className="w-[52px] h-[52px] rounded-2xl items-center justify-center bg-[#6BCB77]"
+                                className="w-14 h-14 rounded-full items-center justify-center bg-[#6BCB77] border-[4px] border-white"
                                 style={{
-                                    // Shadow syntax differs per platform -> StyleSheet/inline, per the Style Exception Rules.
                                     shadowColor: colors.green,
-                                    shadowOpacity: 0.35,
-                                    shadowRadius: 10,
+                                    shadowOpacity: 0.4,
+                                    shadowRadius: 12,
                                     shadowOffset: { width: 0, height: 6 },
                                     elevation: 8,
                                 }}
                             >
-                                <MaterialIcons name={tab.icon} size={28} color="#fff" />
+                                <MaterialIcons name={tab.icon} size={28} color="#FFFFFF" />
                             </View>
-                            <Text className="text-[10px] mt-1 font-semibold" style={{ color: colors.green }}>
+                            <Text className="text-[10px] mt-1.5 font-bold uppercase tracking-wider text-[#1F2520]">
                                 {tab.label}
                             </Text>
                         </Pressable>
@@ -64,17 +78,19 @@ export function BottomNav({ state, navigation }: BottomTabBarProps) {
                 }
 
                 return (
-                    <Pressable key={route.key} onPress={onPress} className="flex-1 items-center py-1">
-                        <MaterialIcons name={tab.icon} size={23} color={isFocused ? colors.green : colors.navInactive} />
-                        <Text
-                            className="text-[10px] mt-0.5 font-medium"
-                            style={{ color: isFocused ? colors.green : colors.navInactive }}
+                    <Pressable key={route.key} onPress={onPress} className="items-center justify-center py-1 flex-1">
+                        <View className={`items-center justify-center w-12 h-9 rounded-2xl ${isFocused ? 'bg-[#EAF7EC]' : 'bg-transparent'}`}>
+                            <MaterialIcons name={tab.icon} size={24} color={isFocused ? '#059669' : '#8B958E'} />
+                        </View>
+                        <Text 
+                            className={`text-[9px] mt-1 tracking-wider ${isFocused ? 'font-bold text-[#059669]' : 'font-medium text-[#8B958E]'}`} 
                         >
                             {tab.label}
                         </Text>
                     </Pressable>
                 );
             })}
+            </View>
         </View>
     );
 }

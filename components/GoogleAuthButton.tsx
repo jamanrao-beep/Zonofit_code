@@ -1,32 +1,37 @@
-import { useOAuth } from "@clerk/clerk-expo";
-import { router } from "expo-router";
-import * as WebBrowser from "expo-web-browser";
-import { useCallback } from "react";
-import { Pressable, Text } from "react-native";
-
-WebBrowser.maybeCompleteAuthSession();
+import { useAuthStore } from "@/store/useAuthStore";
+import { useRouter } from "expo-router";
+import { useState } from "react";
+import { ActivityIndicator, Pressable, Text } from "react-native";
 
 export function GoogleAuthButton() {
-    const { startOAuthFlow } = useOAuth({ strategy: "oauth_google" });
+    const router = useRouter();
+    const [loading, setLoading] = useState(false);
 
-    const onPress = useCallback(async () => {
+    const onPress = async () => {
+        setLoading(true);
         try {
-            const { createdSessionId, setActive } = await startOAuthFlow();
-            if (createdSessionId && setActive) {
-                await setActive({ session: createdSessionId });
+            await useAuthStore.getState().googleSignIn();
+            if (useAuthStore.getState().isSignedIn) {
                 router.replace("/(tabs)");
             }
         } catch (err) {
             console.error("Google sign-in error", err);
+        } finally {
+            setLoading(false);
         }
-    }, [startOAuthFlow]);
+    };
 
     return (
         <Pressable
             onPress={onPress}
+            disabled={loading}
             className="h-11 border border-[#E9EBE6] bg-white rounded-2xl flex-row items-center justify-center gap-x-2"
         >
-            <Text className="text-sm font-medium">Continue with Google</Text>
+            {loading ? (
+                <ActivityIndicator size="small" color="#1F2520" />
+            ) : (
+                <Text className="text-sm font-medium">Continue with Google</Text>
+            )}
         </Pressable>
     );
-}
+}

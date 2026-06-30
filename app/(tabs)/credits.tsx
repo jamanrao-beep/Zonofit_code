@@ -7,12 +7,15 @@ import {
   Modal, 
   TextInput, 
   Alert,
-  FlatList
+  FlatList,
+  StyleSheet
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useCreditsStore, Transaction } from "@/store/useCreditsStore";
 import { useUserStore } from "@/store/useUserStore";
+import { useAuthStore } from "@/store/useAuthStore";
+import { router } from "expo-router";
 
 export default function CreditsScreen() {
   const { 
@@ -27,7 +30,6 @@ export default function CreditsScreen() {
   const { membershipStatus, membershipExpiry } = useUserStore();
 
   // Modals visibility state
-  const [buyModalVisible, setBuyModalVisible] = useState(false);
   const [convertModalVisible, setConvertModalVisible] = useState(false);
   const [infoModalVisible, setInfoModalVisible] = useState(false);
   const [cashModalVisible, setCashModalVisible] = useState(false);
@@ -36,38 +38,15 @@ export default function CreditsScreen() {
   const [creditsToConvert, setCreditsToConvert] = useState("");
   const [cashToTopUp, setCashToTopUp] = useState("");
 
-  const creditPacks = [
-    { id: "pack-1", credits: 50, cost: 500, label: "Starter Pack" },
-    { id: "pack-2", credits: 100, cost: 1000, label: "Popular Pack" },
-    { id: "pack-3", credits: 250, cost: 2300, label: "Value Pack (Save ₹200)" },
-    { id: "pack-4", credits: 500, cost: 4500, label: "Mega Pack (Save ₹500)" },
-  ];
-
-  const handleBuyPack = (pack: typeof creditPacks[0]) => {
-    if (cashBalance < pack.cost) {
-      Alert.alert(
-        "Insufficient Cash Balance",
-        `This pack costs ₹${pack.cost}, but your cash balance is ₹${cashBalance}. Please top up your cash balance first.`,
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Top Up Cash", onPress: () => {
-              setBuyModalVisible(false);
-              setCashModalVisible(true);
-            } 
-          }
-        ]
-      );
+  const handleTopUpPress = () => {
+    if (!membershipStatus || !membershipStatus.toLowerCase().includes("active")) {
+      Alert.alert("Membership Required", "You must have an active gym membership to purchase additional credits.");
       return;
     }
-
-    const success = buyCredits(pack.credits, pack.cost);
-    if (success) {
-      Alert.alert("Success", `Successfully purchased ${pack.credits} Credits for ₹${pack.cost}!`);
-      setBuyModalVisible(false);
-    }
+    router.push("/buy-credits" as any);
   };
 
-  const handleConvert = () => {
+  const handleConvert = async () => {
     const amount = parseInt(creditsToConvert);
     if (isNaN(amount) || amount <= 0) {
       Alert.alert("Invalid Input", "Please enter a valid positive number of credits.");
@@ -79,14 +58,17 @@ export default function CreditsScreen() {
       return;
     }
 
-    const success = convertCreditsToCash(amount);
-    if (success) {
+    const result = await convertCreditsToCash(amount);
+    if (result.success) {
       const value = amount * 8;
       Alert.alert("Success", `Converted ${amount} Credits into ₹${value} Cash Balance!`);
       setCreditsToConvert("");
       setConvertModalVisible(false);
+      // Fetch latest wallet state to update transactions
+      const token = useAuthStore.getState().token || "";
+      useCreditsStore.getState().fetchWallet(token);
     } else {
-      Alert.alert("Error", "Conversion failed. Please try again.");
+      Alert.alert("Error", result.message || "Conversion failed. Please try again.");
     }
   };
 
@@ -134,45 +116,63 @@ export default function CreditsScreen() {
       {/* Header */}
       <View className="px-5 pt-3 pb-2 flex-row justify-between items-center">
         <Text className="text-2xl font-bold text-[#1F2520]">Credits & Wallet</Text>
-        <Pressable 
-          onPress={() => setInfoModalVisible(true)}
-          className="w-9 h-9 rounded-full bg-[#E9EBE6] items-center justify-center border border-black/5"
-        >
-          <Ionicons name="help-circle-outline" size={20} color="#6B756E" />
-        </Pressable>
+        <View className="flex-row items-center gap-x-3">
+          <Pressable 
+            onPress={() => router.push("/marketplace" as any)}
+            className="w-9 h-9 rounded-full bg-[#E9EBE6] items-center justify-center border border-black/5"
+          >
+            <Ionicons name="cart-outline" size={20} color="#6B756E" />
+          </Pressable>
+          <Pressable 
+            onPress={() => setInfoModalVisible(true)}
+            className="w-9 h-9 rounded-full bg-[#E9EBE6] items-center justify-center border border-black/5"
+          >
+            <Ionicons name="help-circle-outline" size={20} color="#6B756E" />
+          </Pressable>
+        </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
-        {/* Section 1: Credit & Cash Overview Split Card */}
+      <ScrollView showsVerticalScrollIndicator={false} bounces={true} overScrollMode="never" contentContainerStyle={{ paddingBottom: 100 }}>
+        {/* Section 1: Credit Overview Card */}
         <View className="px-5 mt-4">
-          <View className="bg-white rounded-[28px] overflow-hidden border border-black/5 shadow-sm">
-            {/* Top section: Fitness Credits */}
-            <View className="bg-emerald-600 p-6 relative">
-              <View className="absolute top-[-40px] right-[-40px] w-36 h-36 rounded-full bg-emerald-500/20" />
-              <Text className="text-emerald-100 text-xs font-semibold uppercase tracking-wider">Fitness Credits</Text>
-              <Text className="text-4xl font-black text-white mt-1">{credits}</Text>
-              <Text className="text-emerald-100 text-xs mt-1.5 font-medium">
-                ≈ ₹{credits * 10} Fitness Value · {membershipStatus}
-              </Text>
-              <Text className="text-emerald-200 text-[10px] mt-0.5">
-                Valid until {membershipExpiry}
-              </Text>
-            </View>
-
-            {/* Bottom section: Cash Balance */}
-            <View className="p-6 bg-white flex-row justify-between items-center">
+          <View className="bg-emerald-600 rounded-[28px] overflow-hidden shadow-sm p-6 relative">
+            <View className="absolute top-[-40px] right-[-40px] w-36 h-36 rounded-full bg-emerald-500/20" />
+            
+            <View className="flex-row justify-between items-start">
               <View>
-                <Text className="text-[#6B756E] text-xs font-semibold uppercase tracking-wider">INR Cash Balance</Text>
-                <Text className="text-2xl font-bold text-[#1F2520] mt-0.5">₹{cashBalance}</Text>
-                <Text className="text-[10px] text-[#6B756E] mt-0.5">Spendable outside the gym network</Text>
+                <Text className="text-emerald-100 text-xs font-semibold uppercase tracking-wider">Fitness Credits</Text>
+                <Text className="text-5xl font-black text-white mt-1">{credits}</Text>
               </View>
+              
               <Pressable 
-                onPress={() => setCashModalVisible(true)}
-                className="bg-[#EAF7EC] px-4 py-2.5 rounded-2xl"
+                onPress={handleTopUpPress}
+                className="bg-white/20 px-4 py-2.5 rounded-2xl border border-white/20 active:opacity-80"
               >
-                <Text className="text-[#6BCB77] font-bold text-xs">Top Up</Text>
+                <Text className="text-white font-bold text-xs">Top Up</Text>
               </Pressable>
             </View>
+
+            <View className="mt-5">
+              <Text className="text-emerald-100 text-xs font-medium">
+                ≈ ₹{credits * 10} Fitness Value · {membershipStatus}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Section 1.5: Converted Cash Overview Card */}
+        <View className="px-5 mt-4">
+          <View className="bg-white rounded-[28px] overflow-hidden shadow-sm border border-black/5 p-6 flex-row justify-between items-center">
+            <View>
+              <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider">Converted Cash</Text>
+              <Text className="text-3xl font-black text-[#1F2520] mt-1">₹{cashBalance}</Text>
+            </View>
+            <Pressable 
+              onPress={() => setConvertModalVisible(true)}
+              className="bg-amber-50 px-4 py-2.5 rounded-2xl border border-amber-100 active:opacity-80"
+            >
+              <Text className="text-amber-800 font-bold text-xs">Convert</Text>
+            </Pressable>
           </View>
         </View>
 
@@ -181,8 +181,8 @@ export default function CreditsScreen() {
         <View className="px-5 flex-row gap-x-4">
           {/* Action 1: Buy Credits */}
           <Pressable 
-            onPress={() => setBuyModalVisible(true)}
-            className="flex-1 bg-white rounded-3xl p-5 border border-black/5 shadow-sm items-center active:scale-95"
+            onPress={handleTopUpPress}
+            className="flex-1 bg-white rounded-3xl p-5 border border-black/5 shadow-sm items-center active:opacity-80"
           >
             <View className="w-10 h-10 rounded-full bg-[#EAF7EC] items-center justify-center mb-3">
               <Ionicons name="add" size={20} color="#6BCB77" />
@@ -194,7 +194,7 @@ export default function CreditsScreen() {
           {/* Action 2: Convert Credits */}
           <Pressable 
             onPress={() => setConvertModalVisible(true)}
-            className="flex-1 bg-white rounded-3xl p-5 border border-black/5 shadow-sm items-center active:scale-95"
+            className="flex-1 bg-white rounded-3xl p-5 border border-black/5 shadow-sm items-center active:opacity-80"
           >
             <View className="w-10 h-10 rounded-full bg-amber-50 items-center justify-center mb-3 border border-amber-100">
               <Ionicons name="swap-horizontal" size={18} color="#D97706" />
@@ -206,7 +206,7 @@ export default function CreditsScreen() {
           {/* Action 3: Learn Rules */}
           <Pressable 
             onPress={() => setInfoModalVisible(true)}
-            className="flex-1 bg-white rounded-3xl p-5 border border-black/5 shadow-sm items-center active:scale-95"
+            className="flex-1 bg-white rounded-3xl p-5 border border-black/5 shadow-sm items-center active:opacity-80"
           >
             <View className="w-10 h-10 rounded-full bg-blue-50 items-center justify-center mb-3 border border-blue-100">
               <Ionicons name="book-outline" size={18} color="#2563EB" />
@@ -230,51 +230,6 @@ export default function CreditsScreen() {
           )}
         </View>
       </ScrollView>
-
-      {/* MODAL: Buy Credits */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={buyModalVisible}
-        onRequestClose={() => setBuyModalVisible(false)}
-      >
-        <View className="flex-1 justify-end bg-black/60">
-          <View className="bg-white rounded-t-[36px] p-6 max-h-[85%]">
-            <View className="w-12 h-1.5 bg-[#E9EBE6] rounded-full mb-6 align-self-center mx-auto" />
-            
-            <Text className="text-xs font-bold text-[#6BCB77] uppercase tracking-wider">Purchase</Text>
-            <Text className="text-2xl font-bold text-[#1F2520] mt-1">Choose Credits Pack</Text>
-            <Text className="text-xs text-[#6B756E] mt-0.5">Your cash balance: ₹{cashBalance}</Text>
-
-            <View className="h-[1px] bg-black/5 my-4" />
-
-            <ScrollView className="space-y-3 mb-6" showsVerticalScrollIndicator={false}>
-              {creditPacks.map((pack) => (
-                <Pressable
-                  key={pack.id}
-                  onPress={() => handleBuyPack(pack)}
-                  className="bg-[#F5F7F4] border border-black/5 rounded-2xl p-4 flex-row justify-between items-center active:bg-[#EAF7EC] active:border-[#6BCB77]"
-                >
-                  <View>
-                    <Text className="font-bold text-sm text-[#1F2520]">{pack.label}</Text>
-                    <Text className="text-xs text-[#6B756E] mt-0.5">Adds {pack.credits} Credits</Text>
-                  </View>
-                  <View className="bg-white border border-black/5 px-4 py-2 rounded-xl">
-                    <Text className="text-emerald-700 font-extrabold text-sm">₹{pack.cost}</Text>
-                  </View>
-                </Pressable>
-              ))}
-            </ScrollView>
-
-            <Pressable
-              onPress={() => setBuyModalVisible(false)}
-              className="bg-[#F5F7F4] h-12 rounded-2xl items-center justify-center border border-black/5"
-            >
-              <Text className="text-[#6B756E] font-bold text-sm">Close</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
 
       {/* MODAL: Convert Credits */}
       <Modal
@@ -312,7 +267,7 @@ export default function CreditsScreen() {
                   placeholderTextColor="#A0A5A1"
                   value={creditsToConvert}
                   onChangeText={setCreditsToConvert}
-                  className="h-12 px-4 bg-[#F5F7F4] rounded-2xl text-[#1F2520] font-medium border border-transparent focus:border-amber-500"
+                  style={styles.input}
                 />
               </View>
 
@@ -368,7 +323,7 @@ export default function CreditsScreen() {
                   placeholderTextColor="#A0A5A1"
                   value={cashToTopUp}
                   onChangeText={setCashToTopUp}
-                  className="h-12 px-4 bg-[#F5F7F4] rounded-2xl text-[#1F2520] font-medium border border-transparent focus:border-[#6BCB77]"
+                  style={styles.input}
                 />
               </View>
             </View>
@@ -428,8 +383,8 @@ export default function CreditsScreen() {
               <View className="flex-row gap-x-3 items-start">
                 <Ionicons name="time-outline" size={18} color="#EF4444" className="mt-0.5" />
                 <View className="flex-1">
-                  <Text className="font-bold text-sm text-[#1F2520]">Credit Expiration Rules</Text>
-                  <Text className="text-xs text-[#6B756E] mt-0.5">Credits remain active during an active membership. They expire 15 days after membership expiration and are non-recoverable.</Text>
+                  <Text className="font-bold text-sm text-[#1F2520]">Credits Tied to Membership</Text>
+                  <Text className="text-xs text-[#6B756E] mt-0.5">When your gym membership expires, unused credits automatically convert to cash (₹8/credit). This cash balance expires entirely after 15 days.</Text>
                 </View>
               </View>
 
@@ -454,3 +409,16 @@ export default function CreditsScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  input: {
+    height: 48,
+    paddingHorizontal: 16,
+    backgroundColor: "#F5F7F4",
+    borderRadius: 16,
+    color: "#1F2520",
+    fontWeight: "500",
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+});

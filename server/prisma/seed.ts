@@ -225,8 +225,64 @@ async function main() {
       openingTime: "05:00",
       closingTime: "23:00",
     },
+    {
+      name: "Kickoff Turf Arena",
+      description: "Premium 5v5 and 7v7 football turf with floodlights.",
+      address: "Rooftop, Korum Mall, Thane West",
+      city: "Mumbai",
+      pincode: "400606",
+      lat: 19.2018,
+      lng: 72.9646,
+      creditCost: 15, // Cost in credits (will be multiplied by 8 for cash price)
+      category: "STANDARD",
+      facilities: ["Turf", "Football", "Floodlights", "Changing Rooms"],
+      imageUrls: ["https://images.unsplash.com/photo-1579952363873-27f3bade9f55"],
+      rating: 4.7,
+      totalRatings: 340,
+      isVerified: true,
+      totalSlots: 10,
+      openingTime: "06:00",
+      closingTime: "23:00",
+    },
+    {
+      name: "AquaFit Olympic Pool",
+      description: "Olympic-sized swimming pool with dedicated lanes for professionals and beginners.",
+      address: "Sports Complex, Andheri East",
+      city: "Mumbai",
+      pincode: "400069",
+      lat: 19.1136,
+      lng: 72.8697,
+      creditCost: 10, 
+      category: "STANDARD",
+      facilities: ["Swimming", "Showers", "Locker Room", "Coaching"],
+      imageUrls: ["https://images.unsplash.com/photo-1576610616656-d3aa5d1f4534"],
+      rating: 4.8,
+      totalRatings: 185,
+      isVerified: true,
+      totalSlots: 50,
+      openingTime: "06:00",
+      closingTime: "21:00",
+    },
+    {
+      name: "Hoops Basketball Court",
+      description: "Indoor wooden basketball court, perfectly maintained for leagues and casual play.",
+      address: "Next to YMCA, Colaba",
+      city: "Mumbai",
+      pincode: "400005",
+      lat: 18.9142,
+      lng: 72.8183,
+      creditCost: 12,
+      category: "STANDARD",
+      facilities: ["Basketball", "Indoor", "Equipment Rental", "AC"],
+      imageUrls: ["https://images.unsplash.com/photo-1546519638-68e109498ffc"],
+      rating: 4.9,
+      totalRatings: 210,
+      isVerified: true,
+      totalSlots: 8,
+      openingTime: "08:00",
+      closingTime: "22:00",
+    }
   ];
-
   for (const gym of gyms) {
     // Upsert the gym row (without location — set via raw SQL below)
     const created = await prisma.gym.upsert({
@@ -266,9 +322,122 @@ async function main() {
     console.log(`✅ Gym: ${gym.name} (${gym.city})`);
   }
 
+  // ─── Marketplace Items ────────────────────────────────────────────────────────
+  console.log("Creating marketplace items...");
+
+  await prisma.marketplaceItem.deleteMany();
+
+  const marketplaceItems = [
+    {
+      title: "Premium Whey Protein",
+      description: "High-quality whey protein isolate for muscle recovery.",
+      pricePaise: 249900, // ₹2,499
+      imageUrl: "https://images.unsplash.com/photo-1593095948071-474c5cc2989d",
+    },
+    {
+      title: "Yoga Mat Pro",
+      description: "Non-slip eco-friendly yoga mat with alignment lines.",
+      pricePaise: 89900, // ₹899
+      imageUrl: "https://images.unsplash.com/photo-1601925260368-ae2f83cf8b7f",
+    },
+    {
+      title: "Adjustable Dumbbells Set",
+      description: "Space-saving adjustable dumbbells for home workouts.",
+      pricePaise: 450000, // ₹4,500
+      imageUrl: "https://images.unsplash.com/photo-1638262052730-bf5f0951a842",
+    },
+    {
+      title: "ZonoFit Gym Bag",
+      description: "Premium duffel bag with separate shoe compartment.",
+      pricePaise: 129900, // ₹1,299
+      imageUrl: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62",
+    },
+    {
+      title: "Resistance Bands Set",
+      description: "Set of 5 heavy-duty resistance bands with handles.",
+      pricePaise: 59900, // ₹599
+      imageUrl: "https://images.unsplash.com/photo-1598289431512-b97b0a1c2785",
+    },
+  ];
+
+  for (const item of marketplaceItems) {
+    await prisma.marketplaceItem.create({
+      data: item,
+    });
+  }
+  console.log(`✅ Marketplace Items: ${marketplaceItems.length}`);
+
+  console.log("Creating quotes...");
+  await prisma.quote.deleteMany();
+  const quotes = [
+    "Consistency beats intensity. Just show up today.",
+    "You've already outperformed the person who stayed home.",
+    "Small daily steps lead to massive long-term progress.",
+    "Focus on the habit first, the results will follow.",
+    "Your future self will thank you for today's workout.",
+    "Fitness is a journey of consistency, not a destination of perfection.",
+    "Make working out a non-negotiable part of your daily routine.",
+    "Strength doesn't come from what you can do, it comes from overcoming what you thought you couldn't."
+  ];
+  for (const q of quotes) {
+    await prisma.quote.create({ data: { text: q } });
+  }
+  
+  console.log("Creating badges...");
+  await prisma.badge.deleteMany();
+  const badges = [
+    { name: "First Visit", emoji: "🎉", description: "Completed your very first gym visit through ZonoFit.", requirement: "Complete 1 gym visit", unlockedAt: 1 },
+    { name: "Getting Started", emoji: "🔥", description: "Five workouts done. You're building a real habit.", requirement: "Complete 5 gym visits", unlockedAt: 5 },
+    { name: "10 Strong", emoji: "💪", description: "Double digits. Most people stop here — you didn't.", requirement: "Complete 10 gym visits", unlockedAt: 10 },
+    { name: "Quarter Century", emoji: "🥈", description: "25 visits. Consistency is becoming your identity.", requirement: "Complete 25 gym visits", unlockedAt: 25 },
+    { name: "50 Workouts", emoji: "🏅", description: "50 completed visits. You've earned elite status.", requirement: "Complete 50 gym visits", unlockedAt: 50 },
+    { name: "Century Club", emoji: "🏆", description: "100 workouts. You are in the top 1%.", requirement: "Complete 100 gym visits", unlockedAt: 100 },
+    { name: "Gym Explorer", emoji: "🧭", description: "Visited 3 different partner gyms.", requirement: "Visit 3 different gyms", isSpecial: true },
+    { name: "Weekly Warrior", emoji: "📅", description: "7-day workout streak. Habits are forming.", requirement: "Maintain a 7-day streak", isSpecial: true },
+    { name: "Iron Will", emoji: "⚡", description: "30-day workout streak. Truly remarkable.", requirement: "Maintain a 30-day streak", isSpecial: true },
+    { name: "Credit Saver", emoji: "💰", description: "Saved ₹5,000+ compared to pay-per-visit pricing.", requirement: "Save ₹5,000 in credit value", isSpecial: true },
+    { name: "Early Bird", emoji: "🌅", description: "Booked a morning session before 8 AM.", requirement: "Book a session before 8 AM", isSpecial: true },
+    { name: "ZonoFit Legend", emoji: "👑", description: "Completed the full 12-month ZonoFit journey.", requirement: "Complete Month 12 of the journey", unlockedAt: 155 },
+  ];
+  for (const b of badges) {
+    await prisma.badge.create({ data: b });
+  }
+
+  console.log("Creating milestones...");
+  await prisma.milestone.deleteMany();
+  const milestones = [
+    { title: "Starter", description: "You've taken the first step. That's the hardest one.", emoji: "🌱", targetCount: 1, rewardCredits: 10 },
+    { title: "Beginner", description: "Building the foundation. Consistency is starting to form.", emoji: "🔥", targetCount: 8, rewardCredits: 10 },
+    { title: "Consistent", description: "Three months in — you're part of the 20% who stick with it.", emoji: "💪", targetCount: 20, rewardCredits: 15 },
+    { title: "Explorer", description: "You've tried multiple gyms. Fitness is becoming your lifestyle.", emoji: "🧭", targetCount: 35, rewardCredits: 15 },
+    { title: "Committed", description: "Commitment is undeniable. You show up even when it's hard.", emoji: "🎯", targetCount: 50, rewardCredits: 20 },
+    { title: "Half-Year Pro", description: "Six months. You've built something most people never will.", emoji: "🏅", targetCount: 65, rewardCredits: 20 },
+    { title: "Warrior", description: "Challenges don't stop you — they define you.", emoji: "⚔️", targetCount: 80, rewardCredits: 25 },
+    { title: "Athlete", description: "You train like an athlete. You think like one too.", emoji: "🏋️", targetCount: 95, rewardCredits: 25 },
+    { title: "Veteran", description: "Nine months of proof that you are who you say you are.", emoji: "🛡️", targetCount: 110, rewardCredits: 30 },
+    { title: "Elite", description: "You've crossed into territory most people dream about.", emoji: "⭐", targetCount: 125, rewardCredits: 30 },
+    { title: "Champion", description: "Almost a year. Champions don't quit this close to the finish.", emoji: "🏆", targetCount: 140, rewardCredits: 40 },
+    { title: "Legend", description: "12 months. You are proof that consistency beats everything.", emoji: "👑", targetCount: 155, rewardCredits: 50 },
+  ];
+  for (const m of milestones) {
+    await prisma.milestone.create({ data: m });
+  }
+
+  console.log("Creating challenges...");
+  await prisma.challenge.deleteMany();
+  const challenges = [
+    { title: "Week Warrior", description: "Complete 4 gym visits this week.", emoji: "⚡", targetCount: 4, rewardCredits: 20, type: "visits" },
+    { title: "Gym Explorer", description: "Visit 3 different partner gyms this month.", emoji: "🧭", targetCount: 3, rewardCredits: 30, type: "gyms" },
+    { title: "Consistency Champion", description: "Maintain a 7-day workout streak.", emoji: "🔥", targetCount: 7, rewardCredits: 50, type: "streak" },
+  ];
+  for (const c of challenges) {
+    await prisma.challenge.create({ data: c });
+  }
+
   console.log("\n🎉 Seed complete!");
   console.log(`   Plans: 3`);
   console.log(`   Gyms: ${gyms.length}`);
+  console.log(`   Items: ${marketplaceItems.length}`);
 }
 
 main()

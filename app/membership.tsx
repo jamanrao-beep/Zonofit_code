@@ -1,31 +1,96 @@
-import React from "react";
-import { ScrollView, Text, View, Pressable, Alert } from "react-native";
+import React, { useState, useEffect } from "react";
+import { ScrollView, Text, View, Pressable, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { membershipPlans } from "@/data/plans";
+
 import { useUserStore } from "@/store/useUserStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
+import { useAuthStore } from "@/store/useAuthStore";
+import { apiFetch } from "@/lib/api";
+
+const uiPlans: { name: string; color: string; emoji: string; isPopular: boolean; networkAccess: string; features?: string[] }[] = [
+  {
+    name: "Starter",
+    color: "#6BCB77",
+    emoji: "🌱",
+    isPopular: false,
+    networkAccess: "Standard Network Access",
+  },
+  {
+    name: "Premium",
+    color: "#3B82F6",
+    emoji: "✨",
+    isPopular: true,
+    networkAccess: "Full Network Access",
+  },
+  {
+    name: "Elite",
+    color: "#8B5CF6",
+    emoji: "👑",
+    isPopular: false,
+    networkAccess: "Full Network + Premium Facilities",
+  }
+];
 
 export default function MembershipScreen() {
   const router = useRouter();
-  const { planName, membershipStatus, membershipExpiry, visitsRemaining } = useUserStore();
+  const { planName, membershipStatus, membershipExpiry, visitsRemaining, updatePlan } = useUserStore();
   const { credits } = useCreditsStore();
+  const { token } = useAuthStore();
+  const [plans, setPlans] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Derive current plan id from planName (mock)
-  const currentPlanId = planName.toLowerCase().includes("premium")
-    ? "premium"
-    : planName.toLowerCase().includes("standard")
-    ? "standard"
-    : "basic";
+  useEffect(() => {
+    async function fetchPlans() {
+      try {
+        const data = await apiFetch("/api/membership/plans", { token });
+        
+        // Merge API data with UI embellishments from local uiPlans
+        const merged = data.plans.map((p: any) => {
+          const uiPlan = uiPlans.find((ui) => ui.name === p.name);
+          return {
+            ...p,
+            color: uiPlan?.color || "#6BCB77",
+            emoji: uiPlan?.emoji || "✨",
+            isPopular: uiPlan?.isPopular || false,
+            networkAccess: uiPlan?.networkAccess || "Access to network gyms",
+            features: p.features || uiPlan?.features || [],
+          };
+        });
+        
+        setPlans(merged);
+      } catch (err) {
+        console.error("Failed to load plans:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchPlans();
+  }, []);
 
-  const currentPlan = membershipPlans.find((p) => p.id === currentPlanId);
+  // Derive current plan based on planName
+  const currentPlan = plans.find((p) => p.name === planName) || 
+                      uiPlans.find(p => p.name === planName);
 
-  const handleUpgrade = (planName: string) => {
+  const handleUpgrade = (plan: any) => {
     Alert.alert(
       "Upgrade Plan",
-      `This will redirect you to the payment flow to upgrade to the ${planName} plan. Payment integration coming soon.`,
-      [{ text: "OK" }]
+      `This will redirect you to the payment gateway to purchase the ${plan.name} plan for ₹${plan.priceINR}. Continue?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Pay Now", 
+          onPress: async () => {
+            const result = await updatePlan(plan.id, plan.priceInPaise);
+            if (result.success) {
+              Alert.alert("Success", `You have successfully upgraded to the ${plan.name} plan!`);
+            } else {
+              Alert.alert("Upgrade Failed", result.message || "An error occurred.");
+            }
+          }
+        }
+      ]
     );
   };
 
@@ -98,7 +163,7 @@ export default function MembershipScreen() {
         {currentPlan && (
           <View className="mx-5 bg-white rounded-[24px] p-5 border border-black/5 shadow-sm mb-5">
             <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider mb-3">What's Included</Text>
-            {currentPlan.features.map((feature, i) => (
+            {currentPlan.features.map((feature: string, i: number) => (
               <View key={i} className="flex-row items-center py-2 border-b border-[#F5F7F4] last:border-0">
                 <View className="w-5 h-5 rounded-full bg-[#EAF7EC] items-center justify-center mr-3">
                   <Ionicons name="checkmark" size={12} color="#10B981" />
@@ -111,14 +176,17 @@ export default function MembershipScreen() {
 
         {/* All Plans */}
         <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider mb-2.5 ml-6">All Plans</Text>
-        <View className="px-5 gap-y-3 mb-6">
-          {membershipPlans.map((plan) => {
-            const isCurrent = plan.id === currentPlanId;
-            return (
-              <View
-                key={plan.id}
-                className={`bg-white rounded-[24px] p-5 border shadow-sm ${isCurrent ? "border-[#6BCB77]" : "border-black/5"}`}
-              >
+        {isLoading ? (
+          <ActivityIndicator size="large" color="#059669" className="mt-10" />
+        ) : (
+          <View className="px-5 gap-y-3 mb-6">
+            {plans.map((plan) => {
+              const isCurrent = plan.name === planName;
+              return (
+                <View
+                  key={plan.id}
+                  className={`bg-white rounded-[24px] p-5 border shadow-sm ${isCurrent ? "border-[#6BCB77]" : "border-black/5"}`}
+                >
                 {/* Plan header */}
                 <View className="flex-row justify-between items-start mb-3">
                   <View className="flex-row items-center gap-x-2">
@@ -141,7 +209,7 @@ export default function MembershipScreen() {
                     </View>
                   </View>
                   <View className="items-end">
-                    <Text className="text-base font-black text-[#1F2520]">₹{plan.pricePerMonth}</Text>
+                    <Text className="text-base font-black text-[#1F2520]">₹{plan.priceINR || plan.pricePerMonth}</Text>
                     <Text className="text-[10px] text-[#6B756E]">/month</Text>
                   </View>
                 </View>
@@ -149,11 +217,11 @@ export default function MembershipScreen() {
                 {/* Credits + Visits */}
                 <View className="flex-row gap-x-3 mb-4">
                   <View className="flex-1 bg-[#F5F7F4] rounded-xl p-2.5 items-center">
-                    <Text className="text-sm font-bold text-[#1F2520]">{plan.creditsPerMonth}</Text>
+                    <Text className="text-sm font-bold text-[#1F2520]">{plan.monthlyCredits || plan.creditsPerMonth}</Text>
                     <Text className="text-[10px] text-[#6B756E] mt-0.5">Credits/mo</Text>
                   </View>
                   <View className="flex-1 bg-[#F5F7F4] rounded-xl p-2.5 items-center">
-                    <Text className="text-sm font-bold text-[#1F2520]">{plan.visitsPerMonth}</Text>
+                    <Text className="text-sm font-bold text-[#1F2520]">{plan.visitsPerMonth || 12}</Text>
                     <Text className="text-[10px] text-[#6B756E] mt-0.5">Visits/mo</Text>
                   </View>
                 </View>
@@ -163,13 +231,9 @@ export default function MembershipScreen() {
                   <View className="h-10 rounded-xl items-center justify-center bg-[#EAF7EC] border border-[#6BCB77]">
                     <Text className="text-[#059669] font-bold text-xs">Your Current Plan</Text>
                   </View>
-                ) : plan.id === "basic" && currentPlanId !== "basic" ? (
-                  <View className="h-10 rounded-xl items-center justify-center bg-[#F5F7F4] border border-black/5">
-                    <Text className="text-[#6B756E] font-bold text-xs">Downgrade</Text>
-                  </View>
                 ) : (
                   <Pressable
-                    onPress={() => handleUpgrade(plan.name)}
+                    onPress={() => handleUpgrade(plan)}
                     className="h-10 rounded-xl items-center justify-center active:opacity-80"
                     style={{ backgroundColor: plan.color }}
                   >
@@ -180,12 +244,13 @@ export default function MembershipScreen() {
             );
           })}
         </View>
+        )}
 
         {/* Info footer */}
         <View className="mx-5 bg-amber-50 rounded-2xl p-4 border border-amber-100 flex-row items-start gap-x-3">
           <Ionicons name="information-circle-outline" size={18} color="#D97706" />
           <Text className="text-xs text-amber-800 flex-1 leading-relaxed">
-            Credits from your current plan are valid for the membership period plus 15 days after expiry. Expired credits cannot be recovered. Upgrades take effect immediately.
+            Your credits never expire! They remain in your wallet forever. Upgrades take effect immediately.
           </Text>
         </View>
       </ScrollView>

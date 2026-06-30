@@ -1,6 +1,7 @@
-import { useAuth } from "@clerk/clerk-expo";
-import * as SplashScreen from "expo-splash-screen";
+import { useAuthStore } from "@/store/useAuthStore";
+import { Canvas, Circle, RadialGradient, vec } from "@shopify/react-native-skia";
 import { useRouter } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useRef } from "react";
 import { Dimensions, Image, StyleSheet, View } from "react-native";
 import Animated, {
@@ -13,7 +14,6 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { Canvas, Circle, RadialGradient, vec } from "@shopify/react-native-skia";
 
 const { width } = Dimensions.get("window");
 
@@ -28,11 +28,11 @@ const C = {
   whiteAlpha15: "rgba(255,255,255,0.15)",
 };
 
-// Minimum time to show the splash so the animation has room to breathe
-const MIN_SPLASH_MS = 3000;
+// Minimum time to show the splash so the animation has room to breathe (1.5 seconds)
+const MIN_SPLASH_MS = 1500;
 
 export default function SplashAnimationScreen() {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn } = useAuthStore();
   const router = useRouter();
   const mountTime = useRef(Date.now());
   const isSignedInRef = useRef(isSignedIn);
@@ -111,7 +111,7 @@ export default function SplashAnimationScreen() {
     badgeOpacity.value = withDelay(1400, withTiming(1, { duration: 600 }));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── Navigate once Clerk is ready + minimum duration has elapsed ───────────
+  // ─── Navigate once minimum duration has elapsed ───────────
   useEffect(() => {
     if (!isLoaded) return;
 
@@ -126,7 +126,9 @@ export default function SplashAnimationScreen() {
       }
     }, delay);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+    };
   }, [isLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Animated styles ──────────────────────────────────────────────────────

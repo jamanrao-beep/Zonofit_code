@@ -13,45 +13,107 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { mockGyms, Gym } from "@/data/gyms";
 import { useBookingStore } from "@/store/useBookingStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
+import { apiFetch } from "@/lib/api";
+import { useAuthStore } from "@/store/useAuthStore";
+
+export interface Gym {
+  id: string;
+  name: string;
+  address: string;
+  rating: number;
+  distance: number;
+  cost: number;
+  slots: number;
+  image: string;
+  tags: string[];
+  type: string;
+  isPremium?: boolean;
+  isBeginnerFriendly?: boolean;
+  isBestValue?: boolean;
+  isNearPrimary?: boolean;
+  isVerified?: boolean;
+  reviewCount?: number;
+  description?: string;
+  amenities?: { label: string; icon: string }[];
+  hours?: string;
+}
 
 export default function ExploreScreen() {
   const router = useRouter();
-  const { bookingStatus, bookVisit } = useBookingStore();
-  const { credits } = useCreditsStore();
+  const { bookVisit, bookingStatus } = useBookingStore();
+  const { credits, cashBalance, bookVisitWithCash } = useCreditsStore();
+
+  const { token } = useAuthStore();
+  const [gyms, setGyms] = useState<Gym[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("All");
+  
+  React.useEffect(() => {
+    async function loadGyms() {
+      if (!token) return;
+      setIsLoading(true);
+      try {
+        const data = await apiFetch("/api/gyms", { token });
+        const gymsData = data.gyms || [];
+        const formattedGyms = gymsData.map((g: any) => ({
+          id: g.id,
+          name: g.name,
+          address: g.address || g.city,
+          rating: g.rating || 4.5,
+          distance: g.distanceKm || 2.1,
+          cost: g.creditCost || 8,
+          slots: g.totalSlots || 20,
+          image: g.imageUrls?.[0] || "https://images.unsplash.com/photo-1534438327276-14e5300c3a48",
+          tags: g.facilities || ["Strength", "Cardio"],
+          type: g.facilities?.includes("Turf") ? "turf" : g.facilities?.includes("Swimming") || g.facilities?.includes("Basketball") ? "sports" : "gym",
+          isPremium: g.category === "PREMIUM",
+          isBeginnerFriendly: true,
+          isBestValue: g.creditCost <= 6,
+          isNearPrimary: false,
+        }));
+        setGyms(formattedGyms);
+      } catch (e) {
+        console.error("Failed to load gyms", e);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadGyms();
+  }, [token]);
   
   // Booking modal state
   const [selectedGym, setSelectedGym] = useState<Gym | null>(null);
   const [selectedTime, setSelectedTime] = useState("07:00 PM");
   const [bookingModalVisible, setBookingModalVisible] = useState(false);
 
-  const filterTags = ["All", "Strength", "Cardio", "CrossFit", "Yoga", "Premium"];
+  const filterTags = ["All", "Gyms", "Turf", "Pools", "Courts"];
 
   // Filter gyms based on search and selected tag
   const getFilteredGyms = () => {
-    return mockGyms.filter((gym) => {
+    return gyms.filter((gym) => {
       const matchesSearch = gym.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                             gym.address.toLowerCase().includes(searchQuery.toLowerCase());
       
       const matchesTag = selectedFilter === "All" || 
-                         gym.tags.includes(selectedFilter) ||
-                         (selectedFilter === "Premium" && gym.isPremium);
+                         (selectedFilter === "Gyms" && gym.type === "gym") ||
+                         (selectedFilter === "Turf" && gym.tags.includes("Turf")) ||
+                         (selectedFilter === "Pools" && gym.tags.includes("Swimming")) ||
+                         (selectedFilter === "Courts" && gym.tags.includes("Basketball"));
 
       return matchesSearch && matchesTag;
     });
   };
 
   // Group gyms for carousels
-  const closestGyms = [...mockGyms].sort((a, b) => a.distance - b.distance);
-  const bestValueGyms = mockGyms.filter((g) => g.isBestValue);
-  const premiumGyms = mockGyms.filter((g) => g.isPremium && !g.isNearPrimary);
-  const beginnerGyms = mockGyms.filter((g) => g.isBeginnerFriendly);
-  const nearPrimaryGyms = mockGyms.filter((g) => g.isNearPrimary);
+  const closestGyms = [...gyms].sort((a, b) => a.distance - b.distance);
+  const bestValueGyms = gyms.filter((g) => g.isBestValue);
+  const premiumGyms = gyms.filter((g) => g.isPremium && !g.isNearPrimary);
+  const beginnerGyms = gyms.filter((g) => g.isBeginnerFriendly);
+  const nearPrimaryGyms = gyms.filter((g) => g.isNearPrimary);
 
   const handleOpenBooking = (gym: Gym) => {
     if (bookingStatus !== "Not Booked") {
@@ -61,26 +123,54 @@ export default function ExploreScreen() {
       );
       return;
     }
-    if (credits < gym.cost) {
-      Alert.alert(
-        "Insufficient Credits", 
-        `This booking requires ${gym.cost} credits, but you only have ${credits} credits remaining.`
-      );
-      return;
+
+    const isCashVenue = gym.type === 'turf' || gym.type === 'sports';
+    const cashCost = gym.cost * 8; // Exchange value is 8 rupees per credit
+
+    if (isCashVenue) {
+      if (cashBalance < cashCost) {
+        Alert.alert(
+          "Insufficient Converted Cash", 
+          `This venue requires ₹${cashCost} in converted cash (Conversion rate: ₹8 per 1 Credit), but you only have ₹${cashBalance} remaining.`
+        );
+        return;
+      }
+    } else {
+      if (credits < gym.cost) {
+        Alert.alert(
+          "Insufficient Credits", 
+          `This booking requires ${gym.cost} credits, but you only have ${credits} credits remaining.`
+        );
+        return;
+      }
     }
+
     setSelectedGym(gym);
     setBookingModalVisible(true);
   };
 
-  const handleConfirmBooking = () => {
+  const handleConfirmBooking = async () => {
     if (!selectedGym) return;
     
-    const success = bookVisit(
-      selectedGym.id,
-      selectedGym.name,
-      selectedTime,
-      selectedGym.cost
-    );
+    const isCashVenue = selectedGym.type === 'turf' || selectedGym.type === 'sports';
+    const cashCost = selectedGym.cost * 8;
+
+    let success = false;
+    
+    if (isCashVenue) {
+      success = bookVisitWithCash(selectedGym.name, cashCost);
+      if (success) {
+        await bookVisit(selectedGym.id, selectedGym.name, new Date().toISOString(), selectedTime, 0); 
+      }
+    } else {
+      success = await bookVisit(
+        selectedGym.id,
+        selectedGym.name,
+        new Date().toISOString(),
+        selectedTime,
+        selectedGym.cost
+      );
+    }
 
     if (success) {
       setBookingModalVisible(false);
@@ -89,7 +179,7 @@ export default function ExploreScreen() {
         `Successfully booked a session at ${selectedGym.name} for ${selectedTime}.`
       );
     } else {
-      Alert.alert("Error", "Failed to confirm booking. Check your credit balance.");
+      Alert.alert("Error", "Failed to confirm booking. Check your balance.");
     }
   };
 
@@ -155,7 +245,7 @@ export default function ExploreScreen() {
       <View className="px-5 pt-3 pb-4 bg-[#F5F7F4] border-b border-black/5">
         <View className="flex-row justify-between items-center mb-3">
           <View>
-            <Text className="text-2xl font-bold text-[#1F2520]">Discover Gyms</Text>
+            <Text className="text-2xl font-bold text-[#1F2520]">Discover Venues</Text>
             <View className="flex-row items-center mt-1">
               <Ionicons name="location" size={14} color="#6BCB77" />
               <Text className="text-[#6B756E] text-xs font-semibold ml-1">Koramangala, Near Me · 5 KM Radius</Text>
@@ -166,7 +256,7 @@ export default function ExploreScreen() {
         <View className="flex-row items-center bg-white rounded-2xl border border-black/5 shadow-sm px-4 h-12">
           <Ionicons name="search" size={18} color="#A0A5A1" />
           <TextInput
-            placeholder="Search gym, area or landmark..."
+            placeholder="Search gym, turf, area or landmark..."
             placeholderTextColor="#A0A5A1"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -175,11 +265,13 @@ export default function ExploreScreen() {
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
+      <ScrollView showsVerticalScrollIndicator={false} bounces={true} overScrollMode="never" contentContainerStyle={{ paddingBottom: 120 }}>
         {/* Quick Filter Tags (Horizontal List) */}
         <ScrollView 
           horizontal 
           showsHorizontalScrollIndicator={false}
+          bounces={true}
+          overScrollMode="never"
           contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 }}
         >
           {filterTags.map((tag) => (
@@ -244,7 +336,11 @@ export default function ExploreScreen() {
                       <Text className="text-xs text-[#6B756E] mt-0.5">{gym.slots} Slots Left Today</Text>
                     </View>
                     <View className="flex-row items-center gap-x-2">
-                      <Text className="text-emerald-800 font-bold text-sm">⚡ {gym.cost} Credits</Text>
+                      {gym.type === 'turf' || gym.type === 'sports' ? (
+                        <Text className="text-emerald-800 font-bold text-sm">₹{gym.cost * 8} Cash</Text>
+                      ) : (
+                        <Text className="text-emerald-800 font-bold text-sm">⚡ {gym.cost} Credits</Text>
+                      )}
                       <Pressable
                         onPress={() => handleOpenBooking(gym)}
                         className="bg-[#F5F7F4] border border-black/5 px-3 py-2.5 rounded-2xl"
@@ -267,6 +363,12 @@ export default function ExploreScreen() {
               <FlatList
                 horizontal
                 showsHorizontalScrollIndicator={false}
+                bounces={true}
+                overScrollMode="never"
+                decelerationRate="fast"
+                snapToInterval={272}
+                snapToAlignment="start"
+                disableIntervalMomentum={true}
                 data={closestGyms}
                 renderItem={renderGymCard}
                 keyExtractor={(item) => item.id}
@@ -280,6 +382,12 @@ export default function ExploreScreen() {
               <FlatList
                 horizontal
                 showsHorizontalScrollIndicator={false}
+                bounces={true}
+                overScrollMode="never"
+                decelerationRate="fast"
+                snapToInterval={272}
+                snapToAlignment="start"
+                disableIntervalMomentum={true}
                 data={bestValueGyms}
                 renderItem={renderGymCard}
                 keyExtractor={(item) => item.id}
@@ -293,6 +401,12 @@ export default function ExploreScreen() {
               <FlatList
                 horizontal
                 showsHorizontalScrollIndicator={false}
+                bounces={true}
+                overScrollMode="never"
+                decelerationRate="fast"
+                snapToInterval={272}
+                snapToAlignment="start"
+                disableIntervalMomentum={true}
                 data={premiumGyms}
                 renderItem={renderGymCard}
                 keyExtractor={(item) => item.id}
@@ -306,6 +420,12 @@ export default function ExploreScreen() {
               <FlatList
                 horizontal
                 showsHorizontalScrollIndicator={false}
+                bounces={true}
+                overScrollMode="never"
+                decelerationRate="fast"
+                snapToInterval={272}
+                snapToAlignment="start"
+                disableIntervalMomentum={true}
                 data={beginnerGyms}
                 renderItem={renderGymCard}
                 keyExtractor={(item) => item.id}
@@ -321,6 +441,12 @@ export default function ExploreScreen() {
                 <FlatList
                   horizontal
                   showsHorizontalScrollIndicator={false}
+                  bounces={true}
+                  overScrollMode="never"
+                  decelerationRate="fast"
+                  snapToInterval={272}
+                  snapToAlignment="start"
+                  disableIntervalMomentum={true}
                   data={nearPrimaryGyms}
                   renderItem={renderNearPrimaryCard}
                   keyExtractor={(item) => item.id}
@@ -331,8 +457,8 @@ export default function ExploreScreen() {
 
             {/* All Available Gyms List */}
             <View className="px-5">
-              <Text className="text-base font-bold text-[#1F2520] mb-3">All Partner Gyms</Text>
-              {mockGyms.map((gym) => (
+              <Text className="text-base font-bold text-[#1F2520] mb-3">All Partner Venues</Text>
+              {gyms.map((gym) => (
                 <Pressable
                   key={gym.id}
                   onPress={() => router.push(`/gym/${gym.id}` as any)}
@@ -366,7 +492,11 @@ export default function ExploreScreen() {
                         <Text className="text-xs text-[#6B756E] font-medium">{gym.distance} KM Away · {gym.slots} Slots left</Text>
                       </View>
                       <View className="flex-row items-center gap-x-2">
+                      {gym.type === 'turf' || gym.type === 'sports' ? (
+                        <Text className="text-emerald-800 font-bold text-sm">₹{gym.cost * 8} Cash</Text>
+                      ) : (
                         <Text className="text-emerald-800 font-bold text-sm">⚡ {gym.cost} Credits</Text>
+                      )}
                         <Pressable
                           onPress={() => handleOpenBooking(gym)}
                           className="bg-[#F5F7F4] border border-black/5 px-3 py-2 rounded-xl"
@@ -435,8 +565,12 @@ export default function ExploreScreen() {
                 <Text className="text-xl font-bold text-[#1F2520] mt-0.5">⚡ {selectedGym?.cost} Credits</Text>
               </View>
               <View className="align-items-end">
-                <Text className="text-[#6B756E] text-xs">Your Balance</Text>
-                <Text className="text-sm font-bold text-emerald-800 mt-0.5">{credits} Credits</Text>
+                <Text className="text-sm text-[#6B756E] mb-1">Total Cost</Text>
+                {selectedGym && (selectedGym.type === 'turf' || selectedGym.type === 'sports') ? (
+                  <Text className="text-2xl font-black text-emerald-600">₹{selectedGym.cost * 8} Cash</Text>
+                ) : (
+                  <Text className="text-2xl font-black text-emerald-600">{selectedGym?.cost} Credits</Text>
+                )}
               </View>
             </View>
 

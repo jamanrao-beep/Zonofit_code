@@ -1,26 +1,36 @@
 import { GoogleAuthButton } from "@/components/GoogleAuthButton";
-import { useSignUp, useSignIn } from "@clerk/clerk-expo";
+import { useAuthStore } from "@/store/useAuthStore";
 import { Link, useRouter } from "expo-router";
-import { useState } from "react";
-import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
+import { useState, useEffect } from "react";
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function SignUpScreen() {
-    const { signUp, setActive, isLoaded: isSignUpLoaded } = useSignUp();
-    const { signIn, isLoaded: isSignInLoaded } = useSignIn();
+    const {
+        loading,
+        error,
+        pendingVerification,
+        signUp: storeSignUp,
+        verifyOTP: storeVerifyOTP,
+        setError,
+        setPendingVerification,
+    } = useAuthStore();
+    
     const router = useRouter();
 
     const [phone, setPhone] = useState("");
     const [username, setUsername] = useState("");
-    const [pendingVerification, setPendingVerification] = useState(false);
-    const [isSignInVerification, setIsSignInVerification] = useState(false);
     const [code, setCode] = useState("");
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState("");
+
+    // Reset store error and verification state on screen mount
+    useEffect(() => {
+        setError(null);
+        setPendingVerification(false);
+    }, []);
 
     const formatPhoneNumber = (input: string) => {
-        const cleaned = input.replace(/\D/g, "");
-        if (input.startsWith("+")) {
+        const cleaned = (input || "").replace(/\D/g, "");
+        if (input && input.startsWith("+")) {
             return input;
         }
         if (cleaned.length === 10) {
@@ -30,99 +40,15 @@ export default function SignUpScreen() {
     };
 
     const onSignUpPress = async () => {
-        if (!isSignUpLoaded || !isSignInLoaded) return;
-        setError("");
-        setLoading(true);
-
-        const formattedPhone = formatPhoneNumber(phone);
-
-        try {
-            await signUp.create({
-                phoneNumber: formattedPhone,
-                username: username || undefined,
-            });
-
-            await signUp.preparePhoneNumberVerification({
-                strategy: "phone_code",
-            });
-
-            setIsSignInVerification(false);
-            setPendingVerification(true);
-        } catch (err: any) {
-            console.error("Sign up error:", err);
-            
-            // Check if phone number is already registered
-            if (err.errors?.[0]?.code === "form_identifier_exists") {
-                try {
-                    // Fallback to Sign In flow
-                    const result = await signIn.create({
-                        identifier: formattedPhone,
-                    });
-
-                    const phoneCodeFactor = result.supportedFirstFactors?.find(
-                        (factor: any) => factor.strategy === "phone_code"
-                    );
-
-                    if (!phoneCodeFactor) {
-                        throw new Error("Phone number sign-in is not supported on this account configuration.");
-                    }
-
-                    await signIn.prepareFirstFactor({
-                        strategy: "phone_code",
-                        phoneNumberId: (phoneCodeFactor as any).phoneNumberId,
-                    });
-
-                    setIsSignInVerification(true);
-                    setPendingVerification(true);
-                } catch (signInErr: any) {
-                    console.error("Auto sign-in initialization error:", signInErr);
-                    setError(signInErr.errors?.[0]?.longMessage || signInErr.message || "Phone number exists, and sign in failed.");
-                }
-            } else {
-                setError(err.errors?.[0]?.longMessage || "An error occurred during sign up.");
-            }
-        } finally {
-            setLoading(false);
-        }
+        setError(null);
+        await storeSignUp(username, phone);
     };
 
     const onPressVerify = async () => {
-        if (!isSignUpLoaded || !isSignInLoaded) return;
-        setError("");
-        setLoading(true);
-
-        try {
-            if (isSignInVerification) {
-                // Verify sign-in OTP
-                const completeSignIn = await signIn.attemptFirstFactor({
-                    strategy: "phone_code",
-                    code,
-                });
-
-                if (completeSignIn.status === "complete") {
-                    await setActive({ session: completeSignIn.createdSessionId });
-                    router.replace("/(tabs)");
-                } else {
-                    console.warn("Sign in status not complete:", completeSignIn.status);
-                }
-            } else {
-                // Verify sign-up OTP
-                const completeSignUp = await signUp.attemptPhoneNumberVerification({
-                    code,
-                });
-
-                if (completeSignUp.status === "complete") {
-                    await setActive({ session: completeSignUp.createdSessionId });
-                    router.replace("/(tabs)");
-                } else {
-                    console.warn("Sign up status not complete:", completeSignUp.status);
-                }
-            }
-        } catch (err: any) {
-            console.error(err);
-            setError(err.errors?.[0]?.longMessage || "Verification failed. Check the code.");
-        } finally {
-            setLoading(false);
+        setError(null);
+        const success = await storeVerifyOTP(code);
+        if (success) {
+            router.replace("/(tabs)");
         }
     };
 
@@ -136,6 +62,9 @@ export default function SignUpScreen() {
                         </Text>
                         <Text className="text-sm text-[#6B756E] mt-2 text-center">
                             Enter the code sent to {formatPhoneNumber(phone)}
+                        </Text>
+                        <Text className="text-xs font-semibold text-[#6BCB77] mt-2 text-center">
+                            Test OTP: 123456
                         </Text>
                     </View>
 
@@ -152,11 +81,11 @@ export default function SignUpScreen() {
                             </Text>
                             <TextInput
                                 keyboardType="number-pad"
-                                value={code}
+                                value={code || ""}
                                 onChangeText={setCode}
                                 placeholder="Enter code (e.g. 123456)"
                                 placeholderTextColor="#A0A5A1"
-                                className="h-12 px-4 bg-[#F5F7F4] rounded-2xl text-[#1F2520] font-medium border border-transparent focus:border-[#6BCB77] text-center text-lg tracking-widest"
+                                style={styles.otpInput}
                             />
                         </View>
 
@@ -213,11 +142,11 @@ export default function SignUpScreen() {
                         </Text>
                         <TextInput
                             autoCapitalize="none"
-                            value={username}
+                            value={username || ""}
                             onChangeText={setUsername}
                             placeholder="Choose a username"
                             placeholderTextColor="#A0A5A1"
-                            className="h-12 px-4 bg-[#F5F7F4] rounded-2xl text-[#1F2520] font-medium border border-transparent focus:border-[#6BCB77]"
+                            style={styles.textInput}
                         />
                     </View>
 
@@ -228,11 +157,11 @@ export default function SignUpScreen() {
                         <TextInput
                             autoCapitalize="none"
                             keyboardType="phone-pad"
-                            value={phone}
+                            value={phone || ""}
                             onChangeText={setPhone}
                             placeholder="Enter phone number (e.g. 9876543210)"
                             placeholderTextColor="#A0A5A1"
-                            className="h-12 px-4 bg-[#F5F7F4] rounded-2xl text-[#1F2520] font-medium border border-transparent focus:border-[#6BCB77]"
+                            style={styles.textInput}
                         />
                     </View>
 
@@ -273,3 +202,30 @@ export default function SignUpScreen() {
         </SafeAreaView>
     );
 }
+
+const styles = StyleSheet.create({
+    textInput: {
+        height: 48,
+        paddingHorizontal: 16,
+        backgroundColor: "#F5F7F4",
+        borderRadius: 16,
+        color: "#1F2520",
+        fontWeight: "500",
+        borderWidth: 1,
+        borderColor: "transparent",
+        fontSize: 15,
+    },
+    otpInput: {
+        height: 48,
+        paddingHorizontal: 16,
+        backgroundColor: "#F5F7F4",
+        borderRadius: 16,
+        color: "#1F2520",
+        fontWeight: "500",
+        borderWidth: 1,
+        borderColor: "transparent",
+        textAlign: "center",
+        fontSize: 18,
+        letterSpacing: 6,
+    },
+});

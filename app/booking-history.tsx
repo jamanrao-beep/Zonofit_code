@@ -3,92 +3,9 @@ import { ScrollView, Text, View, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useBookingStore } from "@/store/useBookingStore";
 
-// Mock booking history data — replace with backend API data in production
-interface BookingRecord {
-  id: string;
-  gymName: string;
-  gymAddress: string;
-  date: string;
-  time: string;
-  status: "checked_in" | "booked" | "cancelled";
-  credits: number;
-}
 
-const mockBookingHistory: BookingRecord[] = [
-  {
-    id: "bk-1",
-    gymName: "PowerHouse Fitness",
-    gymAddress: "Koramangala, Bengaluru",
-    date: "Today",
-    time: "07:00 PM",
-    status: "checked_in",
-    credits: 8,
-  },
-  {
-    id: "bk-2",
-    gymName: "Iron Paradise Gym",
-    gymAddress: "Indiranagar, Bengaluru",
-    date: "24 Jun 2026",
-    time: "06:00 AM",
-    status: "checked_in",
-    credits: 10,
-  },
-  {
-    id: "bk-3",
-    gymName: "Fit & Flow Studio",
-    gymAddress: "JP Nagar, Bengaluru",
-    date: "22 Jun 2026",
-    time: "10:00 AM",
-    status: "checked_in",
-    credits: 6,
-  },
-  {
-    id: "bk-4",
-    gymName: "CrossFit HSR",
-    gymAddress: "HSR Layout, Bengaluru",
-    date: "20 Jun 2026",
-    time: "07:00 AM",
-    status: "cancelled",
-    credits: 12,
-  },
-  {
-    id: "bk-5",
-    gymName: "PowerHouse Fitness",
-    gymAddress: "Koramangala, Bengaluru",
-    date: "18 Jun 2026",
-    time: "07:00 PM",
-    status: "checked_in",
-    credits: 8,
-  },
-  {
-    id: "bk-6",
-    gymName: "Gold Standard Gym",
-    gymAddress: "Marathahalli, Bengaluru",
-    date: "15 Jun 2026",
-    time: "08:00 AM",
-    status: "checked_in",
-    credits: 8,
-  },
-  {
-    id: "bk-7",
-    gymName: "Iron Paradise Gym",
-    gymAddress: "Indiranagar, Bengaluru",
-    date: "12 Jun 2026",
-    time: "06:00 AM",
-    status: "checked_in",
-    credits: 10,
-  },
-  {
-    id: "bk-8",
-    gymName: "CrossFit HSR",
-    gymAddress: "HSR Layout, Bengaluru",
-    date: "09 Jun 2026",
-    time: "05:00 PM",
-    status: "checked_in",
-    credits: 12,
-  },
-];
 
 const statusConfig = {
   checked_in: {
@@ -116,9 +33,20 @@ const statusConfig = {
 
 export default function BookingHistoryScreen() {
   const router = useRouter();
+  const { pastBookings } = useBookingStore();
 
-  const completedCount = mockBookingHistory.filter((b) => b.status === "checked_in").length;
-  const totalCreditsUsed = mockBookingHistory
+  const allBookings = pastBookings.map(b => ({
+    id: b.id,
+    gymName: b.gymName,
+    gymAddress: "ZonoFit Gym", 
+    date: b.date,
+    time: b.time || "N/A",
+    status: (b.status === "Completed" || b.status === "Checked In") ? "checked_in" : "cancelled" as any,
+    credits: b.credits || 0,
+  }));
+
+  const completedCount = allBookings.filter((b) => b.status === "checked_in").length;
+  const totalCreditsUsed = allBookings
     .filter((b) => b.status === "checked_in")
     .reduce((sum, b) => sum + b.credits, 0);
 
@@ -165,7 +93,7 @@ export default function BookingHistoryScreen() {
         {/* Bookings List */}
         <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider mb-2.5 ml-6">All Visits</Text>
 
-        {mockBookingHistory.length === 0 ? (
+        {allBookings.length === 0 ? (
           <View className="mx-5 bg-white rounded-[24px] p-8 border border-black/5 shadow-sm items-center">
             <Ionicons name="calendar-outline" size={40} color="#B0B5B0" />
             <Text className="text-[#1F2520] font-bold text-base mt-3">No bookings yet</Text>
@@ -179,8 +107,8 @@ export default function BookingHistoryScreen() {
           </View>
         ) : (
           <View className="px-5 gap-y-3">
-            {mockBookingHistory.map((booking) => {
-              const config = statusConfig[booking.status];
+            {allBookings.map((booking) => {
+              const config = statusConfig[booking.status as keyof typeof statusConfig];
               return (
                 <View
                   key={booking.id}

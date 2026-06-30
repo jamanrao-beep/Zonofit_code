@@ -1,20 +1,40 @@
-import { useAuth, useUser } from "@clerk/clerk-expo";
+import { useAuthStore } from "@/store/useAuthStore";
 import { Image, Text, View, Pressable, ActivityIndicator, ScrollView, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons, Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import * as ImagePicker from 'expo-image-picker';
+import { useState } from 'react';
 import { useUserStore } from "@/store/useUserStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
 
 export default function ProfileScreen() {
-    const { user, isLoaded: userLoaded } = useUser();
-    const { signOut, isLoaded: authLoaded } = useAuth();
+    const { user, isLoaded, signOut } = useAuthStore();
     const router = useRouter();
 
-    const { planName, membershipStatus, streak, totalWorkouts } = useUserStore();
+    const { planName, membershipStatus, streak, totalWorkouts, avatarUrl, uploadAvatar } = useUserStore();
     const { credits } = useCreditsStore();
+    const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
-    if (!userLoaded || !authLoaded) {
+    const pickImage = async () => {
+        let result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.5,
+        });
+
+        if (!result.canceled && result.assets[0]) {
+            setUploadingAvatar(true);
+            const { success, message } = await uploadAvatar(result.assets[0].uri);
+            if (!success) {
+                Alert.alert("Upload Failed", message || "Failed to upload profile picture.");
+            }
+            setUploadingAvatar(false);
+        }
+    };
+
+    if (!isLoaded) {
         return (
             <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F7F4", alignItems: "center", justifyContent: "center" }}>
                 <ActivityIndicator size="large" color="#6BCB77" />
@@ -25,25 +45,16 @@ export default function ProfileScreen() {
     const onSignOutPress = async () => {
         try {
             await signOut();
+            router.replace("/sign-in" as any);
         } catch (err) {
             console.error("Sign out error", err);
         }
     };
 
-    const formattedDate = user?.createdAt
-        ? new Date(user.createdAt).toLocaleDateString("en-US", {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-          })
-        : "";
+    const formattedDate = "June 25, 2026";
 
     const handleInvite = () => {
-        Alert.alert(
-            "Invite a Friend",
-            "Referral system coming soon! Share ZonoFit with friends to earn bonus credits.",
-            [{ text: "Got it" }]
-        );
+        router.push("/invite");
     };
 
     interface NavRowProps {
@@ -75,7 +86,7 @@ export default function ProfileScreen() {
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F7F4" }} edges={["top"]}>
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+            <ScrollView showsVerticalScrollIndicator={false} bounces={true} overScrollMode="never" contentContainerStyle={{ paddingBottom: 120 }}>
 
                 {/* Header */}
                 <View className="px-5 pt-3 pb-2">
@@ -85,27 +96,31 @@ export default function ProfileScreen() {
                 {/* Profile Hero */}
                 <View className="mx-5 mt-3 mb-5 bg-white rounded-[28px] p-5 border border-black/5 shadow-sm">
                     <View className="flex-row items-center gap-x-4">
-                        <View className="relative">
-                            {user?.imageUrl ? (
-                                <Image
-                                    source={{ uri: user.imageUrl }}
-                                    className="w-20 h-20 rounded-2xl"
-                                />
-                            ) : (
-                                <View className="w-20 h-20 rounded-2xl bg-[#EAF7EC] items-center justify-center">
+                        <Pressable onPress={pickImage} className="relative" disabled={uploadingAvatar}>
+                            <View className="w-20 h-20 rounded-2xl bg-[#EAF7EC] items-center justify-center overflow-hidden">
+                                {avatarUrl ? (
+                                    <Image source={{ uri: avatarUrl }} className="w-full h-full" resizeMode="cover" />
+                                ) : (
                                     <MaterialIcons name="person" size={36} color="#6BCB77" />
-                                </View>
-                            )}
-                            <View className="absolute -bottom-1 -right-1 bg-[#6BCB77] w-6 h-6 rounded-full border-2 border-white items-center justify-center">
-                                <MaterialIcons name="check" size={12} color="#fff" />
+                                )}
+                                {uploadingAvatar && (
+                                    <View className="absolute inset-0 bg-black/30 items-center justify-center rounded-2xl">
+                                        <ActivityIndicator size="small" color="#fff" />
+                                    </View>
+                                )}
                             </View>
-                        </View>
+                            <View className="absolute -bottom-1 -right-1 bg-white p-0.5 rounded-full shadow-sm border border-black/5">
+                                <View className="bg-[#6BCB77] w-6 h-6 rounded-full items-center justify-center">
+                                    <MaterialIcons name="edit" size={12} color="#fff" />
+                                </View>
+                            </View>
+                        </Pressable>
                         <View className="flex-1">
                             <Text className="text-lg font-bold text-[#1F2520]" numberOfLines={1}>
-                                {user?.fullName || "ZonoFit Member"}
+                                {user?.username || "ZonoFit Member"}
                             </Text>
                             <Text className="text-xs text-[#6B756E] mt-0.5" numberOfLines={1}>
-                                {user?.primaryEmailAddress?.emailAddress}
+                                {user?.phone || "Google Sign-In"}
                             </Text>
                             <View className="flex-row items-center mt-2 gap-x-2">
                                 <View className="bg-[#EAF7EC] px-2.5 py-0.5 rounded-full border border-[#D1F2D6]">
@@ -198,15 +213,41 @@ export default function ProfileScreen() {
                     </Pressable>
                 </View>
 
+                {/* Trainer & Buddy Section */}
+                <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider mb-2.5 ml-6">Opportunities</Text>
+                <View className="mx-5 bg-white rounded-[24px] px-4 border border-black/5 shadow-sm mb-4">
+                    <NavRow
+                        icon="accessibility-new"
+                        label="Become a Trainer"
+                        value="Early Access"
+                        onPress={() => router.push({ pathname: "/tools/[tool]", params: { tool: "trainer-program" } } as any)}
+                    />
+                    <NavRow
+                        icon="people-outline"
+                        label="Be a Workout Buddy"
+                        value="Early Access"
+                        onPress={() => router.push({ pathname: "/tools/[tool]", params: { tool: "buddy-program" } } as any)}
+                    />
+                </View>
+
                 {/* Account Section */}
                 <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider mb-2.5 ml-6">Account</Text>
                 <View className="mx-5 bg-white rounded-[24px] px-4 border border-black/5 shadow-sm mb-5">
-                    <NavRow
-                        icon="mail-outline"
-                        label="Email"
-                        value={user?.primaryEmailAddress?.emailAddress?.substring(0, 20) + "..."}
-                        showChevron={false}
-                    />
+                    {user?.authMethod === "phone" ? (
+                        <NavRow
+                            icon="phone"
+                            label="Phone Number"
+                            value={user?.phone || "N/A"}
+                            showChevron={false}
+                        />
+                    ) : (
+                        <NavRow
+                            icon="mail-outline"
+                            label="Email"
+                            value="Google Connected"
+                            showChevron={false}
+                        />
+                    )}
                     <NavRow
                         icon="verified-user"
                         label="Verification Status"

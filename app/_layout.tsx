@@ -1,5 +1,7 @@
-import { tokenCache } from "@/lib/clerk";
-import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
+import { useAuthStore } from "@/store/useAuthStore";
+import { useUserStore } from "@/store/useUserStore";
+import { useCreditsStore } from "@/store/useCreditsStore";
+import { useBookingStore } from "@/store/useBookingStore";
 import { useRouter, useSegments, Slot } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
@@ -9,9 +11,17 @@ import "../global.css";
 SplashScreen.preventAutoHideAsync();
 
 function AuthGate() {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, token } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
+
+  useEffect(() => {
+    if (isSignedIn && token) {
+      useUserStore.getState().fetchProfile(token);
+      useCreditsStore.getState().fetchWallet(token);
+      useBookingStore.getState().fetchBookings(token);
+    }
+  }, [isSignedIn, token]);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -37,12 +47,9 @@ function AuthGate() {
 }
 
 export default function RootLayout() {
-  return (
-    <ClerkProvider
-      publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}
-      tokenCache={tokenCache}
-    >
-      <AuthGate />
-    </ClerkProvider>
-  );
+  useEffect(() => {
+    useAuthStore.getState().initialize();
+  }, []);
+
+  return <AuthGate />;
 }

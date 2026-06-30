@@ -251,7 +251,7 @@ The "AI Trainer," "Meal Scan," "Workout Buddy," "Workout Plans," "Calorie Tracke
 - NativeWind / Tailwind CSS
 - Zustand
 - AsyncStorage
-- Clerk for authentication (covers Google + Phone login from MVP scope)
+- Custom JWT & SecureStore for authentication (covers Google + Phone login from MVP scope)
 
 ### Likely Needed For ZonoFit Specifically — propose and get approval before installing any of these
 
@@ -274,7 +274,7 @@ GetStream / Stream Vision Agents, video-based AI teacher infrastructure, and any
 
 Use a Node.js + PostgreSQL database stack. Use **Prisma ORM** for database schema management, relational models, and migrations. Enable the **PostGIS** extension in PostgreSQL for handling location-based queries (e.g., gym distances).
 
-Use server-side API routes / functions for anything touching money or trust: credit balance reads/writes, credit purchase, credit↔INR conversion, booking creation, check-in validation, payment webhooks. Never expose secrets (payment keys, Clerk secret key, partner API keys) in the mobile app.
+Use server-side API routes / functions for anything touching money or trust: credit balance reads/writes, credit purchase, credit↔INR conversion, booking creation, check-in validation, payment webhooks. Never expose secrets (payment keys, JWT secret key, partner API keys) in the mobile app.
 
 ---
 
@@ -363,7 +363,7 @@ Zustand stores for client state — credits, membership, today's booking, journe
 
 ### lib/
 
-External service helpers — `clerk.ts`, `api.ts`, `cn.ts`, and (pending approval) `location.ts`, `qrcode.ts`, `payments.ts`. Never expose secret keys here on the client.
+Helper functions — `api.ts`, `cn.ts`, and (pending approval) `location.ts`, `qrcode.ts`, `payments.ts`. Never expose secret keys here on the client.
 
 ---
 
@@ -950,11 +950,10 @@ Use local component state for temporary UI state (e.g. a modal being open). Pers
 
 ---
 
-## 24. lib/ — EXTERNAL SERVICE HELPERS
+## 24. lib/ — HELPER FUNCTIONS
 
 ```txt
 lib/
-  clerk.ts
   api.ts
   cn.ts
   location.ts      // pending approval — see Section 10
@@ -1011,13 +1010,13 @@ Use backend/serverless functions for anything that's a trust boundary:
 - QR/OTP check-in validation
 - Payment processing and webhooks
 
-Never expose secrets (Clerk secret key, payment provider keys, partner API keys) in the frontend. The client requests, displays, and optimistically reflects state — it never decides the outcome of a money or access-granting action.
+Never expose secrets (JWT secret key, payment provider keys, partner API keys) in the frontend. The client requests, displays, and optimistically reflects state — it never decides the outcome of a money or access-granting action.
 
 ---
 
-## 29. CLERK RULES
+## 29. CUSTOM AUTHENTICATION RULES
 
-Use Clerk for authentication (Google + Phone, per MVP scope). Do not build custom auth.
+Use the custom session-based authentication system backed by PostgreSQL (Google + Phone, per MVP scope).
 
 ---
 

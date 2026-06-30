@@ -12,10 +12,10 @@ server/
 │   │   ├── prisma.ts         # Prisma client singleton
 │   │   └── constants.ts      # Credit ↔ INR constants (single source of truth)
 │   ├── middleware/
-│   │   ├── auth.ts           # Clerk JWT verification
+│   │   ├── auth.ts           # JWT authentication
 │   │   └── errorHandler.ts   # Global error handler
 │   └── routes/
-│       ├── webhooks.ts       # Clerk webhooks (user sync)
+│       ├── auth.ts           # Auth endpoints
 │       ├── users.ts          # User profile
 │       ├── membership.ts     # Membership plans & activation
 │       ├── credits.ts        # Credit balance, transactions, conversion
@@ -30,6 +30,7 @@ server/
 ## Prerequisites
 
 1. **PostgreSQL 14+** with **PostGIS extension**
+
    ```sql
    CREATE DATABASE zonofit;
    \c zonofit
@@ -38,37 +39,43 @@ server/
 
 2. **Node.js 20+**
 
-3. **Clerk account** with an application configured for ZonoFit
-
 ## Setup
 
 ### 1. Install dependencies
+
 ```bash
 npm install
 ```
 
 ### 2. Configure environment
+
 ```bash
 cp .env.example .env
-# Fill in: DATABASE_URL, CLERK_SECRET_KEY, CLERK_WEBHOOK_SECRET
+# Fill in: DATABASE_URL, JWT_SECRET (or related custom env variables)
 ```
 
 ### 3. Run database migrations
+
 ```bash
 npm run db:migrate
 ```
+
 > This creates all tables and enables the PostGIS extension via Prisma.
 
 ### 4. Seed development data
+
 ```bash
 npm run db:seed
 ```
+
 > Seeds 3 membership plans and 5 Mumbai gyms with PostGIS coordinates.
 
 ### 5. Start dev server
+
 ```bash
 npm run dev
 ```
+
 Server runs at `http://localhost:3000`
 
 ## API Endpoints
@@ -76,7 +83,9 @@ Server runs at `http://localhost:3000`
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/health` | ❌ | Health check |
-| POST | `/api/webhooks/clerk` | Clerk signature | User sync from Clerk |
+| POST | `/api/auth/signup` | ❌ | Sign up new user |
+| POST | `/api/auth/signin` | ❌ | Sign in user |
+| POST | `/api/auth/verify` | ❌ | Verify OTP |
 | GET | `/api/users/me` | ✅ | Full user profile + stats |
 | PATCH | `/api/users/me` | ✅ | Update profile |
 | GET | `/api/membership/plans` | ❌ | List membership plans |

@@ -59,6 +59,7 @@ enum CreditTransactionType {
   PURCHASE            // User bought additional credits
   BONUS               // Achievement/referral/reward credits
   CONVERSION          // Credits converted to INR cash
+  RECONVERSION        // Cash converted back to credits
   EXPIRY              // Credits expired after membership ended
   REFUND              // Credits refunded on booking cancellation
 }
@@ -71,17 +72,22 @@ enum GymCategory {
   BOUTIQUE
 }
 
+enum RoleType {
+  TRAINER
+  BUDDY
+}
+
 // ─────────────────────────────────────────────
 // USER
 // ─────────────────────────────────────────────
 
 model User {
   id        String   @id @default(uuid())
-  clerkId   String   @unique // Clerk user ID — this is the identity link
   email     String   @unique
   name      String
   phone     String?
   avatarUrl String?
+  expoPushToken String?
 
   // Referral system (Phase 2 — column exists but logic is Phase 2)
   referralCode       String?  @unique
@@ -92,13 +98,43 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Journey & Habit Progress
+  streak        Int    @default(0)
+  totalWorkouts Int    @default(0)
+  trainingHours Int    @default(0)
+  identityStage String @default("Beginner")
+
   // Relations
   membership         Membership?
   wallet             CreditWallet?
   bookings           Booking[]
   creditTransactions CreditTransaction[]
+  marketplaceOrders  MarketplaceOrder[]
+  chatMessages       ChatMessage[]
+  userBadges         UserBadge[]
+  userChallenges     UserChallenge[]
+  roleProfile        UserRoleProfile?
+  featureFeedbacks   FeatureFeedback[]
+  paymentOrders      PaymentOrder[]
+  notifications      Notification[]
 
   @@map("users")
+}
+
+model PaymentOrder {
+  id              String   @id @default(uuid())
+  userId          String
+  razorpayOrderId String   @unique
+  amountPaise     Int
+  creditsToAdd    Int
+  cashToAddPaise  Int      @default(0)
+  status          String   @default("CREATED") // CREATED, PAID, FAILED
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("payment_orders")
 }
 
 // ─────────────────────────────────────────────
@@ -149,7 +185,10 @@ model CreditWallet {
   userId    String   @unique
   balance   Int      @default(0) // In credits. 1 credit = ₹10 fitness value
   // Cash balance from credit conversions (in paise)
-  cashBalanceInPaise Int @default(0)
+  convertibleCashBalanceInPaise Int @default(0)
+  // Cash balance from direct top-ups (in paise)
+  nonConvertibleCashBalanceInPaise Int @default(0)
+  cashExpiryDate     DateTime? // Date when convertible cash balance will expire and be zeroed
   updatedAt DateTime @updatedAt
 
   user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -223,6 +262,8 @@ model Gym {
   updatedAt     DateTime    @updatedAt
 
   bookings      Booking[]
+  chatMessages  ChatMessage[]
+  userRoles     UserRoleGym[]
 
   @@index([city])
   @@index([isActive])
@@ -279,4 +320,224 @@ model CheckIn {
   booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@map("check_ins")
+}
+
+// ─────────────────────────────────────────────
+// MARKETPLACE
+// ─────────────────────────────────────────────
+
+model MarketplaceItem {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  pricePaise  Int      // Price in INR paise
+  imageUrl    String
+  inStock     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  orders      MarketplaceOrder[]
+
+  @@map("marketplace_items")
+}
+
+model MarketplaceOrder {
+  id          String   @id @default(uuid())
+  userId      String
+  itemId      String
+  quantity    Int      @default(1)
+  totalPaise  Int
+  status      String   @default("COMPLETED")
+  createdAt   DateTime @default(now())
+
+  user        User            @relation(fields: [userId], references: [id])
+  item        MarketplaceItem @relation(fields: [itemId], references: [id])
+
+  @@map("marketplace_orders")
+}
+
+// ─────────────────────────────────────────────
+// CHAT
+// ─────────────────────────────────────────────
+
+model ChatMessage {
+  id        String   @id @default(uuid())
+  userId    String
+  gymId     String
+  sender    String   // "USER" or "GYM"
+  text      String
+  createdAt DateTime @default(now())
+
+  user      User @relation(fields: [userId], references: [id])
+  gym       Gym  @relation(fields: [gymId], references: [id])
+
+  @@index([userId, gymId])
+  @@map("chat_messages")
+}
+
+// ─────────────────────────────────────────────
+// QUOTE
+// ─────────────────────────────────────────────
+
+model Quote {
+  id        String   @id @default(uuid())
+  text      String
+  author    String?
+  createdAt DateTime @default(now())
+
+  @@map("quotes")
+}
+
+// ─────────────────────────────────────────────
+// BADGES & MILESTONES (JOURNEY)
+// ─────────────────────────────────────────────
+
+model Badge {
+  id          String   @id @default(uuid())
+  name        String
+  emoji       String
+  description String
+  requirement String
+  unlockedAt  Int?     // Threshold
+  isSpecial   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  
+  userBadges  UserBadge[]
+
+  @@map("badges")
+}
+
+model UserBadge {
+  id        String   @id @default(uuid())
+  userId    String
+  badgeId   String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge     Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badgeId])
+  @@map("user_badges")
+}
+
+model Milestone {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  emoji       String
+  targetCount Int
+  rewardCredits Int
+  createdAt   DateTime @default(now())
+
+  @@map("milestones")
+}
+
+// ─────────────────────────────────────────────
+// CHALLENGES
+// ─────────────────────────────────────────────
+
+model Challenge {
+  id            String   @id @default(uuid())
+  title         String
+  description   String
+  emoji         String
+  targetCount   Int
+  rewardCredits Int
+  deadline      DateTime?
+  type          String   // "visits" | "streak" | "gyms"
+  createdAt     DateTime @default(now())
+
+  userChallenges UserChallenge[]
+
+  @@map("challenges")
+}
+
+model UserChallenge {
+  id            String   @id @default(uuid())
+  userId        String
+  challengeId   String
+  currentCount  Int      @default(0)
+  completed     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challenge     Challenge  @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, challengeId])
+  @@map("user_challenges")
+}
+
+// ─────────────────────────────────────────────
+// ROLES (TRAINERS & BUDDIES)
+// ─────────────────────────────────────────────
+
+model UserRoleProfile {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  role           RoleType
+  
+  bio            String?
+  // Trainer specific
+  costPerSessionInPaise Int?     // Cost per session in cash points (paise)
+  specialties           String[]
+  // Buddy specific
+  timingInterval String?  // e.g. "07:00 AM - 08:30 AM"
+  
+  isApproved     Boolean  @default(false)
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gyms           UserRoleGym[]
+
+  @@map("user_role_profiles")
+}
+
+model UserRoleGym {
+  id                String          @id @default(uuid())
+  userRoleProfileId String
+  gymId             String
+  
+  profile           UserRoleProfile @relation(fields: [userRoleProfileId], references: [id], onDelete: Cascade)
+  gym               Gym             @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  
+  @@unique([userRoleProfileId, gymId])
+  @@map("user_role_gyms")
+}
+
+// ─────────────────────────────────────────────
+// FEATURE FEEDBACK (EARLY ACCESS)
+// ─────────────────────────────────────────────
+
+model FeatureFeedback {
+  id          String   @id @default(uuid())
+  userId      String
+  featureName String   // e.g. 'ai-trainer', 'meal-scan'
+  comment     String
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("feature_feedback")
+}
+
+// ─────────────────────────────────────────────
+// NOTIFICATIONS
+// ─────────────────────────────────────────────
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  body      String
+  isRead    Boolean  @default(false)
+  type      String   @default("INFO") // INFO, WARNING, SUCCESS
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("notifications")
 }

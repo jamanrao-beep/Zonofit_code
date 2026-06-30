@@ -1,42 +1,47 @@
 {
-  "name": "zonofit-server",
-  "version": "1.0.0",
-  "description": "ZonoFit backend API — Node.js + Express + Prisma + PostgreSQL + PostGIS",
-  "main": "dist/index.js",
-  "prisma": {
-    "seed": "ts-node --project tsconfig.json prisma/seed.ts"
-  },
-  "scripts": {
-    "dev": "nodemon",
-    "build": "tsc",
-    "start": "node dist/index.js",
-    "db:migrate": "prisma migrate dev",
-    "db:migrate:deploy": "prisma migrate deploy",
-    "db:generate": "prisma generate",
-    "db:studio": "prisma studio",
-    "db:reset": "prisma migrate reset",
-    "db:seed": "ts-node prisma/seed.ts"
-  },
-  "dependencies": {
-    "@clerk/backend": "^1.27.0",
-    "@prisma/client": "^6.9.0",
-    "cors": "^2.8.5",
-    "dotenv": "^16.5.0",
-    "express": "^4.21.2",
-    "express-validator": "^7.2.1",
-    "helmet": "^8.1.0",
-    "morgan": "^1.10.0",
-    "uuid": "^11.1.0"
-  },
-  "devDependencies": {
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.3",
-    "@types/morgan": "^1.9.9",
-    "@types/node": "^22.15.30",
-    "@types/uuid": "^10.0.0",
-    "nodemon": "^3.1.10",
-    "prisma": "^6.9.0",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.8.3"
-  }
+    "name": "zonofit-server",
+    "version": "1.0.0",
+    "description": "ZonoFit backend API — Node.js + Express + Prisma + PostgreSQL + PostGIS",
+    "main": "dist/index.js",
+    "prisma": {
+        "seed": "ts-node --project tsconfig.json prisma/seed.ts"
+    },
+    "scripts": {
+        "dev": "nodemon",
+        "build": "tsc",
+        "start": "node dist/index.js",
+        "db:migrate": "prisma migrate dev",
+        "db:migrate:deploy": "prisma migrate deploy",
+        "db:generate": "prisma generate",
+        "db:studio": "prisma studio",
+        "db:reset": "prisma migrate reset",
+        "db:seed": "ts-node prisma/seed.ts"
+    },
+    "dependencies": {
+        "@prisma/client": "^6.9.0",
+        "@types/node-cron": "^3.0.11",
+        "cors": "^2.8.5",
+        "dotenv": "^16.5.0",
+        "expo-server-sdk": "^6.1.0",
+        "express": "^4.21.2",
+        "express-validator": "^7.2.1",
+        "helmet": "^8.1.0",
+        "morgan": "^1.10.0",
+        "multer": "^2.2.0",
+        "node-cron": "^4.5.0",
+        "razorpay": "^2.9.6",
+        "uuid": "^11.1.0"
+    },
+    "devDependencies": {
+        "@types/cors": "^2.8.19",
+        "@types/express": "^5.0.3",
+        "@types/morgan": "^1.9.9",
+        "@types/multer": "^2.1.0",
+        "@types/node": "^22.15.30",
+        "@types/uuid": "^10.0.0",
+        "nodemon": "^3.1.10",
+        "prisma": "^6.9.0",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.8.3"
+    }
 }

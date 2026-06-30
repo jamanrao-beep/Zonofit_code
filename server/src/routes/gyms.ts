@@ -177,69 +177,6 @@ router.get(
   }
 );
 
-// ─── GET /api/gyms/:id ────────────────────────────────────────────────────────
-/**
- * Get full gym details by ID.
- * Also returns available slot count for today (bookings remaining).
- */
-router.get(
-  "/:id",
-  requireAuth,
-  async (req: Request, res: Response): Promise<void> => {
-    const gymId = req.params.id as string;
-    const gym = await prisma.gym.findUnique({
-      where: { id: gymId, isActive: true },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        address: true,
-        city: true,
-        pincode: true,
-        state: true,
-        lat: true,
-        lng: true,
-        creditCost: true,
-        category: true,
-        facilities: true,
-        imageUrls: true,
-        rating: true,
-        totalRatings: true,
-        isVerified: true,
-        openingTime: true,
-        closingTime: true,
-        totalSlots: true,
-        contactPhone: true,
-        partnerSince: true,
-      },
-    });
-
-    if (!gym) {
-      res.status(404).json({ error: "GymNotFound", message: "Gym not found." });
-      return;
-    }
-
-    // Count today's confirmed/checked-in bookings to derive available slots
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date();
-    todayEnd.setHours(23, 59, 59, 999);
-
-    const bookedToday = await prisma.booking.count({
-      where: {
-        gymId: gym.id,
-        visitDate: { gte: todayStart, lte: todayEnd },
-        status: { in: ["CONFIRMED", "CHECKED_IN", "COMPLETED"] },
-      },
-    });
-
-    res.json({
-      ...gym,
-      availableSlots: Math.max(0, gym.totalSlots - bookedToday),
-    });
-  }
-);
-
 // ─── GET /api/gyms/near-primary ───────────────────────────────────────────────
 /**
  * Gyms near the authenticated user's primary gym (Explore Section 6).
@@ -308,5 +245,70 @@ router.get(
     });
   }
 );
+
+// ─── GET /api/gyms/:id ────────────────────────────────────────────────────────
+/**
+ * Get full gym details by ID.
+ * Also returns available slot count for today (bookings remaining).
+ */
+router.get(
+  "/:id",
+  requireAuth,
+  async (req: Request, res: Response): Promise<void> => {
+    const gymId = req.params.id as string;
+    const gym = await prisma.gym.findUnique({
+      where: { id: gymId, isActive: true },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        address: true,
+        city: true,
+        pincode: true,
+        state: true,
+        lat: true,
+        lng: true,
+        creditCost: true,
+        category: true,
+        facilities: true,
+        imageUrls: true,
+        rating: true,
+        totalRatings: true,
+        isVerified: true,
+        openingTime: true,
+        closingTime: true,
+        totalSlots: true,
+        contactPhone: true,
+        partnerSince: true,
+      },
+    });
+
+    if (!gym) {
+      res.status(404).json({ error: "GymNotFound", message: "Gym not found." });
+      return;
+    }
+
+    // Count today's confirmed/checked-in bookings to derive available slots
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const bookedToday = await prisma.booking.count({
+      where: {
+        gymId: gym.id,
+        visitDate: { gte: todayStart, lte: todayEnd },
+        status: { in: ["CONFIRMED", "CHECKED_IN", "COMPLETED"] },
+      },
+    });
+
+    res.json({
+      ...gym,
+      availableSlots: Math.max(0, gym.totalSlots - bookedToday),
+    });
+  }
+);
+
+
 
 export default router;

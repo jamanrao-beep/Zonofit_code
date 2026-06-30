@@ -1,23 +1,35 @@
 import { GoogleAuthButton } from "@/components/GoogleAuthButton";
-import { useSignIn } from "@clerk/clerk-expo";
+import { useAuthStore } from "@/store/useAuthStore";
 import { Link, useRouter } from "expo-router";
-import { useState } from "react";
-import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
+import { useState, useEffect } from "react";
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function SignInScreen() {
-  const { signIn, setActive, isLoaded } = useSignIn();
+  const {
+    loading,
+    error,
+    pendingVerification,
+    signIn: storeSignIn,
+    verifyOTP: storeVerifyOTP,
+    setError,
+    setPendingVerification,
+  } = useAuthStore();
+  
   const router = useRouter();
 
   const [phone, setPhone] = useState("");
-  const [pendingVerification, setPendingVerification] = useState(false);
   const [code, setCode] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+
+  // Reset store error and verification state on screen mount
+  useEffect(() => {
+    setError(null);
+    setPendingVerification(false);
+  }, []);
 
   const formatPhoneNumber = (input: string) => {
-    const cleaned = input.replace(/\D/g, "");
-    if (input.startsWith("+")) {
+    const cleaned = (input || "").replace(/\D/g, "");
+    if (input && input.startsWith("+")) {
       return input;
     }
     if (cleaned.length === 10) {
@@ -27,61 +39,15 @@ export default function SignInScreen() {
   };
 
   const onSignInPress = async () => {
-    if (!isLoaded) return;
-    setError("");
-    setLoading(true);
-
-    try {
-      const formattedPhone = formatPhoneNumber(phone);
-      const result = await signIn.create({
-        identifier: formattedPhone,
-      });
-
-      // Find the phone code factor to trigger the OTP SMS code sending
-      const phoneCodeFactor = result.supportedFirstFactors?.find(
-        (factor: any) => factor.strategy === "phone_code"
-      );
-
-      if (!phoneCodeFactor) {
-        throw new Error("Phone number sign-in is not supported on this account or configuration.");
-      }
-
-      await signIn.prepareFirstFactor({
-        strategy: "phone_code",
-        phoneNumberId: (phoneCodeFactor as any).phoneNumberId,
-      });
-
-      setPendingVerification(true);
-    } catch (err: any) {
-      console.error(err);
-      setError(err.errors?.[0]?.longMessage || err.message || "An error occurred during sign in.");
-    } finally {
-      setLoading(false);
-    }
+    setError(null);
+    await storeSignIn(phone);
   };
 
   const onPressVerify = async () => {
-    if (!isLoaded) return;
-    setError("");
-    setLoading(true);
-
-    try {
-      const completeSignIn = await signIn.attemptFirstFactor({
-        strategy: "phone_code",
-        code,
-      });
-
-      if (completeSignIn.status === "complete") {
-        await setActive({ session: completeSignIn.createdSessionId });
-        router.replace("/(tabs)");
-      } else {
-        console.warn("Sign in status not complete:", completeSignIn.status);
-      }
-    } catch (err: any) {
-      console.error(err);
-      setError(err.errors?.[0]?.longMessage || "Verification failed. Check the code.");
-    } finally {
-      setLoading(false);
+    setError(null);
+    const success = await storeVerifyOTP(code);
+    if (success) {
+      router.replace("/(tabs)");
     }
   };
 
@@ -95,6 +61,9 @@ export default function SignInScreen() {
             </Text>
             <Text className="text-sm text-[#6B756E] mt-2 text-center">
               Enter the code sent to {formatPhoneNumber(phone)}
+            </Text>
+            <Text className="text-xs font-semibold text-[#6BCB77] mt-2 text-center">
+              Test OTP: 123456
             </Text>
           </View>
 
@@ -111,11 +80,11 @@ export default function SignInScreen() {
               </Text>
               <TextInput
                 keyboardType="number-pad"
-                value={code}
+                value={code || ""}
                 onChangeText={setCode}
                 placeholder="Enter code (e.g. 123456)"
                 placeholderTextColor="#A0A5A1"
-                className="h-12 px-4 bg-[#F5F7F4] rounded-2xl text-[#1F2520] font-medium border border-transparent focus:border-[#6BCB77] text-center text-lg tracking-widest"
+                style={styles.otpInput}
               />
             </View>
 
@@ -173,11 +142,11 @@ export default function SignInScreen() {
             <TextInput
               autoCapitalize="none"
               keyboardType="phone-pad"
-              value={phone}
+              value={phone || ""}
               onChangeText={setPhone}
               placeholder="Enter phone number (e.g. 9876543210)"
               placeholderTextColor="#A0A5A1"
-              className="h-12 px-4 bg-[#F5F7F4] rounded-2xl text-[#1F2520] font-medium border border-transparent focus:border-[#6BCB77]"
+              style={styles.textInput}
             />
           </View>
 
@@ -218,3 +187,30 @@ export default function SignInScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  textInput: {
+    height: 48,
+    paddingHorizontal: 16,
+    backgroundColor: "#F5F7F4",
+    borderRadius: 16,
+    color: "#1F2520",
+    fontWeight: "500",
+    borderWidth: 1,
+    borderColor: "transparent",
+    fontSize: 15,
+  },
+  otpInput: {
+    height: 48,
+    paddingHorizontal: 16,
+    backgroundColor: "#F5F7F4",
+    borderRadius: 16,
+    color: "#1F2520",
+    fontWeight: "500",
+    borderWidth: 1,
+    borderColor: "transparent",
+    textAlign: "center",
+    fontSize: 18,
+    letterSpacing: 6,
+  },
+});

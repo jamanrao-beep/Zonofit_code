@@ -5,7 +5,8 @@ import {
   View, 
   Pressable, 
   ActivityIndicator, 
-  Modal 
+  Modal,
+  Image
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -13,10 +14,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { useUserStore } from "@/store/useUserStore";
 import { useBookingStore } from "@/store/useBookingStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
-import { mockQuotes } from "@/data/quotes";
+import { useAuthStore } from "@/store/useAuthStore";
+import { apiFetch } from "@/lib/api";
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { user } = useAuthStore();
   
   // Zustand Stores
   const { 
@@ -31,7 +34,8 @@ export default function HomeScreen() {
     nextMilestone,
     streak,
     totalWorkouts,
-    trainingHours 
+    trainingHours,
+    avatarUrl 
   } = useUserStore();
 
   const { 
@@ -45,41 +49,73 @@ export default function HomeScreen() {
   const { credits } = useCreditsStore();
 
   // Local State
-  const [passModalVisible, setPassModalVisible] = useState(false);
-  const [checkingIn, setCheckingIn] = useState(false);
-  const [quoteIndex, setQuoteIndex] = useState(0);
+  const [notificationsVisible, setNotificationsVisible] = useState(false);
+  const [quote, setQuote] = useState("Consistency beats intensity. Just show up today.");
+
+  async function fetchQuote() {
+    try {
+      const currentToken = useAuthStore.getState().token;
+      const data = await apiFetch("/api/quotes/daily", { token: currentToken });
+      if (data.text) {
+        setQuote(data.text);
+      }
+    } catch (err) {
+      console.log("Failed to fetch quote");
+    }
+  };
+
+  React.useEffect(() => {
+    fetchQuote();
+  }, []);
 
   const rotateQuote = () => {
-    setQuoteIndex((prev) => (prev + 1) % mockQuotes.length);
+    fetchQuote();
   };
 
-  const handleMockCheckIn = () => {
-    setCheckingIn(true);
-    setTimeout(() => {
-      checkIn();
-      setCheckingIn(false);
-      setPassModalVisible(false);
-    }, 1500);
-  };
+
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F7F4" }} edges={["top"]}>
       <ScrollView 
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32, paddingTop: 12 }}
+        bounces={true}
+        overScrollMode="never"
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120, paddingTop: 12 }}
+        bounces={true}
+        overScrollMode="never"
       >
         {/* Header Section */}
         <View className="flex-row justify-between items-center mb-6">
           <View>
             <Text className="text-xs font-semibold text-[#6B756E] uppercase tracking-wider">Welcome back</Text>
-            <Text className="text-2xl font-bold text-[#1F2520] mt-0.5">ZonoFit Member</Text>
+            <Text className="text-2xl font-bold text-[#1F2520] mt-0.5">{user?.username || "ZonoFit Member"}</Text>
           </View>
-          <Pressable 
-            onPress={() => router.push("/profile")}
-            className="w-10 h-10 rounded-full bg-[#E9EBE6] items-center justify-center border border-black/5"
-          >
-            <Ionicons name="person" size={18} color="#555" />
-          </Pressable>
+          <View className="flex-row items-center gap-x-3">
+            <Pressable 
+              onPress={() => router.push("/marketplace" as any)}
+              className="w-10 h-10 rounded-full bg-[#E9EBE6] items-center justify-center border border-black/5"
+            >
+              <Ionicons name="cart-outline" size={20} color="#555" />
+            </Pressable>
+            <Pressable 
+              onPress={() => setNotificationsVisible(true)}
+              className="w-10 h-10 rounded-full bg-[#E9EBE6] items-center justify-center border border-black/5 relative"
+            >
+              <Ionicons name="notifications-outline" size={20} color="#555" />
+              {/* Unread badge */}
+              <View className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full border border-white" />
+            </Pressable>
+            <Pressable 
+              onPress={() => router.push("/profile")}
+              className="w-10 h-10 rounded-full bg-[#E9EBE6] items-center justify-center border border-black/5 overflow-hidden"
+            >
+              {avatarUrl ? (
+                <Image source={{ uri: avatarUrl }} className="w-full h-full" resizeMode="cover" />
+              ) : (
+                <Ionicons name="person" size={18} color="#555" />
+              )}
+            </Pressable>
+          </View>
         </View>
 
         {/* Section 1: Hero Access Card */}
@@ -163,11 +199,11 @@ export default function HomeScreen() {
             </View>
             
             <Pressable 
-              onPress={() => setPassModalVisible(true)}
+              onPress={() => router.push("/scan" as any)}
               className="bg-[#6BCB77] h-12 rounded-2xl items-center justify-center mt-2 flex-row gap-x-2"
             >
-              <Ionicons name="qr-code-outline" size={16} color="white" />
-              <Text className="text-white font-bold text-sm">View Pass & Check-In</Text>
+              <Ionicons name="scan-outline" size={16} color="white" />
+              <Text className="text-white font-bold text-sm">Scan Gym QR to Check-In</Text>
             </Pressable>
           </View>
         )}
@@ -218,6 +254,29 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
+        {/* Find Trainer / Buddy Section */}
+        <Pressable
+          onPress={() => router.push("/tools/find-trainer" as any)}
+          className="bg-[#1F2520] rounded-[28px] p-6 mb-6 shadow-sm overflow-hidden relative"
+        >
+          <View className="absolute right-[-20] top-[-20] w-32 h-32 bg-white/5 rounded-full" />
+          <View className="absolute right-10 bottom-[-10] w-20 h-20 bg-[#6BCB77]/20 rounded-full" />
+          
+          <View className="flex-row items-center mb-2">
+            <View className="bg-white/10 px-2.5 py-1 rounded-full mr-2 border border-white/10">
+              <Text className="text-white text-[10px] font-bold tracking-wider">NEW</Text>
+            </View>
+            <Ionicons name="people" size={16} color="#6BCB77" />
+          </View>
+          <Text className="text-xl font-black text-white mb-1">Find a Trainer or Buddy</Text>
+          <Text className="text-sm text-gray-300 mb-4 max-w-[80%]">Discover experienced trainers or find a workout buddy at your preferred gym.</Text>
+          
+          <View className="bg-white/10 self-start px-4 py-2 rounded-xl border border-white/10 flex-row items-center">
+            <Text className="text-white font-bold text-xs mr-2">Early Access</Text>
+            <Ionicons name="lock-closed" size={12} color="white" />
+          </View>
+        </Pressable>
+
         {/* Section 4: Momentum Bento Grid */}
         <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider mb-2.5 ml-1">Momentum</Text>
         <View className="flex-row gap-x-4 mb-6">
@@ -262,29 +321,29 @@ export default function HomeScreen() {
         {/* Section 6: Fitness Tools Bento Grid */}
         <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider mb-2.5 ml-1">Fitness Tools</Text>
         <View className="flex-wrap flex-row gap-4 mb-6">
-          <View className="w-[47%] bg-white rounded-2xl p-4 border border-black/5 shadow-sm opacity-60">
-            <Text className="text-lg">🔒</Text>
+          <Pressable onPress={() => router.push("/tools/ai-trainer" as any)} className="w-[47%] bg-white rounded-2xl p-4 border border-black/5 shadow-sm active:bg-gray-50">
+            <Text className="text-lg">🤖</Text>
             <Text className="font-bold text-sm text-[#1F2520] mt-1">AI Trainer</Text>
-            <Text className="text-[10px] text-[#6B756E] mt-0.5">Coming Soon</Text>
-          </View>
+            <Text className="text-[10px] text-purple-600 font-bold mt-0.5">Early Access</Text>
+          </Pressable>
 
-          <View className="w-[47%] bg-white rounded-2xl p-4 border border-black/5 shadow-sm opacity-60">
-            <Text className="text-lg">🔒</Text>
+          <Pressable onPress={() => router.push("/tools/meal-scan" as any)} className="w-[47%] bg-white rounded-2xl p-4 border border-black/5 shadow-sm active:bg-gray-50">
+            <Text className="text-lg">📸</Text>
             <Text className="font-bold text-sm text-[#1F2520] mt-1">Meal Scan</Text>
-            <Text className="text-[10px] text-[#6B756E] mt-0.5">Coming Soon</Text>
-          </View>
+            <Text className="text-[10px] text-purple-600 font-bold mt-0.5">Early Access</Text>
+          </Pressable>
 
-          <View className="w-[47%] bg-white rounded-2xl p-4 border border-black/5 shadow-sm opacity-60">
-            <Text className="text-lg">🔒</Text>
+          <Pressable onPress={() => router.push("/tools/workout-buddy" as any)} className="w-[47%] bg-white rounded-2xl p-4 border border-black/5 shadow-sm active:bg-gray-50">
+            <Text className="text-lg">👥</Text>
             <Text className="font-bold text-sm text-[#1F2520] mt-1">Workout Buddy</Text>
-            <Text className="text-[10px] text-[#6B756E] mt-0.5">Coming Soon</Text>
-          </View>
+            <Text className="text-[10px] text-purple-600 font-bold mt-0.5">Early Access</Text>
+          </Pressable>
 
-          <View className="w-[47%] bg-white rounded-2xl p-4 border border-black/5 shadow-sm opacity-60">
-            <Text className="text-lg">🔒</Text>
+          <Pressable onPress={() => router.push("/tools/plans" as any)} className="w-[47%] bg-white rounded-2xl p-4 border border-black/5 shadow-sm active:bg-gray-50">
+            <Text className="text-lg">📋</Text>
             <Text className="font-bold text-sm text-[#1F2520] mt-1">Workout Plans</Text>
-            <Text className="text-[10px] text-[#6B756E] mt-0.5">Coming Soon</Text>
-          </View>
+            <Text className="text-[10px] text-purple-600 font-bold mt-0.5">Early Access</Text>
+          </Pressable>
         </View>
 
         {/* Section 7: Motivation Quote */}
@@ -295,84 +354,68 @@ export default function HomeScreen() {
           <View className="flex-1 mr-4">
             <Text className="text-[#6B756E] text-xs font-bold tracking-widest uppercase">Motivation</Text>
             <Text className="text-[#1F2520] text-sm font-semibold italic mt-1">
-              "{mockQuotes[quoteIndex]}"
+              "{quote}"
             </Text>
           </View>
           <Ionicons name="refresh" size={16} color="#6B756E" />
         </Pressable>
       </ScrollView>
 
-      {/* QR Code Pass Modal */}
+
+
+      {/* Notifications Modal */}
       <Modal
-        animationType="slide"
+        animationType="fade"
         transparent={true}
-        visible={passModalVisible}
-        onRequestClose={() => setPassModalVisible(false)}
+        visible={notificationsVisible}
+        onRequestClose={() => setNotificationsVisible(false)}
       >
         <View className="flex-1 justify-end bg-black/60">
-          <View className="bg-white rounded-t-[36px] p-6 items-center">
-            <View className="w-12 h-1.5 bg-[#E9EBE6] rounded-full mb-6" />
-            
-            <Text className="text-xl font-bold text-[#1F2520]">{bookedGymName}</Text>
-            <Text className="text-sm text-[#6B756E] mt-1">Show this QR code to the gym staff</Text>
-            
-            {/* Mock Vector QR Code */}
-            <View className="my-8 p-4 bg-[#F5F7F4] rounded-3xl border border-black/5">
-              <View className="w-48 h-48 bg-white p-3 rounded-2xl flex-row flex-wrap justify-between items-between">
-                {/* Simulated QR boxes */}
-                <View className="w-14 h-14 bg-[#1F2520] rounded-md p-1">
-                  <View className="w-full h-full bg-white rounded-sm p-1">
-                    <View className="w-full h-full bg-[#1F2520] rounded-[2px]" />
-                  </View>
+          <View className="bg-white rounded-t-[36px] p-6 h-[70%]">
+            <View className="flex-row justify-between items-center mb-6">
+              <Text className="text-xl font-bold text-[#1F2520]">Notifications</Text>
+              <Pressable onPress={() => setNotificationsVisible(false)} className="w-8 h-8 bg-[#F0F3ED] rounded-full items-center justify-center">
+                <Ionicons name="close" size={20} color="#1F2520" />
+              </Pressable>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} bounces={true} overScrollMode="never">
+              {/* Notification 1 */}
+              <View className="bg-[#EAF7EC] rounded-2xl p-4 mb-3 border border-[#D1F2D6] flex-row">
+                <View className="w-10 h-10 rounded-full bg-white items-center justify-center mr-3 border border-black/5">
+                  <Text className="text-lg">🎉</Text>
                 </View>
-                <View className="w-14 h-14 bg-white" />
-                <View className="w-14 h-14 bg-[#1F2520] rounded-md p-1">
-                  <View className="w-full h-full bg-white rounded-sm p-1">
-                    <View className="w-full h-full bg-[#1F2520] rounded-[2px]" />
-                  </View>
+                <View className="flex-1">
+                  <Text className="text-sm font-bold text-[#1F2520]">Welcome to ZonoFit!</Text>
+                  <Text className="text-xs text-[#6B756E] mt-0.5">We're glad to have you here. Book your first visit now.</Text>
+                  <Text className="text-[10px] text-[#6B756E] font-medium mt-2">Just now</Text>
                 </View>
-                
-                <View className="w-14 h-14 bg-white" />
-                <View className="w-14 h-14 bg-[#1F2520] rounded-sm" />
-                <View className="w-14 h-14 bg-white" />
-                
-                <View className="w-14 h-14 bg-[#1F2520] rounded-md p-1">
-                  <View className="w-full h-full bg-white rounded-sm p-1">
-                    <View className="w-full h-full bg-[#1F2520] rounded-[2px]" />
-                  </View>
-                </View>
-                <View className="w-14 h-14 bg-white" />
-                <View className="w-14 h-14 bg-[#1F2520] rounded-sm" />
               </View>
-            </View>
 
-            <Text className="text-xs font-semibold text-[#6B756E] tracking-wider uppercase mb-6">
-              Booking Ref: ZF-{credits}-{streak}
-            </Text>
+              {/* Notification 2 */}
+              <View className="bg-[#F5F7F4] rounded-2xl p-4 mb-3 border border-black/5 flex-row">
+                <View className="w-10 h-10 rounded-full bg-white items-center justify-center mr-3 border border-black/5">
+                  <Text className="text-lg">⚡</Text>
+                </View>
+                <View className="flex-1">
+                  <Text className="text-sm font-bold text-[#1F2520]">Credits Added</Text>
+                  <Text className="text-xs text-[#6B756E] mt-0.5">1,250 credits have been successfully added to your wallet.</Text>
+                  <Text className="text-[10px] text-[#6B756E] font-medium mt-2">2 hours ago</Text>
+                </View>
+              </View>
 
-            <View className="w-full space-y-3">
-              <Pressable 
-                onPress={handleMockCheckIn}
-                disabled={checkingIn}
-                className="bg-[#6BCB77] h-12 rounded-2xl items-center justify-center flex-row"
-              >
-                {checkingIn ? (
-                  <ActivityIndicator color="white" />
-                ) : (
-                  <>
-                    <Ionicons name="scan-outline" size={16} color="white" className="mr-2" />
-                    <Text className="text-white font-bold text-sm">Simulate Check-In (Staff Scan)</Text>
-                  </>
-                )}
-              </Pressable>
-
-              <Pressable 
-                onPress={() => setPassModalVisible(false)}
-                className="bg-[#F5F7F4] h-12 rounded-2xl items-center justify-center border border-black/5"
-              >
-                <Text className="text-[#6B756E] font-bold text-sm">Close Pass</Text>
-              </Pressable>
-            </View>
+              {/* Notification 3 */}
+              <View className="bg-[#F5F7F4] rounded-2xl p-4 mb-3 border border-black/5 flex-row">
+                <View className="w-10 h-10 rounded-full bg-white items-center justify-center mr-3 border border-black/5">
+                  <Text className="text-lg">🔥</Text>
+                </View>
+                <View className="flex-1">
+                  <Text className="text-sm font-bold text-[#1F2520]">Streak Preserved!</Text>
+                  <Text className="text-xs text-[#6B756E] mt-0.5">Your 12-day streak is safe. Keep up the momentum tomorrow.</Text>
+                  <Text className="text-[10px] text-[#6B756E] font-medium mt-2">Yesterday</Text>
+                </View>
+              </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
