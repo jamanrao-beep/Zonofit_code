@@ -10,6 +10,7 @@ import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
 
 // Routes
 import authRoutes from "./routes/auth";
+import authPortalRoutes from "./routes/auth-portal";
 import bookingsRouter from "./routes/bookings";
 import chatRouter from "./routes/chat"; // Chat route
 import checkinRouter from "./routes/checkin";
@@ -74,6 +75,7 @@ app.get("/health", (_req, res) => {
 
 // ─── API Routes ────────────────────────────────────────────────────────────────
 // Auth routes (public)
+app.use("/api/auth/portal", authPortalRoutes);
 app.use("/api/auth", authRoutes);
 
 // Authenticated routes

@@ -20,6 +20,7 @@
     "dependencies": {
         "@prisma/client": "^6.9.0",
         "@types/node-cron": "^3.0.11",
+        "bcryptjs": "^3.0.3",
         "cors": "^2.8.5",
         "dotenv": "^16.5.0",
         "expo-server-sdk": "^6.1.0",
@@ -33,6 +34,7 @@
         "uuid": "^11.1.0"
     },
     "devDependencies": {
+        "@types/bcryptjs": "^2.4.6",
         "@types/cors": "^2.8.19",
         "@types/express": "^5.0.3",
         "@types/morgan": "^1.9.9",

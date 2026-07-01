@@ -17,6 +17,12 @@ datasource db {
 // ENUMS
 // ─────────────────────────────────────────────
 
+enum SystemRole {
+  MEMBER
+  GYM_OWNER
+  ADMIN
+}
+
 enum MembershipStatus {
   ACTIVE
   EXPIRED
@@ -89,6 +95,10 @@ model User {
   avatarUrl String?
   expoPushToken String?
 
+  // Portal Authentication
+  systemRole  SystemRole @default(MEMBER)
+  passwordHash String?
+
   // Referral system (Phase 2 — column exists but logic is Phase 2)
   referralCode       String?  @unique
   referredByUserId   String?
@@ -117,6 +127,7 @@ model User {
   featureFeedbacks   FeatureFeedback[]
   paymentOrders      PaymentOrder[]
   notifications      Notification[]
+  gymsOwned          Gym[]             @relation("GymOwner")
 
   @@map("users")
 }
@@ -254,6 +265,9 @@ model Gym {
   totalSlots    Int         @default(20)      // Slots per day
   contactPhone  String?
   contactEmail  String?
+
+  ownerId       String?
+  owner         User?       @relation("GymOwner", fields: [ownerId], references: [id])
 
   // For "Near Primary Gym" section in Explore — gyms can belong to a partner network
   partnerSince  DateTime?

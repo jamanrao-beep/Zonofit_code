@@ -5,6 +5,7 @@ const JWT_SECRET = process.env.JWT_SECRET || "zonofit_super_secret_key_123456789
 export interface TokenPayload {
   dbUserId: string;
   phone?: string;
+  systemRole?: string;
   createdAt: number;
 }
 
