@@ -56,7 +56,7 @@ router.post(
     requireAuth,
     async (req: Request, res: Response): Promise<void> => {
         try {
-            const challengeId = req.params.id;
+            const challengeId = req.params.id as string;
 
             const challenge = await prisma.challenge.findUnique({
                 where: { id: challengeId },
@@ -71,7 +71,7 @@ router.post(
                 where: {
                     userId_challengeId: {
                         userId: req.dbUserId!,
-                        challengeId,
+                        challengeId: challengeId as string,
                     },
                 },
             });
