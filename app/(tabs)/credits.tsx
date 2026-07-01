@@ -224,6 +224,75 @@ export default function CreditsScreen() {
           </Pressable>
         </View>
 
+        {/* Section 2.5: Shop By Category */}
+        <View className="flex-row justify-between items-end mt-8 mb-3 px-6">
+          <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider">Shop By Category</Text>
+          <Pressable onPress={() => router.push("/marketplace" as any)} className="active:opacity-70">
+            <Text className="text-xs font-bold text-emerald-600">View All</Text>
+          </Pressable>
+        </View>
+        <View className="px-5 flex-row flex-wrap justify-between gap-y-4">
+          {/* Card 1: Products */}
+          <Pressable 
+            onPress={() => router.push("/marketplace" as any)}
+            className="w-[48%] bg-[#1F2520] rounded-[20px] p-4 border border-black/5 h-40 overflow-hidden relative active:opacity-80"
+          >
+            <View className="z-10">
+              <Text className="text-white font-bold text-sm">Products</Text>
+              <Text className="text-white/60 text-[10px] mt-1 pr-2 leading-tight">Supplements, accessories & more</Text>
+            </View>
+            <View className="absolute bottom-4 left-4 bg-white px-3 py-1.5 rounded-full flex-row items-center gap-x-1 z-10">
+              <Text className="text-[10px] font-bold text-[#1F2520]">Explore</Text>
+              <Ionicons name="chevron-forward" size={10} color="#1F2520" />
+            </View>
+          </Pressable>
+
+          {/* Card 2: Sports & Activities */}
+          <Pressable 
+            onPress={() => router.push("/marketplace" as any)}
+            className="w-[48%] bg-[#F0F4FA] rounded-[20px] p-4 border border-black/5 h-40 overflow-hidden relative active:opacity-80"
+          >
+            <View className="z-10">
+              <Text className="text-[#1F2520] font-bold text-sm">Sports & Activities</Text>
+              <Text className="text-[#6B756E] text-[10px] mt-1 pr-2 leading-tight">Book courts, sessions & classes</Text>
+            </View>
+            <View className="absolute bottom-4 left-4 bg-white px-3 py-1.5 rounded-full flex-row items-center gap-x-1 z-10 shadow-sm border border-black/5">
+              <Text className="text-[10px] font-bold text-[#1F2520]">Explore</Text>
+              <Ionicons name="chevron-forward" size={10} color="#1F2520" />
+            </View>
+          </Pressable>
+
+          {/* Card 3: Healthy Food */}
+          <Pressable 
+            onPress={() => router.push("/marketplace" as any)}
+            className="w-[48%] bg-[#FAF5F0] rounded-[20px] p-4 border border-black/5 h-40 overflow-hidden relative active:opacity-80"
+          >
+            <View className="z-10">
+              <Text className="text-[#1F2520] font-bold text-sm">Healthy Food</Text>
+              <Text className="text-[#6B756E] text-[10px] mt-1 pr-2 leading-tight">High protein meals, healthy cafés</Text>
+            </View>
+            <View className="absolute bottom-4 left-4 bg-white px-3 py-1.5 rounded-full flex-row items-center gap-x-1 z-10 shadow-sm border border-black/5">
+              <Text className="text-[10px] font-bold text-[#1F2520]">Explore</Text>
+              <Ionicons name="chevron-forward" size={10} color="#1F2520" />
+            </View>
+          </Pressable>
+
+          {/* Card 4: Recovery & Wellness */}
+          <Pressable 
+            onPress={() => router.push("/marketplace" as any)}
+            className="w-[48%] bg-[#F3F0FA] rounded-[20px] p-4 border border-black/5 h-40 overflow-hidden relative active:opacity-80"
+          >
+            <View className="z-10">
+              <Text className="text-[#1F2520] font-bold text-sm">Recovery & Wellness</Text>
+              <Text className="text-[#6B756E] text-[10px] mt-1 pr-2 leading-tight">Massage, physio, ice bath & more</Text>
+            </View>
+            <View className="absolute bottom-4 left-4 bg-white px-3 py-1.5 rounded-full flex-row items-center gap-x-1 z-10 shadow-sm border border-black/5">
+              <Text className="text-[10px] font-bold text-[#1F2520]">Explore</Text>
+              <Ionicons name="chevron-forward" size={10} color="#1F2520" />
+            </View>
+          </Pressable>
+        </View>
+
         {/* Section 3: Recent Activity Ledger */}
         <View className="flex-row justify-between items-end mt-6 mb-3 px-6">
           <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider">Recent Activity</Text>

@@ -103,9 +103,10 @@ export default function MarketplaceScreen() {
                 <Text className="text-xl font-black text-[#1F2520]">₹{item.pricePaise / 100}</Text>
                 <Pressable 
                   onPress={() => setSelectedItem(item)}
-                  className="bg-[#1F2520] px-5 py-2.5 rounded-xl active:bg-[#323b34]"
+                  className="bg-emerald-600 px-5 py-2.5 rounded-xl active:bg-emerald-700 flex-row items-center gap-x-2"
                 >
-                  <Text className="text-white font-bold text-sm">Buy Now</Text>
+                  <Ionicons name="cart-outline" size={16} color="white" />
+                  <Text className="text-white font-bold text-sm">Add to Cart</Text>
                 </Pressable>
               </View>
             </View>

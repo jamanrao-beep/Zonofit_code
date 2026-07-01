@@ -33,7 +33,14 @@ export default function LoginPage() {
       }
 
       login(data.user, data.token);
-      router.push("/");
+      
+      if (data.user.role === "ADMIN") {
+        router.push("/admin/dashboard");
+      } else if (data.user.role === "GYM_OWNER") {
+        router.push("/gym/dashboard");
+      } else {
+        router.push("/");
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -44,12 +51,12 @@ export default function LoginPage() {
   return (
     <div className="flex-1 flex items-center justify-center relative min-h-[calc(100vh-80px)]">
       {/* Background gradients */}
-      <div className="absolute top-[10%] left-[20%] w-[40%] h-[40%] rounded-full bg-primary/10 blur-[120px] pointer-events-none" />
+      <div className="absolute top-[10%] left-[20%] w-[40%] h-[40%] rounded-full bg-emerald-100/60 blur-[120px] pointer-events-none" />
       
-      <div className="glass w-full max-w-md p-8 rounded-3xl relative z-10 shadow-2xl mx-4">
+      <div className="glass w-full max-w-md p-8 rounded-3xl relative z-10 shadow-xl border border-black/5 mx-4">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Welcome Back</h1>
-          <p className="text-gray-400 text-sm">Login to your ZonoFit Portal account</p>
+          <h1 className="text-3xl font-bold text-black mb-2">Welcome Back</h1>
+          <p className="text-gray-600 text-sm">Login to your ZonoFit Portal account</p>
         </div>
 
         {error ? (
@@ -67,7 +74,7 @@ export default function LoginPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-black/40 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-gray-500"
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 pl-12 pr-4 text-black focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-gray-400"
             />
           </div>
 
@@ -79,7 +86,7 @@ export default function LoginPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-black/40 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-gray-500"
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 pl-12 pr-4 text-black focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-gray-400"
             />
           </div>
 
@@ -92,7 +99,7 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div className="mt-8 text-center text-sm text-gray-400">
+        <div className="mt-8 text-center text-sm text-gray-600">
           Don't have an account?{" "}
           <Link href="/auth/signup" className="text-primary hover:text-primary-dark font-semibold">
             Sign up

@@ -14,7 +14,7 @@ router.post(
     body("email").isEmail().normalizeEmail(),
     body("password").isString().isLength({ min: 6 }),
     body("name").isString().trim().isLength({ min: 2 }),
-    body("role").isIn(["ADMIN", "GYM_OWNER"]),
+    body("role").isIn(["GYM_OWNER"]),
   ],
   async (req: Request, res: Response): Promise<void> => {
     const errors = validationResult(req);
@@ -24,13 +24,6 @@ router.post(
     }
 
     const { email, password, name, role } = req.body;
-
-    const adminEmail = process.env.ADMIN_EMAIL || "zonofitofficial@gmail.com";
-
-    if (role === "ADMIN" && email !== adminEmail) {
-      res.status(403).json({ error: "AccessDenied", message: "You are not authorized to create an Admin account." });
-      return;
-    }
 
     const existingUser = await prisma.user.findFirst({
       where: { email },
