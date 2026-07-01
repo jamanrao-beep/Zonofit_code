@@ -3,6 +3,7 @@ import { body, validationResult } from "express-validator";
 import prisma from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
 import { createError } from "../middleware/errorHandler";
+import { sendPushNotification } from "../services/notifications";
 
 const router = Router();
 
@@ -119,6 +120,13 @@ router.post(
 
       return { checkIn: updatedCheckIn, gymName: booking.gym.name };
     });
+
+    // Send push notification
+    sendPushNotification(
+      req.dbUserId!,
+      "Check-in Verified 🔥",
+      `You're all checked in at ${result.gymName}. Have a great workout!`
+    ).catch(e => console.error(e));
 
     res.json({
       success: true,

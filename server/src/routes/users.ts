@@ -112,6 +112,7 @@ router.patch(
         body("name").optional().isString().trim().isLength({ min: 2, max: 100 }),
         body("phone").optional().isMobilePhone("any"),
         body("avatarUrl").optional().isURL(),
+        body("expoPushToken").optional().isString(),
     ],
     async (req: Request, res: Response): Promise<void> => {
         const errors = validationResult(req);
@@ -120,10 +121,11 @@ router.patch(
             return;
         }
 
-        const { name, phone, avatarUrl } = req.body as {
+        const { name, phone, avatarUrl, expoPushToken } = req.body as {
             name?: string;
             phone?: string;
             avatarUrl?: string;
+            expoPushToken?: string;
         };
 
         const updated = await prisma.user.update({
@@ -132,8 +134,9 @@ router.patch(
                 ...(name !== undefined && { name }),
                 ...(phone !== undefined && { phone }),
                 ...(avatarUrl !== undefined && { avatarUrl }),
+                ...(expoPushToken !== undefined && { expoPushToken }),
             },
-            select: { id: true, name: true, phone: true, avatarUrl: true, email: true },
+            select: { id: true, name: true, phone: true, avatarUrl: true, email: true, expoPushToken: true },
         });
 
         res.json({ user: updated });

@@ -16,6 +16,7 @@ import { useBookingStore } from "@/store/useBookingStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { apiFetch } from "@/lib/api";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -47,6 +48,9 @@ export default function HomeScreen() {
   } = useBookingStore();
 
   const { credits } = useCreditsStore();
+
+  // Initialize Push Notifications
+  usePushNotifications();
 
   // Local State
   const [notificationsVisible, setNotificationsVisible] = useState(false);
@@ -251,6 +255,26 @@ export default function HomeScreen() {
             <Ionicons name="arrow-forward" size={12} color="#059669" />
           </Pressable>
         </View>
+
+        {/* Challenges Entry */}
+        <Pressable
+          onPress={() => router.push("/challenges" as any)}
+          className="bg-indigo-600 rounded-[28px] p-6 mb-6 shadow-sm overflow-hidden relative active:scale-95 transition-transform"
+        >
+          <View className="absolute right-[-20] top-[-20] w-32 h-32 bg-white/10 rounded-full" />
+          <View className="absolute right-10 bottom-[-10] w-20 h-20 bg-indigo-500/30 rounded-full" />
+          
+          <View className="flex-row items-center mb-2">
+            <Ionicons name="trophy" size={20} color="#C7D2FE" />
+          </View>
+          <Text className="text-xl font-black text-white mb-1">Monthly Challenges</Text>
+          <Text className="text-sm text-indigo-100 mb-4 max-w-[80%]">Complete challenges to earn bonus credits and build consistency.</Text>
+          
+          <View className="bg-white/20 self-start px-4 py-2 rounded-xl flex-row items-center">
+            <Text className="text-white font-bold text-xs mr-2">View Challenges</Text>
+            <Ionicons name="arrow-forward" size={12} color="white" />
+          </View>
+        </Pressable>
 
         {/* Find Trainer / Buddy Section */}
         <Pressable

@@ -426,9 +426,9 @@ async function main() {
   console.log("Creating challenges...");
   await prisma.challenge.deleteMany();
   const challenges = [
-    { title: "Week Warrior", description: "Complete 4 gym visits this week.", emoji: "⚡", targetCount: 4, rewardCredits: 20, type: "visits" },
-    { title: "Gym Explorer", description: "Visit 3 different partner gyms this month.", emoji: "🧭", targetCount: 3, rewardCredits: 30, type: "gyms" },
-    { title: "Consistency Champion", description: "Maintain a 7-day workout streak.", emoji: "🔥", targetCount: 7, rewardCredits: 50, type: "streak" },
+    { title: "Week Warrior", description: "Complete 4 gym visits this week.", emoji: "⚡", targetCount: 4, rewardCredits: 0, type: "visits" },
+    { title: "Gym Explorer", description: "Visit 3 different partner gyms this month.", emoji: "🧭", targetCount: 3, rewardCredits: 0, type: "gyms" },
+    { title: "Consistency Champion", description: "Maintain a 7-day workout streak.", emoji: "🔥", targetCount: 7, rewardCredits: 0, type: "streak" },
   ];
   for (const c of challenges) {
     await prisma.challenge.create({ data: c });

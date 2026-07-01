@@ -3,6 +3,7 @@ import { body, validationResult } from "express-validator";
 import { v4 as uuidv4 } from "uuid";
 import prisma from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
+import { sendPushNotification } from "../services/notifications";
 import { createError } from "../middleware/errorHandler";
 
 const router = Router();
@@ -167,6 +168,13 @@ router.post(
 
       return { booking, updatedWallet, gymName: gym.name };
     });
+
+    // Send push notification asynchronously
+    sendPushNotification(
+      req.dbUserId!,
+      "Booking Confirmed ✅",
+      `Your workout at ${result.gymName} on ${visitDate} at ${timeSlot} is confirmed!`
+    ).catch(e => console.error(e));
 
     res.status(201).json({
       booking: {

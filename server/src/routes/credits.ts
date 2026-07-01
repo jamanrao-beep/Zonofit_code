@@ -10,6 +10,7 @@ import {
   creditsToDisplayINR,
 } from "../lib/constants";
 import { createError } from "../middleware/errorHandler";
+import { sendPushNotification } from "../services/notifications";
 
 // Initialize Razorpay
 // We use placeholder keys if env vars are missing so the server doesn't crash on boot
@@ -322,6 +323,26 @@ router.post(
           });
         });
 
+        // Send Push Notification
+        const paymentOrder = await (prisma as any).paymentOrder.findUnique({
+          where: { razorpayOrderId: orderId },
+        });
+        if (paymentOrder) {
+          if (paymentOrder.creditsToAdd > 0) {
+            sendPushNotification(
+              paymentOrder.userId,
+              "Credits Purchased ⚡",
+              `You successfully purchased ${paymentOrder.creditsToAdd} credits!`
+            ).catch(e => console.error(e));
+          } else if (paymentOrder.cashToAddPaise > 0) {
+            sendPushNotification(
+              paymentOrder.userId,
+              "Wallet Top Up 💰",
+              `You successfully added ₹${paymentOrder.cashToAddPaise / 100} to your wallet!`
+            ).catch(e => console.error(e));
+          }
+        }
+
         res.status(200).send("OK");
       } catch (err) {
         console.error("Webhook processing error:", err);
@@ -330,6 +351,94 @@ router.post(
     } else {
       // Ignore other events
       res.status(200).send("OK");
+    }
+  }
+);
+
+// ─── POST /api/credits/mock-payment ───────────────────────────────────────────
+/**
+ * Developer utility: Simulates a successful payment webhook.
+ * Only available in non-production environments to bypass Razorpay on simulators.
+ */
+router.post(
+  "/mock-payment",
+  requireAuth,
+  [
+    body("razorpayOrderId").isString().notEmpty().withMessage("Order ID required."),
+  ],
+  async (req: Request, res: Response): Promise<void> => {
+    if (process.env.NODE_ENV === "production") {
+      res.status(403).json({ error: "Forbidden in production" });
+      return;
+    }
+
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      res.status(400).json({ error: "ValidationError", details: errors.array() });
+      return;
+    }
+
+    const { razorpayOrderId } = req.body;
+    try {
+      await prisma.$transaction(async (tx) => {
+        const paymentOrder = await (tx as any).paymentOrder.findUnique({
+          where: { razorpayOrderId },
+        });
+
+        if (!paymentOrder) throw new Error("Order not found");
+        if (paymentOrder.status === "PAID") return;
+
+        await (tx as any).paymentOrder.update({
+          where: { razorpayOrderId },
+          data: { status: "PAID" },
+        });
+
+        const wallet = await tx.creditWallet.findUnique({
+          where: { userId: paymentOrder.userId },
+        });
+        if (!wallet) throw new Error("Wallet not found");
+
+        const updatedWallet = await tx.creditWallet.update({
+          where: { userId: paymentOrder.userId },
+          data: { 
+            balance: { increment: paymentOrder.creditsToAdd },
+            nonConvertibleCashBalanceInPaise: { increment: paymentOrder.cashToAddPaise }
+          },
+        });
+
+        await tx.creditTransaction.create({
+          data: {
+            userId: paymentOrder.userId,
+            walletId: wallet.id,
+            type: "PURCHASE",
+            amount: paymentOrder.creditsToAdd,
+            balanceAfter: updatedWallet.balance,
+            description: paymentOrder.creditsToAdd > 0 
+              ? `Purchased ${paymentOrder.creditsToAdd} credits via Razorpay (Mocked)`
+              : `Topped up ₹${paymentOrder.cashToAddPaise / 100} non-convertible cash via Razorpay (Mocked)`,
+            referenceId: `mock_pay_${Date.now()}`,
+          },
+        });
+
+        // Send Push Notification
+        if (paymentOrder.creditsToAdd > 0) {
+          sendPushNotification(
+            paymentOrder.userId,
+            "Credits Purchased ⚡",
+            `You successfully purchased ${paymentOrder.creditsToAdd} credits! (Mocked)`
+          ).catch(e => console.error(e));
+        } else if (paymentOrder.cashToAddPaise > 0) {
+          sendPushNotification(
+            paymentOrder.userId,
+            "Wallet Top Up 💰",
+            `You successfully added ₹${paymentOrder.cashToAddPaise / 100} to your wallet! (Mocked)`
+          ).catch(e => console.error(e));
+        }
+      });
+      res.json({ success: true, message: "Payment mocked successfully." });
+    } catch (error) {
+      console.error("Mock payment error:", error);
+      res.status(500).json({ error: "Failed to mock payment" });
     }
   }
 );

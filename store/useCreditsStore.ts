@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { Alert } from "react-native";
 import { apiFetch } from "@/lib/api";
 import { useAuthStore } from "./useAuthStore";
 
@@ -19,10 +20,12 @@ interface CreditsState {
   
   // Actions
   fetchWallet: (token: string) => Promise<void>;
+  fetchTransactions: (token: string, page?: number) => Promise<void>;
   buyGymSubscription: (gymName: string, inrPaid: number, initialCreditDeduction: number) => Promise<{ success: boolean; message?: string }>;
   buyMarketplaceItem: (itemId: string, costInInr: number) => Promise<{ success: boolean; message?: string }>;
   bookVisitWithCash: (gymName: string, costInInr: number) => boolean;
   buyCredits: (creditsAmount: number, inrCost: number) => Promise<{ success: boolean; message?: string }>;
+  topUpCash: (amountINR: number) => Promise<{ success: boolean; message?: string }>;
   convertCreditsToCash: (creditsAmount: number) => Promise<{ success: boolean; message?: string }>;
   deductCredits: (creditsAmount: number, description: string) => Promise<{ success: boolean; message?: string }>;
   addTransaction: (type: "debit" | "credit", amount: number, currency: "credits" | "cash", description: string) => void;
@@ -40,20 +43,38 @@ export const useCreditsStore = create<CreditsState>((set, get) => ({
       const data = await apiFetch("/api/credits/balance", { token });
       set({
         credits: data.balance || 0,
-        cashBalance: (data.cashBalanceInPaise || 0) / 100,
-        transactions: data.transactions?.map((t: any) => ({
-          id: t.id,
-          type: t.amount > 0 ? "credit" : "debit",
-          amount: Math.abs(t.amount),
-          currency: t.type === "CONVERSION" ? "cash" : "credits",
-          description: t.description,
-          date: new Date(t.createdAt).toLocaleDateString(),
-        })) || [],
+        cashBalance: (data.convertibleCashBalanceINR || 0) + (data.nonConvertibleCashBalanceINR || 0),
         loading: false,
       });
+      // Optionally fetch the first page of transactions automatically
+      get().fetchTransactions(token, 1);
     } catch (err) {
       console.error("Failed to fetch wallet:", err);
       set({ loading: false });
+    }
+  },
+
+  fetchTransactions: async (token, page = 1) => {
+    try {
+      const data = await apiFetch(`/api/credits/transactions?page=${page}&limit=20`, { token });
+      const newTxs = data.transactions?.map((t: any) => ({
+        id: t.id,
+        type: t.amount > 0 ? "credit" : "debit",
+        amount: Math.abs(t.amount),
+        currency: (t.type === "CONVERSION" || t.description.includes("₹")) && !t.description.includes("Purchased") ? "cash" : "credits",
+        description: t.description,
+        date: new Date(t.createdAt).toLocaleDateString("en-IN", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        }),
+      })) || [];
+
+      set((state) => ({
+        transactions: page === 1 ? newTxs : [...state.transactions, ...newTxs],
+      }));
+    } catch (err) {
+      console.error("Failed to fetch transactions:", err);
     }
   },
 
@@ -76,11 +97,12 @@ export const useCreditsStore = create<CreditsState>((set, get) => ({
   },
 
   buyCredits: async (creditsAmount, inrCost) => {
+    let orderData: any = null;
     try {
       const token = useAuthStore.getState().token;
       
       // Step 1: Create Order
-      const orderData = await apiFetch("/api/credits/create-order", {
+      orderData = await apiFetch("/api/credits/create-order", {
         method: "POST",
         token,
         body: JSON.stringify({ credits: creditsAmount }),
@@ -106,19 +128,123 @@ export const useCreditsStore = create<CreditsState>((set, get) => ({
       return { success: true, message: `Successfully purchased ${creditsAmount} credits!` };
     } catch (err: any) {
       console.error("Failed to buy credits via Razorpay:", err);
-      // Razorpay cancel throws an error object like { code: 0, description: "Payment cancelled" }
       const msg = err.description || err.message || "Payment Failed";
+      
+      // Fallback for testing on simulators/Expo Go
+      if (msg.includes("Native module cannot be null") || msg.includes("Cannot read property") || msg.includes("undefined is not an object")) {
+        console.warn("Razorpay Native module missing. Asking to simulate success.");
+        
+        return new Promise((resolve) => {
+          if (!orderData?.razorpayOrderId) {
+            resolve({ success: false, message: "Use physical device or custom dev client for Razorpay." });
+            return;
+          }
+
+          Alert?.alert(
+            "Simulator Detected", 
+            "Razorpay native module is missing. Do you want to mock a successful payment for testing?",
+            [
+              { text: "Cancel", style: "cancel", onPress: () => resolve({ success: false, message: "Use physical device or custom dev client for Razorpay." }) },
+              { text: "Mock Payment", onPress: async () => {
+                  try {
+                    const token = useAuthStore.getState().token;
+                    await apiFetch("/api/credits/mock-payment", {
+                      method: "POST",
+                      token,
+                      body: JSON.stringify({ razorpayOrderId: orderData.razorpayOrderId })
+                    });
+                    await get().fetchWallet(token!);
+                    resolve({ success: true, message: `Successfully purchased ${creditsAmount} credits! (Mocked)` });
+                  } catch(e) {
+                    resolve({ success: false, message: "Mock payment failed" });
+                  }
+              }}
+            ]
+          );
+        });
+      }
+
+      return { success: false, message: msg };
+    }
+  },
+
+  topUpCash: async (amountINR) => {
+    let orderData: any = null;
+    try {
+      const token = useAuthStore.getState().token;
+      
+      orderData = await apiFetch("/api/credits/create-cash-order", {
+        method: "POST",
+        token,
+        body: JSON.stringify({ amountINR }),
+      });
+
+      const RazorpayCheckout = require('react-native-razorpay').default;
+      const options = {
+        description: `Top Up ₹${amountINR}`,
+        image: 'https://i.imgur.com/3g7nmJC.png',
+        currency: orderData.currency,
+        key: 'rzp_test_placeholder', 
+        amount: orderData.amount,
+        name: 'ZonoFit',
+        order_id: orderData.razorpayOrderId,
+        theme: { color: '#059669' }
+      };
+
+      await RazorpayCheckout.open(options);
+
+      await get().fetchWallet(token!);
+      return { success: true, message: `Successfully added ₹${amountINR}!` };
+    } catch (err: any) {
+      console.error("Failed to top up cash:", err);
+      const msg = err.description || err.message || "Payment Failed";
+      
+      // Fallback for testing on simulators/Expo Go
+      if (msg.includes("Native module cannot be null") || msg.includes("Cannot read property") || msg.includes("undefined is not an object")) {
+        console.warn("Razorpay Native module missing. Asking to simulate success.");
+        
+        return new Promise((resolve) => {
+          if (!orderData?.razorpayOrderId) {
+            resolve({ success: false, message: "Use physical device or custom dev client for Razorpay." });
+            return;
+          }
+
+          Alert?.alert(
+            "Simulator Detected", 
+            "Razorpay native module is missing. Do you want to mock a successful payment for testing?",
+            [
+              { text: "Cancel", style: "cancel", onPress: () => resolve({ success: false, message: "Use physical device or custom dev client for Razorpay." }) },
+              { text: "Mock Payment", onPress: async () => {
+                  try {
+                    const token = useAuthStore.getState().token;
+                    await apiFetch("/api/credits/mock-payment", {
+                      method: "POST",
+                      token,
+                      body: JSON.stringify({ razorpayOrderId: orderData.razorpayOrderId })
+                    });
+                    await get().fetchWallet(token!);
+                    resolve({ success: true, message: `Successfully added ₹${amountINR}! (Mocked)` });
+                  } catch(e) {
+                    resolve({ success: false, message: "Mock payment failed" });
+                  }
+              }}
+            ]
+          );
+        });
+      }
+
       return { success: false, message: msg };
     }
   },
 
   buyGymSubscription: async (gymName, inrPaid, initialCreditDeduction) => {
     const creditsGained = inrPaid / 10;
+    let orderData: any = null;
     try {
       const token = useAuthStore.getState().token;
       
       // Step 1: Create Order
-      const orderData = await apiFetch("/api/credits/create-order", {
+      orderData = await apiFetch("/api/credits/create-order", {
         method: "POST",
         token,
         body: JSON.stringify({ credits: creditsGained }),
@@ -155,6 +281,51 @@ export const useCreditsStore = create<CreditsState>((set, get) => ({
     } catch (err: any) {
       console.error("Failed to buy gym subscription via Razorpay:", err);
       const msg = err.description || err.message || "Payment Failed";
+
+      if (msg.includes("Native module cannot be null") || msg.includes("Cannot read property") || msg.includes("undefined is not an object")) {
+        console.warn("Razorpay Native module missing. Asking to simulate success.");
+        
+        return new Promise((resolve) => {
+          if (!orderData?.razorpayOrderId) {
+            resolve({ success: false, message: "Use physical device or custom dev client for Razorpay." });
+            return;
+          }
+
+          Alert?.alert(
+            "Simulator Detected", 
+            "Razorpay native module is missing. Do you want to mock a successful payment for testing?",
+            [
+              { text: "Cancel", style: "cancel", onPress: () => resolve({ success: false, message: "Use physical device or custom dev client for Razorpay." }) },
+              { text: "Mock Payment", onPress: async () => {
+                  try {
+                    const token = useAuthStore.getState().token;
+                    await apiFetch("/api/credits/mock-payment", {
+                      method: "POST",
+                      token,
+                      body: JSON.stringify({ razorpayOrderId: orderData.razorpayOrderId })
+                    });
+                    
+                    // Deduct initial commitment if payment was successful
+                    await apiFetch("/api/credits/deduct", {
+                      method: "POST",
+                      token,
+                      body: JSON.stringify({
+                        credits: initialCreditDeduction,
+                        description: `10-Day Upfront Commitment - ${gymName}`
+                      })
+                    });
+
+                    await get().fetchWallet(token!);
+                    resolve({ success: true, message: `Subscription purchased successfully! (Mocked)` });
+                  } catch(e) {
+                    resolve({ success: false, message: "Mock payment failed" });
+                  }
+              }}
+            ]
+          );
+        });
+      }
+
       return { success: false, message: msg };
     }
   },

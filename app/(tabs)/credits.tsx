@@ -23,6 +23,7 @@ export default function CreditsScreen() {
     cashBalance, 
     transactions, 
     buyCredits, 
+    topUpCash,
     convertCreditsToCash,
     addTransaction 
   } = useCreditsStore();
@@ -40,10 +41,17 @@ export default function CreditsScreen() {
 
   const handleTopUpPress = () => {
     if (!membershipStatus || !membershipStatus.toLowerCase().includes("active")) {
-      Alert.alert("Membership Required", "You must have an active gym membership to purchase additional credits.");
+      Alert.alert(
+        "Membership Required", 
+        "You must have an active gym membership to purchase additional credits. Let's get you a membership first!",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Find a Gym", onPress: () => router.push("/buy-credits" as any) }
+        ]
+      );
       return;
     }
-    router.push("/buy-credits" as any);
+    router.push("/top-up-credits" as any);
   };
 
   const handleConvert = async () => {
@@ -72,21 +80,21 @@ export default function CreditsScreen() {
     }
   };
 
-  const handleTopUpCash = () => {
+  const handleTopUpCash = async () => {
     const amount = parseFloat(cashToTopUp);
     if (isNaN(amount) || amount <= 0) {
       Alert.alert("Invalid Input", "Please enter a valid positive amount.");
       return;
     }
 
-    useCreditsStore.setState((state) => ({
-      cashBalance: state.cashBalance + amount,
-    }));
-    addTransaction("credit", amount, "cash", "Topped Up Cash Balance");
-    
-    Alert.alert("Success", `Successfully added ₹${amount} to your cash balance!`);
-    setCashToTopUp("");
-    setCashModalVisible(false);
+    const result = await topUpCash(amount);
+    if (result.success) {
+      Alert.alert("Success", `Successfully added ₹${amount} to your cash balance!`);
+      setCashToTopUp("");
+      setCashModalVisible(false);
+    } else {
+      Alert.alert("Payment Failed", result.message || "Failed to add cash.");
+    }
   };
 
   const renderTransactionRow = ({ item }: { item: Transaction }) => {
@@ -217,7 +225,12 @@ export default function CreditsScreen() {
         </View>
 
         {/* Section 3: Recent Activity Ledger */}
-        <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider mt-6 mb-3 ml-6">Recent Activity</Text>
+        <View className="flex-row justify-between items-end mt-6 mb-3 px-6">
+          <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider">Recent Activity</Text>
+          <Pressable onPress={() => router.push("/transactions" as any)} className="active:opacity-70">
+            <Text className="text-xs font-bold text-emerald-600">View All</Text>
+          </Pressable>
+        </View>
         <View className="mx-5 bg-white rounded-[28px] p-5 border border-black/5 shadow-sm">
           {transactions.length === 0 ? (
             <Text className="text-center text-xs text-[#6B756E] py-4">No recent activity found.</Text>
