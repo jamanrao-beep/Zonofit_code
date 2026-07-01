@@ -81,8 +81,6 @@ export default function HomeScreen() {
         bounces={true}
         overScrollMode="never"
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120, paddingTop: 12 }}
-        bounces={true}
-        overScrollMode="never"
       >
         {/* Header Section */}
         <View className="flex-row justify-between items-center mb-6">

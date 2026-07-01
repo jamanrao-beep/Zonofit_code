@@ -210,7 +210,7 @@ router.post("/google", async (req: Request, res: Response): Promise<void> => {
       where: { name: "Premium" },
     });
 
-    // ✅ Use upsert so clicking Google twice doesn't crash
+    //  Use upsert so clicking Google twice doesn't crash
     const user = await prisma.user.upsert({
       where: { email },
       update: {},

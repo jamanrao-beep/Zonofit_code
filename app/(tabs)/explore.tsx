@@ -27,6 +27,7 @@ export interface Gym {
   cost: number;
   slots: number;
   image: string;
+  images?: string[];
   tags: string[];
   type: string;
   isPremium?: boolean;
