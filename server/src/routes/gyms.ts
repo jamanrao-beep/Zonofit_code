@@ -309,6 +309,135 @@ router.get(
   }
 );
 
+// ─── GET /api/gyms/analytics/dashboard ─────────────────────────────────────
+/**
+ * Dashboard analytics for Gym Owners.
+ */
+router.get(
+  "/analytics/dashboard",
+  requireAuth,
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      // Get all gyms owned by this user
+      const gyms = await prisma.gym.findMany({
+        where: { ownerId: req.dbUserId, isActive: true },
+        select: { id: true, name: true, creditCost: true }
+      });
+
+      if (gyms.length === 0) {
+        res.status(403).json({ error: "Forbidden", message: "User is not a gym owner." });
+        return;
+      }
+
+      const gymIds = gyms.map(g => g.id);
+
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+
+      const monthStart = new Date();
+      monthStart.setDate(1);
+      monthStart.setHours(0, 0, 0, 0);
+
+      // Check-ins Today
+      const todayCheckins = await prisma.booking.findMany({
+        where: {
+          gymId: { in: gymIds },
+          visitDate: { gte: todayStart, lte: todayEnd },
+          status: { in: ["CHECKED_IN", "COMPLETED"] }
+        },
+        include: { gym: true }
+      });
+
+      const usersToday = todayCheckins.length;
+      const creditsToday = todayCheckins.reduce((sum, b) => sum + (b.gym?.creditCost || 0), 0);
+
+      // Sales This Month
+      const monthBookings = await prisma.booking.findMany({
+        where: {
+          gymId: { in: gymIds },
+          visitDate: { gte: monthStart, lte: todayEnd },
+          status: { in: ["CHECKED_IN", "COMPLETED"] }
+        },
+        include: { gym: true }
+      });
+      const monthCredits = monthBookings.reduce((sum, b) => sum + (b.gym?.creditCost || 0), 0);
+      const salesThisMonth = monthCredits * 10; // Estimated INR
+
+      // Recent Check-ins
+      const recentCheckins = await prisma.booking.findMany({
+        where: { gymId: { in: gymIds }, status: { in: ["CHECKED_IN", "COMPLETED"] } },
+        orderBy: { updatedAt: "desc" },
+        take: 3,
+        include: { user: { select: { name: true, activePlan: true } } }
+      });
+
+      // Upcoming Bookings
+      const upcomingBookings = await prisma.booking.findMany({
+        where: { gymId: { in: gymIds }, status: "CONFIRMED", visitDate: { gte: new Date() } },
+        orderBy: { visitDate: "asc" },
+        take: 3,
+        include: { user: { select: { name: true } } }
+      });
+
+      // Weekly Attendance Chart (Last 7 days)
+      const weekStart = new Date();
+      weekStart.setDate(weekStart.getDate() - 6);
+      weekStart.setHours(0, 0, 0, 0);
+      
+      const weekBookings = await prisma.booking.findMany({
+        where: {
+          gymId: { in: gymIds },
+          visitDate: { gte: weekStart, lte: todayEnd },
+          status: { in: ["CHECKED_IN", "COMPLETED"] }
+        },
+        select: { visitDate: true }
+      });
+
+      const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const attendanceMap: Record<string, number> = {};
+      
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(weekStart);
+        d.setDate(d.getDate() + i);
+        attendanceMap[dayNames[d.getDay()]] = 0;
+      }
+
+      weekBookings.forEach(b => {
+        const dayStr = dayNames[b.visitDate.getDay()];
+        if (attendanceMap[dayStr] !== undefined) {
+          attendanceMap[dayStr]++;
+        }
+      });
+
+      const chartData = Object.keys(attendanceMap).map(day => ({
+        day,
+        visits: attendanceMap[day]
+      }));
+
+      res.json({
+        usersToday,
+        creditsToday,
+        salesThisMonth,
+        chartData,
+        recentCheckins: recentCheckins.map(c => ({
+          name: c.user?.name || "Unknown",
+          time: new Date(c.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          plan: c.user?.activePlan || "Standard"
+        })),
+        upcomingBookings: upcomingBookings.map(b => ({
+          name: b.user?.name || "Unknown",
+          slot: new Date(b.visitDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          status: b.status
+        }))
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: "ServerError", message: err.message });
+    }
+  }
+);
+
 
 
 export default router;

@@ -5,6 +5,7 @@ import { OrbitControls, Environment, Float, MeshDistortMaterial, Sphere, Box } f
 import { useRef } from "react";
 import * as THREE from "three";
 import { ArrowRight, BarChart3, Users, Building2, Activity } from "lucide-react";
+import Link from "next/link";
 
 // 3D Dumbbell Component
 function Fitness3D() {
@@ -19,7 +20,7 @@ function Fitness3D() {
   });
 
   return (
-    <group ref={groupRef} scale={1.5} rotation={[0.5, 0, 0]}>
+    <group ref={groupRef} scale={1.2} rotation={[0.5, 0, 0]}>
       {/* Handle */}
       <mesh rotation={[0, 0, Math.PI / 2]}>
         <cylinderGeometry args={[0.15, 0.15, 2, 32]} />
@@ -87,12 +88,9 @@ export default function Home() {
           </p>
 
           <div className="flex flex-wrap items-center gap-4 mt-4">
-            <button className="bg-primary hover:bg-primary-dark text-white px-8 py-4 rounded-full font-semibold transition-all hover:scale-105 active:scale-95 shadow-[0_4px_20px_rgba(16,185,129,0.3)] flex items-center gap-2">
+            <Link href="/auth/login" className="bg-primary hover:bg-primary-dark text-white px-8 py-4 rounded-full font-semibold transition-all hover:scale-105 active:scale-95 shadow-[0_4px_20px_rgba(16,185,129,0.3)] flex items-center gap-2">
               Get Started <ArrowRight size={20} />
-            </button>
-            <button className="glass hover:bg-black/5 text-black px-8 py-4 rounded-full font-semibold transition-all flex items-center gap-2">
-              Explore Gyms
-            </button>
+            </Link>
           </div>
 
           {/* Quick Stats Bento */}
@@ -114,7 +112,7 @@ export default function Home() {
 
         {/* Right 3D Canvas */}
         <div className="w-full lg:w-1/2 h-[500px] lg:h-[700px] mt-12 lg:mt-0 relative">
-          <Canvas camera={{ position: [0, 0, 5], fov: 45 }}>
+          <Canvas camera={{ position: [0, 0, 6], fov: 50 }}>
             <ambientLight intensity={0.5} />
             <directionalLight position={[10, 10, 5]} intensity={1} color="#10B981" />
             <directionalLight position={[-10, -10, -5]} intensity={0.5} color="#ffffff" />

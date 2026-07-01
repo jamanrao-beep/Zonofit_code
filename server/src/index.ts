@@ -24,6 +24,7 @@ import rolesRouter from "./routes/roles";
 import userRoutes from "./routes/users";
 import feedbackRoutes from "./routes/feedback";
 import challengesRoutes from "./routes/challenges";
+import adminRoutes from "./routes/admin";
 
 const app = express();
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
