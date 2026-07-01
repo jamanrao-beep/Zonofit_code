@@ -370,7 +370,7 @@ router.get(
         where: { gymId: { in: gymIds }, status: { in: ["CHECKED_IN", "COMPLETED"] } },
         orderBy: { updatedAt: "desc" },
         take: 3,
-        include: { user: { select: { name: true, activePlan: true } } }
+        include: { user: { select: { name: true, membership: { select: { plan: { select: { name: true } } } } } } }
       });
 
       // Upcoming Bookings
@@ -424,7 +424,7 @@ router.get(
         recentCheckins: recentCheckins.map(c => ({
           name: c.user?.name || "Unknown",
           time: new Date(c.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          plan: c.user?.activePlan || "Standard"
+          plan: (c.user as any)?.membership?.plan?.name || "Standard"
         })),
         upcomingBookings: upcomingBookings.map(b => ({
           name: b.user?.name || "Unknown",
