@@ -282,6 +282,8 @@ model Gym {
   chatMessages      ChatMessage[]
   userRoles         UserRoleGym[]
   primaryMemberships Membership[] @relation("PrimaryGym")
+  payouts           GymPayout[]
+  offers            GymOffer[]
 
   @@index([city])
   @@index([isActive])
@@ -573,4 +575,41 @@ model SystemSettings {
   updatedAt             DateTime @updatedAt
 
   @@map("system_settings")
+}
+
+// ─────────────────────────────────────────────
+// GYM PAYOUTS & OFFERS
+// ─────────────────────────────────────────────
+
+model GymPayout {
+  id          String   @id @default(uuid())
+  gymId       String
+  periodStart DateTime
+  periodEnd   DateTime
+  amountPaise Int
+  status      String   @default("PENDING") // PENDING, PAID
+  payoutDate  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  gym Gym @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  @@index([gymId])
+  @@map("gym_payouts")
+}
+
+model GymOffer {
+  id           String   @id @default(uuid())
+  gymId        String
+  title        String
+  discountText String
+  status       String   @default("DRAFT") // DRAFT, ACTIVE
+  expiryDate   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  gym Gym @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  @@index([gymId])
+  @@map("gym_offers")
 }

@@ -36,6 +36,16 @@ export default function Header() {
               Dashboard
             </Link>
           )}
+          {mounted && user && user.role === "GYM_OWNER" && (
+            <>
+              <Link href="/gym/dashboard/profile" className="hover:text-black transition-colors">
+                Profile
+              </Link>
+              <Link href="/gym/dashboard/support" className="hover:text-black transition-colors">
+                Support
+              </Link>
+            </>
+          )}
           {mounted && user && (
             <Link href="/settings" className="hover:text-black transition-colors">
               Settings
