@@ -183,6 +183,10 @@ model Membership {
 
   user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   plan MembershipPlan @relation(fields: [planId], references: [id])
+  
+  primaryGymId      String?
+  primaryGymVisits  Int      @default(0)
+  primaryGym        Gym?     @relation("PrimaryGym", fields: [primaryGymId], references: [id])
 
   @@map("memberships")
 }
@@ -269,15 +273,15 @@ model Gym {
   ownerId       String?
   owner         User?       @relation("GymOwner", fields: [ownerId], references: [id])
 
-  // For "Near Primary Gym" section in Explore — gyms can belong to a partner network
   partnerSince  DateTime?
 
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
-  bookings      Booking[]
-  chatMessages  ChatMessage[]
-  userRoles     UserRoleGym[]
+  bookings          Booking[]
+  chatMessages      ChatMessage[]
+  userRoles         UserRoleGym[]
+  primaryMemberships Membership[] @relation("PrimaryGym")
 
   @@index([city])
   @@index([isActive])
@@ -554,4 +558,19 @@ model Notification {
 
   @@index([userId])
   @@map("notifications")
+}
+
+// ─────────────────────────────────────────────
+// SYSTEM SETTINGS
+// ─────────────────────────────────────────────
+
+model SystemSettings {
+  id                    String   @id @default("default")
+  creditPurchasePrice   Int      @default(10)  // How much 1 credit costs (₹10)
+  creditConversionValue Int      @default(8)   // How much cash 1 credit yields (₹8)
+  cashExpiryDays        Int      @default(15)  // Days until converted cash expires
+  initialVisitCut       Int      @default(10)  // Initial visits locked to primary gym
+  updatedAt             DateTime @updatedAt
+
+  @@map("system_settings")
 }

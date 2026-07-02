@@ -11,6 +11,7 @@ import {
 } from "../lib/constants";
 import { createError } from "../middleware/errorHandler";
 import { sendPushNotification } from "../services/notifications";
+import { getSystemSettings } from "../services/settings";
 
 // Initialize Razorpay
 // We use placeholder keys if env vars are missing so the server doesn't crash on boot
@@ -141,7 +142,8 @@ router.post(
     }
 
     const { credits } = req.body as { credits: number };
-    const cashINR = creditsToCashINR(credits);
+    const settings = await getSystemSettings();
+    const cashINR = credits * settings.creditConversionValue;
     const cashPaise = cashINR * 100;
 
     // Atomic transaction — deduct credits and add cash in one DB operation
@@ -205,8 +207,8 @@ router.post(
     }
 
     const { credits } = req.body;
-    // Calculation: 1 credit = 10 INR = 1000 Paise
-    const amountINR = credits * 10;
+    const settings = await getSystemSettings();
+    const amountINR = credits * settings.creditPurchasePrice;
     const amountPaise = amountINR * 100;
 
     try {
@@ -521,7 +523,8 @@ router.post(
     }
 
     const { creditsToBuy } = req.body as { creditsToBuy: number };
-    const cashRequiredPaise = creditsToBuy * 10 * 100; // ₹10 per credit
+    const settings = await getSystemSettings();
+    const cashRequiredPaise = creditsToBuy * settings.creditPurchasePrice * 100; // using dynamic price
 
     try {
       const result = await prisma.$transaction(async (tx) => {

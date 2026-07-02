@@ -1,6 +1,7 @@
 import cron from "node-cron";
 import { Expo } from "expo-server-sdk";
 import prisma from "../lib/prisma";
+import { getSystemSettings } from "./settings";
 
 const expo = new Expo();
 
@@ -89,6 +90,8 @@ async function processMembershipExpiries() {
     }
   });
 
+  const settings = await getSystemSettings();
+
   for (const membership of expiredMemberships) {
     let converted = false;
     let creditsToConvert = 0;
@@ -109,10 +112,10 @@ async function processMembershipExpiries() {
       if (wallet && wallet.balance > 0) {
         converted = true;
         creditsToConvert = wallet.balance;
-        cashToAddPaise = creditsToConvert * 8 * 100; // ₹8 per credit
+        cashToAddPaise = creditsToConvert * settings.creditConversionValue * 100;
         
         const cashExpiry = new Date();
-        cashExpiry.setDate(cashExpiry.getDate() + 15); // Expires in 15 days
+        cashExpiry.setDate(cashExpiry.getDate() + settings.cashExpiryDays);
 
         // Update wallet: clear credits, add cash, set expiry
         await (tx as any).creditWallet.update({
@@ -142,7 +145,7 @@ async function processMembershipExpiries() {
       await createNotification(
         membership.userId,
         "Credits Converted",
-        `Your membership expired. ${creditsToConvert} credits were converted to ₹${cashToAddPaise/100} cash. This cash will expire in 15 days.`,
+        `Your membership expired. ${creditsToConvert} credits were converted to ₹${cashToAddPaise/100} cash. This cash will expire in ${settings.cashExpiryDays} days.`,
         "INFO"
       );
     }

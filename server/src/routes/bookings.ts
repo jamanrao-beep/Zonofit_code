@@ -71,12 +71,17 @@ router.post(
         );
       }
 
-      // 3. Check wallet balance
+      // 3. Check wallet balance or primary visits
+      let isPrimaryVisit = false;
+      if (membership.primaryGymId === gymId && membership.primaryGymVisits > 0) {
+        isPrimaryVisit = true;
+      }
+
       const wallet = await tx.creditWallet.findUnique({
         where: { userId: req.dbUserId! },
       });
       if (!wallet) throw createError("Wallet not found.", 404, "WalletNotFound");
-      if (wallet.balance < gym.creditCost) {
+      if (!isPrimaryVisit && wallet.balance < gym.creditCost) {
         throw createError(
           `Insufficient credits. Need ${gym.creditCost}, have ${wallet.balance}.`,
           400,
@@ -117,11 +122,19 @@ router.post(
         );
       }
 
-      // 6. Atomically deduct credits
-      const updatedWallet = await tx.creditWallet.update({
-        where: { userId: req.dbUserId! },
-        data: { balance: { decrement: gym.creditCost } },
-      });
+      // 6. Atomically deduct credits (or primary visits)
+      let updatedWallet = wallet;
+      if (isPrimaryVisit) {
+        await tx.membership.update({
+          where: { userId: req.dbUserId! },
+          data: { primaryGymVisits: { decrement: 1 } }
+        });
+      } else {
+        updatedWallet = await tx.creditWallet.update({
+          where: { userId: req.dbUserId! },
+          data: { balance: { decrement: gym.creditCost } },
+        });
+      }
 
       // 7. Create the booking
       const passCode = uuidv4();
@@ -132,7 +145,7 @@ router.post(
           visitDate: visitDateObj,
           timeSlot,
           status: "CONFIRMED",
-          creditsDeducted: gym.creditCost,
+          creditsDeducted: isPrimaryVisit ? 0 : gym.creditCost,
           passCode,
         },
       });
@@ -159,9 +172,11 @@ router.post(
           userId: req.dbUserId!,
           walletId: wallet.id,
           type: "VISIT_SPEND",
-          amount: -gym.creditCost,
+          amount: isPrimaryVisit ? 0 : -gym.creditCost,
           balanceAfter: updatedWallet.balance,
-          description: `Visit booked at ${gym.name} on ${visitDateObj.toDateString()}`,
+          description: isPrimaryVisit 
+            ? `Primary Gym Visit booked at ${gym.name} (Cost: 0 credits). Remaining: ${membership.primaryGymVisits - 1}`
+            : `Visit booked at ${gym.name} on ${visitDateObj.toDateString()}`,
           bookingId: booking.id,
         },
       });

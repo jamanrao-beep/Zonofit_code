@@ -3,6 +3,7 @@ import { body, validationResult } from "express-validator";
 import prisma from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
 import { createError } from "../middleware/errorHandler";
+import { getSystemSettings } from "../services/settings";
 
 const router = Router();
 
@@ -81,6 +82,7 @@ router.post(
     body("planId").isUUID().withMessage("Valid plan ID required."),
     body("referenceId").isString().notEmpty().withMessage("Payment reference required."),
     body("amountPaidPaise").isInt({ min: 1 }).withMessage("Amount paid (paise) required."),
+    body("primaryGymId").isString().notEmpty().withMessage("Primary Gym selection required."),
   ],
   async (req: Request, res: Response): Promise<void> => {
     const errors = validationResult(req);
@@ -89,68 +91,95 @@ router.post(
       return;
     }
 
-    const { planId } = req.body as { planId: string; referenceId: string; amountPaidPaise: number };
+    const { planId, primaryGymId } = req.body as { planId: string; referenceId: string; amountPaidPaise: number; primaryGymId: string };
 
-    const result = await prisma.$transaction(async (tx) => {
-      const plan = await tx.membershipPlan.findUnique({ where: { id: planId, isActive: true } });
-      if (!plan) throw createError("Plan not found.", 404, "PlanNotFound");
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        const plan = await tx.membershipPlan.findUnique({ where: { id: planId, isActive: true } });
+        if (!plan) throw createError("Plan not found.", 404, "PlanNotFound");
 
-      // TODO: Verify referenceId with Razorpay before proceeding
-      // const isValid = await verifyRazorpayPayment(referenceId, amountPaidPaise);
+        const gym = await tx.gym.findUnique({ where: { id: primaryGymId, isActive: true } });
+        if (!gym) throw createError("Primary Gym not found or inactive.", 404, "GymNotFound");
 
-      const now = new Date();
-      const endDate = new Date(now.getTime() + plan.durationDays * 24 * 60 * 60 * 1000);
+        const settings = await getSystemSettings();
+        const initialVisits = settings.initialVisitCut; // e.g. 10
+        const initialCreditsCost = gym.creditCost * initialVisits;
 
-      // Upsert membership — handles both new activation and renewal
-      const membership = await tx.membership.upsert({
-        where: { userId: req.dbUserId! },
-        create: {
-          userId: req.dbUserId!,
-          planId,
-          status: "ACTIVE",
-          startDate: now,
-          endDate,
-        },
-        update: {
-          planId,
-          status: "ACTIVE",
-          startDate: now,
-          endDate,
-        },
-        include: { plan: true },
+        if (initialCreditsCost > plan.monthlyCredits) {
+          throw createError(
+            `Primary gym's initial ${initialVisits} visits cost (${initialCreditsCost} cr) exceeds the plan's granted credits (${plan.monthlyCredits} cr). Please choose a more affordable primary gym or upgrade your plan.`,
+            400,
+            "InsufficientPlanCredits"
+          );
+        }
+
+        // Calculate remaining credits to add to wallet
+        const remainingCreditsToAdd = plan.monthlyCredits - initialCreditsCost;
+
+        const now = new Date();
+        const endDate = new Date(now.getTime() + plan.durationDays * 24 * 60 * 60 * 1000);
+
+        // Upsert membership
+        const membership = await tx.membership.upsert({
+          where: { userId: req.dbUserId! },
+          create: {
+            userId: req.dbUserId!,
+            planId,
+            status: "ACTIVE",
+            startDate: now,
+            endDate,
+            primaryGymId,
+            primaryGymVisits: initialVisits,
+          },
+          update: {
+            planId,
+            status: "ACTIVE",
+            startDate: now,
+            endDate,
+            primaryGymId,
+            primaryGymVisits: initialVisits,
+          },
+          include: { plan: true },
+        });
+
+        // Grant remaining credits
+        const wallet = await tx.creditWallet.update({
+          where: { userId: req.dbUserId! },
+          data: { balance: { increment: remainingCreditsToAdd } },
+        });
+
+        await tx.creditTransaction.create({
+          data: {
+            userId: req.dbUserId!,
+            walletId: wallet.id,
+            type: "MEMBERSHIP_GRANT",
+            amount: remainingCreditsToAdd,
+            balanceAfter: wallet.balance,
+            description: `${plan.name} activated — ${initialVisits} visits locked to ${gym.name}, ${remainingCreditsToAdd} credits added.`,
+          },
+        });
+
+        return { membership, wallet, remainingCreditsToAdd, initialVisits, gym };
       });
 
-      // Grant monthly credits
-      const wallet = await tx.creditWallet.update({
-        where: { userId: req.dbUserId! },
-        data: { balance: { increment: plan.monthlyCredits } },
-      });
-
-      await tx.creditTransaction.create({
-        data: {
-          userId: req.dbUserId!,
-          walletId: wallet.id,
-          type: "MEMBERSHIP_GRANT",
-          amount: plan.monthlyCredits,
-          balanceAfter: wallet.balance,
-          description: `${plan.name} membership activated — ${plan.monthlyCredits} credits granted`,
+      res.status(201).json({
+        membership: {
+          ...result.membership,
+          plan: {
+            ...result.membership.plan,
+            priceINR: result.membership.plan.priceInPaise / 100,
+          },
         },
+        newCreditBalance: result.wallet.balance,
+        message: `${result.membership.plan.name} activated. ${result.initialVisits} visits available at ${result.gym.name}.`,
       });
-
-      return { membership, wallet };
-    });
-
-    res.status(201).json({
-      membership: {
-        ...result.membership,
-        plan: {
-          ...result.membership.plan,
-          priceINR: result.membership.plan.priceInPaise / 100,
-        },
-      },
-      newCreditBalance: result.wallet.balance,
-      message: `${result.membership.plan.name} membership activated. ${result.membership.plan.monthlyCredits} credits added.`,
-    });
+    } catch (err: any) {
+      if (err.status) {
+        res.status(err.status).json({ error: err.code, message: err.message });
+      } else {
+        res.status(500).json({ error: "ServerError", message: err.message });
+      }
+    }
   }
 );
 

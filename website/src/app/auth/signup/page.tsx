@@ -10,7 +10,6 @@ export default function SignupPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"GYM_OWNER" | "ADMIN">("GYM_OWNER");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -25,7 +24,7 @@ export default function SignupPage() {
       const res = await fetch("/api/auth/portal/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password, role }),
+        body: JSON.stringify({ name, email, password, role: "GYM_OWNER" }),
       });
 
       const data = await res.json();
@@ -45,12 +44,12 @@ export default function SignupPage() {
 
   return (
     <div className="flex-1 flex items-center justify-center relative min-h-[calc(100vh-80px)] py-12">
-      <div className="absolute top-[30%] right-[20%] w-[40%] h-[40%] rounded-full bg-emerald-900/20 blur-[120px] pointer-events-none" />
+      <div className="absolute top-[30%] right-[20%] w-[40%] h-[40%] rounded-full bg-emerald-100/60 blur-[120px] pointer-events-none" />
       
-      <div className="glass w-full max-w-md p-8 rounded-3xl relative z-10 shadow-2xl mx-4">
+      <div className="glass w-full max-w-md p-8 rounded-3xl relative z-10 shadow-xl border border-black/5 mx-4">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Create Account</h1>
-          <p className="text-gray-400 text-sm">Join the ZonoFit Partner Network</p>
+          <h1 className="text-3xl font-bold text-black mb-2">Create Account</h1>
+          <p className="text-gray-600 text-sm">Join the ZonoFit Partner Network</p>
         </div>
 
         {error ? (
@@ -60,22 +59,6 @@ export default function SignupPage() {
         ) : null}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="flex gap-2 mb-2 p-1 glass rounded-xl">
-            <button
-              type="button"
-              onClick={() => setRole("GYM_OWNER")}
-              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${role === "GYM_OWNER" ? "bg-white/10 text-white" : "text-gray-500 hover:text-gray-300"}`}
-            >
-              Gym Owner
-            </button>
-            <button
-              type="button"
-              onClick={() => setRole("ADMIN")}
-              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${role === "ADMIN" ? "bg-white/10 text-white" : "text-gray-500 hover:text-gray-300"}`}
-            >
-              System Admin
-            </button>
-          </div>
 
           <div className="relative">
             <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -85,7 +68,7 @@ export default function SignupPage() {
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full bg-black/40 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-gray-500"
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 pl-12 pr-4 text-black focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-gray-400"
             />
           </div>
 
@@ -97,7 +80,7 @@ export default function SignupPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-black/40 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-gray-500"
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 pl-12 pr-4 text-black focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-gray-400"
             />
           </div>
 
@@ -110,7 +93,7 @@ export default function SignupPage() {
               minLength={6}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-black/40 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-gray-500"
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 pl-12 pr-4 text-black focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-gray-400"
             />
           </div>
 
@@ -123,7 +106,7 @@ export default function SignupPage() {
           </button>
         </form>
 
-        <div className="mt-8 text-center text-sm text-gray-400">
+        <div className="mt-8 text-center text-sm text-gray-600">
           Already have an account?{" "}
           <Link href="/auth/login" className="text-primary hover:text-primary-dark font-semibold">
             Login

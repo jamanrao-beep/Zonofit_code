@@ -33,6 +33,8 @@ router.post(
   [
     body("bookingId").isUUID().withMessage("Valid booking ID required."),
     body("verificationCode").isString().notEmpty().withMessage("Verification code required."),
+    body("userLat").isFloat().withMessage("User latitude required."),
+    body("userLng").isFloat().withMessage("User longitude required."),
   ],
   async (req: Request, res: Response): Promise<void> => {
     const errors = validationResult(req);
@@ -41,9 +43,11 @@ router.post(
       return;
     }
 
-    const { bookingId, verificationCode } = req.body as {
+    const { bookingId, verificationCode, userLat, userLng } = req.body as {
       bookingId: string;
       verificationCode: string;
+      userLat: number;
+      userLng: number;
     };
 
     const result = await prisma.$transaction(async (tx) => {
@@ -55,7 +59,7 @@ router.post(
         },
         include: {
           checkIn: true,
-          gym: { select: { name: true } },
+          gym: { select: { name: true, lat: true, lng: true } },
         },
       });
 
@@ -100,6 +104,24 @@ router.post(
           "Invalid verification code.",
           400,
           "InvalidCode"
+        );
+      }
+
+      // Location Check: Must be within 1km
+      const R = 6371; // Radius of the earth in km
+      const dLat = (booking.gym.lat - userLat) * Math.PI / 180;
+      const dLon = (booking.gym.lng - userLng) * Math.PI / 180;
+      const a = 
+        Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(userLat * Math.PI / 180) * Math.cos(booking.gym.lat * Math.PI / 180) * 
+        Math.sin(dLon/2) * Math.sin(dLon/2); 
+      const distanceInKm = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)) * R;
+      
+      if (distanceInKm > 1) {
+        throw createError(
+          `You must be within 1km of ${booking.gym.name} to check in. You are currently ${distanceInKm.toFixed(2)}km away.`,
+          403,
+          "TooFarFromGym"
         );
       }
 

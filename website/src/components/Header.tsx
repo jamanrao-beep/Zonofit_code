@@ -19,17 +19,28 @@ export default function Header() {
     <header className="fixed top-0 w-full z-50 glass border-b border-black/5">
       <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
-          <Image src="/logo.jpeg" alt="ZonoFit" width={40} height={40} className="rounded-lg object-cover" />
+          <Image src="/logo.jpeg" alt="ZonoFit" width={40} height={40} className="rounded-lg object-cover w-10 h-10" priority />
           <span className="text-xl font-bold tracking-tight text-black">
             Zono<span className="text-primary">Fit</span>
           </span>
         </Link>
         
         <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-600">
-          <Link href="/" className="hover:text-black transition-colors">Overview</Link>
-          <Link href="#" className="hover:text-black transition-colors">Gym Partners</Link>
-          <Link href="#" className="hover:text-black transition-colors">Analytics</Link>
-          <Link href="#" className="hover:text-black transition-colors">Settings</Link>
+          <Link href="/how-it-works" className="hover:text-black transition-colors">How it Works</Link>
+          <Link href="/plans" className="hover:text-black transition-colors">Plans</Link>
+          {(!mounted || !user || user.role !== "GYM_OWNER") && (
+            <Link href="/partners" className="hover:text-black transition-colors">Gym Partners</Link>
+          )}
+          {mounted && user && (
+            <Link href={user.role === "ADMIN" ? "/admin/dashboard" : "/gym/dashboard"} className="hover:text-black transition-colors font-semibold text-primary">
+              Dashboard
+            </Link>
+          )}
+          {mounted && user && (
+            <Link href="/settings" className="hover:text-black transition-colors">
+              Settings
+            </Link>
+          )}
         </nav>
         
         <div className="flex items-center gap-4">

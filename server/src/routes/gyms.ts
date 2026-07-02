@@ -417,6 +417,7 @@ router.get(
       }));
 
       res.json({
+        gymId: gymIds[0] || null,
         usersToday,
         creditsToday,
         salesThisMonth,

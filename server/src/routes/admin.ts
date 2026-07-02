@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import prisma from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
 import { createError } from "../middleware/errorHandler";
+import { getSystemSettings } from "../services/settings";
 
 const router = Router();
 
@@ -75,6 +76,84 @@ router.get("/dashboard", requireAuth, requireAdmin, async (req: Request, res: Re
         status: g.isVerified ? "Verified" : "Pending"
       }))
     });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
+// ─── GET /api/admin/settings ─────────────────────────────────────────────────
+router.get("/settings", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const settings = await getSystemSettings();
+    res.json(settings);
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
+// ─── PUT /api/admin/settings ─────────────────────────────────────────────────
+router.put("/settings", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { creditPurchasePrice, creditConversionValue, cashExpiryDays, initialVisitCut } = req.body;
+    
+    const settings = await prisma.systemSettings.upsert({
+      where: { id: "default" },
+      update: {
+        creditPurchasePrice,
+        creditConversionValue,
+        cashExpiryDays,
+        initialVisitCut
+      },
+      create: {
+        id: "default",
+        creditPurchasePrice: creditPurchasePrice || 10,
+        creditConversionValue: creditConversionValue || 8,
+        cashExpiryDays: cashExpiryDays || 15,
+        initialVisitCut: initialVisitCut !== undefined ? initialVisitCut : 10
+      }
+    });
+    
+    res.json({ message: "Settings updated successfully", settings });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
+// ─── POST /api/admin/gyms ────────────────────────────────────────────────────
+router.post("/gyms", requireAuth, requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { 
+      name, description, address, city, state, lat, lng, 
+      creditCost, category, facilities, totalSlots 
+    } = req.body;
+
+    if (!name || !address || !city || !lat || !lng || !creditCost) {
+      res.status(400).json({ error: "Missing required fields for gym creation" });
+      return;
+    }
+
+    const gym = await prisma.gym.create({
+      data: {
+        name,
+        description,
+        address,
+        city,
+        state: state || "Maharashtra",
+        lat: parseFloat(lat),
+        lng: parseFloat(lng),
+        creditCost: parseInt(creditCost, 10),
+        category: category || "STANDARD",
+        facilities: Array.isArray(facilities) ? facilities : facilities.split(",").map((f: string) => f.trim()),
+        totalSlots: parseInt(totalSlots, 10) || 20,
+        isVerified: true,
+        isActive: true
+      }
+    });
+
+    // Note: In production we'd also run a raw query here to set the PostGIS location column
+    // await prisma.$executeRaw\`UPDATE gyms SET location = ST_SetSRID(ST_MakePoint(${parseFloat(lng)}, ${parseFloat(lat)}), 4326) WHERE id = ${gym.id}\`;
+
+    res.json({ message: "Gym created successfully", gym });
   } catch (err: any) {
     res.status(500).json({ error: "ServerError", message: err.message });
   }
