@@ -125,6 +125,12 @@ router.post(
       }
     } else {
       // Signup flow
+      const settings = await prisma.systemSettings.findUnique({ where: { id: "default" } });
+      if (settings && !settings.signupsEnabled) {
+        res.status(403).json({ error: "SignupsDisabled", message: "New signups are currently disabled." });
+        return;
+      }
+
       if (!username) {
         res.status(400).json({ error: "UsernameRequired", message: "Username is required for signup." });
         return;
@@ -209,6 +215,15 @@ router.post("/google", async (req: Request, res: Response): Promise<void> => {
     const premiumPlan = await prisma.membershipPlan.findFirst({
       where: { name: "Premium" },
     });
+
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+    if (!existingUser) {
+      const settings = await prisma.systemSettings.findUnique({ where: { id: "default" } });
+      if (settings && !settings.signupsEnabled) {
+        res.status(403).json({ error: "SignupsDisabled", message: "New signups are currently disabled." });
+        return;
+      }
+    }
 
     //  Use upsert so clicking Google twice doesn't crash
     const user = await prisma.user.upsert({

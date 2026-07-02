@@ -94,6 +94,7 @@ app.use("/api/roles", rolesRouter);
 app.use("/api/challenges", challengesRoutes);
 
 app.use("/api/feedback", feedbackRoutes);
+app.use("/api/admin", adminRoutes);
 
 // ─── 404 & Error Handling ──────────────────────────────────────────────────────
 app.use(notFoundHandler);

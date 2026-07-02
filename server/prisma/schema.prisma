@@ -27,6 +27,7 @@ enum MembershipStatus {
   ACTIVE
   EXPIRED
   CANCELLED
+  FROZEN
   PENDING
 }
 
@@ -98,6 +99,7 @@ model User {
   // Portal Authentication
   systemRole  SystemRole @default(MEMBER)
   passwordHash String?
+  isSuspended Boolean @default(false)
 
   // Referral system (Phase 2 — column exists but logic is Phase 2)
   referralCode       String?  @unique
@@ -129,6 +131,10 @@ model User {
   notifications      Notification[]
   gymsOwned          Gym[]             @relation("GymOwner")
 
+  adminProfile       AdminProfile?
+  auditLogs          AdminAuditLog[]
+  supportTickets     SupportTicket[]   @relation("UserSupportTickets")
+  assignedTickets    SupportTicket[]   @relation("AssignedSupportTickets")
   @@map("users")
 }
 
@@ -284,6 +290,8 @@ model Gym {
   primaryMemberships Membership[] @relation("PrimaryGym")
   payouts           GymPayout[]
   offers            GymOffer[]
+  applications      GymApplication[]
+  supportTickets    SupportTicket[]
 
   @@index([city])
   @@index([isActive])
@@ -572,6 +580,13 @@ model SystemSettings {
   creditConversionValue Int      @default(8)   // How much cash 1 credit yields (₹8)
   cashExpiryDays        Int      @default(15)  // Days until converted cash expires
   initialVisitCut       Int      @default(10)  // Initial visits locked to primary gym
+  
+  // Emergency Kill Switches
+  referralsEnabled      Boolean  @default(true)
+  payoutsEnabled        Boolean  @default(true)
+  signupsEnabled        Boolean  @default(true)
+  couponsEnabled        Boolean  @default(true)
+  
   updatedAt             DateTime @updatedAt
 
   @@map("system_settings")
@@ -612,4 +627,92 @@ model GymOffer {
 
   @@index([gymId])
   @@map("gym_offers")
+}
+
+// ─────────────────────────────────────────────
+// ADMIN FEATURES
+// ─────────────────────────────────────────────
+
+enum AdminRoleType {
+  FOUNDER
+  OPS_MANAGER
+  SALES_REP
+  SUPPORT_AGENT
+  FINANCE_ADMIN
+  MARKETING_MANAGER
+}
+
+model AdminProfile {
+  id        String        @id @default(uuid())
+  userId    String        @unique
+  roleType  AdminRoleType @default(OPS_MANAGER)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("admin_profiles")
+}
+
+model AdminAuditLog {
+  id          String   @id @default(uuid())
+  adminId     String
+  actionType  String   // e.g., "APPROVE_GYM", "RELEASE_PAYOUT"
+  targetId    String?  // ID of the entity affected
+  details     String?  // JSON string or text explaining the change
+  createdAt   DateTime @default(now())
+
+  admin User @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@map("admin_audit_logs")
+}
+
+model GymApplication {
+  id            String   @id @default(uuid())
+  gymId         String
+  status        String   @default("PENDING") // PENDING, APPROVED, REJECTED, NEEDS_CLARIFICATION
+  documentsJson String?  // Stores uploaded URLs/references
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  gym Gym @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  @@map("gym_applications")
+}
+
+model SupportTicket {
+  id          String   @id @default(uuid())
+  subject     String
+  message     String
+  status      String   @default("OPEN") // OPEN, IN_PROGRESS, RESOLVED, CLOSED
+  priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  
+  userId      String?
+  gymId       String?
+  assignedToId String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User?  @relation("UserSupportTickets", fields: [userId], references: [id], onDelete: Cascade)
+  gym         Gym?   @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  assignedTo  User?  @relation("AssignedSupportTickets", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  @@map("support_tickets")
+}
+
+model MarketingCoupon {
+  id            String   @id @default(uuid())
+  code          String   @unique
+  discountType  String   @default("PERCENTAGE") // PERCENTAGE, FIXED_AMOUNT
+  discountValue Int
+  usageLimit    Int?
+  usageCount    Int      @default(0)
+  expiryDate    DateTime?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("marketing_coupons")
 }
