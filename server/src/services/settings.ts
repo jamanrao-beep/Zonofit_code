@@ -12,7 +12,7 @@ export const getSystemSettings = async () => {
         creditPurchasePrice: 10,
         creditConversionValue: 8,
         cashExpiryDays: 15,
-        compulsoryCutDays: 10
+        initialVisitCut: 10
       }
     });
   }

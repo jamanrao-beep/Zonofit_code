@@ -25,10 +25,12 @@ enum SystemRole {
 
 enum MembershipStatus {
   ACTIVE
-  EXPIRED
-  CANCELLED
+  PAST_DUE
   FROZEN
+  CANCELLED
+  NO_SHOW
   PENDING
+  EXPIRED
 }
 
 enum MembershipTier {
@@ -99,7 +101,7 @@ model User {
   // Portal Authentication
   systemRole  SystemRole @default(MEMBER)
   passwordHash String?
-  isSuspended Boolean @default(false)
+  isSuspended Boolean    @default(false)
 
   // Referral system (Phase 2 — column exists but logic is Phase 2)
   referralCode       String?  @unique
@@ -715,4 +717,12 @@ model MarketingCoupon {
   updatedAt     DateTime @updatedAt
 
   @@map("marketing_coupons")
+}
+
+model SystemContent {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+
+  @@map("system_content")
 }

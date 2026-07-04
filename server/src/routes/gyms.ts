@@ -547,7 +547,7 @@ router.get(
         payouts: payouts.map(p => ({
           id: p.id,
           period: `${new Date(p.periodStart).toLocaleDateString()} - ${new Date(p.periodEnd).toLocaleDateString()}`,
-          amount: \`₹${p.amountPaise / 100}\`,
+          amount: `₹${p.amountPaise / 100}`,
           status: p.status,
           date: p.payoutDate ? new Date(p.payoutDate).toLocaleDateString() : "Pending"
         }))

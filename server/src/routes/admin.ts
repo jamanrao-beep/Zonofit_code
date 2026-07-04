@@ -88,7 +88,7 @@ router.get("/users", requireAuth, requireAdmin, async (req: Request, res: Respon
 router.post("/users/:id/action", requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
     const { action, credits } = req.body;
-    const userId = req.params.id;
+    const userId = req.params.id as string;
     if (action === "GRANT_CREDITS" && credits) {
       const wallet = await prisma.creditWallet.findUnique({ where: { userId } });
       if (wallet) {
@@ -161,8 +161,9 @@ router.get("/gyms", requireAuth, requireAdmin, async (req: Request, res: Respons
 router.put("/gyms/:id/status", requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
     const { isVerified, isActive } = req.body;
+    const gymId = req.params.id as string;
     const gym = await prisma.gym.update({
-      where: { id: req.params.id },
+      where: { id: gymId },
       data: { isVerified, isActive }
     });
 
@@ -353,7 +354,7 @@ router.put("/settings", requireAuth, requireAdmin, async (req: Request, res: Res
 // ─── GET /api/admin/users/:id/history ─────────────────────────────────────────
 router.get("/users/:id/history", requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
-    const userId = req.params.id;
+    const userId = req.params.id as string;
     const bookings = await prisma.booking.findMany({
       where: { userId },
       include: { gym: { select: { name: true } } },
@@ -391,8 +392,9 @@ router.get("/memberships", requireAuth, requireAdmin, async (req: Request, res: 
 router.put("/memberships/:id/status", requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
     const { status } = req.body;
+    const membershipId = req.params.id as string;
     const membership = await prisma.membership.update({
-      where: { id: req.params.id },
+      where: { id: membershipId },
       data: { status }
     });
     
@@ -481,3 +483,4 @@ router.post("/notifications/broadcast", requireAuth, requireAdmin, async (req: R
 });
 
 export default router;
+// trigger restart
