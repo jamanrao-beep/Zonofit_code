@@ -13,7 +13,7 @@ export default function GymDashboardPage() {
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("zonofit_portal_token");
         const res = await fetch("http://localhost:8000/api/gyms/analytics/dashboard", {
           headers: {
             "Authorization": `Bearer ${token}`
@@ -102,7 +102,7 @@ export default function GymDashboardPage() {
               <div className="glass p-6 rounded-3xl border border-emerald-500/20 shadow-sm relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-bl-full" />
                 <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Sales This Month</h2>
-                <div className="text-4xl font-black text-black">₹{data?.salesThisMonth || 0}</div>
+                <div className="text-4xl font-black text-black">â‚¹{data?.salesThisMonth || 0}</div>
                 <div className="text-sm font-semibold text-emerald-600 mt-2">Estimated revenue</div>
               </div>
               <div className="glass p-6 rounded-3xl border border-emerald-500/20 shadow-sm relative overflow-hidden bg-primary">

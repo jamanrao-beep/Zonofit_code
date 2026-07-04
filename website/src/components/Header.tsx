@@ -58,7 +58,7 @@ export default function Header() {
             <div className="flex items-center gap-4">
               <div className="text-right hidden sm:block">
                 <div className="text-sm font-bold text-black">{user.name}</div>
-                <div className="text-xs font-semibold text-primary">{user.role.replace("_", " ")}</div>
+                <div className="text-xs font-semibold text-primary">{(user.role || "MEMBER").replace("_", " ")}</div>
               </div>
               <button 
                 onClick={logout}

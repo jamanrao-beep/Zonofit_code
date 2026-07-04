@@ -11,7 +11,7 @@ export default function AnalyticsPage() {
   useEffect(() => {
     const fetchAnalytics = async () => {
       try {
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("zonofit_portal_token");
         const res = await fetch("http://localhost:8000/api/gyms/analytics/performance", {
           headers: { "Authorization": `Bearer ${token}` }
         });

@@ -18,7 +18,7 @@ export default function AdminMarketingPage() {
 
   const fetchCoupons = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("zonofit_portal_token");
       const res = await fetch("http://localhost:8000/api/admin/marketing/coupons", {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -38,7 +38,7 @@ export default function AdminMarketingPage() {
   const handleCreateCoupon = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("zonofit_portal_token");
       await fetch("http://localhost:8000/api/admin/marketing/coupons", {
         method: "POST",
         headers: { 
@@ -155,7 +155,7 @@ export default function AdminMarketingPage() {
                       </div>
                     </td>
                     <td className="py-4 font-bold text-gray-700">
-                      {c.discountType === "PERCENTAGE" ? `${c.discountValue}% OFF` : `₹${c.discountValue} OFF`}
+                      {c.discountType === "PERCENTAGE" ? `${c.discountValue}% OFF` : `â‚¹${c.discountValue} OFF`}
                     </td>
                     <td className="py-4">
                       <span className="text-sm font-medium text-black">

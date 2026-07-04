@@ -10,7 +10,7 @@ export default function AdminAuditLogsPage() {
   useEffect(() => {
     const fetchLogs = async () => {
       try {
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("zonofit_portal_token");
         const res = await fetch("http://localhost:8000/api/admin/audit-logs", {
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -52,7 +52,7 @@ export default function AdminAuditLogsPage() {
                   </div>
                   <div className="text-sm text-gray-600 mb-2">{log.details}</div>
                   <div className="text-xs text-gray-400 font-medium">
-                    {new Date(log.createdAt).toLocaleString()} • Target ID: {log.targetId || "System"}
+                    {new Date(log.createdAt).toLocaleString()} â€¢ Target ID: {log.targetId || "System"}
                   </div>
                 </div>
               </div>

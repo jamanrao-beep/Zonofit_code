@@ -41,7 +41,7 @@ export default function SettingsPage() {
       });
       if (res.ok) {
         const data = await res.json();
-        login(data.user, token!);
+        login({ ...user, ...data.user }, token!);
         alert("Profile updated successfully!");
       } else {
         alert("Failed to update profile.");
@@ -130,7 +130,7 @@ export default function SettingsPage() {
                         <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                         <input 
                           type="text" 
-                          defaultValue={user.role.replace("_", " ")}
+                          defaultValue={(user.role || "MEMBER").replace("_", " ")}
                           disabled
                           className="w-full bg-gray-50 border border-gray-100 rounded-xl py-3 pl-12 pr-4 text-gray-500 cursor-not-allowed"
                         />

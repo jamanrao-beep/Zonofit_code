@@ -11,7 +11,7 @@ export default function GymProfilePage() {
 
   const fetchProfile = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("zonofit_portal_token");
       const res = await fetch("http://localhost:8000/api/gyms/analytics/dashboard", {
         headers: { "Authorization": `Bearer ${token}` }
       });
@@ -35,7 +35,7 @@ export default function GymProfilePage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("zonofit_portal_token");
       await fetch("http://localhost:8000/api/gyms/profile", {
         method: "PUT",
         headers: { 
@@ -79,7 +79,7 @@ export default function GymProfilePage() {
             <div className="flex items-center gap-6 pb-6 border-b border-gray-100">
               <div className="w-24 h-24 bg-gray-100 rounded-2xl flex items-center justify-center relative overflow-hidden group cursor-pointer">
                 {/* Simulated Image */}
-                <span className="text-4xl">🏋️</span>
+                <span className="text-4xl">ðŸ‹ï¸</span>
                 <div className="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center transition-all">
                   <Edit2 size={24} className="text-white" />
                 </div>

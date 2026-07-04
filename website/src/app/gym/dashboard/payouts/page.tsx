@@ -11,7 +11,7 @@ export default function PayoutsPage() {
   useEffect(() => {
     const fetchPayouts = async () => {
       try {
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("zonofit_portal_token");
         const res = await fetch("http://localhost:8000/api/gyms/analytics/payouts", {
           headers: { "Authorization": `Bearer ${token}` }
         });
@@ -44,12 +44,12 @@ export default function PayoutsPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
               <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
                 <h3 className="text-sm font-bold text-gray-500 uppercase mb-2">Pending Payout</h3>
-                <div className="text-4xl font-black text-black">₹{data?.pendingPayout || 0}</div>
+                <div className="text-4xl font-black text-black">â‚¹{data?.pendingPayout || 0}</div>
                 <div className="text-sm font-medium text-gray-400 mt-2">Next settlement in 7 days</div>
               </div>
               <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
                 <h3 className="text-sm font-bold text-gray-500 uppercase mb-2">Total Earnings (This Month)</h3>
-                <div className="text-4xl font-black text-black">₹{data?.earningsThisMonth || 0}</div>
+                <div className="text-4xl font-black text-black">â‚¹{data?.earningsThisMonth || 0}</div>
                 <div className="text-sm font-medium text-emerald-600 mt-2">Based on completed visits</div>
               </div>
               <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">

@@ -9,7 +9,7 @@ export default function AdminFinancePage() {
 
   const fetchFinance = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("zonofit_portal_token");
       const res = await fetch("http://localhost:8000/api/admin/finance", {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -40,7 +40,7 @@ export default function AdminFinancePage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col">
           <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Total GMV</div>
-          <div className="text-3xl font-black text-black">₹{data?.gmv?.toLocaleString() || 0}</div>
+          <div className="text-3xl font-black text-black">â‚¹{data?.gmv?.toLocaleString() || 0}</div>
           <div className="text-emerald-500 text-sm font-bold flex items-center gap-1 mt-auto pt-4">
             <ArrowUpRight size={16} /> +12% this month
           </div>
@@ -48,7 +48,7 @@ export default function AdminFinancePage() {
 
         <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col">
           <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Net Revenue</div>
-          <div className="text-3xl font-black text-black">₹{data?.netRevenue?.toLocaleString() || 0}</div>
+          <div className="text-3xl font-black text-black">â‚¹{data?.netRevenue?.toLocaleString() || 0}</div>
           <div className="text-emerald-500 text-sm font-bold flex items-center gap-1 mt-auto pt-4">
             <ArrowUpRight size={16} /> +8% this month
           </div>
@@ -56,12 +56,12 @@ export default function AdminFinancePage() {
 
         <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col">
           <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Total Paid to Gyms</div>
-          <div className="text-3xl font-black text-gray-800">₹{data?.totalPaid?.toLocaleString() || 0}</div>
+          <div className="text-3xl font-black text-gray-800">â‚¹{data?.totalPaid?.toLocaleString() || 0}</div>
         </div>
 
         <div className="bg-orange-50 p-6 rounded-3xl border border-orange-100 shadow-sm flex flex-col">
           <div className="text-sm font-bold text-orange-800 uppercase tracking-wider mb-2">Pending Payouts</div>
-          <div className="text-3xl font-black text-orange-600">₹{data?.totalPending?.toLocaleString() || 0}</div>
+          <div className="text-3xl font-black text-orange-600">â‚¹{data?.totalPending?.toLocaleString() || 0}</div>
           <button className="mt-4 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors w-fit">
             Process Payouts
           </button>
@@ -89,7 +89,7 @@ export default function AdminFinancePage() {
                   <td className="py-4 text-sm text-gray-600">
                     {new Date(payout.periodStart).toLocaleDateString()} - {new Date(payout.periodEnd).toLocaleDateString()}
                   </td>
-                  <td className="py-4 font-bold text-black">₹{payout.amountPaise / 100}</td>
+                  <td className="py-4 font-bold text-black">â‚¹{payout.amountPaise / 100}</td>
                   <td className="py-4">
                     {payout.status === "PAID" ? (
                       <span className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-bold">PAID</span>

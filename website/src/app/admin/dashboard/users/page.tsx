@@ -11,7 +11,7 @@ export default function AdminUsersPage() {
 
   const fetchUsers = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("zonofit_portal_token");
       const res = await fetch("http://localhost:8000/api/admin/users", {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -29,7 +29,7 @@ export default function AdminUsersPage() {
   }, []);
 
   const handleAction = async (userId: string, action: string, payload: any = {}) => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("zonofit_portal_token");
     if (!token) return;
 
     try {
@@ -51,7 +51,7 @@ export default function AdminUsersPage() {
 
   const handleViewHistory = async (user: any) => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("zonofit_portal_token");
       const res = await fetch(`http://localhost:8000/api/admin/users/${user.id}/history`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -126,7 +126,7 @@ export default function AdminUsersPage() {
                     </td>
                     <td className="py-4">
                       <div className="font-bold text-black">{user.wallet?.balance || 0} Credits</div>
-                      <div className="text-xs text-gray-500">₹{(user.wallet?.convertibleCashBalanceInPaise || 0) / 100} Cash</div>
+                      <div className="text-xs text-gray-500">â‚¹{(user.wallet?.convertibleCashBalanceInPaise || 0) / 100} Cash</div>
                     </td>
                     <td className="py-4">
                       <div className="font-medium text-black">{user._count?.bookings || 0} visits</div>

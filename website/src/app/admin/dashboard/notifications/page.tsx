@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { Send, Users } from "lucide-react";
+import { useState } from "react";
 
 export default function AdminNotificationsPage() {
   const [title, setTitle] = useState("");
@@ -13,10 +13,10 @@ export default function AdminNotificationsPage() {
     e.preventDefault();
     setSending(true);
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("zonofit_portal_token");
       await fetch("http://localhost:8000/api/admin/notifications/broadcast", {
         method: "POST",
-        headers: { 
+        headers: {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json"
         },
@@ -45,12 +45,12 @@ export default function AdminNotificationsPage() {
         <h2 className="text-xl font-bold text-black mb-6 flex items-center gap-2">
           <Send className="text-emerald-500" /> New Broadcast
         </h2>
-        
+
         <form onSubmit={handleBroadcast} className="space-y-6">
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">Notification Title</label>
-            <input 
-              type="text" 
+            <input
+              type="text"
               required
               value={title}
               onChange={e => setTitle(e.target.value)}
@@ -61,7 +61,7 @@ export default function AdminNotificationsPage() {
 
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">Message Body</label>
-            <textarea 
+            <textarea
               required
               value={body}
               onChange={e => setBody(e.target.value)}
@@ -76,8 +76,8 @@ export default function AdminNotificationsPage() {
             <div className="flex-1">
               <label className="block text-sm font-bold text-blue-900 mb-1">Target Specific User (Optional)</label>
               <p className="text-xs text-blue-700 mb-3">Leave this empty to blast this notification to EVERY active user.</p>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 value={userId}
                 onChange={e => setUserId(e.target.value)}
                 placeholder="User UUID"
@@ -87,7 +87,7 @@ export default function AdminNotificationsPage() {
           </div>
 
           <div className="flex justify-end pt-4">
-            <button 
+            <button
               type="submit"
               disabled={sending}
               className="bg-black hover:bg-gray-800 text-white px-8 py-4 rounded-xl font-bold flex items-center gap-2 transition-colors shadow-md disabled:opacity-50"
