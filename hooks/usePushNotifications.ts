@@ -1,38 +1,45 @@
 import { useState, useEffect, useRef } from 'react';
 import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { apiFetch } from '@/lib/api';
 import { useAuthStore } from '@/store/useAuthStore';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+let Notifications: any = null;
+try {
+  Notifications = require('expo-notifications');
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+} catch (e) {
+  console.log("expo-notifications is not available in Expo Go SDK 53+");
+}
 
 export interface PushNotificationState {
   expoPushToken: string | null;
-  notification: Notifications.Notification | null;
+  notification: any | null;
   error: string | null;
 }
 
 export function usePushNotifications(): PushNotificationState {
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
-  const [notification, setNotification] = useState<Notifications.Notification | null>(null);
+  const [notification, setNotification] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const notificationListener = useRef<Notifications.EventSubscription | null>(null);
-  const responseListener = useRef<Notifications.EventSubscription | null>(null);
+  const notificationListener = useRef<any>(null);
+  const responseListener = useRef<any>(null);
 
   const { token } = useAuthStore();
 
   useEffect(() => {
+    if (!Notifications) return;
+
     registerForPushNotificationsAsync()
       .then(pushToken => {
         if (pushToken) {
@@ -47,11 +54,11 @@ export function usePushNotifications(): PushNotificationState {
       })
       .catch(e => setError(e.message));
 
-    notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
+    notificationListener.current = Notifications.addNotificationReceivedListener((notification: any) => {
       setNotification(notification);
     });
 
-    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+    responseListener.current = Notifications.addNotificationResponseReceivedListener((response: any) => {
       // Handle notification tap
       console.log("Notification tapped:", response);
     });
@@ -70,6 +77,11 @@ export function usePushNotifications(): PushNotificationState {
 }
 
 async function registerForPushNotificationsAsync() {
+  if (!Notifications) {
+    console.log("Push notifications not supported in this environment (Expo Go SDK 53+)");
+    return null;
+  }
+
   let token;
 
   if (Platform.OS === 'android') {
