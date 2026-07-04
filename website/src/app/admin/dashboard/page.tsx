@@ -10,7 +10,7 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("zonofit_portal_token");
         const res = await fetch("http://localhost:8000/api/admin/dashboard", {
           headers: { Authorization: `Bearer ${token}` }
         });

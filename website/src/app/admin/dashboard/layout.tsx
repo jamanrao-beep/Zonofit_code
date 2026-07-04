@@ -15,7 +15,7 @@ export default function AdminDashboardLayout({ children }: { children: React.Rea
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("zonofit_portal_token");
     if (!token) {
       router.push("/");
       return;

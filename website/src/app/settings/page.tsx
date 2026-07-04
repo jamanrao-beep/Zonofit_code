@@ -6,10 +6,12 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function SettingsPage() {
-  const { user, initialize } = useAuthStore();
+  const { user, initialize, login } = useAuthStore();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState("profile");
+  const [name, setName] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     initialize();
@@ -19,8 +21,38 @@ export default function SettingsPage() {
   useEffect(() => {
     if (mounted && !user) {
       router.push("/auth/login");
+    } else if (user) {
+      setName(user.name);
     }
   }, [mounted, user, router]);
+
+  const handleUpdateProfile = async () => {
+    if (!name.trim()) return alert("Name is required");
+    setIsSaving(true);
+    try {
+      const token = localStorage.getItem("zonofit_portal_token");
+      const res = await fetch("http://localhost:8000/api/users/me", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        login(data.user, token!);
+        alert("Profile updated successfully!");
+      } else {
+        alert("Failed to update profile.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("An error occurred while saving.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   if (!mounted || !user) return null;
 
@@ -71,7 +103,8 @@ export default function SettingsPage() {
                         <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                         <input 
                           type="text" 
-                          defaultValue={user.name}
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
                           className="w-full bg-white border border-gray-200 rounded-xl py-3 pl-12 pr-4 text-black focus:outline-none focus:border-primary transition-colors"
                         />
                       </div>
@@ -105,8 +138,12 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="pt-4 flex justify-end">
-                      <button className="bg-primary hover:bg-primary-dark text-white px-6 py-3 rounded-xl font-semibold transition-all flex items-center gap-2">
-                        <Save size={18} /> Save Changes
+                      <button 
+                        onClick={handleUpdateProfile}
+                        disabled={isSaving}
+                        className="bg-primary hover:bg-primary-dark text-white px-6 py-3 rounded-xl font-semibold transition-all flex items-center gap-2 disabled:opacity-50"
+                      >
+                        <Save size={18} /> {isSaving ? "Saving..." : "Save Changes"}
                       </button>
                     </div>
                   </div>
