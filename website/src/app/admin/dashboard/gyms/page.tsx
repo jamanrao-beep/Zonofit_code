@@ -136,9 +136,13 @@ export default function AdminGymsPage() {
                             <XCircle size={18} />
                           </button>
                         )}
-                        <button className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors" title="View Performance">
+                        <a 
+                          href={`/admin/dashboard/gyms/${gym.id}`}
+                          className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors inline-block" 
+                          title="Manage Gym"
+                        >
                           <TrendingUp size={18} />
-                        </button>
+                        </a>
                         {gym.isActive ? (
                           <button 
                             onClick={() => handleStatusUpdate(gym.id, gym.isVerified, false)}

@@ -85,7 +85,8 @@ export default function GymDetailScreen() {
             label: f,
             icon: f.includes("Pool") ? "water" : f.includes("AC") ? "snow" : "barbell"
           })),
-          hours: (g.openingTime && g.closingTime) ? `${g.openingTime} - ${g.closingTime}` : "06:00 AM - 10:00 PM"
+          hours: (g.openingTime && g.closingTime) ? `${g.openingTime} - ${g.closingTime}` : "06:00 AM - 10:00 PM",
+          plans: g.plans || []
         } as any; // Type override since we added local mock fields above
         setGym(formattedGym);
       } catch (e) {
@@ -342,6 +343,30 @@ export default function GymDetailScreen() {
             <Text className="text-sm text-[#4A5043] leading-relaxed flex-1">{gym.hours}</Text>
           </View>
         </View>
+
+        {/* Custom Plans Section */}
+        {gym.plans && gym.plans.length > 0 && (
+          <View className="mx-5 bg-white rounded-[24px] p-5 border border-black/5 shadow-sm mb-5">
+            <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider mb-3">Available Plans</Text>
+            <View>
+              {gym.plans.map((plan: any) => (
+                <Pressable 
+                  key={plan.id}
+                  onPress={() => Alert.alert("Plan Selected", `You selected ${plan.name}. Payment integration coming in Phase 2!`)}
+                  className="bg-[#F5F7F4] p-4 rounded-xl border border-black/5 active:bg-[#E9EBE6] mb-3"
+                >
+                  <Text className="text-sm font-bold text-[#1F2520] mb-1">{plan.name}</Text>
+                  <Text className="text-xs text-[#6B756E]">
+                    First {plan.initialPeriodMonths} months: {plan.initialCutoffDays} days cutoff
+                  </Text>
+                  <Text className="text-xs text-[#6B756E]">
+                    After {plan.initialPeriodMonths} months: {plan.subsequentCutoffDays} days cutoff
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        )}
 
         {/* Date Picker */}
         <View className="mx-5 bg-white rounded-[24px] p-5 border border-black/5 shadow-sm mb-5">

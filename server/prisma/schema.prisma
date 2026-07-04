@@ -295,9 +295,35 @@ model Gym {
   applications      GymApplication[]
   supportTickets    SupportTicket[]
 
+  // Economy Overrides (fallback to global settings if null)
+  creditPurchasePrice   Int?
+  creditConversionValue Int?
+  initialVisitCut       Int?
+  cashExpiryDays        Int?
+  
+  plans                 GymPlan[]
+
   @@index([city])
   @@index([isActive])
   @@map("gyms")
+}
+
+model GymPlan {
+  id                   String @id @default(uuid())
+  gymId                String
+  name                 String
+  description          String?
+  
+  initialPeriodMonths  Int
+  initialCutoffDays    Int
+  subsequentCutoffDays Int
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  gym Gym @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  
+  @@map("gym_plans")
 }
 
 // ─────────────────────────────────────────────

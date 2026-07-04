@@ -182,6 +182,111 @@ router.put("/gyms/:id/status", requireAuth, requireAdmin, async (req: Request, r
   }
 });
 
+// ─── GET /api/admin/gyms/:id ─────────────────────────────────────────────────
+router.get("/gyms/:id", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const gymId = req.params.id as string;
+    const gym = await prisma.gym.findUnique({
+      where: { id: gymId },
+      include: {
+        plans: {
+          orderBy: { createdAt: "asc" }
+        }
+      }
+    });
+    if (!gym) return res.status(404).json({ error: "Gym not found" });
+    res.json({ gym });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
+// ─── PUT /api/admin/gyms/:id/economy ─────────────────────────────────────────
+router.put("/gyms/:id/economy", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const gymId = req.params.id as string;
+    const { creditPurchasePrice, creditConversionValue, initialVisitCut, cashExpiryDays } = req.body;
+    
+    const gym = await prisma.gym.update({
+      where: { id: gymId },
+      data: {
+        creditPurchasePrice: creditPurchasePrice !== "" ? parseInt(creditPurchasePrice, 10) : null,
+        creditConversionValue: creditConversionValue !== "" ? parseInt(creditConversionValue, 10) : null,
+        initialVisitCut: initialVisitCut !== "" ? parseInt(initialVisitCut, 10) : null,
+        cashExpiryDays: cashExpiryDays !== "" ? parseInt(cashExpiryDays, 10) : null
+      }
+    });
+    
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.dbUserId!,
+        actionType: "UPDATE_GYM_ECONOMY",
+        targetId: gym.id,
+        details: "Updated per-gym economy overrides"
+      }
+    });
+    
+    res.json({ gym });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
+// ─── POST /api/admin/gyms/:id/plans ──────────────────────────────────────────
+router.post("/gyms/:id/plans", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const gymId = req.params.id as string;
+    const { name, description, initialPeriodMonths, initialCutoffDays, subsequentCutoffDays } = req.body;
+    
+    const plan = await prisma.gymPlan.create({
+      data: {
+        gymId,
+        name,
+        description,
+        initialPeriodMonths: parseInt(initialPeriodMonths, 10),
+        initialCutoffDays: parseInt(initialCutoffDays, 10),
+        subsequentCutoffDays: parseInt(subsequentCutoffDays, 10)
+      }
+    });
+    
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.dbUserId!,
+        actionType: "CREATE_GYM_PLAN",
+        targetId: plan.id,
+        details: `Created plan ${name} for gym ${gymId}`
+      }
+    });
+    
+    res.json({ plan });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
+// ─── DELETE /api/admin/gyms/:gymId/plans/:planId ─────────────────────────────
+router.delete("/gyms/:gymId/plans/:planId", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const planId = req.params.planId as string;
+    await prisma.gymPlan.delete({
+      where: { id: planId }
+    });
+    
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.dbUserId!,
+        actionType: "DELETE_GYM_PLAN",
+        targetId: planId,
+        details: `Deleted plan ${planId}`
+      }
+    });
+    
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
 // ─── GET /api/admin/finance ────────────────────────────────────────────────
 router.get("/finance", requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
