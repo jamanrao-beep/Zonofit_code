@@ -18,6 +18,17 @@ import { useCreditsStore } from "@/store/useCreditsStore";
 import { apiFetch } from "@/lib/api";
 import { useAuthStore } from "@/store/useAuthStore";
 
+export interface TrialGym {
+  id: string;
+  name: string;
+  city: string;
+  area: string;
+  description: string;
+  imageUrl?: string;
+  voteCount: number;
+  hasVoted: boolean;
+}
+
 export interface Gym {
   id: string;
   name: string;
@@ -48,6 +59,7 @@ export default function ExploreScreen() {
 
   const { token } = useAuthStore();
   const [gyms, setGyms] = useState<Gym[]>([]);
+  const [trialGyms, setTrialGyms] = useState<TrialGym[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -79,12 +91,52 @@ export default function ExploreScreen() {
         setGyms(formattedGyms);
       } catch (e) {
         console.error("Failed to load gyms", e);
-      } finally {
-        setIsLoading(false);
       }
     }
-    loadGyms();
+
+    async function loadTrialGyms() {
+      if (!token) return;
+      try {
+        const data = await apiFetch("/api/trial-gyms", { token });
+        setTrialGyms(data.trialGyms || []);
+      } catch (e) {
+        console.error("Failed to load trial gyms", e);
+      }
+    }
+
+    async function loadData() {
+      setIsLoading(true);
+      await Promise.all([loadGyms(), loadTrialGyms()]);
+      setIsLoading(false);
+    }
+    
+    loadData();
   }, [token]);
+  
+  const handleVoteTrialGym = async (gymId: string) => {
+    if (!token) return;
+    try {
+      const data = await apiFetch(`/api/trial-gyms/${gymId}/vote`, {
+        method: "POST",
+        token
+      });
+      // Optimistically update the UI
+      setTrialGyms(prev => prev.map(gym => {
+        if (gym.id === gymId) {
+          const voteChange = data.hasVoted ? 1 : -1;
+          return {
+            ...gym,
+            hasVoted: data.hasVoted,
+            voteCount: gym.voteCount + voteChange
+          };
+        }
+        return gym;
+      }));
+    } catch (error) {
+      console.error("Failed to vote for gym", error);
+      Alert.alert("Error", "Could not submit your vote.");
+    }
+  };
   
   // Booking modal state
   const [selectedGym, setSelectedGym] = useState<Gym | null>(null);
@@ -240,6 +292,45 @@ export default function ExploreScreen() {
     </View>
   );
 
+  const renderTrialGymCard = ({ item }: { item: TrialGym }) => (
+    <View className="bg-white rounded-3xl overflow-hidden border border-black/5 shadow-sm mr-4 w-64">
+      {item.imageUrl ? (
+        <Image source={{ uri: item.imageUrl }} className="h-32 w-full" resizeMode="cover" />
+      ) : (
+        <View className="h-32 w-full bg-gray-100 items-center justify-center">
+          <Ionicons name="barbell-outline" size={32} color="#A0A5A1" />
+        </View>
+      )}
+      <View className="p-4">
+        <View className="flex-row justify-between items-start">
+          <Text className="text-base font-bold text-[#1F2520] flex-1 mr-1" numberOfLines={1}>
+            {item.name}
+          </Text>
+        </View>
+
+        <Text className="text-[10px] text-[#6B756E] mt-1" numberOfLines={1}>
+          📍 {item.area}, {item.city}
+        </Text>
+
+        <Text className="text-[10px] text-[#6B756E] mt-2" numberOfLines={2}>
+          {item.description || "Vote to bring this gym to ZonoFit!"}
+        </Text>
+
+        <View className="flex-row justify-between items-center mt-3 border-t border-black/5 pt-3">
+          <Text className="text-xs text-[#6B756E] font-bold">{item.voteCount} Votes</Text>
+          <Pressable 
+            onPress={() => handleVoteTrialGym(item.id)}
+            className={`px-4 py-1.5 rounded-xl border ${item.hasVoted ? 'bg-[#EAF7EC] border-[#6BCB77]' : 'bg-[#6BCB77] border-transparent'}`}
+          >
+            <Text className={`text-xs font-bold ${item.hasVoted ? 'text-[#6BCB77]' : 'text-white'}`}>
+              {item.hasVoted ? 'Voted ✅' : 'Vote'}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    </View>
+  );
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F7F4" }} edges={["top"]}>
       {/* Sticky Search & Discovery Header */}
@@ -358,6 +449,32 @@ export default function ExploreScreen() {
         ) : (
           /* Grouped Carousels Layout when not searching */
           <View className="space-y-6 mt-2">
+            {/* Vote for New Gyms! */}
+            {trialGyms.length > 0 && (
+              <View>
+                <View className="px-5 mb-3 flex-row justify-between items-center">
+                  <View>
+                    <Text className="text-base font-bold text-[#1F2520]">Vote for Trial Gyms! 🔥</Text>
+                    <Text className="text-xs text-[#6B756E]">Help us decide where to partner next.</Text>
+                  </View>
+                </View>
+                <FlatList
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  bounces={true}
+                  overScrollMode="never"
+                  decelerationRate="fast"
+                  snapToInterval={272}
+                  snapToAlignment="start"
+                  disableIntervalMomentum={true}
+                  data={trialGyms}
+                  renderItem={renderTrialGymCard}
+                  keyExtractor={(item) => item.id}
+                  contentContainerStyle={{ paddingHorizontal: 20 }}
+                />
+              </View>
+            )}
+
             {/* Closest To You */}
             <View>
               <Text className="text-base font-bold text-[#1F2520] px-5 mb-3">Closest To You</Text>

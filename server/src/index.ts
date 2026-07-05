@@ -25,6 +25,7 @@ import userRoutes from "./routes/users";
 import feedbackRoutes from "./routes/feedback";
 import challengesRoutes from "./routes/challenges";
 import adminRoutes from "./routes/admin";
+import trialGymsRouter from "./routes/trial-gyms";
 
 const app = express();
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
@@ -92,6 +93,7 @@ app.use("/api/quotes", quotesRouter);
 app.use("/api/journey", journeyRouter);
 app.use("/api/roles", rolesRouter);
 app.use("/api/challenges", challengesRoutes);
+app.use("/api/trial-gyms", trialGymsRouter);
 
 app.use("/api/feedback", feedbackRoutes);
 app.use("/api/admin", adminRoutes);

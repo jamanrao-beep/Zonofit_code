@@ -137,6 +137,7 @@ model User {
   auditLogs          AdminAuditLog[]
   supportTickets     SupportTicket[]   @relation("UserSupportTickets")
   assignedTickets    SupportTicket[]   @relation("AssignedSupportTickets")
+  trialGymVotes      TrialGymVote[]
   @@map("users")
 }
 
@@ -751,4 +752,32 @@ model SystemContent {
   updatedAt DateTime @updatedAt
 
   @@map("system_content")
+}
+
+model TrialGym {
+  id          String   @id @default(uuid())
+  name        String
+  city        String
+  area        String
+  description String?
+  imageUrl    String?
+  
+  votes       TrialGymVote[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("trial_gyms")
+}
+
+model TrialGymVote {
+  id          String   @id @default(uuid())
+  trialGymId  String
+  userId      String
+  createdAt   DateTime @default(now())
+  
+  trialGym    TrialGym @relation(fields: [trialGymId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([trialGymId, userId])
+  @@map("trial_gym_votes")
 }

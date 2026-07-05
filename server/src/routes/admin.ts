@@ -580,8 +580,90 @@ router.post("/notifications/broadcast", requireAuth, requireAdmin, async (req: R
         details: `Sent broadcast: ${title} to ${userId ? 'Specific User' : 'All Users'}`
       }
     });
+    res.json({ message: "Content updated successfully" });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
 
-    res.json({ success: true });
+// ─── GET /api/admin/marketplace ──────────────────────────────────────────────
+router.get("/marketplace", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const items = await prisma.marketplaceItem.findMany({
+      orderBy: { createdAt: "desc" }
+    });
+    res.json({ items });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
+// ─── POST /api/admin/marketplace ─────────────────────────────────────────────
+router.post("/marketplace", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { title, description, pricePaise, imageUrl, inStock } = req.body;
+    const item = await prisma.marketplaceItem.create({
+      data: {
+        title,
+        description,
+        pricePaise: parseInt(pricePaise, 10),
+        imageUrl: imageUrl || "https://images.unsplash.com/photo-1593095948071-474c5cc2989d?auto=format&fit=crop&q=80",
+        inStock: inStock !== undefined ? inStock : true
+      }
+    });
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.dbUserId!,
+        actionType: "CREATE_MARKETPLACE_ITEM",
+        targetId: item.id,
+        details: `Created item: ${title}`
+      }
+    });
+    res.json({ item });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
+// ─── GET /api/admin/trial-gyms ───────────────────────────────────────────────
+router.get("/trial-gyms", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const trialGyms = await prisma.trialGym.findMany({
+      include: {
+        _count: {
+          select: { votes: true }
+        }
+      },
+      orderBy: { createdAt: "desc" }
+    });
+    res.json({ trialGyms });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
+// ─── POST /api/admin/trial-gyms ──────────────────────────────────────────────
+router.post("/trial-gyms", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { name, city, area, description, imageUrl } = req.body;
+    const trialGym = await prisma.trialGym.create({
+      data: {
+        name,
+        city,
+        area,
+        description,
+        imageUrl
+      }
+    });
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.dbUserId!,
+        actionType: "CREATE_TRIAL_GYM",
+        targetId: trialGym.id,
+        details: `Created trial gym: ${name}`
+      }
+    });
+    res.json({ trialGym });
   } catch (err: any) {
     res.status(500).json({ error: "ServerError", message: err.message });
   }
