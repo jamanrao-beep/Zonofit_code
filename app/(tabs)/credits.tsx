@@ -25,6 +25,7 @@ export default function CreditsScreen() {
     buyCredits, 
     topUpCash,
     convertCreditsToCash,
+    convertCashToCredits,
     addTransaction 
   } = useCreditsStore();
 
@@ -36,7 +37,9 @@ export default function CreditsScreen() {
   const [cashModalVisible, setCashModalVisible] = useState(false);
 
   // Form states
+  const [conversionType, setConversionType] = useState<"creditsToCash" | "cashToCredits">("creditsToCash");
   const [creditsToConvert, setCreditsToConvert] = useState("");
+  const [cashToConvert, setCashToConvert] = useState("");
   const [cashToTopUp, setCashToTopUp] = useState("");
 
   const handleTopUpPress = () => {
@@ -55,28 +58,52 @@ export default function CreditsScreen() {
   };
 
   const handleConvert = async () => {
-    const amount = parseInt(creditsToConvert);
-    if (isNaN(amount) || amount <= 0) {
-      Alert.alert("Invalid Input", "Please enter a valid positive number of credits.");
-      return;
-    }
+    if (conversionType === "creditsToCash") {
+      const amount = parseInt(creditsToConvert);
+      if (isNaN(amount) || amount <= 0) {
+        Alert.alert("Invalid Input", "Please enter a valid positive number of credits.");
+        return;
+      }
 
-    if (credits < amount) {
-      Alert.alert("Insufficient Credits", `You only have ${credits} credits available.`);
-      return;
-    }
+      if (credits < amount) {
+        Alert.alert("Insufficient Credits", `You only have ${credits} credits available.`);
+        return;
+      }
 
-    const result = await convertCreditsToCash(amount);
-    if (result.success) {
-      const value = amount * 8;
-      Alert.alert("Success", `Converted ${amount} Credits into ₹${value} Cash Balance!`);
-      setCreditsToConvert("");
-      setConvertModalVisible(false);
-      // Fetch latest wallet state to update transactions
-      const token = useAuthStore.getState().token || "";
-      useCreditsStore.getState().fetchWallet(token);
+      const result = await convertCreditsToCash(amount);
+      if (result.success) {
+        const value = amount * 8;
+        Alert.alert("Success", `Converted ${amount} Credits into ₹${value} Cash Balance!`);
+        setCreditsToConvert("");
+        setConvertModalVisible(false);
+        const token = useAuthStore.getState().token || "";
+        useCreditsStore.getState().fetchWallet(token);
+      } else {
+        Alert.alert("Error", result.message || "Conversion failed. Please try again.");
+      }
     } else {
-      Alert.alert("Error", result.message || "Conversion failed. Please try again.");
+      const amount = parseInt(cashToConvert); // This is credits to buy with cash
+      if (isNaN(amount) || amount <= 0) {
+        Alert.alert("Invalid Input", "Please enter a valid positive number of credits to buy.");
+        return;
+      }
+
+      const cashRequired = amount * 10;
+      if (cashBalance < cashRequired) {
+        Alert.alert("Insufficient Cash", `You need ₹${cashRequired} cash to buy ${amount} credits.`);
+        return;
+      }
+
+      const result = await convertCashToCredits(amount);
+      if (result.success) {
+        Alert.alert("Success", `Converted ₹${cashRequired} Cash into ${amount} Credits!`);
+        setCashToConvert("");
+        setConvertModalVisible(false);
+        const token = useAuthStore.getState().token || "";
+        useCreditsStore.getState().fetchWallet(token);
+      } else {
+        Alert.alert("Error", result.message || "Conversion failed. Please try again.");
+      }
     }
   };
 
@@ -170,16 +197,24 @@ export default function CreditsScreen() {
 
         {/* Section 1.5: Converted Cash Overview Card */}
         <View className="px-5 mt-4">
-          <View className="bg-white rounded-[28px] overflow-hidden shadow-sm border border-black/5 p-6 flex-row justify-between items-center">
-            <View>
-              <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider">Converted Cash</Text>
-              <Text className="text-3xl font-black text-[#1F2520] mt-1">₹{cashBalance}</Text>
+          <View className="bg-white rounded-[28px] overflow-hidden shadow-sm border border-black/5 p-6">
+            <View className="flex-row justify-between items-center mb-4">
+              <View>
+                <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider">Converted Cash</Text>
+                <Text className="text-3xl font-black text-[#1F2520] mt-1">₹{cashBalance}</Text>
+              </View>
+              <Pressable 
+                onPress={() => setCashModalVisible(true)}
+                className="bg-emerald-50 px-4 py-2.5 rounded-2xl border border-emerald-100 active:opacity-80"
+              >
+                <Text className="text-emerald-800 font-bold text-xs">Top Up</Text>
+              </Pressable>
             </View>
             <Pressable 
               onPress={() => setConvertModalVisible(true)}
-              className="bg-amber-50 px-4 py-2.5 rounded-2xl border border-amber-100 active:opacity-80"
+              className="bg-amber-50 w-full py-3 rounded-2xl border border-amber-100 active:opacity-80 items-center"
             >
-              <Text className="text-amber-800 font-bold text-xs">Convert</Text>
+              <Text className="text-amber-800 font-bold text-xs">Convert Balance</Text>
             </Pressable>
           </View>
         </View>
@@ -262,14 +297,14 @@ export default function CreditsScreen() {
             </View>
           </Pressable>
 
-          {/* Card 3: Healthy Food */}
+          {/* Card 3: Apparel & Gear */}
           <Pressable 
             onPress={() => router.push("/marketplace" as any)}
             className="w-[48%] bg-[#FAF5F0] rounded-[20px] p-4 border border-black/5 h-40 overflow-hidden relative active:opacity-80"
           >
             <View className="z-10">
-              <Text className="text-[#1F2520] font-bold text-sm">Healthy Food</Text>
-              <Text className="text-[#6B756E] text-[10px] mt-1 pr-2 leading-tight">High protein meals, healthy cafés</Text>
+              <Text className="text-[#1F2520] font-bold text-sm">Apparel & Gear</Text>
+              <Text className="text-[#6B756E] text-[10px] mt-1 pr-2 leading-tight">Gym wear, shoes & accessories</Text>
             </View>
             <View className="absolute bottom-4 left-4 bg-white px-3 py-1.5 rounded-full flex-row items-center gap-x-1 z-10 shadow-sm border border-black/5">
               <Text className="text-[10px] font-bold text-[#1F2520]">Explore</Text>
@@ -313,7 +348,7 @@ export default function CreditsScreen() {
         </View>
       </ScrollView>
 
-      {/* MODAL: Convert Credits */}
+      {/* MODAL: Convert Credits/Cash */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -324,9 +359,33 @@ export default function CreditsScreen() {
           <View className="bg-white rounded-t-[36px] p-6">
             <View className="w-12 h-1.5 bg-[#E9EBE6] rounded-full mb-6 align-self-center mx-auto" />
             
-            <Text className="text-xs font-bold text-[#D97706] uppercase tracking-wider">Cash Conversion</Text>
-            <Text className="text-2xl font-bold text-[#1F2520] mt-1">Convert Credits to Cash</Text>
-            <Text className="text-xs text-[#6B756E] mt-0.5">Conversion rate: 1 Credit = ₹8 cash balance</Text>
+            <View className="flex-row bg-[#F5F7F4] rounded-2xl p-1 mb-6">
+              <Pressable
+                onPress={() => setConversionType("creditsToCash")}
+                className={`flex-1 py-2 rounded-xl items-center ${conversionType === "creditsToCash" ? "bg-white shadow-sm border border-black/5" : ""}`}
+              >
+                <Text className={`text-xs font-bold ${conversionType === "creditsToCash" ? "text-amber-600" : "text-[#6B756E]"}`}>Credits → Cash</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setConversionType("cashToCredits")}
+                className={`flex-1 py-2 rounded-xl items-center ${conversionType === "cashToCredits" ? "bg-white shadow-sm border border-black/5" : ""}`}
+              >
+                <Text className={`text-xs font-bold ${conversionType === "cashToCredits" ? "text-emerald-600" : "text-[#6B756E]"}`}>Cash → Credits</Text>
+              </Pressable>
+            </View>
+            
+            <Text className="text-xs font-bold text-[#D97706] uppercase tracking-wider">
+              {conversionType === "creditsToCash" ? "Cash Out" : "Buy Credits"}
+            </Text>
+            <Text className="text-2xl font-bold text-[#1F2520] mt-1">
+              {conversionType === "creditsToCash" ? "Convert Credits to Cash" : "Convert Cash to Credits"}
+            </Text>
+            <Text className="text-xs text-[#6B756E] mt-0.5">
+              {conversionType === "creditsToCash" 
+                ? "Conversion rate: 1 Credit = ₹8 cash balance"
+                : "Conversion rate: ₹10 cash balance = 1 Credit"
+              }
+            </Text>
 
             <View className="h-[1px] bg-black/5 my-4" />
 
@@ -342,20 +401,31 @@ export default function CreditsScreen() {
 
             <View className="space-y-4 mb-6">
               <View>
-                <Text className="text-xs font-semibold text-[#1F2520] mb-1.5 ml-1">Credits to Convert (Available: {credits})</Text>
+                <Text className="text-xs font-semibold text-[#1F2520] mb-1.5 ml-1">
+                  {conversionType === "creditsToCash" 
+                    ? `Credits to Convert (Available: ${credits})` 
+                    : `Credits to Buy (Available Cash: ₹${cashBalance})`
+                  }
+                </Text>
                 <TextInput
                   keyboardType="number-pad"
-                  placeholder="e.g. 50"
+                  placeholder={conversionType === "creditsToCash" ? "e.g. 50" : "e.g. 5"}
                   placeholderTextColor="#A0A5A1"
-                  value={creditsToConvert}
-                  onChangeText={setCreditsToConvert}
+                  value={conversionType === "creditsToCash" ? creditsToConvert : cashToConvert}
+                  onChangeText={conversionType === "creditsToCash" ? setCreditsToConvert : setCashToConvert}
                   style={styles.input}
                 />
               </View>
 
-              {creditsToConvert ? (
+              {conversionType === "creditsToCash" && creditsToConvert ? (
                 <Text className="text-xs font-bold text-amber-700 ml-1">
                   You will receive: ₹{parseInt(creditsToConvert) * 8 || 0}
+                </Text>
+              ) : null}
+
+              {conversionType === "cashToCredits" && cashToConvert ? (
+                <Text className="text-xs font-bold text-emerald-700 ml-1">
+                  Cash required: ₹{parseInt(cashToConvert) * 10 || 0}
                 </Text>
               ) : null}
             </View>
@@ -370,9 +440,9 @@ export default function CreditsScreen() {
 
               <Pressable
                 onPress={handleConvert}
-                className="flex-1 bg-amber-600 h-12 rounded-2xl items-center justify-center"
+                className={`flex-1 h-12 rounded-2xl items-center justify-center ${conversionType === "creditsToCash" ? "bg-amber-600" : "bg-emerald-600"}`}
               >
-                <Text className="text-white font-bold text-sm">Convert Credits</Text>
+                <Text className="text-white font-bold text-sm">Convert</Text>
               </Pressable>
             </View>
           </View>

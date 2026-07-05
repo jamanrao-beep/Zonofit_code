@@ -259,7 +259,7 @@ export default function HomeScreen() {
         {/* Challenges Entry */}
         <Pressable
           onPress={() => router.push("/challenges" as any)}
-          className="bg-indigo-600 rounded-[28px] p-6 mb-6 shadow-sm overflow-hidden relative active:scale-95 transition-transform"
+          className="bg-indigo-600 rounded-[28px] p-6 mb-6 shadow-sm overflow-hidden relative"
         >
           <View className="absolute right-[-20] top-[-20] w-32 h-32 bg-white/10 rounded-full" />
           <View className="absolute right-10 bottom-[-10] w-20 h-20 bg-indigo-500/30 rounded-full" />

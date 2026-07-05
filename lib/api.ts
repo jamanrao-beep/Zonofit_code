@@ -28,9 +28,9 @@ const getBaseUrl = () => {
   if (__DEV__) {
     // If Android emulator, localhost is mapped to 10.0.2.2
     if (Platform.OS === "android") {
-      return "http://10.0.2.2:3000";
+      return "http://10.0.2.2:8000";
     }
-    return "http://localhost:3000";
+    return "http://localhost:8000";
   }
 
   return "https://api.zonofit.com"; // Production URL fallback
@@ -82,7 +82,11 @@ export async function apiFetch(path: string, options: RequestOptions = {}) {
     }
 
     if (!response.ok) {
-      throw new Error(data?.message || data?.error || `Request failed with status ${response.status}`);
+      let errorMessage = data?.message || data?.error || `Request failed with status ${response.status}`;
+      if (data?.error === "ValidationError" && Array.isArray(data?.details) && data.details.length > 0) {
+        errorMessage = data.details[0].msg || errorMessage;
+      }
+      throw new Error(errorMessage);
     }
 
     return data;

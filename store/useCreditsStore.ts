@@ -27,6 +27,7 @@ interface CreditsState {
   buyCredits: (creditsAmount: number, inrCost: number) => Promise<{ success: boolean; message?: string }>;
   topUpCash: (amountINR: number) => Promise<{ success: boolean; message?: string }>;
   convertCreditsToCash: (creditsAmount: number) => Promise<{ success: boolean; message?: string }>;
+  convertCashToCredits: (creditsToBuy: number) => Promise<{ success: boolean; message?: string }>;
   deductCredits: (creditsAmount: number, description: string) => Promise<{ success: boolean; message?: string }>;
   addTransaction: (type: "debit" | "credit", amount: number, currency: "credits" | "cash", description: string) => void;
 }
@@ -56,23 +57,70 @@ export const useCreditsStore = create<CreditsState>((set, get) => ({
 
   fetchTransactions: async (token, page = 1) => {
     try {
+      // 1. Fetch Credit Transactions
       const data = await apiFetch(`/api/credits/transactions?page=${page}&limit=20`, { token });
-      const newTxs = data.transactions?.map((t: any) => ({
-        id: t.id,
-        type: t.amount > 0 ? "credit" : "debit",
-        amount: Math.abs(t.amount),
-        currency: (t.type === "CONVERSION" || t.description.includes("₹")) && !t.description.includes("Purchased") ? "cash" : "credits",
-        description: t.description,
-        date: new Date(t.createdAt).toLocaleDateString("en-IN", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        }),
-      })) || [];
+      const newTxs = data.transactions?.map((t: any) => {
+        let type = t.amount > 0 ? "credit" : "debit";
+        let amount = Math.abs(t.amount);
+        let currency = "credits";
+        
+        // Fix currency parsing based on transaction type
+        if (t.type === "RECONVERSION") {
+          currency = "credits"; // Bought credits using cash
+        } else if (t.type === "CONVERSION") {
+          currency = "credits"; // Sold credits for cash
+        } else if (t.amount === 0 && t.description.includes("Topped up ₹")) {
+          currency = "cash";
+          type = "credit";
+          const match = t.description.match(/₹([\d.]+)/);
+          if (match) amount = parseFloat(match[1]);
+        }
 
-      set((state) => ({
-        transactions: page === 1 ? newTxs : [...state.transactions, ...newTxs],
-      }));
+        return {
+          id: t.id,
+          type,
+          amount,
+          currency,
+          description: t.description,
+          dateRaw: new Date(t.createdAt),
+          date: new Date(t.createdAt).toLocaleDateString("en-IN", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          }),
+        };
+      }) || [];
+
+      // 2. Fetch Marketplace Orders (only on first page to avoid duplication for now)
+      let marketplaceTxs: any[] = [];
+      if (page === 1) {
+        try {
+          const orders = await apiFetch("/api/marketplace/orders", { token });
+          marketplaceTxs = orders.map((o: any) => ({
+            id: `mp-${o.id}`,
+            type: "debit",
+            amount: Math.abs(o.totalPaise / 100),
+            currency: "cash",
+            description: `Marketplace: ${o.quantity}x ${o.item.title}`,
+            dateRaw: new Date(o.createdAt),
+            date: new Date(o.createdAt).toLocaleDateString("en-IN", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            }),
+          }));
+        } catch(e) {
+          console.error("Failed to fetch marketplace orders", e);
+        }
+      }
+
+      set((state) => {
+        const merged = page === 1 
+          ? [...newTxs, ...marketplaceTxs].sort((a, b) => b.dateRaw.getTime() - a.dateRaw.getTime())
+          : [...state.transactions, ...newTxs];
+        
+        return { transactions: merged };
+      });
     } catch (err) {
       console.error("Failed to fetch transactions:", err);
     }
@@ -380,6 +428,25 @@ export const useCreditsStore = create<CreditsState>((set, get) => ({
       return { success: true, message: data.message };
     } catch (err: any) {
       console.error("Conversion failed:", err);
+      return { success: false, message: err.message };
+    }
+  },
+
+  convertCashToCredits: async (creditsToBuy) => {
+    try {
+      const token = useAuthStore.getState().token;
+      const data = await apiFetch("/api/credits/reconvert", {
+        method: "POST",
+        token,
+        body: JSON.stringify({ creditsToBuy })
+      });
+      set({
+        credits: data.newCreditBalance,
+        cashBalance: data.newConvertibleCashBalanceINR
+      });
+      return { success: true, message: data.message };
+    } catch (err: any) {
+      console.error("Reconversion failed:", err);
       return { success: false, message: err.message };
     }
   },
