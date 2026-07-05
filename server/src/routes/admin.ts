@@ -601,14 +601,15 @@ router.get("/marketplace", requireAuth, requireAdmin, async (req: Request, res: 
 // ─── POST /api/admin/marketplace ─────────────────────────────────────────────
 router.post("/marketplace", requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
-    const { title, description, pricePaise, imageUrl, inStock } = req.body;
+    const { title, description, pricePaise, imageUrl, inStock, storeCategory } = req.body;
     const item = await prisma.marketplaceItem.create({
       data: {
         title,
         description,
         pricePaise: parseInt(pricePaise, 10),
         imageUrl: imageUrl || "https://images.unsplash.com/photo-1593095948071-474c5cc2989d?auto=format&fit=crop&q=80",
-        inStock: inStock !== undefined ? inStock : true
+        inStock: inStock !== undefined ? inStock : true,
+        storeCategory: storeCategory || "ZONOFIT_COMMON"
       }
     });
     await prisma.adminAuditLog.create({

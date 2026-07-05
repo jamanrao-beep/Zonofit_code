@@ -12,7 +12,17 @@ export interface MarketplaceItem {
   description: string;
   pricePaise: number;
   imageUrl: string;
+  storeCategory: string;
 }
+
+const CATEGORIES = [
+  { id: "ALL", label: "All Items" },
+  { id: "ZONOFIT_COMMON", label: "ZonoFit Common" },
+  { id: "PRODUCTS", label: "Products" },
+  { id: "SPORTS_ACTIVITIES", label: "Sports & Activities" },
+  { id: "APPAREL_GEAR", label: "Apparel & Gear" },
+  { id: "RECOVERY_WELLNESS", label: "Recovery & Wellness" },
+];
 
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -22,6 +32,7 @@ export default function MarketplaceScreen() {
   const [items, setItems] = useState<MarketplaceItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState<MarketplaceItem | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState("ALL");
 
   useEffect(() => {
     async function loadItems() {
@@ -63,6 +74,10 @@ export default function MarketplaceScreen() {
     );
   };
 
+  const filteredItems = items.filter(
+    (item) => selectedCategory === "ALL" || item.storeCategory === selectedCategory
+  );
+
   return (
     <SafeAreaView className="flex-1 bg-[#F5F7F4]">
       {/* Screen Header */}
@@ -87,15 +102,48 @@ export default function MarketplaceScreen() {
         </Pressable>
       </View>
 
+      {/* Category Tabs */}
+      <View className="bg-white border-b border-black/5">
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false} 
+          contentContainerStyle={{ paddingHorizontal: 20, paddingVertical: 12, gap: 12 }}
+        >
+          {CATEGORIES.map((cat) => (
+            <Pressable
+              key={cat.id}
+              onPress={() => setSelectedCategory(cat.id)}
+              className={`px-4 py-2 rounded-full border ${
+                selectedCategory === cat.id 
+                  ? "bg-emerald-600 border-emerald-600" 
+                  : "bg-white border-gray-200"
+              }`}
+            >
+              <Text className={`text-xs font-bold ${
+                selectedCategory === cat.id ? "text-white" : "text-gray-600"
+              }`}>
+                {cat.label}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      </View>
+
       <ScrollView contentContainerStyle={{ padding: 20 }}>
         {isLoading ? (
           <ActivityIndicator size="large" color="#059669" />
+        ) : filteredItems.length === 0 ? (
+          <View className="items-center justify-center mt-10">
+            <Text className="text-[#6B756E] text-center font-medium">No items found in this category.</Text>
+          </View>
         ) : (
-          items.map((item) => (
+          filteredItems.map((item) => (
           <View key={item.id} className="bg-white rounded-3xl overflow-hidden border border-black/5 shadow-sm mb-5">
             <Image source={{ uri: item.imageUrl }} className="w-full h-48" resizeMode="cover" />
             <View className="p-4">
-              <Text className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-1">Equipment</Text>
+              <Text className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1">
+                {item.storeCategory?.replace(/_/g, " ")}
+              </Text>
               <Text className="text-lg font-bold text-[#1F2520]">{item.title}</Text>
               <Text className="text-xs text-[#6B756E] mt-1 mb-4 leading-relaxed">{item.description}</Text>
               

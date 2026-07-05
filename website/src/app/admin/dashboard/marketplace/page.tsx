@@ -13,7 +13,8 @@ export default function AdminMarketplacePage() {
     description: "",
     pricePaise: "",
     imageUrl: "",
-    inStock: true
+    inStock: true,
+    storeCategory: "ZONOFIT_COMMON"
   });
   const [saving, setSaving] = useState(false);
 
@@ -36,7 +37,7 @@ export default function AdminMarketplacePage() {
     fetchItems();
   }, []);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
@@ -55,7 +56,7 @@ export default function AdminMarketplacePage() {
       });
       alert("Marketplace item added successfully!");
       setShowForm(false);
-      setFormData({ title: "", description: "", pricePaise: "", imageUrl: "", inStock: true });
+      setFormData({ title: "", description: "", pricePaise: "", imageUrl: "", inStock: true, storeCategory: "ZONOFIT_COMMON" });
       fetchItems();
     } catch (err) {
       console.error(err);
@@ -136,6 +137,22 @@ export default function AdminMarketplacePage() {
                 <p className="text-xs text-gray-400 mt-1">Paste the full public AWS S3 link here.</p>
               </div>
             </div>
+            
+            <div>
+              <label className="block text-sm font-bold text-black mb-2">Store Category</label>
+              <select 
+                name="storeCategory"
+                value={formData.storeCategory}
+                onChange={handleInputChange}
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+              >
+                <option value="ZONOFIT_COMMON">Zonofit Common Store</option>
+                <option value="PRODUCTS">Products</option>
+                <option value="SPORTS_ACTIVITIES">Sports & Activities</option>
+                <option value="APPAREL_GEAR">Apparel & Gear</option>
+                <option value="RECOVERY_WELLNESS">Recovery & Wellness</option>
+              </select>
+            </div>
             <button 
               type="submit"
               disabled={saving}
@@ -153,7 +170,12 @@ export default function AdminMarketplacePage() {
             <img src={item.imageUrl} alt={item.title} className="h-48 w-full object-cover bg-gray-100" />
             <div className="p-5 flex-1 flex flex-col">
               <div className="flex justify-between items-start mb-2">
-                <h3 className="font-bold text-lg text-black">{item.title}</h3>
+                <div>
+                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1 block">
+                    {item.storeCategory?.replace(/_/g, " ")}
+                  </span>
+                  <h3 className="font-bold text-lg text-black">{item.title}</h3>
+                </div>
                 <span className="bg-emerald-50 text-emerald-700 font-bold text-sm px-2 py-1 rounded-lg">
                   ₹{(item.pricePaise / 100).toFixed(2)}
                 </span>

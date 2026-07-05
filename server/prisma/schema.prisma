@@ -81,6 +81,14 @@ enum GymCategory {
   BOUTIQUE
 }
 
+enum StoreCategory {
+  PRODUCTS
+  SPORTS_ACTIVITIES
+  APPAREL_GEAR
+  RECOVERY_WELLNESS
+  ZONOFIT_COMMON
+}
+
 enum RoleType {
   TRAINER
   BUDDY
@@ -390,6 +398,7 @@ model MarketplaceItem {
   pricePaise  Int      // Price in INR paise
   imageUrl    String
   inStock     Boolean  @default(true)
+  storeCategory StoreCategory @default(ZONOFIT_COMMON)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
