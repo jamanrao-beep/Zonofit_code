@@ -12,7 +12,7 @@ export default function AdminUsersPage() {
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem("zonofit_portal_token");
-      const res = await fetch("http://localhost:8000/api/admin/users", {
+      const res = await fetch("http://100.31.236.208/api/admin/users", {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -33,7 +33,7 @@ export default function AdminUsersPage() {
     if (!token) return;
 
     try {
-      await fetch(`http://localhost:8000/api/admin/users/${userId}/action`, {
+      await fetch(`http://100.31.236.208/api/admin/users/${userId}/action`, {
         method: "POST",
         headers: { 
           "Authorization": `Bearer ${token}`,
@@ -52,7 +52,7 @@ export default function AdminUsersPage() {
   const handleViewHistory = async (user: any) => {
     try {
       const token = localStorage.getItem("zonofit_portal_token");
-      const res = await fetch(`http://localhost:8000/api/admin/users/${user.id}/history`, {
+      const res = await fetch(`http://100.31.236.208/api/admin/users/${user.id}/history`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();

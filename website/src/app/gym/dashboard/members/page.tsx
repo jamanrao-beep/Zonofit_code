@@ -11,7 +11,7 @@ export default function MembersPage() {
     const fetchMembers = async () => {
       try {
         const token = localStorage.getItem("zonofit_portal_token");
-        const res = await fetch("http://localhost:8000/api/gyms/analytics/members", {
+        const res = await fetch("http://100.31.236.208/api/gyms/analytics/members", {
           headers: { "Authorization": `Bearer ${token}` }
         });
         const data = await res.json();

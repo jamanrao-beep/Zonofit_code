@@ -21,7 +21,7 @@ export default function AdminMarketplacePage() {
   const fetchItems = async () => {
     try {
       const token = localStorage.getItem("zonofit_portal_token");
-      const res = await fetch("http://localhost:8000/api/admin/marketplace", {
+      const res = await fetch("http://100.31.236.208/api/admin/marketplace", {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -46,7 +46,7 @@ export default function AdminMarketplacePage() {
     setSaving(true);
     try {
       const token = localStorage.getItem("zonofit_portal_token");
-      await fetch("http://localhost:8000/api/admin/marketplace", {
+      await fetch("http://100.31.236.208/api/admin/marketplace", {
         method: "POST",
         headers: { 
           "Authorization": `Bearer ${token}`,

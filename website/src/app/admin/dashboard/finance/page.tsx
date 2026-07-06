@@ -10,7 +10,7 @@ export default function AdminFinancePage() {
   const fetchFinance = async () => {
     try {
       const token = localStorage.getItem("zonofit_portal_token");
-      const res = await fetch("http://localhost:8000/api/admin/finance", {
+      const res = await fetch("http://100.31.236.208/api/admin/finance", {
         headers: { Authorization: `Bearer ${token}` }
       });
       const json = await res.json();

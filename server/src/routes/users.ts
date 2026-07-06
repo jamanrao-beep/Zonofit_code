@@ -1,25 +1,33 @@
 import { Request, Response, Router } from "express";
 import { body, validationResult } from "express-validator";
 import multer from "multer";
+import multerS3 from "multer-s3";
+import { S3Client } from "@aws-sdk/client-s3";
 import path from "path";
 import prisma from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
 
 const router = Router();
 
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, path.join(__dirname, "../../uploads"));
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-        const ext = path.extname(file.originalname) || ".jpg";
-        cb(null, `avatar-${uniqueSuffix}${ext}`);
-    },
+const s3 = new S3Client({
+    region: process.env.AWS_REGION || "us-east-1",
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    }
 });
 
-const upload = multer({ 
-    storage,
+const upload = multer({
+    storage: multerS3({
+        s3: s3,
+        bucket: process.env.S3_BUCKET_NAME || "zonofit-images",
+        contentType: multerS3.AUTO_CONTENT_TYPE,
+        key: function (req, file, cb) {
+            const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+            const ext = path.extname(file.originalname) || ".jpg";
+            cb(null, `avatar-${uniqueSuffix}${ext}`);
+        }
+    }),
     limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
 });
 
@@ -157,11 +165,9 @@ router.post(
             return;
         }
 
-        // Generate the full URL to access the uploaded file
-        const host = req.get("host") || "localhost:3000";
-        // Handle forwarded protocols correctly for deployed environments
-        const protocol = req.headers["x-forwarded-proto"] || req.protocol || "http";
-        const avatarUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
+        // Generate the full URL to access the uploaded file from S3
+        const file = req.file as any;
+        const avatarUrl = file.location;
 
         const updated = await prisma.user.update({
             where: { id: req.dbUserId! },

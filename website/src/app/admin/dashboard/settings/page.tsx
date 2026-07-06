@@ -11,7 +11,7 @@ export default function AdminSettingsPage() {
   const fetchSettings = async () => {
     try {
       const token = localStorage.getItem("zonofit_portal_token");
-      const res = await fetch("http://localhost:8000/api/admin/settings", {
+      const res = await fetch("http://100.31.236.208/api/admin/settings", {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -39,7 +39,7 @@ export default function AdminSettingsPage() {
     setSaving(true);
     try {
       const token = localStorage.getItem("zonofit_portal_token");
-      await fetch("http://localhost:8000/api/admin/settings", {
+      await fetch("http://100.31.236.208/api/admin/settings", {
         method: "PUT",
         headers: { 
           "Authorization": `Bearer ${token}`,

@@ -12,7 +12,7 @@ export default function GymProfilePage() {
   const fetchProfile = async () => {
     try {
       const token = localStorage.getItem("zonofit_portal_token");
-      const res = await fetch("http://localhost:8000/api/gyms/analytics/dashboard", {
+      const res = await fetch("http://100.31.236.208/api/gyms/analytics/dashboard", {
         headers: { "Authorization": `Bearer ${token}` }
       });
       const data = await res.json();
@@ -36,7 +36,7 @@ export default function GymProfilePage() {
     setSaving(true);
     try {
       const token = localStorage.getItem("zonofit_portal_token");
-      await fetch("http://localhost:8000/api/gyms/profile", {
+      await fetch("http://100.31.236.208/api/gyms/profile", {
         method: "PUT",
         headers: { 
           "Authorization": `Bearer ${token}`,

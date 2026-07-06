@@ -11,7 +11,7 @@ export default function AdminMembershipsPage() {
   const fetchMemberships = async () => {
     try {
       const token = localStorage.getItem("zonofit_portal_token");
-      const res = await fetch("http://localhost:8000/api/admin/memberships", {
+      const res = await fetch("http://100.31.236.208/api/admin/memberships", {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -30,7 +30,7 @@ export default function AdminMembershipsPage() {
   const handleStatusUpdate = async (id: string, status: string) => {
     const token = localStorage.getItem("zonofit_portal_token");
     try {
-      await fetch(`http://localhost:8000/api/admin/memberships/${id}/status`, {
+      await fetch(`http://100.31.236.208/api/admin/memberships/${id}/status`, {
         method: "PUT",
         headers: { 
           "Authorization": `Bearer ${token}`,

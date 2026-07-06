@@ -22,7 +22,7 @@ export default function AdminDashboardLayout({ children }: { children: React.Rea
     }
 
     // Basic verify
-    fetch("http://localhost:8000/api/admin/dashboard", {
+    fetch("http://100.31.236.208/api/admin/dashboard", {
       headers: { Authorization: `Bearer ${token}` }
     })
     .then(res => {
