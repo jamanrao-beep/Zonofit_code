@@ -14,7 +14,7 @@ export default function AdminNotificationsPage() {
     setSending(true);
     try {
       const token = localStorage.getItem("zonofit_portal_token");
-      await fetch("http://localhost:8000/api/admin/notifications/broadcast", {
+      await fetch("http://100.31.236.208/api/admin/notifications/broadcast", {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${token}`,

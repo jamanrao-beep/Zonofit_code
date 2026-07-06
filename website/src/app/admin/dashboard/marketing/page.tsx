@@ -19,7 +19,7 @@ export default function AdminMarketingPage() {
   const fetchCoupons = async () => {
     try {
       const token = localStorage.getItem("zonofit_portal_token");
-      const res = await fetch("http://localhost:8000/api/admin/marketing/coupons", {
+      const res = await fetch("http://100.31.236.208/api/admin/marketing/coupons", {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -39,7 +39,7 @@ export default function AdminMarketingPage() {
     e.preventDefault();
     try {
       const token = localStorage.getItem("zonofit_portal_token");
-      await fetch("http://localhost:8000/api/admin/marketing/coupons", {
+      await fetch("http://100.31.236.208/api/admin/marketing/coupons", {
         method: "POST",
         headers: { 
           "Authorization": `Bearer ${token}`,

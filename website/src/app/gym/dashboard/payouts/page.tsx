@@ -12,7 +12,7 @@ export default function PayoutsPage() {
     const fetchPayouts = async () => {
       try {
         const token = localStorage.getItem("zonofit_portal_token");
-        const res = await fetch("http://localhost:8000/api/gyms/analytics/payouts", {
+        const res = await fetch("http://100.31.236.208/api/gyms/analytics/payouts", {
           headers: { "Authorization": `Bearer ${token}` }
         });
         const result = await res.json();

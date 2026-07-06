@@ -11,7 +11,7 @@ export default function AdminGymsPage() {
   const fetchGyms = async () => {
     try {
       const token = localStorage.getItem("zonofit_portal_token");
-      const res = await fetch("http://localhost:8000/api/admin/gyms", {
+      const res = await fetch("http://100.31.236.208/api/admin/gyms", {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -30,7 +30,7 @@ export default function AdminGymsPage() {
   const handleStatusUpdate = async (gymId: string, isVerified: boolean, isActive: boolean) => {
     const token = localStorage.getItem("zonofit_portal_token");
     try {
-      await fetch(`http://localhost:8000/api/admin/gyms/${gymId}/status`, {
+      await fetch(`http://100.31.236.208/api/admin/gyms/${gymId}/status`, {
         method: "PUT",
         headers: { 
           "Authorization": `Bearer ${token}`,

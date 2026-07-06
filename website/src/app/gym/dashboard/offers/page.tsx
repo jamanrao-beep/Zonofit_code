@@ -12,7 +12,7 @@ export default function OffersPage() {
   const fetchOffers = async () => {
     try {
       const token = localStorage.getItem("zonofit_portal_token");
-      const res = await fetch("http://localhost:8000/api/gyms/offers", {
+      const res = await fetch("http://100.31.236.208/api/gyms/offers", {
         headers: { "Authorization": `Bearer ${token}` }
       });
       const data = await res.json();
@@ -37,7 +37,7 @@ export default function OffersPage() {
     setCreating(true);
     try {
       const token = localStorage.getItem("zonofit_portal_token");
-      await fetch("http://localhost:8000/api/gyms/offers", {
+      await fetch("http://100.31.236.208/api/gyms/offers", {
         method: "POST",
         headers: { 
           "Authorization": `Bearer ${token}`,
