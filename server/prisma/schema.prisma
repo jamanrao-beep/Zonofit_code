@@ -452,7 +452,7 @@ model Quote {
   createdAt DateTime @default(now())
 
   @@map("quotes")
-}
+
 
 // ─────────────────────────────────────────────
 // BADGES & MILESTONES (JOURNEY)
