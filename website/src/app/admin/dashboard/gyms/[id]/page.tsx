@@ -34,7 +34,7 @@ export default function AdminGymDetailPage() {
   const fetchGym = async () => {
     try {
       const token = localStorage.getItem("zonofit_portal_token");
-      const res = await fetch(`http://100.31.236.208/api/admin/gyms/${gymId}`, {
+      const res = await fetch(`/api/admin/gyms/${gymId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -66,7 +66,7 @@ export default function AdminGymDetailPage() {
     setSavingEconomy(true);
     try {
       const token = localStorage.getItem("zonofit_portal_token");
-      await fetch(`http://100.31.236.208/api/admin/gyms/${gymId}/economy`, {
+      await fetch(`/api/admin/gyms/${gymId}/economy`, {
         method: "PUT",
         headers: { 
           "Authorization": `Bearer ${token}`,
@@ -93,7 +93,7 @@ export default function AdminGymDetailPage() {
     setSavingPlan(true);
     try {
       const token = localStorage.getItem("zonofit_portal_token");
-      await fetch(`http://100.31.236.208/api/admin/gyms/${gymId}/plans`, {
+      await fetch(`/api/admin/gyms/${gymId}/plans`, {
         method: "POST",
         headers: { 
           "Authorization": `Bearer ${token}`,
@@ -122,7 +122,7 @@ export default function AdminGymDetailPage() {
     if (!confirm("Are you sure you want to delete this plan?")) return;
     try {
       const token = localStorage.getItem("zonofit_portal_token");
-      await fetch(`http://100.31.236.208/api/admin/gyms/${gymId}/plans/${planId}`, {
+      await fetch(`/api/admin/gyms/${gymId}/plans/${planId}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` }
       });

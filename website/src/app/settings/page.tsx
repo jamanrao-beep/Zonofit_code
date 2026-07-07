@@ -31,7 +31,7 @@ export default function SettingsPage() {
     setIsSaving(true);
     try {
       const token = localStorage.getItem("zonofit_portal_token");
-      const res = await fetch("http://100.31.236.208/api/users/me", {
+      const res = await fetch("/api/users/me", {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
