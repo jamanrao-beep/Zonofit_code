@@ -12,7 +12,7 @@ export default function AnalyticsPage() {
     const fetchAnalytics = async () => {
       try {
         const token = localStorage.getItem("zonofit_portal_token");
-        const res = await fetch("http://100.31.236.208/api/gyms/analytics/performance", {
+        const res = await fetch("/api/gyms/analytics/performance", {
           headers: { "Authorization": `Bearer ${token}` }
         });
         const result = await res.json();

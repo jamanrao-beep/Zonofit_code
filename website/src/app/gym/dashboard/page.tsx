@@ -14,7 +14,7 @@ export default function GymDashboardPage() {
     const fetchDashboard = async () => {
       try {
         const token = localStorage.getItem("zonofit_portal_token");
-        const res = await fetch("http://100.31.236.208/api/gyms/analytics/dashboard", {
+        const res = await fetch("/api/gyms/analytics/dashboard", {
           headers: {
             "Authorization": `Bearer ${token}`
           }

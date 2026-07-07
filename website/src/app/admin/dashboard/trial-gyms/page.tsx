@@ -20,7 +20,7 @@ export default function AdminTrialGymsPage() {
   const fetchTrialGyms = async () => {
     try {
       const token = localStorage.getItem("zonofit_portal_token");
-      const res = await fetch("http://100.31.236.208/api/admin/trial-gyms", {
+      const res = await fetch("/api/admin/trial-gyms", {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -45,7 +45,7 @@ export default function AdminTrialGymsPage() {
     setSaving(true);
     try {
       const token = localStorage.getItem("zonofit_portal_token");
-      await fetch("http://100.31.236.208/api/admin/trial-gyms", {
+      await fetch("/api/admin/trial-gyms", {
         method: "POST",
         headers: { 
           "Authorization": `Bearer ${token}`,
