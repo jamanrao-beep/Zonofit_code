@@ -123,6 +123,11 @@ router.post(
         res.status(404).json({ error: "UserNotFound", message: "User not found." });
         return;
       }
+
+      if (user.isSuspended) {
+        res.status(403).json({ error: "AccountSuspended", message: "Your account has been suspended by an administrator." });
+        return;
+      }
     } else {
       // Signup flow
       const settings = await prisma.systemSettings.findUnique({ where: { id: "default" } });
@@ -217,6 +222,12 @@ router.post("/google", async (req: Request, res: Response): Promise<void> => {
     });
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
+    
+    if (existingUser && existingUser.isSuspended) {
+      res.status(403).json({ error: "AccountSuspended", message: "Your account has been suspended by an administrator." });
+      return;
+    }
+
     if (!existingUser) {
       const settings = await prisma.systemSettings.findUnique({ where: { id: "default" } });
       if (settings && !settings.signupsEnabled) {

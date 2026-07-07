@@ -95,6 +95,11 @@ router.post(
       return;
     }
 
+    if (user.isSuspended) {
+      res.status(403).json({ error: "AccountSuspended", message: "Your account has been suspended by an administrator." });
+      return;
+    }
+
     // Check if they are allowed to login here
     if (user.systemRole === "MEMBER") {
       res.status(403).json({ error: "AccessDenied", message: "Standard members cannot access the portal." });
