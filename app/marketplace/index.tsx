@@ -83,10 +83,9 @@ export default function MarketplaceScreen() {
     setCouponLoading(true);
     try {
       const { token } = useAuthStore.getState();
-      const res = await fetch(`https://api.zonofit.com/api/coupons/validate?code=${couponInput.trim()}`, {
-        headers: { Authorization: `Bearer ${token}` }
+      const data = await apiFetch(`/api/coupons/validate?code=${couponInput.trim()}`, {
+        token
       });
-      const data = await res.json();
       if (data.success && data.coupon) {
         if (data.coupon.discountType === "CREDITS") {
           Alert.alert("Invalid Coupon", "This coupon can only be used for gym bookings.");
