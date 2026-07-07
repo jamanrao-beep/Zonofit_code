@@ -835,5 +835,35 @@ router.put("/gym-applications/:id", requireAuth, requireAdmin, async (req: Reque
   }
 });
 
+// ─── DELETE /api/admin/gyms/:id ──────────────────────────────────────────────
+router.delete("/gyms/:id", requireAuth, requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const gymId = req.params.id;
+    
+    // First delete any related applications
+    await prisma.gymApplication.deleteMany({
+      where: { gymId }
+    });
+
+    // Delete the gym
+    await prisma.gym.delete({
+      where: { id: gymId }
+    });
+
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.dbUserId!,
+        actionType: "DELETE_GYM",
+        targetId: gymId,
+        details: `Deleted gym ${gymId}`
+      }
+    });
+
+    res.json({ success: true, message: "Gym deleted successfully" });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
 export default router;
 // trigger restart

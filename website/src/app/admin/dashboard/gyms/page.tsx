@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Search, CheckCircle, XCircle, TrendingUp, Ban, Check, X } from "lucide-react";
+import { Search, CheckCircle, XCircle, TrendingUp, Ban, Check, X, Trash } from "lucide-react";
 
 export default function AdminGymsPage() {
   const [gyms, setGyms] = useState<any[]>([]);
@@ -57,6 +57,24 @@ export default function AdminGymsPage() {
     } catch (err) {
       console.error(err);
       alert("Failed to update status.");
+    }
+  };
+
+  const handleDeleteGym = async (gymId: string) => {
+    if (!confirm("Are you sure you want to completely delete this gym? This action cannot be undone.")) return;
+    
+    const token = localStorage.getItem("zonofit_portal_token");
+    try {
+      await fetch(`/api/admin/gyms/${gymId}`, {
+        method: "DELETE",
+        headers: { 
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      fetchGyms();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete gym.");
     }
   };
 
@@ -210,7 +228,7 @@ export default function AdminGymsPage() {
                           <button 
                             onClick={() => handleStatusUpdate(gym.id, gym.isVerified, false)}
                             className="p-2 text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors"
-                            title="Suspend Gym"
+                            title="Suspend Gym (Hide in App)"
                           >
                             <Ban size={18} />
                           </button>
@@ -218,11 +236,18 @@ export default function AdminGymsPage() {
                           <button 
                             onClick={() => handleStatusUpdate(gym.id, gym.isVerified, true)}
                             className="p-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                            title="Unsuspend Gym"
+                            title="Unsuspend Gym (Show in App)"
                           >
                             <Ban size={18} />
                           </button>
                         )}
+                        <button 
+                          onClick={() => handleDeleteGym(gym.id)}
+                          className="p-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+                          title="Delete Gym Entirely"
+                        >
+                          <Trash size={18} />
+                        </button>
                       </div>
                     </td>
                   </tr>
