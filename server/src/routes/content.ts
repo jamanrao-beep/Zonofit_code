@@ -9,7 +9,7 @@ const router = Router();
  */
 router.get("/:key", async (req: Request, res: Response): Promise<void> => {
   try {
-    const { key } = req.params;
+    const key = req.params.key as string;
     
     const content = await prisma.systemContent.findUnique({
       where: { key }
