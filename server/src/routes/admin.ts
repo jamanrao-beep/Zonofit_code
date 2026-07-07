@@ -626,6 +626,57 @@ router.post("/marketplace", requireAuth, requireAdmin, async (req: Request, res:
   }
 });
 
+// ─── PUT /api/admin/marketplace/:id ──────────────────────────────────────────
+router.put("/marketplace/:id", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const { title, description, pricePaise, imageUrl, inStock, storeCategory } = req.body;
+    const item = await prisma.marketplaceItem.update({
+      where: { id },
+      data: {
+        ...(title && { title }),
+        ...(description && { description }),
+        ...(pricePaise && { pricePaise: parseInt(pricePaise, 10) }),
+        ...(imageUrl && { imageUrl }),
+        ...(inStock !== undefined && { inStock }),
+        ...(storeCategory && { storeCategory })
+      }
+    });
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.dbUserId!,
+        actionType: "UPDATE_MARKETPLACE_ITEM",
+        targetId: item.id,
+        details: `Updated item: ${item.title}`
+      }
+    });
+    res.json({ item });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
+// ─── DELETE /api/admin/marketplace/:id ───────────────────────────────────────
+router.delete("/marketplace/:id", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    await prisma.marketplaceItem.delete({
+      where: { id }
+    });
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.dbUserId!,
+        actionType: "DELETE_MARKETPLACE_ITEM",
+        targetId: id,
+        details: `Deleted item: ${id}`
+      }
+    });
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
 // ─── GET /api/admin/trial-gyms ───────────────────────────────────────────────
 router.get("/trial-gyms", requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
