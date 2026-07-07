@@ -727,6 +727,59 @@ router.post("/trial-gyms", requireAuth, requireAdmin, async (req: Request, res: 
     res.status(500).json({ error: "ServerError", message: err.message });
   }
 });
+// ─── PUT /api/admin/trial-gyms/:id ───────────────────────────────────────────
+router.put("/trial-gyms/:id", requireAuth, requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { name, city, area, description, imageUrl } = req.body;
+    const trialGym = await prisma.trialGym.update({
+      where: { id: req.params.id as string },
+      data: {
+        name,
+        city,
+        area,
+        description,
+        imageUrl
+      }
+    });
+    
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.dbUserId!,
+        actionType: "UPDATE_TRIAL_GYM",
+        targetId: trialGym.id,
+        details: `Updated trial gym: ${name}`
+      }
+    });
+    
+    res.json({ trialGym });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
+// ─── DELETE /api/admin/trial-gyms/:id ────────────────────────────────────────
+router.delete("/trial-gyms/:id", requireAuth, requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const trialGymId = req.params.id as string;
+    
+    await prisma.trialGym.delete({
+      where: { id: trialGymId }
+    });
+    
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.dbUserId!,
+        actionType: "DELETE_TRIAL_GYM",
+        targetId: trialGymId,
+        details: `Deleted trial gym: ${trialGymId}`
+      }
+    });
+    
+    res.json({ success: true, message: "Trial gym deleted successfully" });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
 
 // ─── PUT /api/admin/support/:id/status ─────────────────────────────────────
 router.put("/support/:id/status", requireAuth, requireAdmin, async (req: Request, res: Response): Promise<void> => {

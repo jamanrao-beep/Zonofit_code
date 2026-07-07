@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Dumbbell, MapPin, Users } from "lucide-react";
+import { Plus, Dumbbell, MapPin, Users, Pencil, Trash } from "lucide-react";
 
 export default function AdminTrialGymsPage() {
   const [trialGyms, setTrialGyms] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     city: "",
@@ -40,28 +41,61 @@ export default function AdminTrialGymsPage() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleCreateTrialGym = async (e: React.FormEvent) => {
+  const handleSaveTrialGym = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
       const token = localStorage.getItem("zonofit_portal_token");
-      await fetch("/api/admin/trial-gyms", {
-        method: "POST",
+      const url = editingId ? `/api/admin/trial-gyms/${editingId}` : "/api/admin/trial-gyms";
+      const method = editingId ? "PUT" : "POST";
+
+      await fetch(url, {
+        method,
         headers: { 
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify(formData)
       });
-      alert("Trial Gym added successfully!");
+      alert(editingId ? "Trial Gym updated successfully!" : "Trial Gym added successfully!");
       setShowForm(false);
+      setEditingId(null);
       setFormData({ name: "", city: "", area: "", description: "", imageUrl: "" });
       fetchTrialGyms();
     } catch (err) {
       console.error(err);
-      alert("Failed to create trial gym.");
+      alert("Failed to save trial gym.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleEdit = (gym: any) => {
+    setFormData({
+      name: gym.name,
+      city: gym.city,
+      area: gym.area,
+      description: gym.description || "",
+      imageUrl: gym.imageUrl || ""
+    });
+    setEditingId(gym.id);
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this trial gym? This will also delete any votes associated with it.")) return;
+    
+    try {
+      const token = localStorage.getItem("zonofit_portal_token");
+      await fetch(`/api/admin/trial-gyms/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchTrialGyms();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete trial gym.");
     }
   };
 
@@ -75,7 +109,11 @@ export default function AdminTrialGymsPage() {
           <p className="text-gray-500 mt-1 text-sm">Propose new gym locations and gauge user interest via voting.</p>
         </div>
         <button 
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => {
+            setFormData({ name: "", city: "", area: "", description: "", imageUrl: "" });
+            setEditingId(null);
+            setShowForm(!showForm);
+          }}
           className="bg-black hover:bg-gray-800 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-colors"
         >
           <Plus size={18} /> Add Trial Gym
@@ -84,8 +122,8 @@ export default function AdminTrialGymsPage() {
 
       {showForm && (
         <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-          <h2 className="text-xl font-bold text-black mb-4">Propose a New Trial Gym</h2>
-          <form onSubmit={handleCreateTrialGym} className="space-y-4 max-w-2xl">
+          <h2 className="text-xl font-bold text-black mb-4">{editingId ? "Edit Trial Gym" : "Propose a New Trial Gym"}</h2>
+          <form onSubmit={handleSaveTrialGym} className="space-y-4 max-w-2xl">
             <div>
               <label className="block text-sm font-bold text-black mb-2">Gym Name</label>
               <input 
@@ -145,13 +183,26 @@ export default function AdminTrialGymsPage() {
                 className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black min-h-[100px]"
               />
             </div>
-            <button 
-              type="submit"
-              disabled={saving}
-              className="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
-            >
-              <Dumbbell size={18} /> {saving ? "Saving..." : "Create Trial Gym"}
-            </button>
+              <button 
+                type="submit"
+                disabled={saving}
+                className="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+              >
+                <Dumbbell size={18} /> {saving ? "Saving..." : (editingId ? "Update Trial Gym" : "Create Trial Gym")}
+              </button>
+              {editingId && (
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setShowForm(false);
+                    setEditingId(null);
+                    setFormData({ name: "", city: "", area: "", description: "", imageUrl: "" });
+                  }}
+                  className="mt-2 w-full bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-xl font-bold transition-colors"
+                >
+                  Cancel Edit
+                </button>
+              )}
           </form>
         </div>
       )}
@@ -169,9 +220,25 @@ export default function AdminTrialGymsPage() {
             <div className="flex-1">
               <div className="flex justify-between items-start">
                 <h3 className="font-bold text-xl text-black">{gym.name}</h3>
-                <div className="bg-emerald-50 border border-emerald-100 px-3 py-1 rounded-xl flex items-center gap-1.5 shadow-sm">
-                  <Users size={14} className="text-emerald-700" />
-                  <span className="text-emerald-800 font-bold text-sm">{gym._count?.votes || 0} Votes</span>
+                <div className="flex gap-2">
+                  <div className="bg-emerald-50 border border-emerald-100 px-3 py-1 rounded-xl flex items-center gap-1.5 shadow-sm">
+                    <Users size={14} className="text-emerald-700" />
+                    <span className="text-emerald-800 font-bold text-sm">{gym._count?.votes || 0} Votes</span>
+                  </div>
+                  <button 
+                    onClick={() => handleEdit(gym)}
+                    className="p-1.5 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                    title="Edit"
+                  >
+                    <Pencil size={16} />
+                  </button>
+                  <button 
+                    onClick={() => handleDelete(gym.id)}
+                    className="p-1.5 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+                    title="Delete"
+                  >
+                    <Trash size={16} />
+                  </button>
                 </div>
               </div>
               <div className="flex items-center text-gray-500 text-sm mt-1">
