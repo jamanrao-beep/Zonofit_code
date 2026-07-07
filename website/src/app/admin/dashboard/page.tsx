@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Users, Building2, CreditCard, Activity, TrendingUp, AlertCircle, Dumbbell } from "lucide-react";
 
 export default function AdminDashboardPage() {
@@ -91,29 +92,29 @@ export default function AdminDashboardPage() {
           </h2>
           
           <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-orange-50 rounded-2xl border border-orange-100">
+            <Link href="/admin/dashboard/gyms" className="flex items-center justify-between p-4 bg-orange-50 rounded-2xl border border-orange-100 hover:bg-orange-100 transition-colors block">
               <div>
                 <div className="font-bold text-orange-900">New Gym Applications</div>
                 <div className="text-sm text-orange-700">Review and approve partner gyms</div>
               </div>
-              <div className="text-2xl font-black text-orange-600">{data?.recentGymSignups?.length || 0}</div>
-            </div>
+              <div className="text-2xl font-black text-orange-600">{data?.pendingApplications || 0}</div>
+            </Link>
             
-            <div className="flex items-center justify-between p-4 bg-red-50 rounded-2xl border border-red-100">
+            <Link href="/admin/dashboard/support" className="flex items-center justify-between p-4 bg-red-50 rounded-2xl border border-red-100 hover:bg-red-100 transition-colors block">
               <div>
                 <div className="font-bold text-red-900">Support Tickets</div>
                 <div className="text-sm text-red-700">Unresolved critical issues</div>
               </div>
-              <div className="text-2xl font-black text-red-600">3</div>
-            </div>
+              <div className="text-2xl font-black text-red-600">{data?.pendingTickets || 0}</div>
+            </Link>
 
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-200">
+            <Link href="/admin/dashboard/finance" className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-200 hover:bg-gray-100 transition-colors block">
               <div>
                 <div className="font-bold text-gray-900">Pending Payouts</div>
                 <div className="text-sm text-gray-600">Gym settlements to release</div>
               </div>
-              <div className="text-2xl font-black text-black">12</div>
-            </div>
+              <div className="text-2xl font-black text-black">{data?.pendingPayouts || 0}</div>
+            </Link>
           </div>
         </div>
       </div>

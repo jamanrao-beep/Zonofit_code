@@ -49,6 +49,10 @@ router.get("/dashboard", requireAuth, requireAdmin, async (req: Request, res: Re
       select: { id: true, name: true, city: true, isVerified: true }
     });
 
+    const pendingTickets = await prisma.supportTicket.count({ where: { status: "OPEN" } });
+    const pendingPayouts = await prisma.payoutRequest.count({ where: { status: "PENDING" } });
+    const pendingApplications = await prisma.gymApplication.count({ where: { status: "PENDING" } });
+
     res.json({
       totalUsers,
       activeUsers,
@@ -57,7 +61,10 @@ router.get("/dashboard", requireAuth, requireAdmin, async (req: Request, res: Re
       newSignupsToday,
       membershipsSoldToday,
       creditsCirculated,
-      recentGymSignups
+      recentGymSignups,
+      pendingTickets,
+      pendingPayouts,
+      pendingApplications
     });
   } catch (err: any) {
     res.status(500).json({ error: "ServerError", message: err.message });
