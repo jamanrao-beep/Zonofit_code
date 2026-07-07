@@ -619,7 +619,7 @@ router.post("/notifications/broadcast", requireAuth, requireAdmin, async (req: R
     
     if (userId) {
       await prisma.notification.create({
-        data: { userId, title, body, type: "SYSTEM" }
+        data: { userId, title, body }
       });
     } else {
       // In a real system, you'd queue this. For MVP, we insert for all active users (limited for safety).
@@ -627,8 +627,7 @@ router.post("/notifications/broadcast", requireAuth, requireAdmin, async (req: R
       const notifications = users.map(u => ({
         userId: u.id,
         title,
-        body,
-        type: "SYSTEM"
+        body
       }));
       await prisma.notification.createMany({ data: notifications as any });
     }

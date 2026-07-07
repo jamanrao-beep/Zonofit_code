@@ -180,4 +180,43 @@ router.post(
     }
 );
 
+// ─── GET /api/users/notifications ─────────────────────────────────────────────
+router.get(
+    "/notifications",
+    requireAuth,
+    async (req: Request, res: Response): Promise<void> => {
+        try {
+            const notifications = await prisma.notification.findMany({
+                where: {
+                    OR: [
+                        { userId: req.dbUserId! },
+                        { userId: null } // Global broadcasts
+                    ]
+                },
+                orderBy: { createdAt: "desc" }
+            });
+            res.json({ success: true, notifications });
+        } catch (err: any) {
+            res.status(500).json({ error: "ServerError", message: err.message });
+        }
+    }
+);
+
+// ─── POST /api/users/notifications/read ───────────────────────────────────────
+router.post(
+    "/notifications/read",
+    requireAuth,
+    async (req: Request, res: Response): Promise<void> => {
+        try {
+            await prisma.notification.updateMany({
+                where: { userId: req.dbUserId!, read: false },
+                data: { read: true }
+            });
+            res.json({ success: true });
+        } catch (err: any) {
+            res.status(500).json({ error: "ServerError", message: err.message });
+        }
+    }
+);
+
 export default router;

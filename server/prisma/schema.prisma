@@ -146,6 +146,7 @@ model User {
   supportTickets     SupportTicket[]   @relation("UserSupportTickets")
   assignedTickets    SupportTicket[]   @relation("AssignedSupportTickets")
   trialGymVotes      TrialGymVote[]
+
   @@map("users")
 }
 
@@ -452,6 +453,7 @@ model Quote {
   createdAt DateTime @default(now())
 
   @@map("quotes")
+}
 
 
 // ─────────────────────────────────────────────
@@ -774,7 +776,7 @@ model TrialGym {
   votes       TrialGymVote[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   @@map("trial_gyms")
 }
 
