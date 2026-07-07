@@ -22,7 +22,7 @@ const upload = multer({
         s3: s3,
         bucket: process.env.S3_BUCKET_NAME || "zonofit-images",
         contentType: multerS3.AUTO_CONTENT_TYPE,
-        key: function (req, file, cb) {
+        key: function (req: any, file: any, cb: any) {
             const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
             const ext = path.extname(file.originalname) || ".jpg";
             cb(null, `avatar-${uniqueSuffix}${ext}`);

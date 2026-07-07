@@ -1,4 +1,5 @@
 import { Platform } from "react-native";
+import * as FileSystem from 'expo-file-system/legacy';
 
 // Auto-detect backend URL in development
 const getBaseUrl = () => {
@@ -120,35 +121,22 @@ export async function apiPost(path: string, body: any, options: RequestOptions =
 }
 
 /**
- * Upload a profile picture using FormData.
+ * Upload a profile picture using expo-file-system to avoid React Native FormData bugs.
  */
 export async function uploadProfilePicture(imageUri: string, token: string) {
   const url = `${API_URL}/api/users/avatar`;
   
-  const formData = new FormData();
-  // We have to cast to any here because React Native's fetch/FormData handles file URIs specifically
-  // even though standard TS typings don't expect it.
-  const filename = imageUri.split('/').pop() || 'avatar.jpg';
-  const match = /\.(\w+)$/.exec(filename);
-  const type = match ? `image/${match[1]}` : 'image/jpeg';
-  
-  formData.append('avatar', {
-    uri: imageUri,
-    name: filename,
-    type,
-  } as any);
-
   try {
-    const response = await fetch(url, {
-      method: "POST",
+    const response = await FileSystem.uploadAsync(url, imageUri, {
+      httpMethod: 'POST',
+      uploadType: 1, // FileSystemUploadType.MULTIPART
+      fieldName: 'avatar',
       headers: {
-        "Authorization": `Bearer ${token}`,
-        // Do NOT set Content-Type here, let fetch generate the boundary
+        Authorization: `Bearer ${token}`,
       },
-      body: formData,
     });
 
-    const text = await response.text();
+    const text = response.body;
     let data;
     try {
       data = text ? JSON.parse(text) : null;
@@ -156,7 +144,7 @@ export async function uploadProfilePicture(imageUri: string, token: string) {
       data = { error: text };
     }
 
-    if (!response.ok) {
+    if (response.status < 200 || response.status >= 300) {
       throw new Error(data?.message || data?.error || `Request failed with status ${response.status}`);
     }
 
