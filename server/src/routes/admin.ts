@@ -50,7 +50,7 @@ router.get("/dashboard", requireAuth, requireAdmin, async (req: Request, res: Re
     });
 
     const pendingTickets = await prisma.supportTicket.count({ where: { status: "OPEN" } });
-    const pendingPayouts = await prisma.payoutRequest.count({ where: { status: "PENDING" } });
+    const pendingPayouts = await prisma.gymPayout.count({ where: { status: "PENDING" } });
     const pendingApplications = await prisma.gymApplication.count({ where: { status: "PENDING" } });
 
     res.json({
@@ -733,7 +733,7 @@ router.put("/support/:id/status", requireAuth, requireAdmin, async (req: Request
   try {
     const { status } = req.body;
     const ticket = await prisma.supportTicket.update({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       data: { status }
     });
     
@@ -799,7 +799,7 @@ router.put("/gym-applications/:id", requireAuth, requireAdmin, async (req: Reque
   try {
     const { status } = req.body;
     const application = await prisma.gymApplication.update({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       data: { status }
     });
 
@@ -838,7 +838,7 @@ router.put("/gym-applications/:id", requireAuth, requireAdmin, async (req: Reque
 // ─── DELETE /api/admin/gyms/:id ──────────────────────────────────────────────
 router.delete("/gyms/:id", requireAuth, requireAdmin, async (req: Request, res: Response): Promise<void> => {
   try {
-    const gymId = req.params.id;
+    const gymId = req.params.id as string;
     
     // First delete any related applications
     await prisma.gymApplication.deleteMany({
