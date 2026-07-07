@@ -30,7 +30,7 @@ interface CreditsState {
   convertCashToCredits: (creditsToBuy: number) => Promise<{ success: boolean; message?: string }>;
   deductCredits: (creditsAmount: number, description: string) => Promise<{ success: boolean; message?: string }>;
   addTransaction: (type: "debit" | "credit", amount: number, currency: "credits" | "cash", description: string) => void;
-  checkoutCart: (items: { itemId: string; quantity: number }[], totalCostInr: number) => Promise<{ success: boolean; message?: string }>;
+  checkoutCart: (items: { itemId: string; quantity: number }[], totalCostInr: number, couponCode?: string) => Promise<{ success: boolean; message?: string }>;
 }
 
 export const useCreditsStore = create<CreditsState>((set, get) => ({
@@ -404,7 +404,7 @@ export const useCreditsStore = create<CreditsState>((set, get) => ({
     }
   },
 
-  checkoutCart: async (items, totalCostInr) => {
+  checkoutCart: async (items, totalCostInr, couponCode) => {
     const { cashBalance } = get();
 
     if (cashBalance < totalCostInr) {
@@ -416,7 +416,7 @@ export const useCreditsStore = create<CreditsState>((set, get) => ({
       await apiFetch("/api/marketplace/checkout", {
         method: "POST",
         token,
-        body: JSON.stringify({ items }),
+        body: JSON.stringify({ items, couponCode }),
       });
       
       set((state) => ({ cashBalance: state.cashBalance - totalCostInr }));

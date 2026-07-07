@@ -144,7 +144,7 @@ router.post(
       return;
     }
 
-    const { items } = req.body as { items: { itemId: string; quantity: number }[] };
+    const { items, couponCode } = req.body as { items: { itemId: string; quantity: number }[]; couponCode?: string };
 
     try {
       const result = await prisma.$transaction(async (tx) => {
@@ -165,6 +165,33 @@ router.post(
 
           totalPaise += item.pricePaise * orderItem.quantity;
           itemRecords.push({ item, quantity: orderItem.quantity });
+        }
+
+        // Apply coupon if provided
+        if (couponCode) {
+          const coupon = await tx.marketingCoupon.findUnique({
+            where: { code: couponCode.toUpperCase() }
+          });
+
+          if (!coupon) throw createError("Invalid coupon code", 404, "InvalidCoupon");
+          if (!coupon.isActive) throw createError("Coupon is no longer active", 400, "InvalidCoupon");
+          if (coupon.expiryDate && new Date(coupon.expiryDate) < new Date()) throw createError("Coupon expired", 400, "InvalidCoupon");
+          if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit) throw createError("Coupon usage limit reached", 400, "InvalidCoupon");
+          if (coupon.discountType === "CREDITS") throw createError("This coupon can only be used for gym bookings", 400, "InvalidCoupon");
+
+          let discountPaise = 0;
+          if (coupon.discountType === "PERCENTAGE") {
+            discountPaise = Math.floor(totalPaise * (coupon.discountValue / 100));
+          } else if (coupon.discountType === "RUPEES") {
+            discountPaise = coupon.discountValue * 100;
+          }
+
+          totalPaise = Math.max(0, totalPaise - discountPaise);
+
+          await tx.marketingCoupon.update({
+            where: { id: coupon.id },
+            data: { usageCount: { increment: 1 } }
+          });
         }
 
         const wallet = await tx.creditWallet.findUnique({

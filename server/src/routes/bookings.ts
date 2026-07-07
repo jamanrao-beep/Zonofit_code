@@ -39,10 +39,11 @@ router.post(
       return;
     }
 
-    const { gymId, visitDate, timeSlot } = req.body as {
+    const { gymId, visitDate, timeSlot, couponCode } = req.body as {
       gymId: string;
       visitDate: string;
       timeSlot: string;
+      couponCode?: string;
     };
 
     const visitDateObj = new Date(visitDate);
@@ -71,7 +72,31 @@ router.post(
         );
       }
 
-      // 3. Check wallet balance or primary visits
+      // 3. Apply coupon if provided
+      let finalCreditCost = gym.creditCost;
+      let appliedCouponId = null;
+
+      if (couponCode) {
+        const coupon = await tx.marketingCoupon.findUnique({
+          where: { code: couponCode.toUpperCase() }
+        });
+
+        if (!coupon) throw createError("Invalid coupon code", 404, "InvalidCoupon");
+        if (!coupon.isActive) throw createError("Coupon is no longer active", 400, "InvalidCoupon");
+        if (coupon.expiryDate && new Date(coupon.expiryDate) < new Date()) throw createError("Coupon expired", 400, "InvalidCoupon");
+        if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit) throw createError("Coupon usage limit reached", 400, "InvalidCoupon");
+        if (coupon.discountType === "RUPEES") throw createError("This coupon can only be used for marketplace purchases", 400, "InvalidCoupon");
+
+        if (coupon.discountType === "PERCENTAGE") {
+          finalCreditCost = Math.max(0, Math.floor(finalCreditCost - (finalCreditCost * (coupon.discountValue / 100))));
+        } else if (coupon.discountType === "CREDITS") {
+          finalCreditCost = Math.max(0, finalCreditCost - coupon.discountValue);
+        }
+
+        appliedCouponId = coupon.id;
+      }
+
+      // 4. Check wallet balance or primary visits
       let isPrimaryVisit = false;
       if (membership.primaryGymId === gymId && membership.primaryGymVisits > 0) {
         isPrimaryVisit = true;
@@ -81,9 +106,9 @@ router.post(
         where: { userId: req.dbUserId! },
       });
       if (!wallet) throw createError("Wallet not found.", 404, "WalletNotFound");
-      if (!isPrimaryVisit && wallet.balance < gym.creditCost) {
+      if (!isPrimaryVisit && wallet.balance < finalCreditCost) {
         throw createError(
-          `Insufficient credits. Need ${gym.creditCost}, have ${wallet.balance}.`,
+          `Insufficient credits. Need ${finalCreditCost}, have ${wallet.balance}.`,
           400,
           "InsufficientCredits"
         );
@@ -122,7 +147,7 @@ router.post(
         );
       }
 
-      // 6. Atomically deduct credits (or primary visits)
+      // 7. Atomically deduct credits (or primary visits)
       let updatedWallet = wallet;
       if (isPrimaryVisit) {
         await tx.membership.update({
@@ -132,11 +157,11 @@ router.post(
       } else {
         updatedWallet = await tx.creditWallet.update({
           where: { userId: req.dbUserId! },
-          data: { balance: { decrement: gym.creditCost } },
+          data: { balance: { decrement: finalCreditCost } },
         });
       }
 
-      // 7. Create the booking
+      // 8. Create the booking
       const passCode = uuidv4();
       const booking = await tx.booking.create({
         data: {
@@ -145,10 +170,18 @@ router.post(
           visitDate: visitDateObj,
           timeSlot,
           status: "CONFIRMED",
-          creditsDeducted: isPrimaryVisit ? 0 : gym.creditCost,
+          creditsDeducted: isPrimaryVisit ? 0 : finalCreditCost,
           passCode,
         },
       });
+
+      // 9. Mark coupon as used if applied
+      if (appliedCouponId && !isPrimaryVisit) {
+        await tx.marketingCoupon.update({
+          where: { id: appliedCouponId },
+          data: { usageCount: { increment: 1 } }
+        });
+      }
 
       // 8. Create the check-in record with QR verification code
       // In prod: hash the passCode before storing
@@ -166,13 +199,13 @@ router.post(
         },
       });
 
-      // 9. Log the credit transaction
+      // 11. Log the credit transaction
       await tx.creditTransaction.create({
         data: {
           userId: req.dbUserId!,
           walletId: wallet.id,
           type: "VISIT_SPEND",
-          amount: isPrimaryVisit ? 0 : -gym.creditCost,
+          amount: isPrimaryVisit ? 0 : -finalCreditCost,
           balanceAfter: updatedWallet.balance,
           description: isPrimaryVisit 
             ? `Primary Gym Visit booked at ${gym.name} (Cost: 0 credits). Remaining: ${membership.primaryGymVisits - 1}`
