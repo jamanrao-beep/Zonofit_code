@@ -96,8 +96,8 @@ export default function MarketplaceScreen() {
       } else {
         Alert.alert("Error", data.message || "Invalid coupon code");
       }
-    } catch (err) {
-      Alert.alert("Error", "Failed to validate coupon");
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Failed to validate coupon");
     } finally {
       setCouponLoading(false);
     }
