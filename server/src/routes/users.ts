@@ -188,10 +188,7 @@ router.get(
         try {
             const notifications = await prisma.notification.findMany({
                 where: {
-                    OR: [
-                        { userId: req.dbUserId! },
-                        { userId: null } // Global broadcasts
-                    ]
+                    userId: req.dbUserId!
                 },
                 orderBy: { createdAt: "desc" }
             });
@@ -209,8 +206,8 @@ router.post(
     async (req: Request, res: Response): Promise<void> => {
         try {
             await prisma.notification.updateMany({
-                where: { userId: req.dbUserId!, read: false },
-                data: { read: true }
+                where: { userId: req.dbUserId!, isRead: false },
+                data: { isRead: true }
             });
             res.json({ success: true });
         } catch (err: any) {
