@@ -12,7 +12,7 @@ export default function ProfileScreen() {
     const { user, isLoaded, signOut } = useAuthStore();
     const router = useRouter();
 
-    const { planName, membershipStatus, streak, totalWorkouts, avatarUrl, uploadAvatar } = useUserStore();
+    const { planName, membershipStatus, streak, totalWorkouts, avatarUrl, uploadAvatar, memberSince } = useUserStore();
     const { credits } = useCreditsStore();
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
@@ -50,8 +50,6 @@ export default function ProfileScreen() {
             console.error("Sign out error", err);
         }
     };
-
-    const formattedDate = "June 25, 2026";
 
     const handleInvite = () => {
         router.push("/invite");
@@ -127,7 +125,7 @@ export default function ProfileScreen() {
                                     <Text className="text-[#059669] text-[10px] font-bold">{planName}</Text>
                                 </View>
                                 <View className="bg-[#F5F7F4] px-2.5 py-0.5 rounded-full border border-black/5">
-                                    <Text className="text-[#6B756E] text-[10px] font-semibold">Member since {formattedDate}</Text>
+                                    <Text className="text-[#6B756E] text-[10px] font-semibold">Member since {memberSince}</Text>
                                 </View>
                             </View>
                         </View>
