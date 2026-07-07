@@ -54,7 +54,10 @@ export default function HomeScreen() {
 
   // Local State
   const [notificationsVisible, setNotificationsVisible] = useState(false);
+  const [notificationsList, setNotificationsList] = useState<any[]>([]);
   const [quote, setQuote] = useState("Consistency beats intensity. Just show up today.");
+
+  const unreadCount = notificationsList.filter(n => !n.isRead).length;
 
   async function fetchQuote() {
     try {
@@ -68,9 +71,33 @@ export default function HomeScreen() {
     }
   };
 
+  async function fetchNotifications() {
+    try {
+      const currentToken = useAuthStore.getState().token;
+      const data = await apiFetch("/api/users/notifications", { token: currentToken });
+      if (data.success && data.notifications) {
+        setNotificationsList(data.notifications);
+      }
+    } catch (err) {
+      console.log("Failed to fetch notifications");
+    }
+  }
+
   React.useEffect(() => {
     fetchQuote();
+    fetchNotifications();
   }, []);
+
+  React.useEffect(() => {
+    if (notificationsVisible && unreadCount > 0) {
+      // Mark as read when opened
+      const currentToken = useAuthStore.getState().token;
+      apiFetch("/api/users/notifications/read", { method: "POST", token: currentToken })
+        .catch(err => console.log("Failed to mark notifications read"));
+      
+      setNotificationsList(prev => prev.map(n => ({ ...n, isRead: true })));
+    }
+  }, [notificationsVisible]);
 
   const rotateQuote = () => {
     fetchQuote();
@@ -105,7 +132,9 @@ export default function HomeScreen() {
             >
               <Ionicons name="notifications-outline" size={20} color="#555" />
               {/* Unread badge */}
-              <View className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full border border-white" />
+              {unreadCount > 0 && (
+                <View className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full border border-white" />
+              )}
             </Pressable>
             <Pressable 
               onPress={() => router.push("/profile")}
@@ -402,41 +431,27 @@ export default function HomeScreen() {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} bounces={true} overScrollMode="never">
-              {/* Notification 1 */}
-              <View className="bg-[#EAF7EC] rounded-2xl p-4 mb-3 border border-[#D1F2D6] flex-row">
-                <View className="w-10 h-10 rounded-full bg-white items-center justify-center mr-3 border border-black/5">
-                  <Text className="text-lg">🎉</Text>
+              {notificationsList.length === 0 ? (
+                <View className="py-10 items-center justify-center">
+                  <Ionicons name="notifications-off-outline" size={48} color="#C4C9C5" className="mb-4" />
+                  <Text className="text-[#6B756E] text-sm">No new notifications</Text>
                 </View>
-                <View className="flex-1">
-                  <Text className="text-sm font-bold text-[#1F2520]">Welcome to ZonoFit!</Text>
-                  <Text className="text-xs text-[#6B756E] mt-0.5">We're glad to have you here. Book your first visit now.</Text>
-                  <Text className="text-[10px] text-[#6B756E] font-medium mt-2">Just now</Text>
-                </View>
-              </View>
-
-              {/* Notification 2 */}
-              <View className="bg-[#F5F7F4] rounded-2xl p-4 mb-3 border border-black/5 flex-row">
-                <View className="w-10 h-10 rounded-full bg-white items-center justify-center mr-3 border border-black/5">
-                  <Text className="text-lg">⚡</Text>
-                </View>
-                <View className="flex-1">
-                  <Text className="text-sm font-bold text-[#1F2520]">Credits Added</Text>
-                  <Text className="text-xs text-[#6B756E] mt-0.5">1,250 credits have been successfully added to your wallet.</Text>
-                  <Text className="text-[10px] text-[#6B756E] font-medium mt-2">2 hours ago</Text>
-                </View>
-              </View>
-
-              {/* Notification 3 */}
-              <View className="bg-[#F5F7F4] rounded-2xl p-4 mb-3 border border-black/5 flex-row">
-                <View className="w-10 h-10 rounded-full bg-white items-center justify-center mr-3 border border-black/5">
-                  <Text className="text-lg">🔥</Text>
-                </View>
-                <View className="flex-1">
-                  <Text className="text-sm font-bold text-[#1F2520]">Streak Preserved!</Text>
-                  <Text className="text-xs text-[#6B756E] mt-0.5">Your 12-day streak is safe. Keep up the momentum tomorrow.</Text>
-                  <Text className="text-[10px] text-[#6B756E] font-medium mt-2">Yesterday</Text>
-                </View>
-              </View>
+              ) : (
+                notificationsList.map((notification, index) => (
+                  <View key={notification.id || index} className={`rounded-2xl p-4 mb-3 border flex-row ${notification.isRead ? 'bg-[#F5F7F4] border-black/5' : 'bg-[#EAF7EC] border-[#D1F2D6]'}`}>
+                    <View className="w-10 h-10 rounded-full bg-white items-center justify-center mr-3 border border-black/5">
+                      <Ionicons name="notifications" size={18} color={notification.isRead ? "#6B756E" : "#10B981"} />
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-sm font-bold text-[#1F2520]">{notification.title}</Text>
+                      <Text className="text-xs text-[#6B756E] mt-0.5 leading-relaxed">{notification.body}</Text>
+                      <Text className="text-[10px] text-[#A3A8A5] font-medium mt-2">
+                        {new Date(notification.createdAt).toLocaleDateString()}
+                      </Text>
+                    </View>
+                  </View>
+                ))
+              )}
             </ScrollView>
           </View>
         </View>
