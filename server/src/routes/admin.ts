@@ -393,7 +393,7 @@ router.post("/marketing/coupons", requireAuth, requireAdmin, async (req: Request
 // ─── PUT /api/admin/marketing/coupons/:id ───────────────────────────────────
 router.put("/marketing/coupons/:id", requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { isActive, usageLimit } = req.body;
     
     const coupon = await prisma.marketingCoupon.update({
@@ -422,7 +422,7 @@ router.put("/marketing/coupons/:id", requireAuth, requireAdmin, async (req: Requ
 // ─── DELETE /api/admin/marketing/coupons/:id ────────────────────────────────
 router.delete("/marketing/coupons/:id", requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     
     const coupon = await prisma.marketingCoupon.delete({
       where: { id }
