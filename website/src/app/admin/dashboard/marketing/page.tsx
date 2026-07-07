@@ -94,7 +94,8 @@ export default function AdminMarketingPage() {
                 className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black"
               >
                 <option value="PERCENTAGE">Percentage (%)</option>
-                <option value="FIXED_AMOUNT">Fixed Amount (Credits)</option>
+                <option value="RUPEES">Fixed Amount (Rupees)</option>
+                <option value="CREDITS">Fixed Amount (Credits)</option>
               </select>
             </div>
             <div>
@@ -155,7 +156,7 @@ export default function AdminMarketingPage() {
                       </div>
                     </td>
                     <td className="py-4 font-bold text-gray-700">
-                      {c.discountType === "PERCENTAGE" ? `${c.discountValue}% OFF` : `â‚¹${c.discountValue} OFF`}
+                      {c.discountType === "PERCENTAGE" ? `${c.discountValue}% OFF` : (c.discountType === "RUPEES" ? `₹${c.discountValue} OFF` : `${c.discountValue} Credits OFF`)}
                     </td>
                     <td className="py-4">
                       <span className="text-sm font-medium text-black">

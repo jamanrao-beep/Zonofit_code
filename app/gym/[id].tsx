@@ -8,6 +8,8 @@ import {
   Alert,
   Modal,
   Dimensions,
+  TextInput,
+  ActivityIndicator,
 } from "react-native";
 const { width: windowWidth } = Dimensions.get("window");
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -40,7 +42,7 @@ export default function GymDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
 
-  const { bookingStatus, bookVisit } = useBookingStore();
+  const { bookingStatus, bookVisit, appliedCoupon, applyCoupon, clearCoupon } = useBookingStore();
   const { credits } = useCreditsStore();
 
   const [gym, setGym] = useState<Gym | null>(null);
@@ -51,6 +53,8 @@ export default function GymDetailScreen() {
   const [selectedDate, setSelectedDate] = useState(DATES[0].date);
   const [activeImage, setActiveImage] = useState(0);
   const [bookingModalVisible, setBookingModalVisible] = useState(false);
+  const [couponInput, setCouponInput] = useState("");
+  const [couponLoading, setCouponLoading] = useState(false);
 
   React.useEffect(() => {
     async function loadGym() {
@@ -151,17 +155,27 @@ export default function GymDetailScreen() {
 
   const handleConfirmBooking = async () => {
     const isCashVenue = gym.type === 'turf' || gym.type === 'sports';
-    const cashCost = gym.cost * 50;
+    let finalCost = isCashVenue ? (gym.cost * 50) : gym.cost;
+    
+    if (appliedCoupon) {
+      if (appliedCoupon.discountType === "PERCENTAGE") {
+        finalCost = Math.max(0, Math.floor(finalCost - (finalCost * (appliedCoupon.discountValue / 100))));
+      } else if (appliedCoupon.discountType === "RUPEES" && isCashVenue) {
+        finalCost = Math.max(0, finalCost - appliedCoupon.discountValue);
+      } else if (appliedCoupon.discountType === "CREDITS" && !isCashVenue) {
+        finalCost = Math.max(0, finalCost - appliedCoupon.discountValue);
+      }
+    }
 
     let success = false;
     
     if (isCashVenue) {
-      success = useCreditsStore.getState().bookVisitWithCash(gym.name, cashCost);
+      success = useCreditsStore.getState().bookVisitWithCash(gym.name, finalCost);
       if (success) {
-        await bookVisit(gym.id, gym.name, selectedDate, selectedTime, 0);
+        await bookVisit(gym.id, gym.name, selectedDate, selectedTime, 0, appliedCoupon?.code);
       }
     } else {
-      success = await bookVisit(gym.id, gym.name, selectedDate, selectedTime, gym.cost);
+      success = await bookVisit(gym.id, gym.name, selectedDate, selectedTime, gym.cost, appliedCoupon?.code);
     }
 
     if (success) {
@@ -172,7 +186,35 @@ export default function GymDetailScreen() {
         [{ text: "Go to Home", onPress: () => router.push("/") }]
       );
     } else {
-      Alert.alert("Error", "Booking failed. Please check your credit balance.");
+      Alert.alert("Error", "Booking failed. Please check your balance.");
+    }
+  };
+
+  const validateCoupon = async () => {
+    if (!couponInput.trim()) return;
+    setCouponLoading(true);
+    try {
+      const res = await fetch(`https://api.zonofit.com/api/coupons/validate?code=${couponInput.trim()}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success && data.coupon) {
+        const isCashVenue = gym.type === 'turf' || gym.type === 'sports';
+        if (data.coupon.discountType === "CREDITS" && isCashVenue) {
+          Alert.alert("Invalid Coupon", "This coupon can only be used for credit bookings.");
+        } else if (data.coupon.discountType === "RUPEES" && !isCashVenue) {
+          Alert.alert("Invalid Coupon", "This coupon can only be used for cash bookings.");
+        } else {
+          applyCoupon(data.coupon);
+          Alert.alert("Success", "Coupon applied successfully!");
+        }
+      } else {
+        Alert.alert("Error", data.message || "Invalid coupon code");
+      }
+    } catch (err) {
+      Alert.alert("Error", "Failed to validate coupon");
+    } finally {
+      setCouponLoading(false);
     }
   };
 
@@ -525,12 +567,55 @@ export default function GymDetailScreen() {
               </View>
               <View className="items-end">
                 <Text className="text-[#6B756E] text-xs">Cost</Text>
-                {gym.type === 'turf' || gym.type === 'sports' ? (
-                  <Text className="text-base font-bold text-emerald-700 mt-0.5">₹{gym.cost * 50}</Text>
-                ) : (
-                  <Text className="text-base font-bold text-emerald-700 mt-0.5">⚡ {gym.cost}</Text>
-                )}
+                {(() => {
+                  const isCashVenue = gym.type === 'turf' || gym.type === 'sports';
+                  let finalCost = isCashVenue ? (gym.cost * 50) : gym.cost;
+                  
+                  if (appliedCoupon) {
+                    if (appliedCoupon.discountType === "PERCENTAGE") {
+                      finalCost = Math.max(0, Math.floor(finalCost - (finalCost * (appliedCoupon.discountValue / 100))));
+                    } else if (appliedCoupon.discountType === "RUPEES" && isCashVenue) {
+                      finalCost = Math.max(0, finalCost - appliedCoupon.discountValue);
+                    } else if (appliedCoupon.discountType === "CREDITS" && !isCashVenue) {
+                      finalCost = Math.max(0, finalCost - appliedCoupon.discountValue);
+                    }
+                  }
+
+                  return (
+                    <Text className="text-base font-bold text-emerald-700 mt-0.5">
+                      {isCashVenue ? `₹${finalCost}` : `⚡ ${finalCost}`}
+                      {appliedCoupon && <Text className="text-xs text-emerald-600 ml-1"> (Discounted)</Text>}
+                    </Text>
+                  );
+                })()}
               </View>
+            </View>
+
+            <View className="mb-6">
+              <View className="flex-row gap-2">
+                <TextInput 
+                  className="flex-1 bg-gray-50 px-4 py-3 rounded-xl border border-black/5"
+                  placeholder="Coupon Code"
+                  value={couponInput}
+                  onChangeText={setCouponInput}
+                  autoCapitalize="characters"
+                />
+                <Pressable 
+                  onPress={validateCoupon}
+                  disabled={couponLoading || !couponInput.trim()}
+                  className="bg-black px-6 items-center justify-center rounded-xl"
+                >
+                  {couponLoading ? <ActivityIndicator color="white" /> : <Text className="text-white font-bold">Apply</Text>}
+                </Pressable>
+              </View>
+              {appliedCoupon && (
+                <View className="flex-row justify-between items-center mt-2 bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-100">
+                  <Text className="text-emerald-700 font-bold">{appliedCoupon.code} Applied!</Text>
+                  <Pressable onPress={() => { clearCoupon(); setCouponInput(""); }}>
+                    <Ionicons name="close-circle" size={20} color="#059669" />
+                  </Pressable>
+                </View>
+              )}
             </View>
 
             <View className="bg-amber-50 rounded-xl p-3 mb-6 flex-row items-center gap-x-2 border border-amber-100">

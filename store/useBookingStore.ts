@@ -26,10 +26,13 @@ interface BookingState {
   bookedCost: number;
   pastBookings: PastBooking[];
   loading: boolean;
+  appliedCoupon: { code: string; discountType: string; discountValue: number } | null;
   
   // Actions
+  applyCoupon: (coupon: any) => void;
+  clearCoupon: () => void;
   fetchBookings: (token: string) => Promise<void>;
-  bookVisit: (gymId: string, gymName: string, date: string, time: string, creditCost: number) => Promise<boolean>;
+  bookVisit: (gymId: string, gymName: string, date: string, time: string, creditCost: number, couponCode?: string) => Promise<boolean>;
   checkIn: () => Promise<boolean>;
   cancelBooking: () => Promise<void>;
 }
@@ -44,6 +47,10 @@ export const useBookingStore = create<BookingState>((set, get) => ({
   bookedCost: 0,
   pastBookings: [],
   loading: false,
+  appliedCoupon: null,
+
+  applyCoupon: (coupon) => set({ appliedCoupon: coupon }),
+  clearCoupon: () => set({ appliedCoupon: null }),
 
   fetchBookings: async (token) => {
     set({ loading: true });
@@ -96,7 +103,7 @@ export const useBookingStore = create<BookingState>((set, get) => ({
     }
   },
 
-  bookVisit: async (gymId, gymName, date, time, creditCost) => {
+  bookVisit: async (gymId, gymName, date, time, creditCost, couponCode) => {
     if (get().bookingStatus !== "Not Booked") {
       return false;
     }
@@ -110,6 +117,7 @@ export const useBookingStore = create<BookingState>((set, get) => ({
           gymId,
           visitDate: new Date(date).toISOString(), // ensure ISO format
           timeSlot: time,
+          couponCode,
         }),
       });
       
@@ -126,7 +134,8 @@ export const useBookingStore = create<BookingState>((set, get) => ({
         bookedGymName: gymName,
         bookedDate: date,
         bookedTime: time,
-        bookedCost: creditCost,
+        bookedCost: data.booking.creditsDeducted, // use actual deducted cost from backend
+        appliedCoupon: null, // clear coupon after booking
       });
       return true;
     } catch (err) {
