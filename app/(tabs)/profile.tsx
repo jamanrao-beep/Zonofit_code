@@ -217,6 +217,41 @@ export default function ProfileScreen() {
                     <NavRow
                         icon="accessibility-new"
                         label="Become a Trainer"
+                        onPress={() => router.push("/role-application?type=trainer")}
+                    />
+                    <NavRow
+                        icon="people-outline"
+                        label="Become a Gym Buddy"
+                        onPress={() => router.push("/role-application?type=buddy")}
+                    />
+                </View>
+
+                {/* About & Support Section */}
+                <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider mb-2.5 ml-6">About & Support</Text>
+                <View className="mx-5 bg-white rounded-[24px] px-4 border border-black/5 shadow-sm mb-4">
+                    <NavRow
+                        icon="campaign"
+                        label="Announcements"
+                        onPress={() => router.push({ pathname: "/content", params: { type: "app_announcement", title: "Announcements" } })}
+                    />
+                    <NavRow
+                        icon="help-outline"
+                        label="General FAQ"
+                        onPress={() => router.push({ pathname: "/content", params: { type: "faq_general", title: "General FAQ" } })}
+                    />
+                    <NavRow
+                        icon="description"
+                        label="Terms & Conditions"
+                        onPress={() => router.push({ pathname: "/content", params: { type: "terms_and_conditions", title: "Terms & Conditions" } })}
+                    />
+                </View>
+
+                {/* Account Settings Section */}
+                <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider mb-2.5 ml-6">Account Settings</Text>
+                <View className="mx-5 bg-white rounded-[24px] px-4 border border-black/5 shadow-sm mb-8">
+                    <NavRow
+                        icon="accessibility-new"
+                        label="Become a Trainer"
                         value="Early Access"
                         onPress={() => router.push({ pathname: "/tools/[tool]", params: { tool: "trainer-program" } } as any)}
                     />
