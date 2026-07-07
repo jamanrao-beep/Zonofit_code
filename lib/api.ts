@@ -1,40 +1,9 @@
 import { Platform } from "react-native";
 import * as FileSystem from 'expo-file-system/legacy';
 
-// Auto-detect backend URL in development
 const getBaseUrl = () => {
   const envUrl = process.env.EXPO_PUBLIC_API_URL;
-
-  if (envUrl) {
-    // IMPORTANT: "localhost" / "127.0.0.1" means something different on an
-    // Android emulator than it does on the machine running Metro.
-    // On Android, the emulator's own loopback is the emulator itself, not
-    // your laptop — so a localhost URL set in .env (which works fine on
-    // iOS Simulator / web) will silently fail to connect on Android.
-    // We rewrite it to the emulator's special host alias (10.0.2.2) so the
-    // same .env value works everywhere.
-    if (__DEV__ && Platform.OS === "android") {
-      const rewritten = envUrl
-        .replace("localhost", "10.0.2.2")
-        .replace("127.0.0.1", "10.0.2.2");
-      if (rewritten !== envUrl && __DEV__) {
-        console.log(`[API] Rewriting ${envUrl} -> ${rewritten} for Android emulator`);
-      }
-      return rewritten;
-    }
-    return envUrl;
-  }
-
-  // Fallbacks for localhost testing when no env var is set
-  if (__DEV__) {
-    // If Android emulator, localhost is mapped to 10.0.2.2
-    if (Platform.OS === "android") {
-      return "http://10.0.2.2:8000";
-    }
-    return "http://localhost:8000";
-  }
-
-  return "https://api.zonofit.com"; // Production URL fallback
+  return envUrl || "https://api.zonofit.com";
 };
 
 export const API_URL = getBaseUrl();
