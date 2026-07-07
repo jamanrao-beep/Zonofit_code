@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { useAuthStore } from "@/store/useAuthStore";
 import { LogOut } from "lucide-react";
@@ -9,6 +10,7 @@ import { LogOut } from "lucide-react";
 export default function Header() {
   const { user, initialize, logout } = useAuthStore();
   const [mounted, setMounted] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     initialize();
@@ -26,28 +28,28 @@ export default function Header() {
         </Link>
         
         <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-600">
-          <Link href="/how-it-works" className="hover:text-black transition-colors">How it Works</Link>
-          <Link href="/plans" className="hover:text-black transition-colors">Plans</Link>
+          <Link href="/how-it-works" className={`transition-colors ${pathname === '/how-it-works' ? 'text-primary font-semibold' : 'hover:text-black'}`}>How it Works</Link>
+          <Link href="/plans" className={`transition-colors ${pathname === '/plans' ? 'text-primary font-semibold' : 'hover:text-black'}`}>Plans</Link>
           {(!mounted || !user || user.role !== "GYM_OWNER") && (
-            <Link href="/partners" className="hover:text-black transition-colors">Gym Partners</Link>
+            <Link href="/partners" className={`transition-colors ${pathname === '/partners' ? 'text-primary font-semibold' : 'hover:text-black'}`}>Gym Partners</Link>
           )}
           {mounted && user && (
-            <Link href={user.role === "ADMIN" ? "/admin/dashboard" : "/gym/dashboard"} className="hover:text-black transition-colors font-semibold text-primary">
+            <Link href={user.role === "ADMIN" ? "/admin/dashboard" : "/gym/dashboard"} className={`transition-colors ${pathname?.includes('/dashboard') ? 'text-primary font-semibold' : 'hover:text-black'}`}>
               Dashboard
             </Link>
           )}
           {mounted && user && user.role === "GYM_OWNER" && (
             <>
-              <Link href="/gym/dashboard/profile" className="hover:text-black transition-colors">
+              <Link href="/gym/dashboard/profile" className={`transition-colors ${pathname === '/gym/dashboard/profile' ? 'text-primary font-semibold' : 'hover:text-black'}`}>
                 Profile
               </Link>
-              <Link href="/gym/dashboard/support" className="hover:text-black transition-colors">
+              <Link href="/gym/dashboard/support" className={`transition-colors ${pathname === '/gym/dashboard/support' ? 'text-primary font-semibold' : 'hover:text-black'}`}>
                 Support
               </Link>
             </>
           )}
           {mounted && user && (
-            <Link href="/settings" className="hover:text-black transition-colors">
+            <Link href="/settings" className={`transition-colors ${pathname === '/settings' ? 'text-primary font-semibold' : 'hover:text-black'}`}>
               Settings
             </Link>
           )}
