@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, ScrollView, Pressable, Image, Alert, Modal, ActivityIndicator } from "react-native";
+import { View, Text, ScrollView, Pressable, Image, Alert, Modal, ActivityIndicator, TextInput } from "react-native";
 import { useCreditsStore } from "@/store/useCreditsStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useCartStore } from "@/store/useCartStore";
