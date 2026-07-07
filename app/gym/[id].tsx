@@ -194,10 +194,9 @@ export default function GymDetailScreen() {
     if (!couponInput.trim()) return;
     setCouponLoading(true);
     try {
-      const res = await fetch(`https://api.zonofit.com/api/coupons/validate?code=${couponInput.trim()}`, {
-        headers: { Authorization: `Bearer ${token}` }
+      const data = await apiFetch(`/api/coupons/validate?code=${couponInput.trim()}`, {
+        token
       });
-      const data = await res.json();
       if (data.success && data.coupon) {
         const isCashVenue = gym.type === 'turf' || gym.type === 'sports';
         if (data.coupon.discountType === "CREDITS" && isCashVenue) {
