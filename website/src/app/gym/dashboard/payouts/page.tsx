@@ -2,38 +2,76 @@
 
 import GymGuard from "@/components/GymGuard";
 import { useEffect, useState } from "react";
-import { Download } from "lucide-react";
+import { Download, Plus } from "lucide-react";
 
 export default function PayoutsPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [requesting, setRequesting] = useState(false);
+
+  const fetchPayouts = async () => {
+    try {
+      const token = localStorage.getItem("zonofit_portal_token");
+      const res = await fetch("/api/gyms/analytics/payouts", {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      const result = await res.json();
+      setData(result);
+    } catch (err) {
+      console.error("Failed to fetch payouts", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchPayouts = async () => {
-      try {
-        const token = localStorage.getItem("zonofit_portal_token");
-        const res = await fetch("/api/gyms/analytics/payouts", {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-        const result = await res.json();
-        setData(result);
-      } catch (err) {
-        console.error("Failed to fetch payouts", err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchPayouts();
   }, []);
+
+  const handleRequestPayout = async () => {
+    const amountStr = prompt("Enter amount to request (in INR):", "1000");
+    if (!amountStr) return;
+    const amountPaise = parseInt(amountStr) * 100;
+    if (isNaN(amountPaise) || amountPaise <= 0) return alert("Invalid amount");
+
+    setRequesting(true);
+    try {
+      const token = localStorage.getItem("zonofit_portal_token");
+      await fetch("/api/gyms/payouts/request", {
+        method: "POST",
+        headers: { 
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ amountPaise })
+      });
+      alert("Payout requested successfully!");
+      fetchPayouts();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to request payout");
+    } finally {
+      setRequesting(false);
+    }
+  };
 
   return (
     <GymGuard>
       <div className="max-w-6xl mx-auto w-full px-6 py-10">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-black mb-2">Payouts & Earnings</h1>
-          <p className="text-gray-600">
-            Track your revenue, commissions, and upcoming payouts.
-          </p>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-black mb-2">Payouts & Earnings</h1>
+            <p className="text-gray-600">
+              Track your revenue, commissions, and upcoming payouts.
+            </p>
+          </div>
+          <button 
+            onClick={handleRequestPayout}
+            disabled={requesting}
+            className="bg-black text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-800 transition-colors disabled:opacity-50 shadow-md"
+          >
+            <Plus size={18} /> {requesting ? "Requesting..." : "Request Payout"}
+          </button>
         </div>
 
         {/* Overview Cards */}

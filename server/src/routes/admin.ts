@@ -721,5 +721,112 @@ router.post("/trial-gyms", requireAuth, requireAdmin, async (req: Request, res: 
   }
 });
 
+// ─── PUT /api/admin/support/:id/status ─────────────────────────────────────
+router.put("/support/:id/status", requireAuth, requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { status } = req.body;
+    const ticket = await prisma.supportTicket.update({
+      where: { id: req.params.id },
+      data: { status }
+    });
+    
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.dbUserId!,
+        actionType: "UPDATE_TICKET_STATUS",
+        targetId: ticket.id,
+        details: `Updated ticket ${ticket.id} status to ${status}`
+      }
+    });
+
+    res.json({ ticket });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
+// ─── POST /api/admin/payouts/process ───────────────────────────────────────
+router.post("/payouts/process", requireAuth, requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await prisma.gymPayout.updateMany({
+      where: { status: "PENDING" },
+      data: {
+        status: "PAID",
+        payoutDate: new Date()
+      }
+    });
+
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.dbUserId!,
+        actionType: "PROCESS_PAYOUTS",
+        targetId: "BULK",
+        details: `Processed ${result.count} pending payouts`
+      }
+    });
+
+    res.json({ message: "Payouts processed", count: result.count });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
+// ─── GET /api/admin/gym-applications ───────────────────────────────────────
+router.get("/gym-applications", requireAuth, requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const applications = await prisma.gymApplication.findMany({
+      where: { status: "PENDING" },
+      include: {
+        gym: { include: { owner: { select: { name: true, email: true } } } }
+      },
+      orderBy: { createdAt: "desc" }
+    });
+    res.json({ applications });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
+// ─── PUT /api/admin/gym-applications/:id ───────────────────────────────────
+router.put("/gym-applications/:id", requireAuth, requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { status } = req.body;
+    const application = await prisma.gymApplication.update({
+      where: { id: req.params.id },
+      data: { status }
+    });
+
+    if (status === "APPROVED") {
+      await prisma.gym.update({
+        where: { id: application.gymId },
+        data: {
+          isVerified: true,
+          isActive: true
+        }
+      });
+      const gym = await prisma.gym.findUnique({ where: { id: application.gymId } });
+      if (gym?.ownerId) {
+        await prisma.user.update({
+          where: { id: gym.ownerId },
+          data: { systemRole: "GYM_OWNER" }
+        });
+      }
+    }
+
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.dbUserId!,
+        actionType: "EVALUATE_GYM_APPLICATION",
+        targetId: application.id,
+        details: `Updated gym application ${application.id} to ${status}`
+      }
+    });
+
+    res.json({ application });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
 export default router;
 // trigger restart

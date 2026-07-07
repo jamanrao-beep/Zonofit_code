@@ -79,7 +79,9 @@ export const useUserStore = create<UserState>((set) => ({
         totalWorkouts: data.progress?.totalWorkouts ?? 0,
         trainingHours: data.progress?.trainingHours ?? 0,
         identityStage: data.progress?.identityStage ?? "Starter",
-        memberSince: data.createdAt ? new Date(data.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : "Recently",
+        memberSince: membership?.startDate 
+          ? new Date(membership.startDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) 
+          : (data.createdAt ? new Date(data.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : "Recently"),
         loading: false
       });
     } catch (err) {

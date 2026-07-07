@@ -7,23 +7,42 @@ export default function AdminSupportPage() {
   const [tickets, setTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const fetchTickets = async () => {
+    try {
+      const token = localStorage.getItem("zonofit_portal_token");
+      const res = await fetch("/api/admin/support", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setTickets(data.tickets || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchTickets = async () => {
-      try {
-        const token = localStorage.getItem("zonofit_portal_token");
-        const res = await fetch("/api/admin/support", {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const data = await res.json();
-        setTickets(data.tickets || []);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchTickets();
   }, []);
+
+  const updateStatus = async (ticketId: string, status: string) => {
+    try {
+      const token = localStorage.getItem("zonofit_portal_token");
+      await fetch(`/api/admin/support/${ticketId}/status`, {
+        method: "PUT",
+        headers: { 
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ status })
+      });
+      fetchTickets();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to update status");
+    }
+  };
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8">
@@ -56,8 +75,8 @@ export default function AdminSupportPage() {
             <CheckCircle2 size={24} />
           </div>
           <div>
-            <div className="text-sm font-bold text-emerald-900 uppercase">Resolved (Today)</div>
-            <div className="text-2xl font-black text-emerald-700">0</div>
+            <div className="text-sm font-bold text-emerald-900 uppercase">Resolved</div>
+            <div className="text-2xl font-black text-emerald-700">{tickets.filter(t => t.status === "RESOLVED").length || 0}</div>
           </div>
         </div>
       </div>
@@ -74,7 +93,7 @@ export default function AdminSupportPage() {
                   <th className="pb-4 font-bold">Reporter</th>
                   <th className="pb-4 font-bold">Priority</th>
                   <th className="pb-4 font-bold">Status</th>
-                  <th className="pb-4 font-bold text-right">Actions</th>
+                  <th className="pb-4 font-bold text-right">Update Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -109,14 +128,25 @@ export default function AdminSupportPage() {
                       </span>
                     </td>
                     <td className="py-4">
-                      <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg text-xs font-bold">
+                      <span className={`px-3 py-1 rounded-lg text-xs font-bold ${
+                        ticket.status === 'RESOLVED' ? 'bg-emerald-100 text-emerald-700' : 
+                        ticket.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-700' :
+                        'bg-amber-100 text-amber-700'
+                      }`}>
                         {ticket.status}
                       </span>
                     </td>
                     <td className="py-4 text-right">
-                      <button className="px-4 py-2 bg-black text-white text-sm font-bold rounded-xl hover:bg-gray-800 transition-colors">
-                        View & Reply
-                      </button>
+                      <select 
+                        value={ticket.status}
+                        onChange={(e) => updateStatus(ticket.id, e.target.value)}
+                        className="bg-gray-50 border border-gray-200 text-sm font-bold rounded-lg focus:ring-black focus:border-black p-2 ml-auto block"
+                      >
+                        <option value="OPEN">Open</option>
+                        <option value="IN_PROGRESS">In Progress</option>
+                        <option value="RESOLVED">Resolved</option>
+                        <option value="CLOSED">Closed</option>
+                      </select>
                     </td>
                   </tr>
                 ))}

@@ -8,6 +8,7 @@ export default function AdminMarketplacePage() {
   const [loading, setLoading] = useState(true);
   
   const [showForm, setShowForm] = useState(false);
+  const [filterCategory, setFilterCategory] = useState("ALL");
   const [editItemId, setEditItemId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     title: "",
@@ -50,7 +51,7 @@ export default function AdminMarketplacePage() {
       const url = editItemId ? `/api/admin/marketplace/${editItemId}` : "/api/admin/marketplace";
       const method = editItemId ? "PUT" : "POST";
 
-      await fetch(url, {
+      const res = await fetch(url, {
         method,
         headers: { 
           "Authorization": `Bearer ${token}`,
@@ -58,6 +59,14 @@ export default function AdminMarketplacePage() {
         },
         body: JSON.stringify(formData)
       });
+      
+      if (!res.ok) {
+        const err = await res.json();
+        alert("Failed to save: " + (err.message || "Unknown error"));
+        setSaving(false);
+        return;
+      }
+      
       alert(editItemId ? "Marketplace item updated successfully!" : "Marketplace item added successfully!");
       setShowForm(false);
       setEditItemId(null);
@@ -75,10 +84,17 @@ export default function AdminMarketplacePage() {
     if (!confirm("Are you sure you want to delete this item?")) return;
     try {
       const token = localStorage.getItem("zonofit_portal_token");
-      await fetch(`/api/admin/marketplace/${id}`, {
+      const res = await fetch(`/api/admin/marketplace/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` }
       });
+      
+      if (!res.ok) {
+        const err = await res.json();
+        alert("Failed to delete: " + (err.message || "Unknown error"));
+        return;
+      }
+      
       fetchItems();
     } catch (err) {
       console.error(err);
@@ -204,8 +220,20 @@ export default function AdminMarketplacePage() {
         </div>
       )}
 
+      <div className="flex items-center gap-2 overflow-x-auto pb-4">
+        {["ALL", "ZONOFIT_COMMON", "PRODUCTS", "SPORTS_ACTIVITIES", "APPAREL_GEAR", "RECOVERY_WELLNESS"].map(cat => (
+          <button
+            key={cat}
+            onClick={() => setFilterCategory(cat)}
+            className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${filterCategory === cat ? "bg-black text-white" : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"}`}
+          >
+            {cat === "ALL" ? "All Items" : cat.replace(/_/g, " ")}
+          </button>
+        ))}
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {items.map(item => (
+        {items.filter(item => filterCategory === "ALL" || item.storeCategory === filterCategory).map(item => (
           <div key={item.id} className="bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm flex flex-col">
             <img src={item.imageUrl} alt={item.title} className="h-48 w-full object-cover bg-gray-100" />
             <div className="p-5 flex-1 flex flex-col">
@@ -235,9 +263,9 @@ export default function AdminMarketplacePage() {
           </div>
         ))}
         
-        {items.length === 0 && (
+        {items.filter(item => filterCategory === "ALL" || item.storeCategory === filterCategory).length === 0 && (
           <div className="col-span-full p-12 text-center text-gray-400 font-medium bg-white rounded-3xl border border-dashed border-gray-200">
-            No marketplace items found. Click "Add Item" to create one.
+            No marketplace items found in this category.
           </div>
         )}
       </div>
