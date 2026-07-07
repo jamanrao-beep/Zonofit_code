@@ -21,6 +21,7 @@ interface UserState {
   totalWorkouts: number;
   trainingHours: number;
   loading: boolean;
+  memberSince: string;
   
   // Actions
   fetchProfile: (token: string) => Promise<void>;
@@ -49,6 +50,7 @@ export const useUserStore = create<UserState>((set) => ({
   totalWorkouts: 0,
   trainingHours: 0,
   loading: false,
+  memberSince: "Recently",
 
   fetchProfile: async (token) => {
     set({ loading: true });
@@ -77,6 +79,7 @@ export const useUserStore = create<UserState>((set) => ({
         totalWorkouts: data.progress?.totalWorkouts ?? 0,
         trainingHours: data.progress?.trainingHours ?? 0,
         identityStage: data.progress?.identityStage ?? "Starter",
+        memberSince: data.createdAt ? new Date(data.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : "Recently",
         loading: false
       });
     } catch (err) {
