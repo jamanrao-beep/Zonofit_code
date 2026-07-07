@@ -8,6 +8,7 @@ export default function AdminMarketplacePage() {
   const [loading, setLoading] = useState(true);
   
   const [showForm, setShowForm] = useState(false);
+  const [editItemId, setEditItemId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -46,24 +47,57 @@ export default function AdminMarketplacePage() {
     setSaving(true);
     try {
       const token = localStorage.getItem("zonofit_portal_token");
-      await fetch("/api/admin/marketplace", {
-        method: "POST",
+      const url = editItemId ? `/api/admin/marketplace/${editItemId}` : "/api/admin/marketplace";
+      const method = editItemId ? "PUT" : "POST";
+
+      await fetch(url, {
+        method,
         headers: { 
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify(formData)
       });
-      alert("Marketplace item added successfully!");
+      alert(editItemId ? "Marketplace item updated successfully!" : "Marketplace item added successfully!");
       setShowForm(false);
+      setEditItemId(null);
       setFormData({ title: "", description: "", pricePaise: "", imageUrl: "", inStock: true, storeCategory: "ZONOFIT_COMMON" });
       fetchItems();
     } catch (err) {
       console.error(err);
-      alert("Failed to create item.");
+      alert("Failed to save item.");
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleDeleteItem = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this item?")) return;
+    try {
+      const token = localStorage.getItem("zonofit_portal_token");
+      await fetch(`/api/admin/marketplace/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchItems();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete item.");
+    }
+  };
+
+  const handleEditClick = (item: any) => {
+    setFormData({
+      title: item.title,
+      description: item.description,
+      pricePaise: item.pricePaise.toString(),
+      imageUrl: item.imageUrl,
+      inStock: item.inStock,
+      storeCategory: item.storeCategory || "ZONOFIT_COMMON"
+    });
+    setEditItemId(item.id);
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   if (loading) return <div className="p-8 text-gray-500 font-medium">Loading Marketplace...</div>;
@@ -76,16 +110,22 @@ export default function AdminMarketplacePage() {
           <p className="text-gray-500 mt-1 text-sm">Add and manage items sold in the ZonoFit Marketplace.</p>
         </div>
         <button 
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => {
+            if (!showForm) {
+              setEditItemId(null);
+              setFormData({ title: "", description: "", pricePaise: "", imageUrl: "", inStock: true, storeCategory: "ZONOFIT_COMMON" });
+            }
+            setShowForm(!showForm);
+          }}
           className="bg-black hover:bg-gray-800 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-colors"
         >
-          <Plus size={18} /> Add Item
+          <Plus size={18} /> {showForm ? "Cancel" : "Add Item"}
         </button>
       </div>
 
       {showForm && (
         <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-          <h2 className="text-xl font-bold text-black mb-4">Add New Item</h2>
+          <h2 className="text-xl font-bold text-black mb-4">{editItemId ? "Edit Item" : "Add New Item"}</h2>
           <form onSubmit={handleCreateItem} className="space-y-4 max-w-2xl">
             <div>
               <label className="block text-sm font-bold text-black mb-2">Title</label>
@@ -186,10 +226,9 @@ export default function AdminMarketplacePage() {
                 <span className={`text-xs font-bold px-2 py-1 rounded-md ${item.inStock ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
                   {item.inStock ? 'In Stock' : 'Out of Stock'}
                 </span>
-                {/* Future: Add Edit/Delete Actions */}
                 <div className="flex gap-2">
-                  <button className="text-gray-400 hover:text-black p-1"><Edit size={16}/></button>
-                  <button className="text-gray-400 hover:text-red-500 p-1"><Trash2 size={16}/></button>
+                  <button onClick={() => handleEditClick(item)} className="text-gray-400 hover:text-black p-1"><Edit size={16}/></button>
+                  <button onClick={() => handleDeleteItem(item.id)} className="text-gray-400 hover:text-red-500 p-1"><Trash2 size={16}/></button>
                 </div>
               </div>
             </div>
