@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Search, CheckCircle, XCircle, TrendingUp, Ban } from "lucide-react";
+import { Search, CheckCircle, XCircle, TrendingUp, Ban, Check, X } from "lucide-react";
 
 export default function AdminGymsPage() {
   const [gyms, setGyms] = useState<any[]>([]);
+  const [applications, setApplications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
@@ -18,6 +19,19 @@ export default function AdminGymsPage() {
       setGyms(data.gyms || []);
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const fetchApplications = async () => {
+    try {
+      const token = localStorage.getItem("zonofit_portal_token");
+      const res = await fetch("/api/admin/gym-applications", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setApplications(data.applications || []);
+    } catch (err) {
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -25,6 +39,7 @@ export default function AdminGymsPage() {
 
   useEffect(() => {
     fetchGyms();
+    fetchApplications();
   }, []);
 
   const handleStatusUpdate = async (gymId: string, isVerified: boolean, isActive: boolean) => {
@@ -45,6 +60,25 @@ export default function AdminGymsPage() {
     }
   };
 
+  const handleAppUpdate = async (appId: string, status: string) => {
+    const token = localStorage.getItem("zonofit_portal_token");
+    try {
+      await fetch(`/api/admin/gym-applications/${appId}`, {
+        method: "PUT",
+        headers: { 
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ status })
+      });
+      fetchApplications();
+      fetchGyms();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to update application.");
+    }
+  };
+
   const filteredGyms = gyms.filter(g => 
     g.name?.toLowerCase().includes(search.toLowerCase()) || 
     g.city?.toLowerCase().includes(search.toLowerCase())
@@ -58,6 +92,35 @@ export default function AdminGymsPage() {
           <p className="text-gray-600">Review applications, approve partners, and monitor gym performance.</p>
         </div>
       </div>
+
+      {applications.length > 0 && (
+        <div className="bg-orange-50 p-6 rounded-3xl border border-orange-100 shadow-sm">
+          <h2 className="text-xl font-bold text-orange-900 mb-4">Pending Applications</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {applications.map(app => (
+              <div key={app.id} className="bg-white p-4 rounded-2xl shadow-sm border border-orange-200">
+                <div className="font-bold text-black text-lg">{app.gym?.name}</div>
+                <div className="text-sm text-gray-600">{app.gym?.city} &bull; {app.gym?.address}</div>
+                <div className="text-sm text-gray-500 mt-2">Owner: {app.gym?.owner?.name} ({app.gym?.owner?.email})</div>
+                <div className="flex gap-2 mt-4">
+                  <button 
+                    onClick={() => handleAppUpdate(app.id, "APPROVED")}
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors"
+                  >
+                    <Check size={16} /> Approve
+                  </button>
+                  <button 
+                    onClick={() => handleAppUpdate(app.id, "REJECTED")}
+                    className="flex-1 bg-red-100 hover:bg-red-200 text-red-700 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors"
+                  >
+                    <X size={16} /> Reject
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
         <div className="flex items-center gap-4 mb-6">
@@ -97,7 +160,7 @@ export default function AdminGymsPage() {
                     </td>
                     <td className="py-4">
                       <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs font-bold">
-                        {gym.category}
+                        {gym.category || 'Standard'}
                       </span>
                     </td>
                     <td className="py-4 font-medium text-black">

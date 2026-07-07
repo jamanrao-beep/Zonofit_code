@@ -6,6 +6,7 @@ import { DollarSign, ArrowUpRight, ArrowDownRight, Activity } from "lucide-react
 export default function AdminFinancePage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState(false);
 
   const fetchFinance = async () => {
     try {
@@ -25,6 +26,26 @@ export default function AdminFinancePage() {
   useEffect(() => {
     fetchFinance();
   }, []);
+
+  const processPayouts = async () => {
+    if (!confirm("Are you sure you want to process all pending payouts?")) return;
+    setProcessing(true);
+    try {
+      const token = localStorage.getItem("zonofit_portal_token");
+      const res = await fetch("/api/admin/payouts/process", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const result = await res.json();
+      alert(`Processed ${result.count} payouts successfully.`);
+      fetchFinance();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to process payouts");
+    } finally {
+      setProcessing(false);
+    }
+  };
 
   if (loading) {
     return <div className="p-8 text-gray-500">Loading Financial Data...</div>;
@@ -62,8 +83,12 @@ export default function AdminFinancePage() {
         <div className="bg-orange-50 p-6 rounded-3xl border border-orange-100 shadow-sm flex flex-col">
           <div className="text-sm font-bold text-orange-800 uppercase tracking-wider mb-2">Pending Payouts</div>
           <div className="text-3xl font-black text-orange-600">â‚¹{data?.totalPending?.toLocaleString() || 0}</div>
-          <button className="mt-4 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors w-fit">
-            Process Payouts
+          <button 
+            onClick={processPayouts}
+            disabled={processing || data?.totalPending === 0}
+            className="mt-4 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors w-fit disabled:opacity-50"
+          >
+            {processing ? "Processing..." : "Process Payouts"}
           </button>
         </div>
       </div>

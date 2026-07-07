@@ -713,4 +713,102 @@ router.get(
   }
 );
 
+// ─── POST /api/gyms/support ────────────────────────────────────────────────
+router.post("/support", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { subject, message } = req.body;
+    const gym = await prisma.gym.findFirst({ where: { ownerId: req.dbUserId, isActive: true } });
+    const ticket = await prisma.supportTicket.create({
+      data: {
+        subject,
+        message,
+        status: "OPEN",
+        priority: "MEDIUM",
+        userId: req.dbUserId,
+        gymId: gym ? gym.id : null
+      }
+    });
+    res.json({ ticket });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
+// ─── GET /api/gyms/support ─────────────────────────────────────────────────
+router.get("/support", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tickets = await prisma.supportTicket.findMany({
+      where: { userId: req.dbUserId },
+      orderBy: { createdAt: "desc" }
+    });
+    res.json({ tickets });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
+// ─── POST /api/gyms/payouts/request ────────────────────────────────────────
+router.post("/payouts/request", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { amountPaise } = req.body;
+    const gym = await prisma.gym.findFirst({ where: { ownerId: req.dbUserId, isActive: true } });
+    if (!gym) {
+      res.status(403).json({ error: "Forbidden", message: "Not a gym owner" });
+      return;
+    }
+
+    const payout = await prisma.gymPayout.create({
+      data: {
+        gymId: gym.id,
+        periodStart: new Date(),
+        periodEnd: new Date(),
+        amountPaise: parseInt(amountPaise, 10),
+        status: "PENDING"
+      }
+    });
+    res.json({ payout });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
+// ─── POST /api/gyms/applications ───────────────────────────────────────────
+router.post("/applications", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { name, city, address, description, facilities, totalSlots } = req.body;
+    
+    // Create a disabled Gym record
+    const gym = await prisma.gym.create({
+      data: {
+        name,
+        city,
+        address,
+        description,
+        state: "Maharashtra", // default
+        lat: 0,
+        lng: 0,
+        creditCost: 10, // default
+        isVerified: false,
+        isActive: false,
+        ownerId: req.dbUserId,
+        facilities: facilities || [],
+        totalSlots: parseInt(totalSlots, 10) || 20
+      }
+    });
+
+    // Create the Application record
+    const application = await prisma.gymApplication.create({
+      data: {
+        gymId: gym.id,
+        status: "PENDING",
+        notes: `Application created by user ${req.dbUserId}`
+      }
+    });
+
+    res.json({ application, gym });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
 export default router;

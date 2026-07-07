@@ -97,6 +97,7 @@ router.get(
                     status: user.membership.status,
                     tier: user.membership.plan.tier,
                     planName: user.membership.plan.name,
+                    startDate: user.membership.startDate,
                     endDate: user.membership.endDate,
                     monthlyCredits: user.membership.plan.monthlyCredits,
                 }

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { verifyToken } from "../lib/jwt";
+import prisma from "../lib/prisma";
 
 // Extend Express Request to carry the verified user
 declare global {
@@ -48,6 +49,21 @@ export async function requireAuth(
       return;
     }
 
+    const user = await prisma.user.findUnique({
+      where: { id: payload.dbUserId },
+      select: { isSuspended: true }
+    });
+
+    if (!user) {
+      res.status(401).json({ error: "Unauthorized", message: "User not found." });
+      return;
+    }
+
+    if (user.isSuspended) {
+      res.status(403).json({ error: "AccountSuspended", message: "Your account has been suspended by an administrator." });
+      return;
+    }
+
     req.dbUserId = payload.dbUserId;
     next();
   } catch (err) {
@@ -58,4 +74,3 @@ export async function requireAuth(
     });
   }
 }
-

@@ -34,7 +34,16 @@ export default function Header() {
             <Link href="/partners" className={`transition-colors ${pathname === '/partners' ? 'text-primary font-semibold' : 'hover:text-black'}`}>Gym Partners</Link>
           )}
           {mounted && user && (
-            <Link href={user.role === "ADMIN" ? "/admin/dashboard" : "/gym/dashboard"} className={`transition-colors ${pathname?.includes('/dashboard') ? 'text-primary font-semibold' : 'hover:text-black'}`}>
+            <Link 
+              href={user.role === "ADMIN" ? "/admin/dashboard" : "/gym/dashboard"} 
+              className={`transition-colors ${
+                pathname?.includes('/dashboard') && 
+                !pathname.includes('profile') && 
+                !pathname.includes('support') && 
+                !pathname.includes('settings') 
+                  ? 'text-primary font-semibold' : 'hover:text-black'
+              }`}
+            >
               Dashboard
             </Link>
           )}
