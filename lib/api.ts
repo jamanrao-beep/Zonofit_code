@@ -68,7 +68,7 @@ export async function apiFetch(path: string, options: RequestOptions = {}) {
         `10.0.2.2, not localhost — check EXPO_PUBLIC_API_URL in your .env.`
       );
     }
-    console.error(`[API Error] Request to ${url} failed:`, err);
+    console.warn(`[API Error] Request to ${url} failed:`, err);
     throw new Error(
       err.message ||
       `Network request failed while calling ${url}. Please check if the backend server is running and reachable from this device/emulator.`
