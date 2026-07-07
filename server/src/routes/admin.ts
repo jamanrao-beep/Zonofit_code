@@ -390,6 +390,59 @@ router.post("/marketing/coupons", requireAuth, requireAdmin, async (req: Request
   }
 });
 
+// ─── PUT /api/admin/marketing/coupons/:id ───────────────────────────────────
+router.put("/marketing/coupons/:id", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { isActive, usageLimit } = req.body;
+    
+    const coupon = await prisma.marketingCoupon.update({
+      where: { id },
+      data: {
+        ...(isActive !== undefined && { isActive }),
+        ...(usageLimit !== undefined && { usageLimit: usageLimit ? parseInt(usageLimit, 10) : null })
+      }
+    });
+
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.dbUserId!,
+        actionType: "UPDATE_COUPON",
+        targetId: coupon.id,
+        details: `Updated coupon ${coupon.code}`
+      }
+    });
+
+    res.json({ coupon });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
+// ─── DELETE /api/admin/marketing/coupons/:id ────────────────────────────────
+router.delete("/marketing/coupons/:id", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const coupon = await prisma.marketingCoupon.delete({
+      where: { id }
+    });
+
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.dbUserId!,
+        actionType: "DELETE_COUPON",
+        targetId: coupon.id,
+        details: `Deleted coupon ${coupon.code}`
+      }
+    });
+
+    res.json({ success: true, message: "Coupon deleted successfully" });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
 // ─── GET /api/admin/audit-logs ──────────────────────────────────────────────
 router.get("/audit-logs", requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {

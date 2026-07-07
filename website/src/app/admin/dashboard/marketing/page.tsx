@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Tag, Plus, Settings2 } from "lucide-react";
+import { Tag, Plus, Trash2, Power } from "lucide-react";
 
 export default function AdminMarketingPage() {
   const [coupons, setCoupons] = useState<any[]>([]);
@@ -53,6 +53,40 @@ export default function AdminMarketingPage() {
     } catch (err) {
       console.error(err);
       alert("Failed to create coupon.");
+    }
+  };
+
+  const handleDeleteCoupon = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this coupon?")) return;
+    try {
+      const token = localStorage.getItem("zonofit_portal_token");
+      await fetch(`/api/admin/marketing/coupons/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchCoupons();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete coupon.");
+    }
+  };
+
+  const handleToggleCoupon = async (id: string, currentStatus: boolean) => {
+    if (!confirm(`Are you sure you want to ${currentStatus ? "disable" : "enable"} this coupon?`)) return;
+    try {
+      const token = localStorage.getItem("zonofit_portal_token");
+      await fetch(`/api/admin/marketing/coupons/${id}`, {
+        method: "PUT",
+        headers: { 
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ isActive: !currentStatus })
+      });
+      fetchCoupons();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to update coupon.");
     }
   };
 
@@ -171,9 +205,22 @@ export default function AdminMarketingPage() {
                       )}
                     </td>
                     <td className="py-4 text-right">
-                      <button className="p-2 text-gray-400 hover:text-black hover:bg-gray-100 rounded-lg transition-colors">
-                        <Settings2 size={18} />
-                      </button>
+                      <div className="flex justify-end gap-2">
+                        <button 
+                          onClick={() => handleToggleCoupon(c.id, c.isActive)}
+                          className="p-2 text-gray-400 hover:text-black hover:bg-gray-100 rounded-lg transition-colors"
+                          title={c.isActive ? "Disable" : "Enable"}
+                        >
+                          <Power size={18} className={c.isActive ? "text-emerald-600" : "text-gray-400"} />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteCoupon(c.id)}
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
