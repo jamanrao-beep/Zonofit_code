@@ -30,6 +30,7 @@ interface CreditsState {
   convertCashToCredits: (creditsToBuy: number) => Promise<{ success: boolean; message?: string }>;
   deductCredits: (creditsAmount: number, description: string) => Promise<{ success: boolean; message?: string }>;
   addTransaction: (type: "debit" | "credit", amount: number, currency: "credits" | "cash", description: string) => void;
+  checkoutCart: (items: { itemId: string; quantity: number }[], totalCostInr: number) => Promise<{ success: boolean; message?: string }>;
 }
 
 export const useCreditsStore = create<CreditsState>((set, get) => ({
@@ -400,6 +401,28 @@ export const useCreditsStore = create<CreditsState>((set, get) => ({
       return { success: true };
     } catch (err: any) {
       return { success: false, message: err.message || "Failed to process order." };
+    }
+  },
+
+  checkoutCart: async (items, totalCostInr) => {
+    const { cashBalance } = get();
+
+    if (cashBalance < totalCostInr) {
+      return { success: false, message: "Insufficient Converted Cash Balance." };
+    }
+    
+    try {
+      const token = useAuthStore.getState().token;
+      await apiFetch("/api/marketplace/checkout", {
+        method: "POST",
+        token,
+        body: JSON.stringify({ items }),
+      });
+      
+      set((state) => ({ cashBalance: state.cashBalance - totalCostInr }));
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, message: err.message || "Failed to process checkout." };
     }
   },
 

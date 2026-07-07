@@ -51,6 +51,16 @@ export default function GymDashboardLayout({
               </Link>
             );
           })}
+
+          <div className="pt-6 pb-2">
+            <Link
+              href="/partners/apply"
+              className="flex items-center gap-3 px-4 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-sm transition-colors"
+            >
+              <Store size={18} className="text-white" />
+              Apply for Partner Gym
+            </Link>
+          </div>
         </nav>
       </aside>
 
