@@ -12,6 +12,22 @@ const CREDIT_PACKAGES = [
 ];
 
 export default function TopUpCreditsScreen() {
+  const [sysSettings, setSysSettings] = useState({ creditPurchasePrice: 10, creditConversionValue: 8, cashExpiryDays: 15 });
+
+  React.useEffect(() => {
+    async function fetchSettings() {
+      try {
+        const data = await apiFetch("/api/content/settings");
+        if (data.success && data.settings) {
+          setSysSettings(data.settings);
+        }
+      } catch (err) {
+        console.log("Failed to fetch settings", err);
+      }
+    }
+    fetchSettings();
+  }, []);
+
   const router = useRouter();
   const { buyCredits } = useCreditsStore();
   const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -157,7 +173,7 @@ export default function TopUpCreditsScreen() {
         <View className="mt-8 bg-indigo-50 p-4 rounded-2xl border border-indigo-100 flex-row items-start">
           <Ionicons name="information-circle" size={20} color="#4F46E5" style={{ marginTop: 2 }} />
           <Text className="text-indigo-800 text-xs ml-3 flex-1 leading-relaxed">
-            Credits expire 15 days after your active gym membership ends. If your membership expires, remaining credits will be automatically converted to non-convertible cash at a rate of ₹8 per credit.
+            Credits expire {sysSettings.cashExpiryDays} days after your active gym membership ends. If your membership expires, remaining credits will be automatically converted to non-convertible cash at a rate of ₹{sysSettings.creditConversionValue} per credit.
           </Text>
         </View>
       </ScrollView>

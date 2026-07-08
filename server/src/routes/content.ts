@@ -13,8 +13,10 @@ router.get("/settings", async (req: Request, res: Response): Promise<void> => {
     res.json({
       success: true,
       settings: {
-        creditPurchasePrice: settings?.creditPurchasePrice || 10,
-        creditConversionValue: settings?.creditConversionValue || 8,
+        creditPurchasePrice: settings?.creditPurchasePrice ?? 10,
+        creditConversionValue: settings?.creditConversionValue ?? 8,
+        cashExpiryDays: settings?.cashExpiryDays ?? 15,
+        initialVisitCut: settings?.initialVisitCut ?? 10,
       }
     });
   } catch (err: any) {
