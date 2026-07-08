@@ -42,7 +42,7 @@ export default function CreditsScreen() {
   const [cashToConvert, setCashToConvert] = useState("");
   const [cashToTopUp, setCashToTopUp] = useState("");
 
-  const [sysSettings, setSysSettings] = useState({ creditPurchasePrice: 10, creditConversionValue: 8 });
+  const [sysSettings, setSysSettings] = useState({ creditPurchasePrice: 10, creditConversionValue: 8, cashExpiryDays: 15, initialVisitCut: 10 });
 
   React.useEffect(() => {
     async function fetchSettings() {
@@ -552,7 +552,7 @@ export default function CreditsScreen() {
                 <Ionicons name="time-outline" size={18} color="#EF4444" className="mt-0.5" />
                 <View className="flex-1">
                   <Text className="font-bold text-sm text-[#1F2520]">Credits Tied to Membership</Text>
-                  <Text className="text-xs text-[#6B756E] mt-0.5">When your gym membership expires, unused credits automatically convert to cash (₹8/credit). This cash balance expires entirely after 15 days.</Text>
+                  <Text className="text-xs text-[#6B756E] mt-0.5">When your gym membership expires, unused credits automatically convert to cash (₹{sysSettings.creditConversionValue}/credit). This cash balance expires entirely after {sysSettings.cashExpiryDays} days.</Text>
                 </View>
               </View>
 
