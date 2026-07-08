@@ -42,6 +42,22 @@ export default function CreditsScreen() {
   const [cashToConvert, setCashToConvert] = useState("");
   const [cashToTopUp, setCashToTopUp] = useState("");
 
+  const [sysSettings, setSysSettings] = useState({ creditPurchasePrice: 10, creditConversionValue: 8 });
+
+  React.useEffect(() => {
+    async function fetchSettings() {
+      try {
+        const data = await apiFetch("/api/content/settings");
+        if (data.success && data.settings) {
+          setSysSettings(data.settings);
+        }
+      } catch (err) {
+        console.log("Failed to fetch settings", err);
+      }
+    }
+    fetchSettings();
+  }, []);
+
   const handleTopUpPress = () => {
     if (!membershipStatus || !membershipStatus.toLowerCase().includes("active")) {
       Alert.alert(
@@ -72,7 +88,7 @@ export default function CreditsScreen() {
 
       const result = await convertCreditsToCash(amount);
       if (result.success) {
-        const value = amount * 8;
+        const value = amount * sysSettings.creditConversionValue;
         Alert.alert("Success", `Converted ${amount} Credits into ₹${value} Cash Balance!`);
         setCreditsToConvert("");
         setConvertModalVisible(false);
@@ -88,7 +104,7 @@ export default function CreditsScreen() {
         return;
       }
 
-      const cashRequired = amount * 10;
+      const cashRequired = amount * sysSettings.creditPurchasePrice;
       if (cashBalance < cashRequired) {
         Alert.alert("Insufficient Cash", `You need ₹${cashRequired} cash to buy ${amount} credits.`);
         return;
@@ -382,8 +398,8 @@ export default function CreditsScreen() {
             </Text>
             <Text className="text-xs text-[#6B756E] mt-0.5">
               {conversionType === "creditsToCash" 
-                ? "Conversion rate: 1 Credit = ₹8 cash balance"
-                : "Conversion rate: ₹10 cash balance = 1 Credit"
+                ? `Conversion rate: 1 Credit = ₹${sysSettings.creditConversionValue} cash balance`
+                : `Conversion rate: ₹${sysSettings.creditPurchasePrice} cash balance = 1 Credit`
               }
             </Text>
 
@@ -395,7 +411,7 @@ export default function CreditsScreen() {
                 <Text className="text-[#D97706] font-bold text-xs ml-1.5">Conversion Asymmetry</Text>
               </View>
               <Text className="text-[10px] text-amber-800 mt-1 leading-relaxed">
-                Credits are worth ₹10 when booking visits in-network, but convert to ₹8 when cashed out. Cashing out reduces your overall fitness purchasing power.
+                Credits are worth ₹{sysSettings.creditPurchasePrice} when booking visits in-network, but convert to ₹{sysSettings.creditConversionValue} when cashed out. Cashing out reduces your overall fitness purchasing power.
               </Text>
             </View>
 
@@ -419,13 +435,13 @@ export default function CreditsScreen() {
 
               {conversionType === "creditsToCash" && creditsToConvert ? (
                 <Text className="text-xs font-bold text-amber-700 ml-1">
-                  You will receive: ₹{parseInt(creditsToConvert) * 8 || 0}
+                  You will receive: ₹{parseInt(creditsToConvert) * sysSettings.creditConversionValue || 0}
                 </Text>
               ) : null}
 
               {conversionType === "cashToCredits" && cashToConvert ? (
                 <Text className="text-xs font-bold text-emerald-700 ml-1">
-                  Cash required: ₹{parseInt(cashToConvert) * 10 || 0}
+                  Cash required: ₹{parseInt(cashToConvert) * sysSettings.creditPurchasePrice || 0}
                 </Text>
               ) : null}
             </View>

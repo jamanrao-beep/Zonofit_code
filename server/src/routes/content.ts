@@ -3,6 +3,25 @@ import prisma from "../lib/prisma";
 
 const router = Router();
 
+// ─── GET /api/content/settings ──────────────────────────────────────────────
+router.get("/settings", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const settings = await prisma.systemSettings.findUnique({
+      where: { id: "default" }
+    });
+
+    res.json({
+      success: true,
+      settings: {
+        creditPurchasePrice: settings?.creditPurchasePrice || 10,
+        creditConversionValue: settings?.creditConversionValue || 8,
+      }
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
 // ─── GET /api/content/:key ────────────────────────────────────────────────
 /**
  * Fetches public system content by key (e.g. faq_general, terms_and_conditions)
