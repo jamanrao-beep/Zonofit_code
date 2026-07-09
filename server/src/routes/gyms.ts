@@ -280,6 +280,19 @@ router.get(
         totalSlots: true,
         contactPhone: true,
         partnerSince: true,
+        plans: {
+          where: { isActive: true },
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            priceInPaise: true,
+            billingCycle: true,
+            initialPeriodMonths: true,
+            initialCutoffDays: true,
+            subsequentCutoffDays: true
+          }
+        }
       },
     });
 

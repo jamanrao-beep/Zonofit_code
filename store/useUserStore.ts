@@ -28,7 +28,8 @@ interface UserState {
   decrementVisits: () => void;
   incrementStreak: () => void;
   recordWorkout: (hours: number) => void;
-  updatePlan: (planId: string, amountPaidPaise: number) => Promise<{ success: boolean; message?: string }>;
+  updatePlan: (planId: string, amountPaidPaise: number, primaryGymId?: string) => Promise<{ success: boolean; message?: string }>;
+  purchaseGymPlan: (gymPlanId: string, amountPaidPaise: number) => Promise<{ success: boolean; message?: string }>;
   uploadAvatar: (uri: string) => Promise<{ success: boolean; message?: string }>;
 }
 
@@ -106,7 +107,7 @@ export const useUserStore = create<UserState>((set) => ({
     progressPercentage: Math.min(100, Math.round(((state.totalWorkouts + 1) / 75) * 100)),
   })),
 
-  updatePlan: async (planId: string, amountPaidPaise: number) => {
+  updatePlan: async (planId: string, amountPaidPaise: number, primaryGymId?: string) => {
     try {
       const token = useAuthStore.getState().token;
       const data = await apiFetch("/api/membership/activate", {
@@ -114,6 +115,7 @@ export const useUserStore = create<UserState>((set) => ({
         token,
         body: JSON.stringify({
           planId,
+          primaryGymId,
           referenceId: "pay_" + Date.now().toString(), // dummy reference
           amountPaidPaise,
         }),
@@ -132,6 +134,38 @@ export const useUserStore = create<UserState>((set) => ({
     } catch (err: any) {
       console.error("Failed to upgrade plan:", err);
       return { success: false, message: err.message || "Upgrade failed" };
+    }
+  },
+
+  purchaseGymPlan: async (gymPlanId: string, amountPaidPaise: number) => {
+    try {
+      const token = useAuthStore.getState().token;
+      const data = await apiFetch("/api/membership/activate", {
+        method: "POST",
+        token,
+        body: JSON.stringify({
+          gymPlanId,
+          referenceId: "pay_" + Date.now().toString(), // dummy reference
+          amountPaidPaise,
+        }),
+      });
+
+      set({
+        planName: data.membership.gymPlan.name,
+        visitsRemaining: data.membership.primaryGymVisits,
+        membershipStatus: data.membership.status,
+        membershipExpiry: new Date(data.membership.endDate).toLocaleDateString(),
+      });
+
+      // Update credits store since credits were granted
+      const walletData = await apiFetch("/api/credits/balance", { token });
+      if (walletData && walletData.balance !== undefined) {
+        useCreditsStore.setState({ credits: walletData.balance });
+      }
+      return { success: true, message: "Gym plan purchased successfully." };
+    } catch (err: any) {
+      console.error("Failed to purchase gym plan:", err);
+      return { success: false, message: err.message || "Purchase failed" };
     }
   },
 

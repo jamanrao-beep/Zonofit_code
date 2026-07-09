@@ -14,6 +14,7 @@ export function initCronJobs() {
     try {
       await processMembershipExpiries();
       await processCashExpiries();
+      await processGymPlanMonthlyCredits();
       console.log("[CRON] Daily checks completed successfully.");
     } catch (err) {
       console.error("[CRON] Error running daily checks:", err);
@@ -207,5 +208,72 @@ async function processCashExpiries() {
       `Your converted cash balance of ₹${expiredAmountPaise/100} has expired and been removed from your wallet.`,
       "INFO"
     );
+  }
+}
+
+async function processGymPlanMonthlyCredits() {
+  const now = new Date();
+  
+  // Find all ACTIVE memberships that have a gymPlanId
+  const activeGymMemberships = await prisma.membership.findMany({
+    where: {
+      status: "ACTIVE",
+      gymPlanId: { not: null },
+    },
+    include: {
+      gymPlan: {
+        include: { gym: true }
+      }
+    }
+  });
+
+  for (const membership of activeGymMemberships) {
+    if (!membership.gymPlan || !membership.gymPlan.gym) continue;
+    
+    // Check if today is the renewal day (e.g. same day of the month as startDate)
+    // For simplicity, we just check if it's the exact day of the month.
+    // This isn't perfect for Feb 29th, but it suffices for this logic.
+    const isRenewalDay = membership.startDate.getDate() === now.getDate() && 
+                         membership.startDate.getMonth() !== now.getMonth();
+                         
+    if (isRenewalDay) {
+      // Calculate months active
+      const diffTime = Math.abs(now.getTime() - membership.startDate.getTime());
+      const diffMonths = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 30));
+      
+      const gymPlan = membership.gymPlan;
+      const gym = gymPlan.gym;
+      
+      const cutDays = diffMonths <= gymPlan.initialPeriodMonths ? gymPlan.initialCutoffDays : gymPlan.subsequentCutoffDays;
+      const netCreditDays = 30 - cutDays;
+      const creditsToAdd = netCreditDays * gym.creditCost;
+      
+      if (creditsToAdd > 0) {
+        await prisma.$transaction(async (tx) => {
+          const wallet = await tx.creditWallet.update({
+            where: { userId: membership.userId },
+            data: { balance: { increment: creditsToAdd } }
+          });
+          
+          await tx.creditTransaction.create({
+            data: {
+              userId: membership.userId,
+              walletId: wallet.id,
+              type: "PURCHASE",
+              amount: creditsToAdd,
+              balanceAfter: wallet.balance,
+              description: `Monthly gym plan credits deposited for ${gymPlan.name}.`
+            }
+          });
+        });
+        
+        await createNotification(
+          membership.userId,
+          "Monthly Credits Deposited",
+          `Your monthly gym plan credits (${creditsToAdd}) have been deposited!`,
+          "INFO"
+        );
+      }
+    }
   }
 }

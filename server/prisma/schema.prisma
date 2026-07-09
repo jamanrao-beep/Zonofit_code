@@ -63,14 +63,14 @@ enum CheckInStatus {
 }
 
 enum CreditTransactionType {
-  MEMBERSHIP_GRANT    // Credits given when membership starts/renews
-  VISIT_SPEND         // Credits spent on a gym visit booking
-  PURCHASE            // User bought additional credits
-  BONUS               // Achievement/referral/reward credits
-  CONVERSION          // Credits converted to INR cash
-  RECONVERSION        // Cash converted back to credits
-  EXPIRY              // Credits expired after membership ended
-  REFUND              // Credits refunded on booking cancellation
+  MEMBERSHIP_GRANT // Credits given when membership starts/renews
+  VISIT_SPEND // Credits spent on a gym visit booking
+  PURCHASE // User bought additional credits
+  BONUS // Achievement/referral/reward credits
+  CONVERSION // Credits converted to INR cash
+  RECONVERSION // Cash converted back to credits
+  EXPIRY // Credits expired after membership ended
+  REFUND // Credits refunded on booking cancellation
 }
 
 enum GymCategory {
@@ -99,23 +99,26 @@ enum RoleType {
 // ─────────────────────────────────────────────
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  name      String
-  phone     String?
-  avatarUrl String?
-  expoPushToken String?
+  id               String    @id @default(uuid())
+  email            String    @unique
+  name             String
+  phone            String?
+  avatarUrl        String?
+  expoPushToken    String?
+  gender           String?
+  dob              DateTime?
+  emergencyContact String?
 
   // Portal Authentication
-  systemRole  SystemRole @default(MEMBER)
+  systemRole   SystemRole @default(MEMBER)
   passwordHash String?
-  isSuspended Boolean    @default(false)
+  isSuspended  Boolean    @default(false)
 
   // Referral system (Phase 2 — column exists but logic is Phase 2)
-  referralCode       String?  @unique
-  referredByUserId   String?
-  referredBy         User?    @relation("Referrals", fields: [referredByUserId], references: [id])
-  referredUsers      User[]   @relation("Referrals")
+  referralCode     String? @unique
+  referredByUserId String?
+  referredBy       User?   @relation("Referrals", fields: [referredByUserId], references: [id])
+  referredUsers    User[]  @relation("Referrals")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -139,13 +142,14 @@ model User {
   featureFeedbacks   FeatureFeedback[]
   paymentOrders      PaymentOrder[]
   notifications      Notification[]
-  gymsOwned          Gym[]             @relation("GymOwner")
+  gymsOwned          Gym[]               @relation("GymOwner")
 
-  adminProfile       AdminProfile?
-  auditLogs          AdminAuditLog[]
-  supportTickets     SupportTicket[]   @relation("UserSupportTickets")
-  assignedTickets    SupportTicket[]   @relation("AssignedSupportTickets")
-  trialGymVotes      TrialGymVote[]
+  adminProfile    AdminProfile?
+  auditLogs       AdminAuditLog[]
+  supportTickets  SupportTicket[] @relation("UserSupportTickets")
+  assignedTickets SupportTicket[] @relation("AssignedSupportTickets")
+  trialGymVotes   TrialGymVote[]
+  gymPayments     GymPayment[]
 
   @@map("users")
 }
@@ -174,37 +178,42 @@ model MembershipPlan {
   id             String         @id @default(uuid())
   name           String         @unique
   tier           MembershipTier
-  monthlyCredits Int            // Credits granted on activation/renewal
-  priceInPaise   Int            // Price in Indian paise (₹1 = 100 paise) — store integers, never floats for money
+  monthlyCredits Int // Credits granted on activation/renewal
+  priceInPaise   Int // Price in Indian paise (₹1 = 100 paise) — store integers, never floats for money
   durationDays   Int            @default(30)
-  features       String[]       // Display-only feature list for the plan card
+  features       String[] // Display-only feature list for the plan card
   isActive       Boolean        @default(true)
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
-  memberships    Membership[]
+  memberships Membership[]
 
   @@map("membership_plans")
 }
 
 model Membership {
-  id        String           @id @default(uuid())
-  userId    String           @unique
-  planId    String
-  status    MembershipStatus @default(PENDING)
-  startDate DateTime
-  endDate   DateTime         // Expiry — credits expire 15 days after this
-  autoRenew Boolean          @default(true)
+  id            String           @id @default(uuid())
+  userId        String           @unique
+  planId        String?
+  gymPlanId     String?
+  status        MembershipStatus @default(PENDING)
+  startDate     DateTime
+  endDate       DateTime // Expiry — credits expire 15 days after this
+  autoRenew     Boolean          @default(true)
+  source        String           @default("ZONOFIT_MARKETPLACE")
+  internalNotes String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  plan MembershipPlan @relation(fields: [planId], references: [id])
-  
-  primaryGymId      String?
-  primaryGymVisits  Int      @default(0)
-  primaryGym        Gym?     @relation("PrimaryGym", fields: [primaryGymId], references: [id])
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan    MembershipPlan? @relation(fields: [planId], references: [id])
+  gymPlan GymPlan?        @relation(fields: [gymPlanId], references: [id])
+
+  primaryGymId     String?
+  primaryGymVisits Int          @default(0)
+  primaryGym       Gym?         @relation("PrimaryGym", fields: [primaryGymId], references: [id])
+  gymPayments      GymPayment[]
 
   @@map("memberships")
 }
@@ -214,15 +223,15 @@ model Membership {
 // ─────────────────────────────────────────────
 
 model CreditWallet {
-  id        String   @id @default(uuid())
-  userId    String   @unique
-  balance   Int      @default(0) // In credits. 1 credit = ₹10 fitness value
+  id                               String    @id @default(uuid())
+  userId                           String    @unique
+  balance                          Int       @default(0) // In credits. 1 credit = ₹10 fitness value
   // Cash balance from credit conversions (in paise)
-  convertibleCashBalanceInPaise Int @default(0)
+  convertibleCashBalanceInPaise    Int       @default(0)
   // Cash balance from direct top-ups (in paise)
-  nonConvertibleCashBalanceInPaise Int @default(0)
-  cashExpiryDate     DateTime? // Date when convertible cash balance will expire and be zeroed
-  updatedAt DateTime @updatedAt
+  nonConvertibleCashBalanceInPaise Int       @default(0)
+  cashExpiryDate                   DateTime? // Date when convertible cash balance will expire and be zeroed
+  updatedAt                        DateTime  @updatedAt
 
   user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions CreditTransaction[]
@@ -231,18 +240,18 @@ model CreditWallet {
 }
 
 model CreditTransaction {
-  id          String                @id @default(uuid())
-  userId      String
-  walletId    String
-  type        CreditTransactionType
+  id           String                @id @default(uuid())
+  userId       String
+  walletId     String
+  type         CreditTransactionType
   // Positive = credit added, Negative = credit deducted
   // Using Int not Float — credits are always whole numbers
-  amount      Int
-  balanceAfter Int                  // Snapshot of wallet balance after this transaction
-  description String
-  bookingId   String?               // Linked booking if this was a VISIT_SPEND or REFUND
-  referenceId String?               // Payment gateway reference ID for PURCHASE type
-  createdAt   DateTime              @default(now())
+  amount       Int
+  balanceAfter Int // Snapshot of wallet balance after this transaction
+  description  String
+  bookingId    String? // Linked booking if this was a VISIT_SPEND or REFUND
+  referenceId  String? // Payment gateway reference ID for PURCHASE type
+  createdAt    DateTime              @default(now())
 
   user    User         @relation(fields: [userId], references: [id])
   wallet  CreditWallet @relation(fields: [walletId], references: [id])
@@ -258,81 +267,139 @@ model CreditTransaction {
 // ─────────────────────────────────────────────
 
 model Gym {
-  id          String      @id @default(uuid())
-  name        String
-  description String?
-  address     String
-  city        String
-  pincode     String?
-  state       String      @default("Maharashtra")
+  id            String  @id @default(uuid())
+  name          String
+  description   String?
+  logoUrl       String?
+  coverImageUrl String?
+  tagline       String?
+  address       String
+  city          String
+  pincode       String?
+  state         String  @default("Maharashtra")
+  landmark      String?
+  area          String?
 
   // Lat/Lng stored as plain floats for display + fallback
-  lat         Float
-  lng         Float
+  lat      Float
+  lng      Float
   // PostGIS geometry column for spatial queries (ST_DWithin, ST_Distance)
   // Managed via raw SQL in migrations — Prisma uses Unsupported for this type
   // Insert/update via: ST_SetSRID(ST_MakePoint(lng, lat), 4326)
-  location    Unsupported("geometry(Point, 4326)")?
+  location Unsupported("geometry(Point, 4326)")?
 
-  creditCost    Int         // Credits required per visit — ZonoFit retains final say
-  isVerified    Boolean     @default(false)
-  isActive      Boolean     @default(true)
-  category      GymCategory @default(STANDARD)
-  facilities    String[]    // e.g. ["Strength", "Cardio", "CrossFit", "Steam Room"]
-  imageUrls     String[]
-  rating        Float       @default(0.0)
-  totalRatings  Int         @default(0)
-  openingTime   String      @default("06:00") // HH:MM
-  closingTime   String      @default("22:00") // HH:MM
-  totalSlots    Int         @default(20)      // Slots per day
-  contactPhone  String?
-  contactEmail  String?
+  creditCost      Int // Credits required per visit — ZonoFit retains final say
+  isVerified      Boolean     @default(false)
+  isActive        Boolean     @default(true)
+  category        GymCategory @default(STANDARD)
+  facilities      String[] // e.g. ["Strength", "Cardio", "CrossFit", "Steam Room"]
+  services        String[]
+  rules           String[]
+  policiesJson    String?
+  socialLinksJson String?
+  imageUrls       String[]
+  rating          Float       @default(0.0)
+  totalRatings    Int         @default(0)
+  establishedYear Int?
+  gymSizeSqFt     Int?
+  trainerCount    Int?
+  branchesCount   Int?
+  contactPhone    String?
+  contactEmail    String?
 
-  ownerId       String?
-  owner         User?       @relation("GymOwner", fields: [ownerId], references: [id])
+  ownerId String?
+  owner   User?   @relation("GymOwner", fields: [ownerId], references: [id])
 
-  partnerSince  DateTime?
+  partnerSince DateTime?
 
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  bookings          Booking[]
-  chatMessages      ChatMessage[]
-  userRoles         UserRoleGym[]
-  primaryMemberships Membership[] @relation("PrimaryGym")
-  payouts           GymPayout[]
-  offers            GymOffer[]
-  applications      GymApplication[]
-  supportTickets    SupportTicket[]
+  bookings           Booking[]
+  chatMessages       ChatMessage[]
+  userRoles          UserRoleGym[]
+  primaryMemberships Membership[]     @relation("PrimaryGym")
+  payouts            GymPayout[]
+  offers             GymOffer[]
+  applications       GymApplication[]
+  supportTickets     SupportTicket[]
 
   // Economy Overrides (fallback to global settings if null)
   creditPurchasePrice   Int?
   creditConversionValue Int?
   initialVisitCut       Int?
   cashExpiryDays        Int?
-  
-  plans                 GymPlan[]
+
+  plans             GymPlan[]
+  gymOperatingHours GymOperatingHour[]
+  gymPayments       GymPayment[]
 
   @@index([city])
   @@index([isActive])
   @@map("gyms")
 }
 
+model GymOperatingHour {
+  id        String  @id @default(uuid())
+  gymId     String
+  dayOfWeek Int // 0 = Sunday, 6 = Saturday
+  startTime String // "09:00"
+  endTime   String // "12:00"
+  capacity  Int // slots available for this time block
+  isActive  Boolean @default(true)
+
+  gym Gym @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  @@map("gym_operating_hours")
+}
+
+model GymPayment {
+  id           String   @id @default(uuid())
+  gymId        String
+  userId       String?
+  membershipId String?
+  amountPaise  Int
+  method       String // CASH, UPI, CARD, BANK_TRANSFER
+  status       String   @default("COMPLETED") // PENDING, COMPLETED, FAILED
+  invoiceUrl   String?
+  receiptUrl   String?
+  paymentDate  DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  gym        Gym         @relation(fields: [gymId], references: [id])
+  user       User?       @relation(fields: [userId], references: [id])
+  membership Membership? @relation(fields: [membershipId], references: [id])
+
+  @@map("gym_payments")
+}
+
 model GymPlan {
-  id                   String @id @default(uuid())
-  gymId                String
-  name                 String
-  description          String?
-  
+  id          String  @id @default(uuid())
+  gymId       String?
+  isGlobalTemplate Boolean @default(false)
+  name        String
+  description String?
+
+  priceInPaise Int      @default(0)
+  billingCycle String   @default("MONTHLY") // MONTHLY or YEARLY
+  isActive     Boolean  @default(true)
+  durationDays Int?
+  benefits     String[]
+  visibility   String   @default("VISIBLE")
+  restrictions String[]
+  maxMembers   Int?
+
   initialPeriodMonths  Int
   initialCutoffDays    Int
   subsequentCutoffDays Int
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
-  gym Gym @relation(fields: [gymId], references: [id], onDelete: Cascade)
-  
+
+  gym         Gym?          @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  memberships Membership[]
+
   @@map("gym_plans")
 }
 
@@ -344,16 +411,16 @@ model Booking {
   id              String        @id @default(uuid())
   userId          String
   gymId           String
-  visitDate       DateTime      // Date of the visit (date only, time comes from timeSlot)
-  timeSlot        String        // e.g. "07:00-08:00"
+  visitDate       DateTime // Date of the visit (date only, time comes from timeSlot)
+  timeSlot        String // e.g. "07:00-08:00"
   status          BookingStatus @default(PENDING)
-  creditsDeducted Int           // Credits locked at booking time — used for refund calc
+  creditsDeducted Int // Credits locked at booking time — used for refund calc
 
   // QR pass code generated at booking — displayed in app for gym staff to scan
-  passCode        String        @unique @default(uuid())
+  passCode String @unique @default(uuid())
 
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   user               User                @relation(fields: [userId], references: [id])
   gym                Gym                 @relation(fields: [gymId], references: [id])
@@ -375,12 +442,12 @@ model CheckIn {
   id               String        @id @default(uuid())
   bookingId        String        @unique
   method           CheckInMethod
-  verificationCode String        // QR data / OTP / time code — hashed in prod
+  verificationCode String // QR data / OTP / time code — hashed in prod
   status           CheckInStatus @default(PENDING)
   attemptCount     Int           @default(0)
-  verifiedAt       DateTime?     // Set by backend on successful verification
-  verifiedByStaff  String?       // Staff identifier if method = STAFF_APPROVAL
-  expiresAt        DateTime      // Code expiry — short-lived for security
+  verifiedAt       DateTime? // Set by backend on successful verification
+  verifiedByStaff  String? // Staff identifier if method = STAFF_APPROVAL
+  expiresAt        DateTime // Code expiry — short-lived for security
   createdAt        DateTime      @default(now())
 
   booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
@@ -393,32 +460,32 @@ model CheckIn {
 // ─────────────────────────────────────────────
 
 model MarketplaceItem {
-  id          String   @id @default(uuid())
-  title       String
-  description String
-  pricePaise  Int      // Price in INR paise
-  imageUrl    String
-  inStock     Boolean  @default(true)
+  id            String        @id @default(uuid())
+  title         String
+  description   String
+  pricePaise    Int // Price in INR paise
+  imageUrl      String
+  inStock       Boolean       @default(true)
   storeCategory StoreCategory @default(ZONOFIT_COMMON)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
-  orders      MarketplaceOrder[]
+  orders MarketplaceOrder[]
 
   @@map("marketplace_items")
 }
 
 model MarketplaceOrder {
-  id          String   @id @default(uuid())
-  userId      String
-  itemId      String
-  quantity    Int      @default(1)
-  totalPaise  Int
-  status      String   @default("COMPLETED")
-  createdAt   DateTime @default(now())
+  id         String   @id @default(uuid())
+  userId     String
+  itemId     String
+  quantity   Int      @default(1)
+  totalPaise Int
+  status     String   @default("COMPLETED")
+  createdAt  DateTime @default(now())
 
-  user        User            @relation(fields: [userId], references: [id])
-  item        MarketplaceItem @relation(fields: [itemId], references: [id])
+  user User            @relation(fields: [userId], references: [id])
+  item MarketplaceItem @relation(fields: [itemId], references: [id])
 
   @@map("marketplace_orders")
 }
@@ -431,12 +498,12 @@ model ChatMessage {
   id        String   @id @default(uuid())
   userId    String
   gymId     String
-  sender    String   // "USER" or "GYM"
+  sender    String // "USER" or "GYM"
   text      String
   createdAt DateTime @default(now())
 
-  user      User @relation(fields: [userId], references: [id])
-  gym       Gym  @relation(fields: [gymId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+  gym  Gym  @relation(fields: [gymId], references: [id])
 
   @@index([userId, gymId])
   @@map("chat_messages")
@@ -455,7 +522,6 @@ model Quote {
   @@map("quotes")
 }
 
-
 // ─────────────────────────────────────────────
 // BADGES & MILESTONES (JOURNEY)
 // ─────────────────────────────────────────────
@@ -466,11 +532,11 @@ model Badge {
   emoji       String
   description String
   requirement String
-  unlockedAt  Int?     // Threshold
+  unlockedAt  Int? // Threshold
   isSpecial   Boolean  @default(false)
   createdAt   DateTime @default(now())
-  
-  userBadges  UserBadge[]
+
+  userBadges UserBadge[]
 
   @@map("badges")
 }
@@ -481,21 +547,21 @@ model UserBadge {
   badgeId   String
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  badge     Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge Badge @relation(fields: [badgeId], references: [id], onDelete: Cascade)
 
   @@unique([userId, badgeId])
   @@map("user_badges")
 }
 
 model Milestone {
-  id          String   @id @default(uuid())
-  title       String
-  description String
-  emoji       String
-  targetCount Int
+  id            String   @id @default(uuid())
+  title         String
+  description   String
+  emoji         String
+  targetCount   Int
   rewardCredits Int
-  createdAt   DateTime @default(now())
+  createdAt     DateTime @default(now())
 
   @@map("milestones")
 }
@@ -505,15 +571,15 @@ model Milestone {
 // ─────────────────────────────────────────────
 
 model Challenge {
-  id            String   @id @default(uuid())
+  id            String    @id @default(uuid())
   title         String
   description   String
   emoji         String
   targetCount   Int
   rewardCredits Int
   deadline      DateTime?
-  type          String   // "visits" | "streak" | "gyms"
-  createdAt     DateTime @default(now())
+  type          String // "visits" | "streak" | "gyms"
+  createdAt     DateTime  @default(now())
 
   userChallenges UserChallenge[]
 
@@ -521,16 +587,16 @@ model Challenge {
 }
 
 model UserChallenge {
-  id            String   @id @default(uuid())
-  userId        String
-  challengeId   String
-  currentCount  Int      @default(0)
-  completed     Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           String   @id @default(uuid())
+  userId       String
+  challengeId  String
+  currentCount Int      @default(0)
+  completed    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  challenge     Challenge  @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challenge Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
 
   @@unique([userId, challengeId])
   @@map("user_challenges")
@@ -541,36 +607,36 @@ model UserChallenge {
 // ─────────────────────────────────────────────
 
 model UserRoleProfile {
-  id             String   @id @default(uuid())
-  userId         String   @unique
-  role           RoleType
-  
-  bio            String?
+  id     String   @id @default(uuid())
+  userId String   @unique
+  role   RoleType
+
+  bio                   String?
   // Trainer specific
-  costPerSessionInPaise Int?     // Cost per session in cash points (paise)
+  costPerSessionInPaise Int? // Cost per session in cash points (paise)
   specialties           String[]
   // Buddy specific
-  timingInterval String?  // e.g. "07:00 AM - 08:30 AM"
-  
-  isApproved     Boolean  @default(false)
-  
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  timingInterval        String? // e.g. "07:00 AM - 08:30 AM"
 
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  gyms           UserRoleGym[]
+  isApproved Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gyms UserRoleGym[]
 
   @@map("user_role_profiles")
 }
 
 model UserRoleGym {
-  id                String          @id @default(uuid())
+  id                String @id @default(uuid())
   userRoleProfileId String
   gymId             String
-  
-  profile           UserRoleProfile @relation(fields: [userRoleProfileId], references: [id], onDelete: Cascade)
-  gym               Gym             @relation(fields: [gymId], references: [id], onDelete: Cascade)
-  
+
+  profile UserRoleProfile @relation(fields: [userRoleProfileId], references: [id], onDelete: Cascade)
+  gym     Gym             @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
   @@unique([userRoleProfileId, gymId])
   @@map("user_role_gyms")
 }
@@ -582,11 +648,11 @@ model UserRoleGym {
 model FeatureFeedback {
   id          String   @id @default(uuid())
   userId      String
-  featureName String   // e.g. 'ai-trainer', 'meal-scan'
+  featureName String // e.g. 'ai-trainer', 'meal-scan'
   comment     String
   createdAt   DateTime @default(now())
 
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("feature_feedback")
 }
@@ -604,7 +670,7 @@ model Notification {
   type      String   @default("INFO") // INFO, WARNING, SUCCESS
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("notifications")
@@ -615,19 +681,19 @@ model Notification {
 // ─────────────────────────────────────────────
 
 model SystemSettings {
-  id                    String   @id @default("default")
-  creditPurchasePrice   Int      @default(10)  // How much 1 credit costs (₹10)
-  creditConversionValue Int      @default(8)   // How much cash 1 credit yields (₹8)
-  cashExpiryDays        Int      @default(15)  // Days until converted cash expires
-  initialVisitCut       Int      @default(10)  // Initial visits locked to primary gym
-  
+  id                    String @id @default("default")
+  creditPurchasePrice   Int    @default(10) // How much 1 credit costs (₹10)
+  creditConversionValue Int    @default(8) // How much cash 1 credit yields (₹8)
+  cashExpiryDays        Int    @default(15) // Days until converted cash expires
+  initialVisitCut       Int    @default(10) // Initial visits locked to primary gym
+
   // Emergency Kill Switches
-  referralsEnabled      Boolean  @default(true)
-  payoutsEnabled        Boolean  @default(true)
-  signupsEnabled        Boolean  @default(true)
-  couponsEnabled        Boolean  @default(true)
-  
-  updatedAt             DateTime @updatedAt
+  referralsEnabled Boolean @default(true)
+  payoutsEnabled   Boolean @default(true)
+  signupsEnabled   Boolean @default(true)
+  couponsEnabled   Boolean @default(true)
+
+  updatedAt DateTime @updatedAt
 
   @@map("system_settings")
 }
@@ -637,15 +703,15 @@ model SystemSettings {
 // ─────────────────────────────────────────────
 
 model GymPayout {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   gymId       String
   periodStart DateTime
   periodEnd   DateTime
   amountPaise Int
-  status      String   @default("PENDING") // PENDING, PAID
+  status      String    @default("PENDING") // PENDING, PAID
   payoutDate  DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   gym Gym @relation(fields: [gymId], references: [id], onDelete: Cascade)
 
@@ -654,14 +720,14 @@ model GymPayout {
 }
 
 model GymOffer {
-  id           String   @id @default(uuid())
+  id           String    @id @default(uuid())
   gymId        String
   title        String
   discountText String
-  status       String   @default("DRAFT") // DRAFT, ACTIVE
+  status       String    @default("DRAFT") // DRAFT, ACTIVE
   expiryDate   DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   gym Gym @relation(fields: [gymId], references: [id], onDelete: Cascade)
 
@@ -695,12 +761,12 @@ model AdminProfile {
 }
 
 model AdminAuditLog {
-  id          String   @id @default(uuid())
-  adminId     String
-  actionType  String   // e.g., "APPROVE_GYM", "RELEASE_PAYOUT"
-  targetId    String?  // ID of the entity affected
-  details     String?  // JSON string or text explaining the change
-  createdAt   DateTime @default(now())
+  id         String   @id @default(uuid())
+  adminId    String
+  actionType String // e.g., "APPROVE_GYM", "RELEASE_PAYOUT"
+  targetId   String? // ID of the entity affected
+  details    String? // JSON string or text explaining the change
+  createdAt  DateTime @default(now())
 
   admin User @relation(fields: [adminId], references: [id], onDelete: Cascade)
 
@@ -711,7 +777,7 @@ model GymApplication {
   id            String   @id @default(uuid())
   gymId         String
   status        String   @default("PENDING") // PENDING, APPROVED, REJECTED, NEEDS_CLARIFICATION
-  documentsJson String?  // Stores uploaded URLs/references
+  documentsJson String? // Stores uploaded URLs/references
   notes         String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -722,37 +788,37 @@ model GymApplication {
 }
 
 model SupportTicket {
-  id          String   @id @default(uuid())
-  subject     String
-  message     String
-  status      String   @default("OPEN") // OPEN, IN_PROGRESS, RESOLVED, CLOSED
-  priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
-  
-  userId      String?
-  gymId       String?
+  id       String @id @default(uuid())
+  subject  String
+  message  String
+  status   String @default("OPEN") // OPEN, IN_PROGRESS, RESOLVED, CLOSED
+  priority String @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+
+  userId       String?
+  gymId        String?
   assignedToId String?
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user        User?  @relation("UserSupportTickets", fields: [userId], references: [id], onDelete: Cascade)
-  gym         Gym?   @relation(fields: [gymId], references: [id], onDelete: Cascade)
-  assignedTo  User?  @relation("AssignedSupportTickets", fields: [assignedToId], references: [id], onDelete: SetNull)
+  user       User? @relation("UserSupportTickets", fields: [userId], references: [id], onDelete: Cascade)
+  gym        Gym?  @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  assignedTo User? @relation("AssignedSupportTickets", fields: [assignedToId], references: [id], onDelete: SetNull)
 
   @@map("support_tickets")
 }
 
 model MarketingCoupon {
-  id            String   @id @default(uuid())
-  code          String   @unique
-  discountType  String   @default("PERCENTAGE") // PERCENTAGE, FIXED_AMOUNT
+  id            String    @id @default(uuid())
+  code          String    @unique
+  discountType  String    @default("PERCENTAGE") // PERCENTAGE, FIXED_AMOUNT
   discountValue Int
   usageLimit    Int?
-  usageCount    Int      @default(0)
+  usageCount    Int       @default(0)
   expiryDate    DateTime?
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@map("marketing_coupons")
 }
@@ -766,29 +832,29 @@ model SystemContent {
 }
 
 model TrialGym {
-  id          String   @id @default(uuid())
+  id          String  @id @default(uuid())
   name        String
   city        String
   area        String
   description String?
   imageUrl    String?
-  
-  votes       TrialGymVote[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+
+  votes     TrialGymVote[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
 
   @@map("trial_gyms")
 }
 
 model TrialGymVote {
-  id          String   @id @default(uuid())
-  trialGymId  String
-  userId      String
-  createdAt   DateTime @default(now())
-  
-  trialGym    TrialGym @relation(fields: [trialGymId], references: [id], onDelete: Cascade)
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id         String   @id @default(uuid())
+  trialGymId String
+  userId     String
+  createdAt  DateTime @default(now())
+
+  trialGym TrialGym @relation(fields: [trialGymId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([trialGymId, userId])
   @@map("trial_gym_votes")
 }

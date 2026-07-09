@@ -79,10 +79,11 @@ router.post(
   "/activate",
   requireAuth,
   [
-    body("planId").isUUID().withMessage("Valid plan ID required."),
+    body("planId").optional().isUUID().withMessage("Valid plan ID required if planId is provided."),
+    body("gymPlanId").optional().isUUID().withMessage("Valid gym plan ID required if gymPlanId is provided."),
     body("referenceId").isString().notEmpty().withMessage("Payment reference required."),
     body("amountPaidPaise").isInt({ min: 1 }).withMessage("Amount paid (paise) required."),
-    body("primaryGymId").isString().notEmpty().withMessage("Primary Gym selection required."),
+    body("primaryGymId").optional().isString().notEmpty().withMessage("Primary Gym selection required for global plans."),
   ],
   async (req: Request, res: Response): Promise<void> => {
     const errors = validationResult(req);
@@ -91,55 +92,83 @@ router.post(
       return;
     }
 
-    const { planId, primaryGymId } = req.body as { planId: string; referenceId: string; amountPaidPaise: number; primaryGymId: string };
+    const { planId, gymPlanId, primaryGymId } = req.body as { planId?: string; gymPlanId?: string; referenceId: string; amountPaidPaise: number; primaryGymId?: string };
+
+    if (!planId && !gymPlanId) {
+      res.status(400).json({ error: "ValidationError", message: "Either planId or gymPlanId must be provided." });
+      return;
+    }
 
     try {
       const result = await prisma.$transaction(async (tx) => {
-        const plan = await tx.membershipPlan.findUnique({ where: { id: planId, isActive: true } });
-        if (!plan) throw createError("Plan not found.", 404, "PlanNotFound");
-
-        const gym = await tx.gym.findUnique({ where: { id: primaryGymId, isActive: true } });
-        if (!gym) throw createError("Primary Gym not found or inactive.", 404, "GymNotFound");
-
-        const settings = await getSystemSettings();
-        const initialVisits = settings.initialVisitCut; // e.g. 10
-        const initialCreditsCost = gym.creditCost * initialVisits;
-
-        if (initialCreditsCost > plan.monthlyCredits) {
-          throw createError(
-            `Primary gym's initial ${initialVisits} visits cost (${initialCreditsCost} cr) exceeds the plan's granted credits (${plan.monthlyCredits} cr). Please choose a more affordable primary gym or upgrade your plan.`,
-            400,
-            "InsufficientPlanCredits"
-          );
-        }
-
-        // Calculate remaining credits to add to wallet
-        const remainingCreditsToAdd = plan.monthlyCredits - initialCreditsCost;
-
+        let plan;
+        let gymPlan;
+        let gym;
+        let initialVisits = 0;
+        let remainingCreditsToAdd = 0;
         const now = new Date();
-        const endDate = new Date(now.getTime() + plan.durationDays * 24 * 60 * 60 * 1000);
+        let endDate = new Date();
+
+        if (gymPlanId) {
+          gymPlan = await tx.gymPlan.findUnique({ where: { id: gymPlanId, isActive: true }, include: { gym: true } });
+          if (!gymPlan) throw createError("Gym Plan not found.", 404, "PlanNotFound");
+          gym = gymPlan.gym;
+          
+          // GymPlan Logic: 30 days - cut days * cost
+          const cutDays = gymPlan.initialCutoffDays;
+          initialVisits = cutDays; // We record cut days as initial visits
+          const netCreditDays = 30 - cutDays;
+          remainingCreditsToAdd = netCreditDays * gym.creditCost;
+          
+          const durationDays = gymPlan.billingCycle === "YEARLY" ? 365 : 30;
+          endDate = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
+        } else if (planId) {
+          plan = await tx.membershipPlan.findUnique({ where: { id: planId, isActive: true } });
+          if (!plan) throw createError("Plan not found.", 404, "PlanNotFound");
+
+          if (!primaryGymId) throw createError("primaryGymId required for global plans.", 400, "GymRequired");
+          gym = await tx.gym.findUnique({ where: { id: primaryGymId, isActive: true } });
+          if (!gym) throw createError("Primary Gym not found or inactive.", 404, "GymNotFound");
+
+          const settings = await getSystemSettings();
+          initialVisits = settings.initialVisitCut; // e.g. 10
+          const initialCreditsCost = gym.creditCost * initialVisits;
+
+          if (initialCreditsCost > plan.monthlyCredits) {
+            throw createError(
+              `Primary gym's initial ${initialVisits} visits cost (${initialCreditsCost} cr) exceeds the plan's granted credits (${plan.monthlyCredits} cr). Please choose a more affordable primary gym or upgrade your plan.`,
+              400,
+              "InsufficientPlanCredits"
+            );
+          }
+
+          remainingCreditsToAdd = plan.monthlyCredits - initialCreditsCost;
+          endDate = new Date(now.getTime() + plan.durationDays * 24 * 60 * 60 * 1000);
+        }
 
         // Upsert membership
         const membership = await tx.membership.upsert({
           where: { userId: req.dbUserId! },
           create: {
             userId: req.dbUserId!,
-            planId,
+            planId: planId || null,
+            gymPlanId: gymPlanId || null,
             status: "ACTIVE",
             startDate: now,
             endDate,
-            primaryGymId,
+            primaryGymId: gym.id,
             primaryGymVisits: initialVisits,
           },
           update: {
-            planId,
+            planId: planId || null,
+            gymPlanId: gymPlanId || null,
             status: "ACTIVE",
             startDate: now,
             endDate,
-            primaryGymId,
+            primaryGymId: gym.id,
             primaryGymVisits: initialVisits,
           },
-          include: { plan: true },
+          include: { plan: true, gymPlan: true },
         });
 
         // Grant remaining credits
