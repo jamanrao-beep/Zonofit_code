@@ -243,13 +243,15 @@ router.put("/gyms/:id/economy", requireAuth, requireAdmin, async (req: Request, 
 router.post("/gyms/:id/plans", requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
     const gymId = req.params.id as string;
-    const { name, description, initialPeriodMonths, initialCutoffDays, subsequentCutoffDays } = req.body;
+    const { name, description, initialPeriodMonths, initialCutoffDays, subsequentCutoffDays, priceInPaise, billingCycle } = req.body;
     
     const plan = await prisma.gymPlan.create({
       data: {
         gymId,
         name,
         description,
+        priceInPaise: parseInt(priceInPaise, 10),
+        billingCycle: billingCycle || "MONTHLY",
         initialPeriodMonths: parseInt(initialPeriodMonths, 10),
         initialCutoffDays: parseInt(initialCutoffDays, 10),
         subsequentCutoffDays: parseInt(subsequentCutoffDays, 10)
@@ -640,6 +642,49 @@ router.post("/notifications/broadcast", requireAuth, requireAdmin, async (req: R
       }
     });
     res.json({ message: "Content updated successfully" });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
+// ─── GLOBAL MEMBERSHIP PLANS ─────────────────────────────────────────────────
+
+router.get("/plans", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const plans = await prisma.membershipPlan.findMany({
+      orderBy: { priceInPaise: "asc" }
+    });
+    res.json({ plans });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
+router.post("/plans", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { name, tier, priceInPaise, monthlyCredits, durationDays, features } = req.body;
+    const plan = await prisma.membershipPlan.create({
+      data: {
+        name,
+        tier,
+        priceInPaise,
+        monthlyCredits,
+        durationDays,
+        features
+      }
+    });
+    res.json({ plan });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
+router.delete("/plans/:id", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    await prisma.membershipPlan.delete({
+      where: { id: req.params.id }
+    });
+    res.json({ message: "Plan deleted successfully" });
   } catch (err: any) {
     res.status(500).json({ error: "ServerError", message: err.message });
   }

@@ -21,10 +21,11 @@ export default function AdminGymDetailPage() {
   });
   const [savingEconomy, setSavingEconomy] = useState(false);
 
-  // New Plan State
   const [newPlan, setNewPlan] = useState({
     name: "",
     description: "",
+    priceINR: "",
+    billingCycle: "MONTHLY",
     initialPeriodMonths: "",
     initialCutoffDays: "",
     subsequentCutoffDays: ""
@@ -99,12 +100,17 @@ export default function AdminGymDetailPage() {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json"
         },
-        body: JSON.stringify(newPlan)
+        body: JSON.stringify({
+          ...newPlan,
+          priceInPaise: (parseFloat(newPlan.priceINR) || 0) * 100
+        })
       });
       alert("Gym plan created successfully.");
       setNewPlan({
         name: "",
         description: "",
+        priceINR: "",
+        billingCycle: "MONTHLY",
         initialPeriodMonths: "",
         initialCutoffDays: "",
         subsequentCutoffDays: ""
@@ -232,7 +238,34 @@ export default function AdminGymDetailPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-bold text-black mb-2">Initial Months</label>
+                  <label className="block text-sm font-bold text-black mb-2">Price (₹)</label>
+                  <input 
+                    type="number" 
+                    name="priceINR"
+                    required
+                    value={newPlan.priceINR}
+                    onChange={handlePlanChange}
+                    placeholder="e.g. 1999"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-black mb-2">Billing Cycle</label>
+                  <select
+                    name="billingCycle"
+                    required
+                    value={newPlan.billingCycle}
+                    onChange={(e) => setNewPlan({ ...newPlan, billingCycle: e.target.value })}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+                  >
+                    <option value="MONTHLY">Monthly</option>
+                    <option value="YEARLY">Yearly</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-black mb-2">Initial Period (Months)</label>
                   <input 
                     type="number" 
                     name="initialPeriodMonths"
@@ -284,7 +317,7 @@ export default function AdminGymDetailPage() {
               {gym.plans && gym.plans.length > 0 ? gym.plans.map((plan: any) => (
                 <div key={plan.id} className="p-4 border border-gray-100 bg-gray-50 rounded-2xl flex justify-between items-center">
                   <div>
-                    <div className="font-bold text-black">{plan.name}</div>
+                    <div className="font-bold text-black">{plan.name} - ₹{plan.priceInPaise / 100} / {plan.billingCycle}</div>
                     <div className="text-xs text-gray-500 mt-1">
                       First {plan.initialPeriodMonths} months: {plan.initialCutoffDays} days cutoff<br/>
                       After {plan.initialPeriodMonths} months: {plan.subsequentCutoffDays} days cutoff

@@ -393,7 +393,28 @@ export default function GymDetailScreen() {
               {gym.plans.map((plan: any) => (
                 <Pressable 
                   key={plan.id}
-                  onPress={() => Alert.alert("Plan Selected", `You selected ${plan.name}. Payment integration coming in Phase 2!`)}
+                  onPress={() => {
+                    Alert.alert(
+                      "Subscribe to Plan",
+                      `This will redirect you to the payment gateway to purchase ${plan.name} for ₹${plan.priceInPaise / 100}. Continue?`,
+                      [
+                        { text: "Cancel", style: "cancel" },
+                        { 
+                          text: "Pay Now", 
+                          onPress: async () => {
+                            const { purchaseGymPlan } = useUserStore.getState();
+                            const result = await purchaseGymPlan(plan.id, plan.priceInPaise);
+                            if (result.success) {
+                              Alert.alert("Success", `You have successfully subscribed to ${plan.name}!`);
+                              router.push("/membership");
+                            } else {
+                              Alert.alert("Subscription Failed", result.message || "An error occurred.");
+                            }
+                          }
+                        }
+                      ]
+                    );
+                  }}
                   className="bg-[#F5F7F4] p-4 rounded-xl border border-black/5 active:bg-[#E9EBE6] mb-3"
                 >
                   <Text className="text-sm font-bold text-[#1F2520] mb-1">{plan.name}</Text>
