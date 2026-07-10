@@ -375,11 +375,11 @@ model GymPayment {
 }
 
 model GymPlan {
-  id          String  @id @default(uuid())
-  gymId       String?
+  id               String  @id @default(uuid())
+  gymId            String?
   isGlobalTemplate Boolean @default(false)
-  name        String
-  description String?
+  name             String
+  description      String?
 
   priceInPaise Int      @default(0)
   billingCycle String   @default("MONTHLY") // MONTHLY or YEARLY
@@ -397,7 +397,7 @@ model GymPlan {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  gym         Gym?          @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  gym         Gym?         @relation(fields: [gymId], references: [id], onDelete: Cascade)
   memberships Membership[]
 
   @@map("gym_plans")

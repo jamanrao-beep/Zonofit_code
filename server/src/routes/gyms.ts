@@ -788,7 +788,12 @@ router.post("/payouts/request", requireAuth, async (req: Request, res: Response)
 // ─── POST /api/gyms/applications ───────────────────────────────────────────
 router.post("/applications", requireAuth, async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, city, address, description, facilities, totalSlots } = req.body;
+    const { 
+      name, city, address, description, facilities, 
+      logoUrl, coverImageUrl, tagline, landmark, area, 
+      establishedYear, gymSizeSqFt, trainerCount, branchesCount, 
+      services, rules, operatingHours 
+    } = req.body;
     
     // Create a disabled Gym record
     const gym = await prisma.gym.create({
@@ -797,6 +802,15 @@ router.post("/applications", requireAuth, async (req: Request, res: Response): P
         city,
         address,
         description,
+        logoUrl: logoUrl || null,
+        coverImageUrl: coverImageUrl || null,
+        tagline: tagline || null,
+        landmark: landmark || null,
+        area: area || null,
+        establishedYear: establishedYear ? parseInt(establishedYear, 10) : null,
+        gymSizeSqFt: gymSizeSqFt ? parseInt(gymSizeSqFt, 10) : null,
+        trainerCount: trainerCount ? parseInt(trainerCount, 10) : null,
+        branchesCount: branchesCount ? parseInt(branchesCount, 10) : null,
         state: "Maharashtra", // default
         lat: 0,
         lng: 0,
@@ -804,10 +818,28 @@ router.post("/applications", requireAuth, async (req: Request, res: Response): P
         isVerified: false,
         isActive: false,
         ownerId: req.dbUserId,
-        facilities: facilities || [],
-        totalSlots: parseInt(totalSlots, 10) || 20
+        facilities: Array.isArray(facilities) ? facilities : (facilities ? [facilities] : []),
+        services: Array.isArray(services) ? services : (services ? [services] : []),
+        rules: Array.isArray(rules) ? rules : (rules ? [rules] : [])
       }
     });
+
+    // Create Operating Hours if provided
+    if (operatingHours && Array.isArray(operatingHours)) {
+      const hoursData = operatingHours.map((h: any) => ({
+        gymId: gym.id,
+        dayOfWeek: parseInt(h.dayOfWeek, 10),
+        startTime: h.startTime,
+        endTime: h.endTime,
+        capacity: parseInt(h.capacity, 10),
+        isActive: true
+      }));
+      if (hoursData.length > 0) {
+        await prisma.gymOperatingHour.createMany({
+          data: hoursData
+        });
+      }
+    }
 
     // Create the Application record
     const application = await prisma.gymApplication.create({
