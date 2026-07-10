@@ -160,7 +160,7 @@ export default function HomeScreen() {
               className="rounded-[32px] p-6 mb-6 overflow-hidden relative"
               style={[
                 { backgroundColor: colors.green }, 
-                styles.softShadowLg
+                styles.emeraldGlow
               ]}
             >
               {/* Background subtle pattern blobs */}
@@ -193,7 +193,7 @@ export default function HomeScreen() {
                   <Pressable 
                     onPress={() => router.push("/explore")}
                     className="px-4 py-2.5 rounded-2xl flex-row items-center active:opacity-80"
-                    style={{ backgroundColor: colors.lime }}
+                    style={[{ backgroundColor: colors.lime }, styles.neonGlow]}
                   >
                     <Text className="font-bold text-xs mr-1" style={{ color: "#000000" }}>Book Today's Visit</Text>
                     <Ionicons name="arrow-forward" size={12} color="#000000" />
@@ -204,26 +204,26 @@ export default function HomeScreen() {
           </Animated3DCard>
         </Animated.View>
 
-        {/* Section 2: Today's Booking Section */}
+        {/* Section 2: Today's Booking Section (Blackish Container) */}
         <Animated.View entering={FadeInDown.delay(300).springify()}>
           <Text className="text-xs font-bold uppercase tracking-wider mb-2.5 ml-1" style={{ color: colors.muted }}>Today's Workout</Text>
           
           {bookingStatus === "Not Booked" && (
             <Animated3DCard scaleDown={0.98}>
-              <View className="rounded-[28px] p-5 border mb-6 flex-row justify-between items-center" style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}>
+              <View className="rounded-[28px] p-5 border mb-6 flex-row justify-between items-center" style={[{ backgroundColor: colors.surfaceDark, borderColor: colors.secondaryDark }]}>
                 <View className="flex-1 mr-4">
                   <View className="flex-row items-center mb-1">
                     <View className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: colors.muted }} />
-                    <Text className="font-bold text-base" style={{ color: colors.text }}>No workout booked</Text>
+                    <Text className="font-bold text-base" style={{ color: colors.textLight }}>No workout booked</Text>
                   </View>
                   <Text className="text-xs" style={{ color: colors.muted }}>Discover partner gyms nearby and book your session.</Text>
                 </View>
                 <Pressable 
                   onPress={() => router.push("/explore")}
                   className="px-4 py-2.5 rounded-2xl border active:opacity-80"
-                  style={{ backgroundColor: 'rgba(11, 110, 79, 0.1)', borderColor: 'rgba(11, 110, 79, 0.2)' }}
+                  style={[{ backgroundColor: 'rgba(217, 255, 92, 0.1)', borderColor: 'rgba(217, 255, 92, 0.2)' }, styles.neonGlow]}
                 >
-                  <Text className="font-bold text-xs" style={{ color: colors.green }}>Book Visit</Text>
+                  <Text className="font-bold text-xs" style={{ color: colors.lime }}>Book Visit</Text>
                 </Pressable>
               </View>
             </Animated3DCard>
@@ -231,14 +231,14 @@ export default function HomeScreen() {
 
           {bookingStatus === "Booked" && (
             <Animated3DCard scaleDown={0.98}>
-              <View className="rounded-[28px] p-5 border mb-6" style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}>
+              <View className="rounded-[28px] p-5 border mb-6" style={[{ backgroundColor: colors.surfaceDark, borderColor: colors.secondaryDark }]}>
                 <View className="flex-row justify-between items-start mb-3">
                   <View>
                     <View className="flex-row items-center mb-1">
-                      <View className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: colors.green }} />
-                      <Text className="font-bold text-base" style={{ color: colors.text }}>Workout Booked</Text>
+                      <View className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: colors.lime }} />
+                      <Text className="font-bold text-base" style={{ color: colors.textLight }}>Workout Booked</Text>
                     </View>
-                    <Text className="text-lg font-bold" style={{ color: colors.text }}>{bookedGymName}</Text>
+                    <Text className="text-lg font-bold" style={{ color: colors.textLight }}>{bookedGymName}</Text>
                     <Text className="text-xs mt-0.5" style={{ color: colors.muted }}>Time Slot: {bookedTime}</Text>
                   </View>
                   <Pressable 
@@ -252,10 +252,10 @@ export default function HomeScreen() {
                 <Pressable 
                   onPress={() => router.push("/scan" as any)}
                   className="h-12 rounded-2xl items-center justify-center mt-2 flex-row gap-x-2 active:opacity-90"
-                  style={{ backgroundColor: colors.green }}
+                  style={[{ backgroundColor: colors.green }, styles.emeraldGlowSm]}
                 >
-                  <Ionicons name="scan-outline" size={16} color="#ffffff" />
-                  <Text className="font-bold text-sm" style={{ color: "#ffffff" }}>Scan Gym QR to Check-In</Text>
+                  <Ionicons name="scan-outline" size={16} color={colors.lime} />
+                  <Text className="font-bold text-sm" style={{ color: colors.lime }}>Scan Gym QR to Check-In</Text>
                 </Pressable>
               </View>
             </Animated3DCard>
@@ -263,12 +263,12 @@ export default function HomeScreen() {
 
           {bookingStatus === "Checked In" && (
             <Animated3DCard scaleDown={0.98}>
-              <View className="rounded-[28px] p-5 border mb-6" style={[{ backgroundColor: 'rgba(11, 110, 79, 0.1)', borderColor: 'rgba(11, 110, 79, 0.2)' }, styles.softShadow]}>
+              <View className="rounded-[28px] p-5 border mb-6" style={[{ backgroundColor: 'rgba(217, 255, 92, 0.1)', borderColor: 'rgba(217, 255, 92, 0.2)' }, styles.neonGlow]}>
                 <View className="flex-row items-center mb-1">
-                  <Ionicons name="checkmark-circle" size={20} color={colors.green} />
-                  <Text className="font-bold text-base ml-2" style={{ color: colors.green }}>Checked In Successfully</Text>
+                  <Ionicons name="checkmark-circle" size={20} color={colors.lime} />
+                  <Text className="font-bold text-base ml-2" style={{ color: colors.lime }}>Checked In Successfully</Text>
                 </View>
-                <Text className="text-xs mt-1" style={{ color: colors.text }}>
+                <Text className="text-xs mt-1" style={{ color: colors.textLight }}>
                   🔥 Great Work! You verified your check-in code at <Text className="font-bold">{bookedGymName}</Text>. Have a great workout!
                 </Text>
               </View>
@@ -276,7 +276,7 @@ export default function HomeScreen() {
           )}
         </Animated.View>
 
-        {/* Section 3: Fitness Journey */}
+        {/* Section 3: Fitness Journey (White Container) */}
         <Animated.View entering={FadeInDown.delay(400).springify()}>
           <Animated3DCard scaleDown={0.98}>
             <View className="rounded-[28px] p-5 border mb-6" style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}>
@@ -315,31 +315,31 @@ export default function HomeScreen() {
           </Animated3DCard>
         </Animated.View>
 
-        {/* Challenges Entry */}
+        {/* Challenges Entry (Blackish Container) */}
         <Animated.View entering={FadeInDown.delay(500).springify()}>
           <Animated3DCard scaleDown={0.98} onPress={() => router.push("/challenges" as any)}>
             <View 
               className="rounded-[32px] p-6 mb-6 overflow-hidden relative border"
-              style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}
+              style={[{ backgroundColor: colors.surfaceDark, borderColor: colors.secondaryDark }, styles.softShadowLg]}
             >
-              <View className="absolute right-[-20] top-[-20] w-32 h-32 rounded-full" style={{ backgroundColor: 'rgba(11, 110, 79, 0.05)' }} />
-              <View className="absolute right-10 bottom-[-10] w-20 h-20 rounded-full" style={{ backgroundColor: 'rgba(11, 110, 79, 0.1)' }} />
+              <View className="absolute right-[-20] top-[-20] w-32 h-32 rounded-full" style={{ backgroundColor: 'rgba(217, 255, 92, 0.05)' }} />
+              <View className="absolute right-10 bottom-[-10] w-20 h-20 rounded-full" style={{ backgroundColor: 'rgba(217, 255, 92, 0.1)' }} />
               
               <View className="flex-row items-center mb-2">
-                <Ionicons name="trophy" size={20} color={colors.green} />
+                <Ionicons name="trophy" size={20} color={colors.lime} />
               </View>
-              <Text className="text-xl font-black mb-1" style={{ color: colors.text }}>Monthly Challenges</Text>
+              <Text className="text-xl font-black mb-1" style={{ color: colors.textLight }}>Monthly Challenges</Text>
               <Text className="text-sm mb-4 max-w-[80%]" style={{ color: colors.muted }}>Complete challenges to earn bonus credits and build consistency.</Text>
               
-              <View className="self-start px-4 py-2 rounded-xl flex-row items-center border" style={{ backgroundColor: colors.bg, borderColor: colors.secondary }}>
-                <Text className="font-bold text-xs mr-2" style={{ color: colors.text }}>View Challenges</Text>
-                <Ionicons name="arrow-forward" size={12} color={colors.text} />
+              <View className="self-start px-4 py-2 rounded-xl flex-row items-center border" style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderColor: colors.secondaryDark }}>
+                <Text className="font-bold text-xs mr-2" style={{ color: colors.textLight }}>View Challenges</Text>
+                <Ionicons name="arrow-forward" size={12} color={colors.textLight} />
               </View>
             </View>
           </Animated3DCard>
         </Animated.View>
 
-        {/* Find Trainer / Buddy Section */}
+        {/* Find Trainer / Buddy Section (White Container) */}
         <Animated.View entering={FadeInDown.delay(600).springify()}>
           <Animated3DCard scaleDown={0.98} onPress={() => router.push("/tools/find-trainer" as any)}>
             <View 
@@ -366,7 +366,7 @@ export default function HomeScreen() {
           </Animated3DCard>
         </Animated.View>
 
-        {/* Section 4: Momentum Bento Grid */}
+        {/* Section 4: Momentum Bento Grid (White Containers) */}
         <Animated.View entering={FadeInDown.delay(700).springify()}>
           <Text className="text-xs font-bold uppercase tracking-wider mb-2.5 ml-1" style={{ color: colors.muted }}>Momentum</Text>
           <View className="flex-row gap-x-4 mb-6">
@@ -396,45 +396,45 @@ export default function HomeScreen() {
           </View>
         </Animated.View>
 
-        {/* Section 6: Fitness Tools Bento Grid */}
+        {/* Section 6: Fitness Tools Bento Grid (Blackish Containers) */}
         <Animated.View entering={FadeInDown.delay(800).springify()}>
           <Text className="text-xs font-bold uppercase tracking-wider mb-2.5 ml-1" style={{ color: colors.muted }}>Fitness Tools</Text>
           <View className="flex-wrap flex-row justify-between gap-y-4 mb-6">
             <Animated3DCard scaleDown={0.95} style={{ width: '47%' }} onPress={() => router.push("/tools/ai-trainer" as any)}>
-              <View className="rounded-[24px] p-4 border" style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}>
+              <View className="rounded-[24px] p-4 border" style={[{ backgroundColor: colors.surfaceDark, borderColor: colors.secondaryDark }, styles.softShadowLg]}>
                 <Text className="text-lg">🤖</Text>
-                <Text className="font-bold text-sm mt-1" style={{ color: colors.text }}>AI Trainer</Text>
+                <Text className="font-bold text-sm mt-1" style={{ color: colors.textLight }}>AI Trainer</Text>
                 <Text className="text-[10px] font-bold mt-0.5" style={{ color: colors.muted }}>Early Access</Text>
               </View>
             </Animated3DCard>
 
             <Animated3DCard scaleDown={0.95} style={{ width: '47%' }} onPress={() => router.push("/tools/meal-scan" as any)}>
-              <View className="rounded-[24px] p-4 border" style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}>
+              <View className="rounded-[24px] p-4 border" style={[{ backgroundColor: colors.surfaceDark, borderColor: colors.secondaryDark }, styles.softShadowLg]}>
                 <Text className="text-lg">📸</Text>
-                <Text className="font-bold text-sm mt-1" style={{ color: colors.text }}>Meal Scan</Text>
+                <Text className="font-bold text-sm mt-1" style={{ color: colors.textLight }}>Meal Scan</Text>
                 <Text className="text-[10px] font-bold mt-0.5" style={{ color: colors.muted }}>Early Access</Text>
               </View>
             </Animated3DCard>
 
             <Animated3DCard scaleDown={0.95} style={{ width: '47%' }} onPress={() => router.push("/tools/workout-buddy" as any)}>
-              <View className="rounded-[24px] p-4 border" style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}>
+              <View className="rounded-[24px] p-4 border" style={[{ backgroundColor: colors.surfaceDark, borderColor: colors.secondaryDark }, styles.softShadowLg]}>
                 <Text className="text-lg">👥</Text>
-                <Text className="font-bold text-sm mt-1" style={{ color: colors.text }}>Workout Buddy</Text>
+                <Text className="font-bold text-sm mt-1" style={{ color: colors.textLight }}>Workout Buddy</Text>
                 <Text className="text-[10px] font-bold mt-0.5" style={{ color: colors.muted }}>Early Access</Text>
               </View>
             </Animated3DCard>
 
             <Animated3DCard scaleDown={0.95} style={{ width: '47%' }} onPress={() => router.push("/tools/plans" as any)}>
-              <View className="rounded-[24px] p-4 border" style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}>
+              <View className="rounded-[24px] p-4 border" style={[{ backgroundColor: colors.surfaceDark, borderColor: colors.secondaryDark }, styles.softShadowLg]}>
                 <Text className="text-lg">📋</Text>
-                <Text className="font-bold text-sm mt-1" style={{ color: colors.text }}>Workout Plans</Text>
+                <Text className="font-bold text-sm mt-1" style={{ color: colors.textLight }}>Workout Plans</Text>
                 <Text className="text-[10px] font-bold mt-0.5" style={{ color: colors.muted }}>Early Access</Text>
               </View>
             </Animated3DCard>
           </View>
         </Animated.View>
 
-        {/* Section 7: Motivation Quote */}
+        {/* Section 7: Motivation Quote (White Container) */}
         <Animated.View entering={FadeInDown.delay(900).springify()}>
           <Animated3DCard scaleDown={0.95} onPress={rotateQuote}>
             <View 
@@ -464,7 +464,7 @@ export default function HomeScreen() {
           <View className="rounded-t-[36px] p-6 h-[70%]" style={{ backgroundColor: colors.bg }}>
             <View className="flex-row justify-between items-center mb-6">
               <Text className="text-xl font-bold" style={{ color: colors.text }}>Notifications</Text>
-              <Pressable onPress={() => setNotificationsVisible(false)} className="w-8 h-8 rounded-full items-center justify-center" style={{ backgroundColor: colors.surface }}>
+              <Pressable onPress={() => setNotificationsVisible(false)} className="w-8 h-8 rounded-full items-center justify-center border" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
                 <Ionicons name="close" size={20} color={colors.text} />
               </Pressable>
             </View>
@@ -513,5 +513,26 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 4,
+  },
+  emeraldGlow: {
+    shadowColor: colors.green,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.6,
+    shadowRadius: 30,
+    elevation: 15,
+  },
+  emeraldGlowSm: {
+    shadowColor: colors.green,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  neonGlow: {
+    shadowColor: colors.lime,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
+    elevation: 10,
   }
 });

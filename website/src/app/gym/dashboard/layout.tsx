@@ -28,10 +28,10 @@ export default function GymDashboardLayout({
   ];
 
   return (
-    <div className="flex flex-col md:flex-row min-h-[calc(100vh-80px)]">
-      {/* Sidebar */}
-      <aside className="w-full md:w-64 bg-white border-r border-gray-100 flex-shrink-0">
-        <nav className="p-4 space-y-1">
+    <div className="flex flex-col md:flex-row min-h-[calc(100vh-80px)] bg-background">
+      {/* Sidebar - High Contrast Dark */}
+      <aside className="w-full md:w-64 bg-surface-dark border-r border-secondary-dark flex-shrink-0 z-20">
+        <nav className="p-4 space-y-1.5 h-full flex flex-col pt-8">
           {navItems.map((item) => {
             const isActive = pathname === item.href;
             const Icon = item.icon;
@@ -40,24 +40,24 @@ export default function GymDashboardLayout({
               <Link
                 key={item.name}
                 href={item.href}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors font-medium text-sm ${
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm ${
                   isActive
-                    ? "bg-emerald-50 text-emerald-700"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-black"
+                    ? "bg-white/10 text-brand-lime border border-white/10 shadow-sm"
+                    : "text-muted hover:bg-white/5 hover:text-white"
                 }`}
               >
-                <Icon size={18} className={isActive ? "text-emerald-600" : "text-gray-400"} />
+                <Icon size={18} className={isActive ? "text-brand-lime" : "text-muted"} />
                 {item.name}
               </Link>
             );
           })}
 
-          <div className="pt-6 pb-2">
+          <div className="mt-auto pt-6 pb-2">
             <Link
               href="/partners/apply"
-              className="flex items-center gap-3 px-4 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-sm transition-colors"
+              className="flex items-center gap-3 px-4 py-3 rounded-xl bg-brand-green hover:bg-primary-dark text-white font-bold text-sm shadow-sm transition-colors border border-brand-green/20 emerald-glow-sm group"
             >
-              <Store size={18} className="text-white" />
+              <Store size={18} className="text-brand-lime group-hover:scale-110 transition-transform" />
               Apply for Partner Gym
             </Link>
           </div>
@@ -65,8 +65,11 @@ export default function GymDashboardLayout({
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 bg-gray-50/50">
-        {children}
+      <main className="flex-1 bg-background relative">
+        <div className="absolute top-0 left-0 w-full h-64 bg-surface border-b border-secondary hidden md:block" />
+        <div className="relative z-10 p-6 md:p-8 h-full">
+          {children}
+        </div>
       </main>
     </div>
   );
