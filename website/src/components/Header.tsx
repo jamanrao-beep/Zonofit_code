@@ -3,9 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import Image from "next/image";
 import { useAuthStore } from "@/store/useAuthStore";
-import { LogOut } from "lucide-react";
+import { LogOut, ChevronDown, Lock } from "lucide-react";
 
 export default function Header() {
   const { user, initialize, logout } = useAuthStore();
@@ -17,75 +16,70 @@ export default function Header() {
     setMounted(true);
   }, [initialize]);
 
+  // If we are in the dashboard, don't show the public transparent header
+  if (pathname?.includes('/dashboard')) {
+    return null; // The dashboard layout handles its own header
+  }
+
   return (
-    <header className="fixed top-0 w-full z-50 glass border-b border-black/5">
-      <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
-          <Image src="/logo.jpeg" alt="ZonoFit" width={40} height={40} className="rounded-lg object-cover w-10 h-10" priority />
-          <span className="text-xl font-bold tracking-tight text-black">
-            Zono<span className="text-primary">Fit</span>
+    <header className="fixed top-0 w-full z-50 bg-transparent">
+      <div className="max-w-7xl mx-auto px-8 h-24 flex items-center justify-between">
+        
+        {/* Logo - similar to "fitness O" from reference */}
+        <Link href="/" className="flex items-center gap-1.5 group">
+          <span className="text-2xl font-black tracking-tight text-foreground">
+            ZonoFit
           </span>
+          <div className="w-6 h-3.5 rounded-full border-[3px] border-brand-coral group-hover:bg-brand-coral transition-colors" />
         </Link>
         
-        <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-600">
-          <Link href="/how-it-works" className={`transition-colors ${pathname === '/how-it-works' ? 'text-primary font-semibold' : 'hover:text-black'}`}>How it Works</Link>
-          <Link href="/plans" className={`transition-colors ${pathname === '/plans' ? 'text-primary font-semibold' : 'hover:text-black'}`}>Plans</Link>
+        {/* Center Nav - minimal text, black font, Chevron */}
+        <nav className="hidden md:flex items-center gap-12 text-sm font-bold text-foreground tracking-wide">
+          <Link href="/how-it-works" className="flex items-center gap-1 hover:text-brand-green transition-colors">
+            How it Works <ChevronDown size={14} className="mt-0.5" />
+          </Link>
+          <Link href="/plans" className="hover:text-brand-green transition-colors">
+            Plans
+          </Link>
           {(!mounted || !user || user.role !== "GYM_OWNER") && (
-            <Link href="/partners" className={`transition-colors ${pathname === '/partners' ? 'text-primary font-semibold' : 'hover:text-black'}`}>Gym Partners</Link>
-          )}
-          {mounted && user && (
-            <Link 
-              href={user.role === "ADMIN" ? "/admin/dashboard" : "/gym/dashboard"} 
-              className={`transition-colors ${
-                pathname?.includes('/dashboard') && 
-                !pathname.includes('profile') && 
-                !pathname.includes('support') && 
-                !pathname.includes('settings') 
-                  ? 'text-primary font-semibold' : 'hover:text-black'
-              }`}
-            >
-              Dashboard
-            </Link>
-          )}
-          {mounted && user && user.role === "GYM_OWNER" && (
-            <>
-              <Link href="/gym/dashboard/profile" className={`transition-colors ${pathname === '/gym/dashboard/profile' ? 'text-primary font-semibold' : 'hover:text-black'}`}>
-                Profile
-              </Link>
-              <Link href="/gym/dashboard/support" className={`transition-colors ${pathname === '/gym/dashboard/support' ? 'text-primary font-semibold' : 'hover:text-black'}`}>
-                Support
-              </Link>
-            </>
-          )}
-          {mounted && user && (
-            <Link href="/settings" className={`transition-colors ${pathname === '/settings' ? 'text-primary font-semibold' : 'hover:text-black'}`}>
-              Settings
+            <Link href="/partners" className="hover:text-brand-green transition-colors">
+              Gym Partners
             </Link>
           )}
         </nav>
         
-        <div className="flex items-center gap-4">
+        {/* Right Actions - Discover / Lock icon */}
+        <div className="flex items-center gap-3">
           {mounted && user ? (
-            <div className="flex items-center gap-4">
-              <div className="text-right hidden sm:block">
-                <div className="text-sm font-bold text-black">{user.name}</div>
-                <div className="text-xs font-semibold text-primary">{(user.role || "MEMBER").replace("_", " ")}</div>
-              </div>
+            <div className="flex items-center gap-3">
+              <Link 
+                href={user.role === "ADMIN" ? "/admin/dashboard" : "/gym/dashboard"} 
+                className="px-6 py-2.5 rounded-full border-2 border-foreground/10 text-sm font-bold text-foreground hover:border-foreground/30 transition-all bg-surface/50 backdrop-blur-md"
+              >
+                Dashboard
+              </Link>
               <button 
                 onClick={logout}
-                className="w-10 h-10 rounded-full glass flex items-center justify-center hover:bg-red-500/10 hover:text-red-500 text-gray-500 transition-colors"
+                className="w-10 h-10 rounded-full border-2 border-foreground/10 flex items-center justify-center hover:bg-foreground/5 transition-colors bg-surface/50 backdrop-blur-md"
                 title="Logout"
               >
-                <LogOut size={16} />
+                <LogOut size={16} className="text-foreground" />
               </button>
             </div>
           ) : (
             <>
-              <Link href="/auth/signup" className="text-sm font-medium text-gray-600 hover:text-black transition-colors">
-                Sign up
+              <Link 
+                href="/auth/signup" 
+                className="px-6 py-2.5 rounded-full border-2 border-foreground/10 text-sm font-bold text-foreground hover:border-foreground/30 transition-all bg-surface/50 backdrop-blur-md"
+              >
+                Discover
               </Link>
-              <Link href="/auth/login" className="bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-full text-sm font-semibold transition-all hover:scale-105 active:scale-95 shadow-[0_4px_14px_rgba(16,185,129,0.3)]">
-                Log in
+              <Link 
+                href="/auth/login" 
+                className="w-10 h-10 rounded-full border-2 border-foreground/10 flex items-center justify-center hover:bg-foreground/5 transition-colors bg-surface/50 backdrop-blur-md"
+                title="Log in"
+              >
+                <Lock size={16} className="text-foreground" />
               </Link>
             </>
           )}
