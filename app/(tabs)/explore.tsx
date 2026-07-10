@@ -247,13 +247,13 @@ export default function ExploreScreen() {
       className="mr-4 w-64 rounded-3xl"
     >
       <View 
-        className="rounded-3xl overflow-hidden border shadow-sm"
-        style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}
+        className="rounded-3xl overflow-hidden border"
+        style={[{ backgroundColor: item.isPremium ? colors.surfaceDark : colors.surface, borderColor: item.isPremium ? colors.secondaryDark : colors.secondary }, styles.softShadow]}
       >
         <Image source={{ uri: item.image }} className="h-32 w-full" resizeMode="cover" />
         <View className="p-4">
           <View className="flex-row justify-between items-start">
-            <Text className="text-base font-bold flex-1 mr-1" numberOfLines={1} style={{ color: colors.text }}>
+            <Text className="text-base font-bold flex-1 mr-1" numberOfLines={1} style={{ color: item.isPremium ? colors.textLight : colors.text }}>
               {item.name}
             </Text>
             <View className="flex-row items-center px-2 py-0.5 rounded-lg border" style={{ backgroundColor: 'rgba(255, 176, 32, 0.1)', borderColor: 'rgba(255, 176, 32, 0.2)' }}>
@@ -279,7 +279,7 @@ export default function ExploreScreen() {
 
   const renderNearPrimaryCard = ({ item }: { item: Gym }) => (
     <Animated3DCard disabled className="mr-4 w-64 rounded-3xl opacity-75">
-      <View className="rounded-3xl overflow-hidden border shadow-sm" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
+      <View className="rounded-3xl overflow-hidden border" style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}>
         <Image source={{ uri: item.image }} className="h-32 w-full" resizeMode="cover" />
         <View className="p-4">
           <View className="flex-row justify-between items-start">
@@ -306,17 +306,17 @@ export default function ExploreScreen() {
 
   const renderTrialGymCard = ({ item }: { item: TrialGym }) => (
     <Animated3DCard scaleDown={0.96} className="mr-4 w-64 rounded-3xl">
-      <View className="rounded-3xl overflow-hidden border shadow-sm" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
+      <View className="rounded-3xl overflow-hidden border shadow-sm" style={[{ backgroundColor: colors.surfaceDark, borderColor: colors.secondaryDark }, styles.softShadow]}>
         {item.imageUrl ? (
           <Image source={{ uri: item.imageUrl }} className="h-32 w-full" resizeMode="cover" />
         ) : (
-          <View className="h-32 w-full items-center justify-center" style={{ backgroundColor: colors.secondary }}>
+          <View className="h-32 w-full items-center justify-center" style={{ backgroundColor: colors.secondaryDark }}>
             <Ionicons name="barbell-outline" size={32} color={colors.muted} />
           </View>
         )}
         <View className="p-4">
           <View className="flex-row justify-between items-start">
-            <Text className="text-base font-bold flex-1 mr-1" numberOfLines={1} style={{ color: colors.text }}>
+            <Text className="text-base font-bold flex-1 mr-1" numberOfLines={1} style={{ color: colors.textLight }}>
               {item.name}
             </Text>
           </View>
@@ -329,7 +329,7 @@ export default function ExploreScreen() {
             {item.description || "Vote to bring this gym to ZonoFit!"}
           </Text>
 
-          <View className="flex-row justify-between items-center mt-3 border-t pt-3" style={{ borderTopColor: colors.secondary }}>
+          <View className="flex-row justify-between items-center mt-3 border-t pt-3" style={{ borderTopColor: colors.secondaryDark }}>
             <Text className="text-xs font-bold" style={{ color: colors.muted }}>{item.voteCount} Votes</Text>
             <Pressable 
               onPress={() => handleVoteTrialGym(item.id)}
@@ -339,7 +339,7 @@ export default function ExploreScreen() {
                 borderColor: item.hasVoted ? colors.lime : 'transparent' 
               }}
             >
-              <Text className="text-xs font-bold" style={{ color: item.hasVoted ? colors.lime : colors.text }}>
+              <Text className="text-xs font-bold" style={{ color: item.hasVoted ? colors.lime : colors.textLight }}>
                 {item.hasVoted ? 'Voted ✅' : 'Vote'}
               </Text>
             </Pressable>
@@ -363,7 +363,7 @@ export default function ExploreScreen() {
           </View>
         </View>
 
-        <View className="flex-row items-center rounded-2xl border shadow-sm px-4 h-12" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
+        <View className="flex-row items-center rounded-2xl border shadow-sm px-4 h-12" style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}>
           <Ionicons name="search" size={18} color={colors.muted} />
           <TextInput
             placeholder="Search gym, turf, area or landmark..."
@@ -392,13 +392,13 @@ export default function ExploreScreen() {
               onPress={() => setSelectedFilter(tag)}
               className="px-4 py-2 rounded-full mr-2.5 border active:opacity-80"
               style={{
-                backgroundColor: selectedFilter === tag ? colors.green : colors.surface,
+                backgroundColor: selectedFilter === tag ? colors.surfaceDark : colors.surface,
                 borderColor: selectedFilter === tag ? 'transparent' : colors.secondary
               }}
             >
               <Text 
                 className="text-xs font-bold"
-                style={{ color: selectedFilter === tag ? colors.text : colors.muted }}
+                style={{ color: selectedFilter === tag ? colors.textLight : colors.muted }}
               >
                 {tag}
               </Text>
@@ -417,7 +417,7 @@ export default function ExploreScreen() {
                 <Animated3DCard onPress={() => router.push(`/gym/${gym.id}` as any)} className="mb-4">
                   <View 
                     className="rounded-3xl overflow-hidden border shadow-sm"
-                    style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}
+                    style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}
                   >
                     <Image source={{ uri: gym.image }} className="h-44 w-full" resizeMode="cover" />
                     <View className="p-4">
@@ -607,7 +607,7 @@ export default function ExploreScreen() {
                 >
                   <View 
                     className="rounded-3xl overflow-hidden border shadow-sm"
-                    style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}
+                    style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}
                   >
                     <Image source={{ uri: gym.image }} className="h-40 w-full" resizeMode="cover" />
                     <View className="p-4">
@@ -746,6 +746,13 @@ export default function ExploreScreen() {
 }
 
 const styles = StyleSheet.create({
+  softShadow: {
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
   neonGlowSm: {
     shadowColor: colors.lime,
     shadowOffset: { width: 0, height: 4 },

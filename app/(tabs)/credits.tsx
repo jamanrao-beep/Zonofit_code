@@ -156,7 +156,7 @@ export default function CreditsScreen() {
         </View>
         <Text 
           className="text-sm font-extrabold"
-          style={{ color: isCredit ? colors.lime : colors.text }}
+          style={{ color: isCredit ? colors.green : colors.text }}
         >
           {isCredit ? "+" : "-"}
           {isCash ? `₹${item.amount}` : `${item.amount} Credits`}
@@ -174,14 +174,14 @@ export default function CreditsScreen() {
           <Pressable 
             onPress={() => router.push("/marketplace" as any)}
             className="w-9 h-9 rounded-full items-center justify-center border active:scale-95 transition-transform"
-            style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}
+            style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}
           >
             <Ionicons name="cart-outline" size={20} color={colors.text} />
           </Pressable>
           <Pressable 
             onPress={() => setInfoModalVisible(true)}
             className="w-9 h-9 rounded-full items-center justify-center border active:scale-95 transition-transform"
-            style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}
+            style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}
           >
             <Ionicons name="help-circle-outline" size={20} color={colors.text} />
           </Pressable>
@@ -225,7 +225,7 @@ export default function CreditsScreen() {
         {/* Section 1.5: Converted Cash Overview Card */}
         <Animated.View entering={FadeInDown.delay(300).springify()} className="px-5 mt-4">
           <Animated3DCard scaleDown={0.98}>
-            <View className="rounded-[28px] overflow-hidden border p-6" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
+            <View className="rounded-[28px] overflow-hidden border p-6" style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}>
               <View className="flex-row justify-between items-center mb-4">
                 <View>
                   <Text className="text-xs font-bold uppercase tracking-wider" style={{ color: colors.muted }}>Converted Cash</Text>
@@ -236,13 +236,13 @@ export default function CreditsScreen() {
                   className="px-4 py-2.5 rounded-2xl border active:opacity-80"
                   style={{ backgroundColor: 'rgba(217, 255, 92, 0.1)', borderColor: 'rgba(217, 255, 92, 0.2)' }}
                 >
-                  <Text className="font-bold text-xs" style={{ color: colors.lime }}>Top Up</Text>
+                  <Text className="font-bold text-xs" style={{ color: colors.green }}>Top Up</Text>
                 </Pressable>
               </View>
               <Pressable 
                 onPress={() => setConvertModalVisible(true)}
                 className="w-full py-3 rounded-2xl border active:opacity-80 items-center"
-                style={[{ backgroundColor: 'rgba(255, 176, 32, 0.1)', borderColor: 'rgba(255, 176, 32, 0.2)' }, styles.amberGlowSm]}
+                style={[{ backgroundColor: colors.surfaceDark, borderColor: colors.secondaryDark }, styles.amberGlowSm]}
               >
                 <Text className="font-bold text-xs" style={{ color: colors.amber }}>Convert Balance</Text>
               </Pressable>
@@ -258,10 +258,10 @@ export default function CreditsScreen() {
             <Animated3DCard style={{ flex: 1 }} scaleDown={0.93} onPress={handleTopUpPress}>
               <View 
                 className="flex-1 rounded-3xl p-5 border items-center"
-                style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}
+                style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}
               >
-                <View className="w-10 h-10 rounded-full items-center justify-center mb-3" style={{ backgroundColor: 'rgba(217, 255, 92, 0.1)' }}>
-                  <Ionicons name="add" size={20} color={colors.lime} />
+                <View className="w-10 h-10 rounded-full items-center justify-center mb-3" style={{ backgroundColor: 'rgba(11, 110, 79, 0.1)' }}>
+                  <Ionicons name="add" size={20} color={colors.green} />
                 </View>
                 <Text className="font-bold text-sm" style={{ color: colors.text }}>Buy Credits</Text>
                 <Text className="text-[10px] text-center mt-1" style={{ color: colors.muted }}>Get more gym visits</Text>
@@ -272,7 +272,7 @@ export default function CreditsScreen() {
             <Animated3DCard style={{ flex: 1 }} scaleDown={0.93} onPress={() => setConvertModalVisible(true)}>
               <View 
                 className="flex-1 rounded-3xl p-5 border items-center"
-                style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}
+                style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}
               >
                 <View className="w-10 h-10 rounded-full items-center justify-center mb-3 border" style={{ backgroundColor: 'rgba(255, 176, 32, 0.1)', borderColor: 'rgba(255, 176, 32, 0.2)' }}>
                   <Ionicons name="swap-horizontal" size={18} color={colors.amber} />
@@ -286,7 +286,7 @@ export default function CreditsScreen() {
             <Animated3DCard style={{ flex: 1 }} scaleDown={0.93} onPress={() => setInfoModalVisible(true)}>
               <View 
                 className="flex-1 rounded-3xl p-5 border items-center"
-                style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}
+                style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}
               >
                 <View className="w-10 h-10 rounded-full items-center justify-center mb-3 border" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', borderColor: 'rgba(59, 130, 246, 0.2)' }}>
                   <Ionicons name="book-outline" size={18} color="#3B82F6" />
@@ -303,7 +303,7 @@ export default function CreditsScreen() {
           <View className="flex-row justify-between items-end mt-8 mb-3 px-6">
             <Text className="text-xs font-bold uppercase tracking-wider" style={{ color: colors.muted }}>Shop By Category</Text>
             <Pressable onPress={() => router.push("/marketplace" as any)} className="active:opacity-70">
-              <Text className="text-xs font-bold" style={{ color: colors.lime }}>View All</Text>
+              <Text className="text-xs font-bold" style={{ color: colors.green }}>View All</Text>
             </Pressable>
           </View>
           <View className="px-5 flex-row flex-wrap justify-between gap-y-4">
@@ -311,15 +311,15 @@ export default function CreditsScreen() {
             <Animated3DCard style={{ width: '48%' }} scaleDown={0.96} onPress={() => router.push("/marketplace" as any)}>
               <View 
                 className="rounded-[20px] p-4 border h-40 overflow-hidden relative"
-                style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}
+                style={[{ backgroundColor: colors.surfaceDark, borderColor: colors.secondaryDark }, styles.softShadow]}
               >
                 <View className="z-10">
-                  <Text className="font-bold text-sm" style={{ color: colors.text }}>Products</Text>
+                  <Text className="font-bold text-sm" style={{ color: colors.textLight }}>Products</Text>
                   <Text className="text-[10px] mt-1 pr-2 leading-tight" style={{ color: colors.muted }}>Supplements, accessories & more</Text>
                 </View>
-                <View className="absolute bottom-4 left-4 px-3 py-1.5 rounded-full flex-row items-center gap-x-1 z-10" style={{ backgroundColor: colors.bg }}>
-                  <Text className="text-[10px] font-bold" style={{ color: colors.text }}>Explore</Text>
-                  <Ionicons name="chevron-forward" size={10} color={colors.text} />
+                <View className="absolute bottom-4 left-4 px-3 py-1.5 rounded-full flex-row items-center gap-x-1 z-10" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}>
+                  <Text className="text-[10px] font-bold" style={{ color: colors.textLight }}>Explore</Text>
+                  <Ionicons name="chevron-forward" size={10} color={colors.textLight} />
                 </View>
               </View>
             </Animated3DCard>
@@ -328,7 +328,7 @@ export default function CreditsScreen() {
             <Animated3DCard style={{ width: '48%' }} scaleDown={0.96} onPress={() => router.push("/marketplace" as any)}>
               <View 
                 className="rounded-[20px] p-4 border h-40 overflow-hidden relative"
-                style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}
+                style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}
               >
                 <View className="z-10">
                   <Text className="font-bold text-sm" style={{ color: colors.text }}>Sports & Activities</Text>
@@ -345,15 +345,15 @@ export default function CreditsScreen() {
             <Animated3DCard style={{ width: '48%' }} scaleDown={0.96} onPress={() => router.push("/marketplace" as any)}>
               <View 
                 className="rounded-[20px] p-4 border h-40 overflow-hidden relative"
-                style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}
+                style={[{ backgroundColor: colors.surfaceDark, borderColor: colors.secondaryDark }, styles.softShadow]}
               >
                 <View className="z-10">
-                  <Text className="font-bold text-sm" style={{ color: colors.text }}>Apparel & Gear</Text>
+                  <Text className="font-bold text-sm" style={{ color: colors.textLight }}>Apparel & Gear</Text>
                   <Text className="text-[10px] mt-1 pr-2 leading-tight" style={{ color: colors.muted }}>Gym wear, shoes & accessories</Text>
                 </View>
-                <View className="absolute bottom-4 left-4 px-3 py-1.5 rounded-full flex-row items-center gap-x-1 z-10 border" style={{ backgroundColor: colors.bg, borderColor: colors.secondary }}>
-                  <Text className="text-[10px] font-bold" style={{ color: colors.text }}>Explore</Text>
-                  <Ionicons name="chevron-forward" size={10} color={colors.text} />
+                <View className="absolute bottom-4 left-4 px-3 py-1.5 rounded-full flex-row items-center gap-x-1 z-10 border" style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: colors.secondaryDark }}>
+                  <Text className="text-[10px] font-bold" style={{ color: colors.textLight }}>Explore</Text>
+                  <Ionicons name="chevron-forward" size={10} color={colors.textLight} />
                 </View>
               </View>
             </Animated3DCard>
@@ -362,7 +362,7 @@ export default function CreditsScreen() {
             <Animated3DCard style={{ width: '48%' }} scaleDown={0.96} onPress={() => router.push("/marketplace" as any)}>
               <View 
                 className="rounded-[20px] p-4 border h-40 overflow-hidden relative"
-                style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}
+                style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}
               >
                 <View className="z-10">
                   <Text className="font-bold text-sm" style={{ color: colors.text }}>Recovery & Wellness</Text>
@@ -382,10 +382,10 @@ export default function CreditsScreen() {
           <View className="flex-row justify-between items-end mt-6 mb-3 px-6">
             <Text className="text-xs font-bold uppercase tracking-wider" style={{ color: colors.muted }}>Recent Activity</Text>
             <Pressable onPress={() => router.push("/transactions" as any)} className="active:opacity-70">
-              <Text className="text-xs font-bold" style={{ color: colors.lime }}>View All</Text>
+              <Text className="text-xs font-bold" style={{ color: colors.green }}>View All</Text>
             </Pressable>
           </View>
-          <View className="mx-5 rounded-[28px] p-5 border" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
+          <View className="mx-5 rounded-[28px] p-5 border" style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}>
             {transactions.length === 0 ? (
               <Text className="text-center text-xs py-4" style={{ color: colors.muted }}>No recent activity found.</Text>
             ) : (
@@ -429,7 +429,7 @@ export default function CreditsScreen() {
                   borderColor: conversionType === "cashToCredits" ? colors.secondary : 'transparent'
                 }}
               >
-                <Text className="text-xs font-bold" style={{ color: conversionType === "cashToCredits" ? colors.lime : colors.muted }}>Cash → Credits</Text>
+                <Text className="text-xs font-bold" style={{ color: conversionType === "cashToCredits" ? colors.green : colors.muted }}>Cash → Credits</Text>
               </Pressable>
             </View>
             
@@ -483,7 +483,7 @@ export default function CreditsScreen() {
               ) : null}
 
               {conversionType === "cashToCredits" && cashToConvert ? (
-                <Text className="text-xs font-bold ml-1" style={{ color: colors.lime }}>
+                <Text className="text-xs font-bold ml-1" style={{ color: colors.green }}>
                   Cash required: ₹{parseInt(cashToConvert) * sysSettings.creditPurchasePrice || 0}
                 </Text>
               ) : null}
@@ -506,7 +506,7 @@ export default function CreditsScreen() {
                   conversionType === "creditsToCash" ? styles.amberGlowSm : styles.emeraldGlowSm
                 ]}
               >
-                <Text className="font-bold text-sm" style={{ color: conversionType === "creditsToCash" ? colors.bg : colors.lime }}>Convert</Text>
+                <Text className="font-bold text-sm" style={{ color: conversionType === "creditsToCash" ? colors.surface : colors.surface }}>Convert</Text>
               </Pressable>
             </View>
           </View>
@@ -524,7 +524,7 @@ export default function CreditsScreen() {
           <View className="rounded-t-[36px] p-6" style={{ backgroundColor: colors.bg }}>
             <View className="w-12 h-1.5 rounded-full mb-6 align-self-center mx-auto" style={{ backgroundColor: colors.secondary }} />
             
-            <Text className="text-xs font-bold uppercase tracking-wider" style={{ color: colors.lime }}>Top Up Wallet</Text>
+            <Text className="text-xs font-bold uppercase tracking-wider" style={{ color: colors.green }}>Top Up Wallet</Text>
             <Text className="text-2xl font-bold mt-1" style={{ color: colors.text }}>Add Cash Balance</Text>
             <Text className="text-xs mt-0.5" style={{ color: colors.muted }}>Add test money to your wallet to buy credits packs.</Text>
 
@@ -556,9 +556,9 @@ export default function CreditsScreen() {
               <Pressable
                 onPress={handleTopUpCash}
                 className="flex-1 h-12 rounded-2xl items-center justify-center active:opacity-80"
-                style={[{ backgroundColor: colors.lime }, styles.neonGlowSm]}
+                style={[{ backgroundColor: colors.green }, styles.emeraldGlowSm]}
               >
-                <Text className="font-bold text-sm" style={{ color: colors.bg }}>Add Cash</Text>
+                <Text className="font-bold text-sm" style={{ color: colors.surface }}>Add Cash</Text>
               </Pressable>
             </View>
           </View>
@@ -576,14 +576,14 @@ export default function CreditsScreen() {
           <View className="rounded-t-[36px] p-6 max-h-[80%]" style={{ backgroundColor: colors.bg }}>
             <View className="w-12 h-1.5 rounded-full mb-6 align-self-center mx-auto" style={{ backgroundColor: colors.secondary }} />
             
-            <Text className="text-xs font-bold uppercase tracking-wider" style={{ color: colors.lime }}>Documentation</Text>
+            <Text className="text-xs font-bold uppercase tracking-wider" style={{ color: colors.green }}>Documentation</Text>
             <Text className="text-2xl font-bold mt-1" style={{ color: colors.text }}>ZonoFit Credit Rules</Text>
 
             <View className="h-[1px] my-4" style={{ backgroundColor: colors.secondary }} />
 
             <ScrollView className="space-y-4 mb-6" showsVerticalScrollIndicator={false}>
               <View className="flex-row gap-x-3 items-start">
-                <Ionicons name="fitness-outline" size={18} color={colors.lime} className="mt-0.5" />
+                <Ionicons name="fitness-outline" size={18} color={colors.green} className="mt-0.5" />
                 <View className="flex-1">
                   <Text className="font-bold text-sm" style={{ color: colors.text }}>1 Credit = ₹10 Fitness Value</Text>
                   <Text className="text-xs mt-0.5" style={{ color: colors.muted }}>When spent in-network to book partner gym visits, credits maximize your value.</Text>
@@ -639,6 +639,13 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     borderWidth: 1,
     borderColor: colors.secondary,
+  },
+  softShadow: {
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
   },
   emeraldGlow: {
     shadowColor: colors.green,
