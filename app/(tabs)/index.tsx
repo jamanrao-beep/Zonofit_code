@@ -4,9 +4,9 @@ import {
   Text, 
   View, 
   Pressable, 
-  ActivityIndicator, 
   Modal,
-  Image
+  Image,
+  StyleSheet
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -17,6 +17,9 @@ import { useCreditsStore } from "@/store/useCreditsStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { apiFetch } from "@/lib/api";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { colors } from "@/constants/colors";
+import { Animated3DCard } from "@/components/Animated3DCard";
+import Animated, { FadeInDown } from "react-native-reanimated";
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -103,10 +106,8 @@ export default function HomeScreen() {
     fetchQuote();
   };
 
-
-
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F7F4" }} edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={["top"]}>
       <ScrollView 
         showsVerticalScrollIndicator={false}
         bounces={true}
@@ -114,305 +115,343 @@ export default function HomeScreen() {
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120, paddingTop: 12 }}
       >
         {/* Header Section */}
-        <View className="flex-row justify-between items-center mb-6">
+        <Animated.View entering={FadeInDown.delay(100).springify()} className="flex-row justify-between items-center mb-6">
           <View>
-            <Text className="text-xs font-semibold text-[#6B756E] uppercase tracking-wider">Welcome back</Text>
-            <Text className="text-2xl font-bold text-[#1F2520] mt-0.5">{user?.username || "ZonoFit Member"}</Text>
+            <Text className="text-xs font-semibold uppercase tracking-wider" style={{ color: colors.muted }}>Welcome back</Text>
+            <Text className="text-2xl font-bold mt-0.5" style={{ color: colors.text }}>{user?.username || "ZonoFit Member"}</Text>
           </View>
           <View className="flex-row items-center gap-x-3">
             <Pressable 
               onPress={() => router.push("/marketplace" as any)}
-              className="w-10 h-10 rounded-full bg-[#E9EBE6] items-center justify-center border border-black/5"
+              className="w-10 h-10 rounded-full items-center justify-center border active:scale-95 transition-transform"
+              style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}
             >
-              <Ionicons name="cart-outline" size={20} color="#555" />
+              <Ionicons name="cart-outline" size={20} color={colors.text} />
             </Pressable>
             <Pressable 
               onPress={() => setNotificationsVisible(true)}
-              className="w-10 h-10 rounded-full bg-[#E9EBE6] items-center justify-center border border-black/5 relative"
+              className="w-10 h-10 rounded-full items-center justify-center border relative active:scale-95 transition-transform"
+              style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}
             >
-              <Ionicons name="notifications-outline" size={20} color="#555" />
+              <Ionicons name="notifications-outline" size={20} color={colors.text} />
               {/* Unread badge */}
               {unreadCount > 0 && (
-                <View className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full border border-white" />
+                <View className="absolute top-2 right-2.5 w-2 h-2 rounded-full border border-black" style={{ backgroundColor: colors.lime, shadowColor: colors.lime, shadowOpacity: 0.8, shadowRadius: 5, elevation: 5 }} />
               )}
             </Pressable>
             <Pressable 
               onPress={() => router.push("/profile")}
-              className="w-10 h-10 rounded-full bg-[#E9EBE6] items-center justify-center border border-black/5 overflow-hidden"
+              className="w-10 h-10 rounded-full items-center justify-center border overflow-hidden active:scale-95 transition-transform"
+              style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}
             >
               {avatarUrl ? (
                 <Image source={{ uri: avatarUrl }} className="w-full h-full" resizeMode="cover" />
               ) : (
-                <Ionicons name="person" size={18} color="#555" />
+                <Ionicons name="person" size={18} color={colors.text} />
               )}
             </Pressable>
           </View>
-        </View>
+        </Animated.View>
 
         {/* Section 1: Hero Access Card */}
-        <View className="bg-emerald-600 rounded-[28px] p-6 mb-6 shadow-md overflow-hidden relative">
-          {/* Background subtle pattern blobs */}
-          <View className="absolute top-[-50px] right-[-50px] w-48 h-48 rounded-full bg-emerald-500/30" />
-          <View className="absolute bottom-[-80px] left-[-30px] w-40 h-40 rounded-full bg-emerald-500/20" />
+        <Animated.View entering={FadeInDown.delay(200).springify()}>
+          <Animated3DCard scaleDown={0.97}>
+            <View 
+              className="rounded-[32px] p-6 mb-6 overflow-hidden relative"
+              style={[
+                { backgroundColor: colors.green }, 
+                styles.emeraldGlow
+              ]}
+            >
+              {/* Background subtle pattern blobs */}
+              <View className="absolute top-[-50px] right-[-50px] w-48 h-48 rounded-full bg-white/5" />
+              <View className="absolute bottom-[-80px] left-[-30px] w-40 h-40 rounded-full bg-black/10" />
 
-          <View className="flex-row justify-between items-start">
-            <View>
-              <Text className="text-white/80 text-xs font-semibold uppercase tracking-wider">Visits Remaining</Text>
-              <Text className="text-6xl font-black text-white mt-1">{visitsRemaining}</Text>
+              <View className="flex-row justify-between items-start">
+                <View>
+                  <Text className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.7)' }}>Visits Remaining</Text>
+                  <Text className="text-6xl font-black text-white mt-1">{visitsRemaining}</Text>
+                </View>
+                <View className="px-3 py-1 rounded-full border" style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)' }}>
+                  <Text className="text-white text-xs font-semibold">{membershipStatus}</Text>
+                </View>
+              </View>
+
+              <View className="mt-4">
+                <Text className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.9)' }}>{planName} · Expires {membershipExpiry}</Text>
+              </View>
+
+              <View className="h-[1px] my-4" style={{ backgroundColor: 'rgba(255,255,255,0.15)' }} />
+
+              <View className="flex-row justify-between items-center">
+                <View className="flex-row items-center">
+                  <Ionicons name="wallet-outline" size={16} color={colors.lime} />
+                  <Text className="text-sm font-bold ml-1.5" style={{ color: colors.lime }}>{credits} Credits</Text>
+                </View>
+                
+                {bookingStatus === "Not Booked" && (
+                  <Pressable 
+                    onPress={() => router.push("/explore")}
+                    className="px-4 py-2.5 rounded-2xl flex-row items-center active:opacity-80"
+                    style={[{ backgroundColor: colors.lime }, styles.neonGlow]}
+                  >
+                    <Text className="font-bold text-xs mr-1" style={{ color: colors.bg }}>Book Today's Visit</Text>
+                    <Ionicons name="arrow-forward" size={12} color={colors.bg} />
+                  </Pressable>
+                )}
+              </View>
             </View>
-            <View className="bg-white/20 px-3 py-1 rounded-full border border-white/20">
-              <Text className="text-white text-xs font-semibold">{membershipStatus}</Text>
-            </View>
-          </View>
-
-          <View className="mt-4">
-            <Text className="text-white/90 text-sm font-medium">{planName} · Expires {membershipExpiry}</Text>
-          </View>
-
-          <View className="h-[1px] bg-white/20 my-4" />
-
-          <View className="flex-row justify-between items-center">
-            <View className="flex-row items-center">
-              <Ionicons name="wallet-outline" size={16} color="#A7F3D0" />
-              <Text className="text-[#A7F3D0] text-sm font-bold ml-1.5">{credits} Credits</Text>
-            </View>
-            
-            {bookingStatus === "Not Booked" && (
-              <Pressable 
-                onPress={() => router.push("/explore")}
-                className="bg-white px-4 py-2.5 rounded-2xl shadow-sm flex-row items-center active:scale-95"
-              >
-                <Text className="text-emerald-700 font-bold text-xs mr-1">Book Today's Visit</Text>
-                <Ionicons name="arrow-forward" size={12} color="#047857" />
-              </Pressable>
-            )}
-          </View>
-        </View>
+          </Animated3DCard>
+        </Animated.View>
 
         {/* Section 2: Today's Booking Section */}
-        <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider mb-2.5 ml-1">Today's Workout</Text>
-        
-        {bookingStatus === "Not Booked" && (
-          <View className="bg-white rounded-3xl p-5 border border-black/5 shadow-sm mb-6 flex-row justify-between items-center">
-            <View className="flex-1 mr-4">
-              <View className="flex-row items-center mb-1">
-                <View className="w-2 h-2 rounded-full bg-amber-500 mr-2" />
-                <Text className="text-[#1F2520] font-bold text-base">No workout booked</Text>
-              </View>
-              <Text className="text-xs text-[#6B756E]">Discover partner gyms nearby and book your session.</Text>
-            </View>
-            <Pressable 
-              onPress={() => router.push("/explore")}
-              className="bg-[#EAF7EC] px-4 py-2.5 rounded-2xl"
-            >
-              <Text className="text-[#6BCB77] font-bold text-xs">Book Visit</Text>
-            </Pressable>
-          </View>
-        )}
-
-        {bookingStatus === "Booked" && (
-          <View className="bg-white rounded-3xl p-5 border border-black/5 shadow-sm mb-6">
-            <View className="flex-row justify-between items-start mb-3">
-              <View>
-                <View className="flex-row items-center mb-1">
-                  <View className="w-2 h-2 rounded-full bg-emerald-500 mr-2" />
-                  <Text className="text-[#1F2520] font-bold text-base">Workout Booked</Text>
+        <Animated.View entering={FadeInDown.delay(300).springify()}>
+          <Text className="text-xs font-bold uppercase tracking-wider mb-2.5 ml-1" style={{ color: colors.muted }}>Today's Workout</Text>
+          
+          {bookingStatus === "Not Booked" && (
+            <Animated3DCard scaleDown={0.98}>
+              <View className="rounded-[28px] p-5 border mb-6 flex-row justify-between items-center" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
+                <View className="flex-1 mr-4">
+                  <View className="flex-row items-center mb-1">
+                    <View className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: colors.muted }} />
+                    <Text className="font-bold text-base" style={{ color: colors.text }}>No workout booked</Text>
+                  </View>
+                  <Text className="text-xs" style={{ color: colors.muted }}>Discover partner gyms nearby and book your session.</Text>
                 </View>
-                <Text className="text-lg font-bold text-[#1F2520]">{bookedGymName}</Text>
-                <Text className="text-xs text-[#6B756E] mt-0.5">Time Slot: {bookedTime}</Text>
+                <Pressable 
+                  onPress={() => router.push("/explore")}
+                  className="px-4 py-2.5 rounded-2xl border active:opacity-80"
+                  style={{ backgroundColor: 'rgba(217, 255, 92, 0.1)', borderColor: 'rgba(217, 255, 92, 0.2)' }}
+                >
+                  <Text className="font-bold text-xs" style={{ color: colors.lime }}>Book Visit</Text>
+                </Pressable>
               </View>
-              <Pressable 
-                onPress={cancelBooking}
-                className="p-1"
-              >
-                <Text className="text-xs text-red-500 font-semibold">Cancel</Text>
-              </Pressable>
-            </View>
-            
-            <Pressable 
-              onPress={() => router.push("/scan" as any)}
-              className="bg-[#6BCB77] h-12 rounded-2xl items-center justify-center mt-2 flex-row gap-x-2"
-            >
-              <Ionicons name="scan-outline" size={16} color="white" />
-              <Text className="text-white font-bold text-sm">Scan Gym QR to Check-In</Text>
-            </Pressable>
-          </View>
-        )}
+            </Animated3DCard>
+          )}
 
-        {bookingStatus === "Checked In" && (
-          <View className="bg-[#EAF7EC] rounded-3xl p-5 border border-[#D1F2D6] mb-6">
-            <View className="flex-row items-center mb-1">
-              <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-              <Text className="text-[#065F46] font-bold text-base ml-2">Checked In Successfully</Text>
-            </View>
-            <Text className="text-xs text-[#065F46] mt-1">
-              🔥 Great Work! You verified your check-in code at <Text className="font-bold">{bookedGymName}</Text>. Have a great workout!
-            </Text>
-          </View>
-        )}
+          {bookingStatus === "Booked" && (
+            <Animated3DCard scaleDown={0.98}>
+              <View className="rounded-[28px] p-5 border mb-6" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
+                <View className="flex-row justify-between items-start mb-3">
+                  <View>
+                    <View className="flex-row items-center mb-1">
+                      <View className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: colors.lime }} />
+                      <Text className="font-bold text-base" style={{ color: colors.text }}>Workout Booked</Text>
+                    </View>
+                    <Text className="text-lg font-bold" style={{ color: colors.text }}>{bookedGymName}</Text>
+                    <Text className="text-xs mt-0.5" style={{ color: colors.muted }}>Time Slot: {bookedTime}</Text>
+                  </View>
+                  <Pressable 
+                    onPress={cancelBooking}
+                    className="p-1 active:opacity-70"
+                  >
+                    <Text className="text-xs font-semibold" style={{ color: colors.coral }}>Cancel</Text>
+                  </Pressable>
+                </View>
+                
+                <Pressable 
+                  onPress={() => router.push("/scan" as any)}
+                  className="h-12 rounded-2xl items-center justify-center mt-2 flex-row gap-x-2 active:opacity-90"
+                  style={[{ backgroundColor: colors.green }, styles.emeraldGlowSm]}
+                >
+                  <Ionicons name="scan-outline" size={16} color={colors.lime} />
+                  <Text className="font-bold text-sm" style={{ color: colors.lime }}>Scan Gym QR to Check-In</Text>
+                </Pressable>
+              </View>
+            </Animated3DCard>
+          )}
+
+          {bookingStatus === "Checked In" && (
+            <Animated3DCard scaleDown={0.98}>
+              <View className="rounded-[28px] p-5 border mb-6" style={{ backgroundColor: 'rgba(217, 255, 92, 0.1)', borderColor: 'rgba(217, 255, 92, 0.2)' }}>
+                <View className="flex-row items-center mb-1">
+                  <Ionicons name="checkmark-circle" size={20} color={colors.lime} />
+                  <Text className="font-bold text-base ml-2" style={{ color: colors.lime }}>Checked In Successfully</Text>
+                </View>
+                <Text className="text-xs mt-1" style={{ color: colors.text }}>
+                  🔥 Great Work! You verified your check-in code at <Text className="font-bold">{bookedGymName}</Text>. Have a great workout!
+                </Text>
+              </View>
+            </Animated3DCard>
+          )}
+        </Animated.View>
 
         {/* Section 3: Fitness Journey */}
-        <View className="bg-white rounded-[28px] p-5 border border-black/5 shadow-sm mb-6">
-          <View className="flex-row justify-between items-center mb-4">
-            <View>
-              <Text className="text-xs font-semibold text-[#6B756E] uppercase tracking-wider">Fitness Journey</Text>
-              <Text className="text-lg font-bold text-[#1F2520] mt-0.5">Month {currentMonth} of {totalMonths}</Text>
+        <Animated.View entering={FadeInDown.delay(400).springify()}>
+          <Animated3DCard scaleDown={0.98}>
+            <View className="rounded-[28px] p-5 border mb-6" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
+              <View className="flex-row justify-between items-center mb-4">
+                <View>
+                  <Text className="text-xs font-semibold uppercase tracking-wider" style={{ color: colors.muted }}>Fitness Journey</Text>
+                  <Text className="text-lg font-bold mt-0.5" style={{ color: colors.text }}>Month {currentMonth} of {totalMonths}</Text>
+                </View>
+                <View className="px-3 py-1 rounded-full" style={{ backgroundColor: colors.bg }}>
+                  <Text className="text-xs font-bold" style={{ color: colors.muted }}>{identityStage}</Text>
+                </View>
+              </View>
+
+              {/* Progress Bar */}
+              <View className="h-3 w-full rounded-full overflow-hidden mb-3" style={{ backgroundColor: colors.bg }}>
+                <View 
+                  style={{ width: `${progressPercentage}%`, backgroundColor: colors.lime }} 
+                  className="h-full rounded-full" 
+                />
+              </View>
+
+              <View className="flex-row justify-between items-center mb-4">
+                <Text className="text-xs font-medium" style={{ color: colors.muted }}>{progressPercentage}% Complete</Text>
+                <Text className="text-xs font-bold" style={{ color: colors.lime }}>Next: {nextMilestone}</Text>
+              </View>
+
+              <Pressable
+                onPress={() => router.push("/journey")}
+                className="h-10 rounded-2xl items-center justify-center flex-row gap-x-1.5 border active:opacity-80"
+                style={{ backgroundColor: colors.bg, borderColor: colors.secondary }}
+              >
+                <Text className="font-bold text-xs" style={{ color: colors.text }}>View Full Journey</Text>
+                <Ionicons name="arrow-forward" size={12} color={colors.text} />
+              </Pressable>
             </View>
-            <View className="bg-[#F0F3ED] px-3 py-1 rounded-full">
-              <Text className="text-[#6B756E] text-xs font-bold">{identityStage}</Text>
-            </View>
-          </View>
-
-          {/* Progress Bar */}
-          <View className="h-3 w-full bg-[#E9EBE6] rounded-full overflow-hidden mb-3">
-            <View 
-              style={{ width: `${progressPercentage}%` }} 
-              className="h-full bg-[#6BCB77] rounded-full" 
-            />
-          </View>
-
-          <View className="flex-row justify-between items-center mb-4">
-            <Text className="text-xs text-[#6B756E] font-medium">{progressPercentage}% Complete</Text>
-            <Text className="text-xs text-[#1F2520] font-bold">Next: {nextMilestone}</Text>
-          </View>
-
-          <Pressable
-            onPress={() => router.push("/journey")}
-            className="bg-[#EAF7EC] h-10 rounded-2xl items-center justify-center flex-row gap-x-1.5 border border-[#D1F2D6]"
-          >
-            <Text className="text-[#059669] font-bold text-xs">View Full Journey</Text>
-            <Ionicons name="arrow-forward" size={12} color="#059669" />
-          </Pressable>
-        </View>
+          </Animated3DCard>
+        </Animated.View>
 
         {/* Challenges Entry */}
-        <Pressable
-          onPress={() => router.push("/challenges" as any)}
-          className="bg-indigo-600 rounded-[28px] p-6 mb-6 shadow-sm overflow-hidden relative"
-        >
-          <View className="absolute right-[-20] top-[-20] w-32 h-32 bg-white/10 rounded-full" />
-          <View className="absolute right-10 bottom-[-10] w-20 h-20 bg-indigo-500/30 rounded-full" />
-          
-          <View className="flex-row items-center mb-2">
-            <Ionicons name="trophy" size={20} color="#C7D2FE" />
-          </View>
-          <Text className="text-xl font-black text-white mb-1">Monthly Challenges</Text>
-          <Text className="text-sm text-indigo-100 mb-4 max-w-[80%]">Complete challenges to earn bonus credits and build consistency.</Text>
-          
-          <View className="bg-white/20 self-start px-4 py-2 rounded-xl flex-row items-center">
-            <Text className="text-white font-bold text-xs mr-2">View Challenges</Text>
-            <Ionicons name="arrow-forward" size={12} color="white" />
-          </View>
-        </Pressable>
+        <Animated.View entering={FadeInDown.delay(500).springify()}>
+          <Animated3DCard scaleDown={0.98} onPress={() => router.push("/challenges" as any)}>
+            <View 
+              className="rounded-[32px] p-6 mb-6 overflow-hidden relative border"
+              style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}
+            >
+              <View className="absolute right-[-20] top-[-20] w-32 h-32 rounded-full" style={{ backgroundColor: 'rgba(217, 255, 92, 0.05)' }} />
+              <View className="absolute right-10 bottom-[-10] w-20 h-20 rounded-full" style={{ backgroundColor: 'rgba(217, 255, 92, 0.1)' }} />
+              
+              <View className="flex-row items-center mb-2">
+                <Ionicons name="trophy" size={20} color={colors.lime} />
+              </View>
+              <Text className="text-xl font-black mb-1" style={{ color: colors.text }}>Monthly Challenges</Text>
+              <Text className="text-sm mb-4 max-w-[80%]" style={{ color: colors.muted }}>Complete challenges to earn bonus credits and build consistency.</Text>
+              
+              <View className="self-start px-4 py-2 rounded-xl flex-row items-center border" style={{ backgroundColor: colors.bg, borderColor: colors.secondary }}>
+                <Text className="font-bold text-xs mr-2" style={{ color: colors.text }}>View Challenges</Text>
+                <Ionicons name="arrow-forward" size={12} color={colors.text} />
+              </View>
+            </View>
+          </Animated3DCard>
+        </Animated.View>
 
         {/* Find Trainer / Buddy Section */}
-        <Pressable
-          onPress={() => router.push("/tools/find-trainer" as any)}
-          className="bg-[#1F2520] rounded-[28px] p-6 mb-6 shadow-sm overflow-hidden relative"
-        >
-          <View className="absolute right-[-20] top-[-20] w-32 h-32 bg-white/5 rounded-full" />
-          <View className="absolute right-10 bottom-[-10] w-20 h-20 bg-[#6BCB77]/20 rounded-full" />
-          
-          <View className="flex-row items-center mb-2">
-            <View className="bg-white/10 px-2.5 py-1 rounded-full mr-2 border border-white/10">
-              <Text className="text-white text-[10px] font-bold tracking-wider">NEW</Text>
+        <Animated.View entering={FadeInDown.delay(600).springify()}>
+          <Animated3DCard scaleDown={0.98} onPress={() => router.push("/tools/find-trainer" as any)}>
+            <View 
+              className="rounded-[32px] p-6 mb-6 overflow-hidden relative border"
+              style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}
+            >
+              <View className="absolute right-[-20] top-[-20] w-32 h-32 rounded-full" style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)' }} />
+              <View className="absolute right-10 bottom-[-10] w-20 h-20 rounded-full" style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)' }} />
+              
+              <View className="flex-row items-center mb-2">
+                <View className="px-2.5 py-1 rounded-full mr-2 border" style={{ backgroundColor: colors.bg, borderColor: colors.secondary }}>
+                  <Text className="text-[10px] font-bold tracking-wider" style={{ color: colors.lime }}>NEW</Text>
+                </View>
+                <Ionicons name="people" size={16} color={colors.muted} />
+              </View>
+              <Text className="text-xl font-black mb-1" style={{ color: colors.text }}>Find a Trainer or Buddy</Text>
+              <Text className="text-sm mb-4 max-w-[80%]" style={{ color: colors.muted }}>Discover experienced trainers or find a workout buddy at your preferred gym.</Text>
+              
+              <View className="self-start px-4 py-2 rounded-xl border flex-row items-center" style={{ backgroundColor: colors.bg, borderColor: colors.secondary }}>
+                <Text className="font-bold text-xs mr-2" style={{ color: colors.muted }}>Early Access</Text>
+                <Ionicons name="lock-closed" size={12} color={colors.muted} />
+              </View>
             </View>
-            <Ionicons name="people" size={16} color="#6BCB77" />
-          </View>
-          <Text className="text-xl font-black text-white mb-1">Find a Trainer or Buddy</Text>
-          <Text className="text-sm text-gray-300 mb-4 max-w-[80%]">Discover experienced trainers or find a workout buddy at your preferred gym.</Text>
-          
-          <View className="bg-white/10 self-start px-4 py-2 rounded-xl border border-white/10 flex-row items-center">
-            <Text className="text-white font-bold text-xs mr-2">Early Access</Text>
-            <Ionicons name="lock-closed" size={12} color="white" />
-          </View>
-        </Pressable>
+          </Animated3DCard>
+        </Animated.View>
 
         {/* Section 4: Momentum Bento Grid */}
-        <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider mb-2.5 ml-1">Momentum</Text>
-        <View className="flex-row gap-x-4 mb-6">
-          {/* Card 1: Streak */}
-          <View className="flex-1 bg-white rounded-2xl p-4 border border-black/5 shadow-sm items-center">
-            <Text className="text-2xl mb-1">🔥</Text>
-            <Text className="text-xl font-bold text-[#1F2520]">{streak}</Text>
-            <Text className="text-[10px] text-[#6B756E] font-medium uppercase mt-0.5">Day Streak</Text>
-          </View>
+        <Animated.View entering={FadeInDown.delay(700).springify()}>
+          <Text className="text-xs font-bold uppercase tracking-wider mb-2.5 ml-1" style={{ color: colors.muted }}>Momentum</Text>
+          <View className="flex-row gap-x-4 mb-6">
+            <Animated3DCard style={{ flex: 1 }} scaleDown={0.9}>
+              <View className="flex-1 rounded-[24px] p-4 border items-center" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
+                <Text className="text-2xl mb-1">🔥</Text>
+                <Text className="text-xl font-bold" style={{ color: colors.text }}>{streak}</Text>
+                <Text className="text-[10px] font-medium uppercase mt-0.5" style={{ color: colors.muted }}>Day Streak</Text>
+              </View>
+            </Animated3DCard>
 
-          {/* Card 2: Workouts */}
-          <View className="flex-1 bg-white rounded-2xl p-4 border border-black/5 shadow-sm items-center">
-            <Text className="text-2xl mb-1">🏋️</Text>
-            <Text className="text-xl font-bold text-[#1F2520]">{totalWorkouts}</Text>
-            <Text className="text-[10px] text-[#6B756E] font-medium uppercase mt-0.5">Total Visits</Text>
-          </View>
+            <Animated3DCard style={{ flex: 1 }} scaleDown={0.9}>
+              <View className="flex-1 rounded-[24px] p-4 border items-center" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
+                <Text className="text-2xl mb-1">🏋️</Text>
+                <Text className="text-xl font-bold" style={{ color: colors.text }}>{totalWorkouts}</Text>
+                <Text className="text-[10px] font-medium uppercase mt-0.5" style={{ color: colors.muted }}>Total Visits</Text>
+              </View>
+            </Animated3DCard>
 
-          {/* Card 3: Training Hours */}
-          <View className="flex-1 bg-white rounded-2xl p-4 border border-black/5 shadow-sm items-center">
-            <Text className="text-2xl mb-1">⏱️</Text>
-            <Text className="text-xl font-bold text-[#1F2520]">{trainingHours}</Text>
-            <Text className="text-[10px] text-[#6B756E] font-medium uppercase mt-0.5">Total Hours</Text>
+            <Animated3DCard style={{ flex: 1 }} scaleDown={0.9}>
+              <View className="flex-1 rounded-[24px] p-4 border items-center" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
+                <Text className="text-2xl mb-1">⏱️</Text>
+                <Text className="text-xl font-bold" style={{ color: colors.text }}>{trainingHours}</Text>
+                <Text className="text-[10px] font-medium uppercase mt-0.5" style={{ color: colors.muted }}>Total Hours</Text>
+              </View>
+            </Animated3DCard>
           </View>
-        </View>
-
-        {/* Section 5: Dynamic Status / Alerts */}
-        {credits < 50 && (
-          <View className="bg-amber-50 rounded-2xl p-4 border border-amber-200 mb-6 flex-row justify-between items-center">
-            <View className="flex-1 mr-4">
-              <Text className="text-amber-800 font-bold text-sm">Low Credits</Text>
-              <Text className="text-xs text-amber-700 mt-0.5">You only have {credits} credits left. Top up to continue booking.</Text>
-            </View>
-            <Pressable 
-              onPress={() => router.push("/credits")}
-              className="bg-amber-600 px-4 py-2 rounded-xl"
-            >
-              <Text className="text-white font-bold text-xs">Recharge</Text>
-            </Pressable>
-          </View>
-        )}
+        </Animated.View>
 
         {/* Section 6: Fitness Tools Bento Grid */}
-        <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider mb-2.5 ml-1">Fitness Tools</Text>
-        <View className="flex-wrap flex-row gap-4 mb-6">
-          <Pressable onPress={() => router.push("/tools/ai-trainer" as any)} className="w-[47%] bg-white rounded-2xl p-4 border border-black/5 shadow-sm active:bg-gray-50">
-            <Text className="text-lg">🤖</Text>
-            <Text className="font-bold text-sm text-[#1F2520] mt-1">AI Trainer</Text>
-            <Text className="text-[10px] text-purple-600 font-bold mt-0.5">Early Access</Text>
-          </Pressable>
+        <Animated.View entering={FadeInDown.delay(800).springify()}>
+          <Text className="text-xs font-bold uppercase tracking-wider mb-2.5 ml-1" style={{ color: colors.muted }}>Fitness Tools</Text>
+          <View className="flex-wrap flex-row justify-between gap-y-4 mb-6">
+            <Animated3DCard scaleDown={0.95} style={{ width: '47%' }} onPress={() => router.push("/tools/ai-trainer" as any)}>
+              <View className="rounded-[24px] p-4 border" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
+                <Text className="text-lg">🤖</Text>
+                <Text className="font-bold text-sm mt-1" style={{ color: colors.text }}>AI Trainer</Text>
+                <Text className="text-[10px] font-bold mt-0.5" style={{ color: colors.muted }}>Early Access</Text>
+              </View>
+            </Animated3DCard>
 
-          <Pressable onPress={() => router.push("/tools/meal-scan" as any)} className="w-[47%] bg-white rounded-2xl p-4 border border-black/5 shadow-sm active:bg-gray-50">
-            <Text className="text-lg">📸</Text>
-            <Text className="font-bold text-sm text-[#1F2520] mt-1">Meal Scan</Text>
-            <Text className="text-[10px] text-purple-600 font-bold mt-0.5">Early Access</Text>
-          </Pressable>
+            <Animated3DCard scaleDown={0.95} style={{ width: '47%' }} onPress={() => router.push("/tools/meal-scan" as any)}>
+              <View className="rounded-[24px] p-4 border" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
+                <Text className="text-lg">📸</Text>
+                <Text className="font-bold text-sm mt-1" style={{ color: colors.text }}>Meal Scan</Text>
+                <Text className="text-[10px] font-bold mt-0.5" style={{ color: colors.muted }}>Early Access</Text>
+              </View>
+            </Animated3DCard>
 
-          <Pressable onPress={() => router.push("/tools/workout-buddy" as any)} className="w-[47%] bg-white rounded-2xl p-4 border border-black/5 shadow-sm active:bg-gray-50">
-            <Text className="text-lg">👥</Text>
-            <Text className="font-bold text-sm text-[#1F2520] mt-1">Workout Buddy</Text>
-            <Text className="text-[10px] text-purple-600 font-bold mt-0.5">Early Access</Text>
-          </Pressable>
+            <Animated3DCard scaleDown={0.95} style={{ width: '47%' }} onPress={() => router.push("/tools/workout-buddy" as any)}>
+              <View className="rounded-[24px] p-4 border" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
+                <Text className="text-lg">👥</Text>
+                <Text className="font-bold text-sm mt-1" style={{ color: colors.text }}>Workout Buddy</Text>
+                <Text className="text-[10px] font-bold mt-0.5" style={{ color: colors.muted }}>Early Access</Text>
+              </View>
+            </Animated3DCard>
 
-          <Pressable onPress={() => router.push("/tools/plans" as any)} className="w-[47%] bg-white rounded-2xl p-4 border border-black/5 shadow-sm active:bg-gray-50">
-            <Text className="text-lg">📋</Text>
-            <Text className="font-bold text-sm text-[#1F2520] mt-1">Workout Plans</Text>
-            <Text className="text-[10px] text-purple-600 font-bold mt-0.5">Early Access</Text>
-          </Pressable>
-        </View>
+            <Animated3DCard scaleDown={0.95} style={{ width: '47%' }} onPress={() => router.push("/tools/plans" as any)}>
+              <View className="rounded-[24px] p-4 border" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
+                <Text className="text-lg">📋</Text>
+                <Text className="font-bold text-sm mt-1" style={{ color: colors.text }}>Workout Plans</Text>
+                <Text className="text-[10px] font-bold mt-0.5" style={{ color: colors.muted }}>Early Access</Text>
+              </View>
+            </Animated3DCard>
+          </View>
+        </Animated.View>
 
         {/* Section 7: Motivation Quote */}
-        <Pressable 
-          onPress={rotateQuote}
-          className="bg-[#E9EBE6] rounded-2xl p-4 border border-black/5 items-center flex-row justify-between active:opacity-90"
-        >
-          <View className="flex-1 mr-4">
-            <Text className="text-[#6B756E] text-xs font-bold tracking-widest uppercase">Motivation</Text>
-            <Text className="text-[#1F2520] text-sm font-semibold italic mt-1">
-              "{quote}"
-            </Text>
-          </View>
-          <Ionicons name="refresh" size={16} color="#6B756E" />
-        </Pressable>
+        <Animated.View entering={FadeInDown.delay(900).springify()}>
+          <Animated3DCard scaleDown={0.95} onPress={rotateQuote}>
+            <View 
+              className="rounded-[24px] p-4 border items-center flex-row justify-between"
+              style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}
+            >
+              <View className="flex-1 mr-4">
+                <Text className="text-xs font-bold tracking-widest uppercase" style={{ color: colors.muted }}>Motivation</Text>
+                <Text className="text-sm font-semibold italic mt-1" style={{ color: colors.text }}>
+                  "{quote}"
+                </Text>
+              </View>
+              <Ionicons name="refresh" size={16} color={colors.muted} />
+            </View>
+          </Animated3DCard>
+        </Animated.View>
       </ScrollView>
-
-
 
       {/* Notifications Modal */}
       <Modal
@@ -421,31 +460,31 @@ export default function HomeScreen() {
         visible={notificationsVisible}
         onRequestClose={() => setNotificationsVisible(false)}
       >
-        <View className="flex-1 justify-end bg-black/60">
-          <View className="bg-white rounded-t-[36px] p-6 h-[70%]">
+        <View className="flex-1 justify-end bg-black/80">
+          <View className="rounded-t-[36px] p-6 h-[70%]" style={{ backgroundColor: colors.bg }}>
             <View className="flex-row justify-between items-center mb-6">
-              <Text className="text-xl font-bold text-[#1F2520]">Notifications</Text>
-              <Pressable onPress={() => setNotificationsVisible(false)} className="w-8 h-8 bg-[#F0F3ED] rounded-full items-center justify-center">
-                <Ionicons name="close" size={20} color="#1F2520" />
+              <Text className="text-xl font-bold" style={{ color: colors.text }}>Notifications</Text>
+              <Pressable onPress={() => setNotificationsVisible(false)} className="w-8 h-8 rounded-full items-center justify-center" style={{ backgroundColor: colors.surface }}>
+                <Ionicons name="close" size={20} color={colors.text} />
               </Pressable>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} bounces={true} overScrollMode="never">
               {notificationsList.length === 0 ? (
                 <View className="py-10 items-center justify-center">
-                  <Ionicons name="notifications-off-outline" size={48} color="#C4C9C5" className="mb-4" />
-                  <Text className="text-[#6B756E] text-sm">No new notifications</Text>
+                  <Ionicons name="notifications-off-outline" size={48} color={colors.secondary} className="mb-4" />
+                  <Text className="text-sm" style={{ color: colors.muted }}>No new notifications</Text>
                 </View>
               ) : (
                 notificationsList.map((notification, index) => (
-                  <View key={notification.id || index} className={`rounded-2xl p-4 mb-3 border flex-row ${notification.isRead ? 'bg-[#F5F7F4] border-black/5' : 'bg-[#EAF7EC] border-[#D1F2D6]'}`}>
-                    <View className="w-10 h-10 rounded-full bg-white items-center justify-center mr-3 border border-black/5">
-                      <Ionicons name="notifications" size={18} color={notification.isRead ? "#6B756E" : "#10B981"} />
+                  <View key={notification.id || index} className={`rounded-[24px] p-4 mb-3 border flex-row`} style={{ backgroundColor: notification.isRead ? colors.surface : 'rgba(217, 255, 92, 0.1)', borderColor: notification.isRead ? colors.secondary : 'rgba(217, 255, 92, 0.2)' }}>
+                    <View className="w-10 h-10 rounded-full items-center justify-center mr-3 border" style={{ backgroundColor: colors.bg, borderColor: colors.secondary }}>
+                      <Ionicons name="notifications" size={18} color={notification.isRead ? colors.muted : colors.lime} />
                     </View>
                     <View className="flex-1">
-                      <Text className="text-sm font-bold text-[#1F2520]">{notification.title}</Text>
-                      <Text className="text-xs text-[#6B756E] mt-0.5 leading-relaxed">{notification.body}</Text>
-                      <Text className="text-[10px] text-[#A3A8A5] font-medium mt-2">
+                      <Text className="text-sm font-bold" style={{ color: colors.text }}>{notification.title}</Text>
+                      <Text className="text-xs mt-0.5 leading-relaxed" style={{ color: colors.muted }}>{notification.body}</Text>
+                      <Text className="text-[10px] font-medium mt-2" style={{ color: colors.muted }}>
                         {new Date(notification.createdAt).toLocaleDateString()}
                       </Text>
                     </View>
@@ -459,3 +498,27 @@ export default function HomeScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  emeraldGlow: {
+    shadowColor: colors.green,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.6,
+    shadowRadius: 30,
+    elevation: 15,
+  },
+  emeraldGlowSm: {
+    shadowColor: colors.green,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  neonGlow: {
+    shadowColor: colors.lime,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
+    elevation: 10,
+  }
+});

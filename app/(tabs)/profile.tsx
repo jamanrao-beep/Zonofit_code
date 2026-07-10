@@ -7,6 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
 import { useUserStore } from "@/store/useUserStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
+import { colors } from "@/constants/colors";
 
 export default function ProfileScreen() {
     const { user, isLoaded, signOut } = useAuthStore();
@@ -36,8 +37,8 @@ export default function ProfileScreen() {
 
     if (!isLoaded) {
         return (
-            <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F7F4", alignItems: "center", justifyContent: "center" }}>
-                <ActivityIndicator size="large" color="#6BCB77" />
+            <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg, alignItems: "center", justifyContent: "center" }}>
+                <ActivityIndicator size="large" color={colors.lime} />
             </SafeAreaView>
         );
     }
@@ -64,96 +65,97 @@ export default function ProfileScreen() {
         showChevron?: boolean;
     }
 
-    const NavRow = ({ icon, label, value, onPress, color = "#6B756E", showChevron = true }: NavRowProps) => (
+    const NavRow = ({ icon, label, value, onPress, color = colors.muted, showChevron = true }: NavRowProps) => (
         <Pressable
             onPress={onPress}
-            className="flex-row items-center justify-between py-3.5 border-b border-[#F5F7F4] active:bg-[#F5F7F4]"
+            className="flex-row items-center justify-between py-3.5 border-b"
+            style={{ borderBottomColor: colors.secondary }}
         >
             <View className="flex-row items-center gap-x-3">
-                <View className="w-8 h-8 rounded-xl bg-[#F5F7F4] items-center justify-center">
+                <View className="w-8 h-8 rounded-xl items-center justify-center" style={{ backgroundColor: colors.bg }}>
                     <MaterialIcons name={icon} size={18} color={color} />
                 </View>
-                <Text className="text-sm font-semibold text-[#1F2520]">{label}</Text>
+                <Text className="text-sm font-semibold" style={{ color: colors.text }}>{label}</Text>
             </View>
             <View className="flex-row items-center gap-x-1">
-                {value ? <Text className="text-xs text-[#6B756E] mr-1">{value}</Text> : null}
-                {showChevron && <MaterialIcons name="chevron-right" size={18} color="#B0B5B0" />}
+                {value ? <Text className="text-xs mr-1" style={{ color: colors.muted }}>{value}</Text> : null}
+                {showChevron && <MaterialIcons name="chevron-right" size={18} color={colors.muted} />}
             </View>
         </Pressable>
     );
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F7F4" }} edges={["top"]}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={["top"]}>
             <ScrollView showsVerticalScrollIndicator={false} bounces={true} overScrollMode="never" contentContainerStyle={{ paddingBottom: 120 }}>
 
                 {/* Header */}
                 <View className="px-5 pt-3 pb-2">
-                    <Text className="text-2xl font-bold text-[#1F2520]">Profile</Text>
+                    <Text className="text-2xl font-bold" style={{ color: colors.text }}>Profile</Text>
                 </View>
 
                 {/* Profile Hero */}
-                <View className="mx-5 mt-3 mb-5 bg-white rounded-[28px] p-5 border border-black/5 shadow-sm">
+                <View className="mx-5 mt-3 mb-5 rounded-[28px] p-5 border shadow-sm" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
                     <View className="flex-row items-center gap-x-4">
                         <Pressable onPress={pickImage} className="relative" disabled={uploadingAvatar}>
-                            <View className="w-20 h-20 rounded-2xl bg-[#EAF7EC] items-center justify-center overflow-hidden">
+                            <View className="w-20 h-20 rounded-2xl items-center justify-center overflow-hidden" style={{ backgroundColor: 'rgba(217, 255, 92, 0.1)' }}>
                                 {avatarUrl ? (
                                     <Image source={{ uri: avatarUrl }} className="w-full h-full" resizeMode="cover" />
                                 ) : (
-                                    <MaterialIcons name="person" size={36} color="#6BCB77" />
+                                    <MaterialIcons name="person" size={36} color={colors.lime} />
                                 )}
                                 {uploadingAvatar && (
-                                    <View className="absolute inset-0 bg-black/30 items-center justify-center rounded-2xl">
+                                    <View className="absolute inset-0 bg-black/60 items-center justify-center rounded-2xl">
                                         <ActivityIndicator size="small" color="#fff" />
                                     </View>
                                 )}
                             </View>
-                            <View className="absolute -bottom-1 -right-1 bg-white p-0.5 rounded-full shadow-sm border border-black/5">
-                                <View className="bg-[#6BCB77] w-6 h-6 rounded-full items-center justify-center">
+                            <View className="absolute -bottom-1 -right-1 p-0.5 rounded-full shadow-sm border" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
+                                <View className="w-6 h-6 rounded-full items-center justify-center" style={{ backgroundColor: colors.green }}>
                                     <MaterialIcons name="edit" size={12} color="#fff" />
                                 </View>
                             </View>
                         </Pressable>
                         <View className="flex-1">
-                            <Text className="text-lg font-bold text-[#1F2520]" numberOfLines={1}>
+                            <Text className="text-lg font-bold" numberOfLines={1} style={{ color: colors.text }}>
                                 {user?.username || "ZonoFit Member"}
                             </Text>
-                            <Text className="text-xs text-[#6B756E] mt-0.5" numberOfLines={1}>
+                            <Text className="text-xs mt-0.5" numberOfLines={1} style={{ color: colors.muted }}>
                                 {user?.phone || "Google Sign-In"}
                             </Text>
                             <View className="flex-row items-center mt-2 gap-x-2">
-                                <View className="bg-[#EAF7EC] px-2.5 py-0.5 rounded-full border border-[#D1F2D6]">
-                                    <Text className="text-[#059669] text-[10px] font-bold">{planName}</Text>
+                                <View className="px-2.5 py-0.5 rounded-full border" style={{ backgroundColor: 'rgba(217, 255, 92, 0.1)', borderColor: 'rgba(217, 255, 92, 0.2)' }}>
+                                    <Text className="text-[10px] font-bold" style={{ color: colors.lime }}>{planName}</Text>
                                 </View>
-                                <View className="bg-[#F5F7F4] px-2.5 py-0.5 rounded-full border border-black/5">
-                                    <Text className="text-[#6B756E] text-[10px] font-semibold">Member since {memberSince}</Text>
+                                <View className="px-2.5 py-0.5 rounded-full border" style={{ backgroundColor: colors.bg, borderColor: colors.secondary }}>
+                                    <Text className="text-[10px] font-semibold" style={{ color: colors.muted }}>Member since {memberSince}</Text>
                                 </View>
                             </View>
                         </View>
                     </View>
 
                     {/* Quick stats */}
-                    <View className="h-[1px] bg-black/5 mt-4 mb-3" />
+                    <View className="h-[1px] mt-4 mb-3" style={{ backgroundColor: colors.secondary }} />
                     <View className="flex-row justify-between">
                         <View className="items-center flex-1">
-                            <Text className="text-base font-black text-[#1F2520]">{totalWorkouts}</Text>
-                            <Text className="text-[10px] text-[#6B756E] mt-0.5">Total Visits</Text>
+                            <Text className="text-base font-black" style={{ color: colors.text }}>{totalWorkouts}</Text>
+                            <Text className="text-[10px] mt-0.5" style={{ color: colors.muted }}>Total Visits</Text>
                         </View>
-                        <View className="w-[1px] bg-black/5" />
+                        <View className="w-[1px]" style={{ backgroundColor: colors.secondary }} />
                         <View className="items-center flex-1">
-                            <Text className="text-base font-black text-[#1F2520]">{streak}</Text>
-                            <Text className="text-[10px] text-[#6B756E] mt-0.5">Day Streak</Text>
+                            <Text className="text-base font-black" style={{ color: colors.text }}>{streak}</Text>
+                            <Text className="text-[10px] mt-0.5" style={{ color: colors.muted }}>Day Streak</Text>
                         </View>
-                        <View className="w-[1px] bg-black/5" />
+                        <View className="w-[1px]" style={{ backgroundColor: colors.secondary }} />
                         <View className="items-center flex-1">
-                            <Text className="text-base font-black text-[#1F2520]">{credits}</Text>
-                            <Text className="text-[10px] text-[#6B756E] mt-0.5">Credits</Text>
+                            <Text className="text-base font-black" style={{ color: colors.text }}>{credits}</Text>
+                            <Text className="text-[10px] mt-0.5" style={{ color: colors.muted }}>Credits</Text>
                         </View>
                     </View>
                 </View>
 
                 {/* Fitness Section */}
-                <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider mb-2.5 ml-6">Fitness</Text>
-                <View className="mx-5 bg-white rounded-[24px] px-4 border border-black/5 shadow-sm mb-4">
+                <Text className="text-xs font-bold uppercase tracking-wider mb-2.5 ml-6" style={{ color: colors.muted }}>Fitness</Text>
+                <View className="mx-5 rounded-[24px] px-4 border shadow-sm mb-4" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
                     <NavRow
                         icon="timeline"
                         label="My Journey"
@@ -173,8 +175,8 @@ export default function ProfileScreen() {
                 </View>
 
                 {/* Membership Section */}
-                <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider mb-2.5 ml-6">Membership</Text>
-                <View className="mx-5 bg-white rounded-[24px] px-4 border border-black/5 shadow-sm mb-4">
+                <Text className="text-xs font-bold uppercase tracking-wider mb-2.5 ml-6" style={{ color: colors.muted }}>Membership</Text>
+                <View className="mx-5 rounded-[24px] px-4 border shadow-sm mb-4" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
                     <NavRow
                         icon="card-membership"
                         label="My Membership"
@@ -190,30 +192,30 @@ export default function ProfileScreen() {
                 </View>
 
                 {/* Growth Section */}
-                <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider mb-2.5 ml-6">Share & Earn</Text>
-                <View className="mx-5 bg-white rounded-[24px] px-4 border border-black/5 shadow-sm mb-4">
+                <Text className="text-xs font-bold uppercase tracking-wider mb-2.5 ml-6" style={{ color: colors.muted }}>Share & Earn</Text>
+                <View className="mx-5 rounded-[24px] px-4 border shadow-sm mb-4" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
                     <Pressable
                         onPress={handleInvite}
-                        className="flex-row items-center justify-between py-3.5 active:bg-[#F5F7F4]"
+                        className="flex-row items-center justify-between py-3.5"
                     >
                         <View className="flex-row items-center gap-x-3">
-                            <View className="w-8 h-8 rounded-xl bg-[#EAF7EC] items-center justify-center">
-                                <Ionicons name="gift-outline" size={18} color="#6BCB77" />
+                            <View className="w-8 h-8 rounded-xl items-center justify-center" style={{ backgroundColor: 'rgba(217, 255, 92, 0.1)' }}>
+                                <Ionicons name="gift-outline" size={18} color={colors.lime} />
                             </View>
                             <View>
-                                <Text className="text-sm font-semibold text-[#1F2520]">Invite a Friend</Text>
-                                <Text className="text-[10px] text-[#6B756E] mt-0.5">Earn bonus credits for each referral</Text>
+                                <Text className="text-sm font-semibold" style={{ color: colors.text }}>Invite a Friend</Text>
+                                <Text className="text-[10px] mt-0.5" style={{ color: colors.muted }}>Earn bonus credits for each referral</Text>
                             </View>
                         </View>
-                        <View className="bg-[#EAF7EC] px-2.5 py-1 rounded-full border border-[#D1F2D6]">
-                            <Text className="text-[#059669] text-[10px] font-bold">+50 Credits</Text>
+                        <View className="px-2.5 py-1 rounded-full border" style={{ backgroundColor: 'rgba(217, 255, 92, 0.1)', borderColor: 'rgba(217, 255, 92, 0.2)' }}>
+                            <Text className="text-[10px] font-bold" style={{ color: colors.lime }}>+50 Credits</Text>
                         </View>
                     </Pressable>
                 </View>
 
                 {/* Trainer & Buddy Section */}
-                <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider mb-2.5 ml-6">Opportunities</Text>
-                <View className="mx-5 bg-white rounded-[24px] px-4 border border-black/5 shadow-sm mb-4">
+                <Text className="text-xs font-bold uppercase tracking-wider mb-2.5 ml-6" style={{ color: colors.muted }}>Opportunities</Text>
+                <View className="mx-5 rounded-[24px] px-4 border shadow-sm mb-4" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
                     <NavRow
                         icon="accessibility-new"
                         label="Become a Trainer"
@@ -227,8 +229,8 @@ export default function ProfileScreen() {
                 </View>
 
                 {/* About & Support Section */}
-                <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider mb-2.5 ml-6">About & Support</Text>
-                <View className="mx-5 bg-white rounded-[24px] px-4 border border-black/5 shadow-sm mb-4">
+                <Text className="text-xs font-bold uppercase tracking-wider mb-2.5 ml-6" style={{ color: colors.muted }}>About & Support</Text>
+                <View className="mx-5 rounded-[24px] px-4 border shadow-sm mb-4" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
                     <NavRow
                         icon="campaign"
                         label="Announcements"
@@ -247,8 +249,8 @@ export default function ProfileScreen() {
                 </View>
 
                 {/* Account Settings Section */}
-                <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider mb-2.5 ml-6">Account Settings</Text>
-                <View className="mx-5 bg-white rounded-[24px] px-4 border border-black/5 shadow-sm mb-8">
+                <Text className="text-xs font-bold uppercase tracking-wider mb-2.5 ml-6" style={{ color: colors.muted }}>Account Settings</Text>
+                <View className="mx-5 rounded-[24px] px-4 border shadow-sm mb-8" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
                     <NavRow
                         icon="accessibility-new"
                         label="Become a Trainer"
@@ -264,8 +266,8 @@ export default function ProfileScreen() {
                 </View>
 
                 {/* Account Section */}
-                <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider mb-2.5 ml-6">Account</Text>
-                <View className="mx-5 bg-white rounded-[24px] px-4 border border-black/5 shadow-sm mb-5">
+                <Text className="text-xs font-bold uppercase tracking-wider mb-2.5 ml-6" style={{ color: colors.muted }}>Account</Text>
+                <View className="mx-5 rounded-[24px] px-4 border shadow-sm mb-5" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
                     {user?.authMethod === "phone" ? (
                         <NavRow
                             icon="phone"
@@ -286,7 +288,7 @@ export default function ProfileScreen() {
                         label="Verification Status"
                         value="Verified"
                         showChevron={false}
-                        color="#6BCB77"
+                        color={colors.lime}
                     />
                 </View>
 
@@ -294,10 +296,11 @@ export default function ProfileScreen() {
                 <View className="mx-5">
                     <Pressable
                         onPress={onSignOutPress}
-                        className="h-12 bg-red-50 border border-red-200/50 rounded-2xl flex-row items-center justify-center gap-x-2 active:bg-red-100"
+                        className="h-12 border rounded-2xl flex-row items-center justify-center gap-x-2"
+                        style={{ backgroundColor: 'rgba(255, 107, 107, 0.1)', borderColor: 'rgba(255, 107, 107, 0.2)' }}
                     >
-                        <MaterialIcons name="logout" size={18} color="#EF4444" />
-                        <Text className="text-red-500 font-bold text-base">Sign Out</Text>
+                        <MaterialIcons name="logout" size={18} color={colors.coral} />
+                        <Text className="font-bold text-base" style={{ color: colors.coral }}>Sign Out</Text>
                     </Pressable>
                 </View>
             </ScrollView>
