@@ -124,25 +124,25 @@ export default function HomeScreen() {
             <Pressable 
               onPress={() => router.push("/marketplace" as any)}
               className="w-10 h-10 rounded-full items-center justify-center border active:scale-95 transition-transform"
-              style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}
+              style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}
             >
               <Ionicons name="cart-outline" size={20} color={colors.text} />
             </Pressable>
             <Pressable 
               onPress={() => setNotificationsVisible(true)}
               className="w-10 h-10 rounded-full items-center justify-center border relative active:scale-95 transition-transform"
-              style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}
+              style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}
             >
               <Ionicons name="notifications-outline" size={20} color={colors.text} />
               {/* Unread badge */}
               {unreadCount > 0 && (
-                <View className="absolute top-2 right-2.5 w-2 h-2 rounded-full border border-black" style={{ backgroundColor: colors.lime, shadowColor: colors.lime, shadowOpacity: 0.8, shadowRadius: 5, elevation: 5 }} />
+                <View className="absolute top-2 right-2.5 w-2 h-2 rounded-full border border-white" style={{ backgroundColor: colors.coral }} />
               )}
             </Pressable>
             <Pressable 
               onPress={() => router.push("/profile")}
               className="w-10 h-10 rounded-full items-center justify-center border overflow-hidden active:scale-95 transition-transform"
-              style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}
+              style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}
             >
               {avatarUrl ? (
                 <Image source={{ uri: avatarUrl }} className="w-full h-full" resizeMode="cover" />
@@ -160,7 +160,7 @@ export default function HomeScreen() {
               className="rounded-[32px] p-6 mb-6 overflow-hidden relative"
               style={[
                 { backgroundColor: colors.green }, 
-                styles.emeraldGlow
+                styles.softShadowLg
               ]}
             >
               {/* Background subtle pattern blobs */}
@@ -193,10 +193,10 @@ export default function HomeScreen() {
                   <Pressable 
                     onPress={() => router.push("/explore")}
                     className="px-4 py-2.5 rounded-2xl flex-row items-center active:opacity-80"
-                    style={[{ backgroundColor: colors.lime }, styles.neonGlow]}
+                    style={{ backgroundColor: colors.lime }}
                   >
-                    <Text className="font-bold text-xs mr-1" style={{ color: colors.bg }}>Book Today's Visit</Text>
-                    <Ionicons name="arrow-forward" size={12} color={colors.bg} />
+                    <Text className="font-bold text-xs mr-1" style={{ color: "#000000" }}>Book Today's Visit</Text>
+                    <Ionicons name="arrow-forward" size={12} color="#000000" />
                   </Pressable>
                 )}
               </View>
@@ -210,7 +210,7 @@ export default function HomeScreen() {
           
           {bookingStatus === "Not Booked" && (
             <Animated3DCard scaleDown={0.98}>
-              <View className="rounded-[28px] p-5 border mb-6 flex-row justify-between items-center" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
+              <View className="rounded-[28px] p-5 border mb-6 flex-row justify-between items-center" style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}>
                 <View className="flex-1 mr-4">
                   <View className="flex-row items-center mb-1">
                     <View className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: colors.muted }} />
@@ -221,9 +221,9 @@ export default function HomeScreen() {
                 <Pressable 
                   onPress={() => router.push("/explore")}
                   className="px-4 py-2.5 rounded-2xl border active:opacity-80"
-                  style={{ backgroundColor: 'rgba(217, 255, 92, 0.1)', borderColor: 'rgba(217, 255, 92, 0.2)' }}
+                  style={{ backgroundColor: 'rgba(11, 110, 79, 0.1)', borderColor: 'rgba(11, 110, 79, 0.2)' }}
                 >
-                  <Text className="font-bold text-xs" style={{ color: colors.lime }}>Book Visit</Text>
+                  <Text className="font-bold text-xs" style={{ color: colors.green }}>Book Visit</Text>
                 </Pressable>
               </View>
             </Animated3DCard>
@@ -231,11 +231,11 @@ export default function HomeScreen() {
 
           {bookingStatus === "Booked" && (
             <Animated3DCard scaleDown={0.98}>
-              <View className="rounded-[28px] p-5 border mb-6" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
+              <View className="rounded-[28px] p-5 border mb-6" style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}>
                 <View className="flex-row justify-between items-start mb-3">
                   <View>
                     <View className="flex-row items-center mb-1">
-                      <View className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: colors.lime }} />
+                      <View className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: colors.green }} />
                       <Text className="font-bold text-base" style={{ color: colors.text }}>Workout Booked</Text>
                     </View>
                     <Text className="text-lg font-bold" style={{ color: colors.text }}>{bookedGymName}</Text>
@@ -252,10 +252,10 @@ export default function HomeScreen() {
                 <Pressable 
                   onPress={() => router.push("/scan" as any)}
                   className="h-12 rounded-2xl items-center justify-center mt-2 flex-row gap-x-2 active:opacity-90"
-                  style={[{ backgroundColor: colors.green }, styles.emeraldGlowSm]}
+                  style={{ backgroundColor: colors.green }}
                 >
-                  <Ionicons name="scan-outline" size={16} color={colors.lime} />
-                  <Text className="font-bold text-sm" style={{ color: colors.lime }}>Scan Gym QR to Check-In</Text>
+                  <Ionicons name="scan-outline" size={16} color="#ffffff" />
+                  <Text className="font-bold text-sm" style={{ color: "#ffffff" }}>Scan Gym QR to Check-In</Text>
                 </Pressable>
               </View>
             </Animated3DCard>
@@ -263,10 +263,10 @@ export default function HomeScreen() {
 
           {bookingStatus === "Checked In" && (
             <Animated3DCard scaleDown={0.98}>
-              <View className="rounded-[28px] p-5 border mb-6" style={{ backgroundColor: 'rgba(217, 255, 92, 0.1)', borderColor: 'rgba(217, 255, 92, 0.2)' }}>
+              <View className="rounded-[28px] p-5 border mb-6" style={[{ backgroundColor: 'rgba(11, 110, 79, 0.1)', borderColor: 'rgba(11, 110, 79, 0.2)' }, styles.softShadow]}>
                 <View className="flex-row items-center mb-1">
-                  <Ionicons name="checkmark-circle" size={20} color={colors.lime} />
-                  <Text className="font-bold text-base ml-2" style={{ color: colors.lime }}>Checked In Successfully</Text>
+                  <Ionicons name="checkmark-circle" size={20} color={colors.green} />
+                  <Text className="font-bold text-base ml-2" style={{ color: colors.green }}>Checked In Successfully</Text>
                 </View>
                 <Text className="text-xs mt-1" style={{ color: colors.text }}>
                   🔥 Great Work! You verified your check-in code at <Text className="font-bold">{bookedGymName}</Text>. Have a great workout!
@@ -279,7 +279,7 @@ export default function HomeScreen() {
         {/* Section 3: Fitness Journey */}
         <Animated.View entering={FadeInDown.delay(400).springify()}>
           <Animated3DCard scaleDown={0.98}>
-            <View className="rounded-[28px] p-5 border mb-6" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
+            <View className="rounded-[28px] p-5 border mb-6" style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}>
               <View className="flex-row justify-between items-center mb-4">
                 <View>
                   <Text className="text-xs font-semibold uppercase tracking-wider" style={{ color: colors.muted }}>Fitness Journey</Text>
@@ -291,16 +291,16 @@ export default function HomeScreen() {
               </View>
 
               {/* Progress Bar */}
-              <View className="h-3 w-full rounded-full overflow-hidden mb-3" style={{ backgroundColor: colors.bg }}>
+              <View className="h-3 w-full rounded-full overflow-hidden mb-3 border" style={{ backgroundColor: colors.bg, borderColor: colors.secondary }}>
                 <View 
-                  style={{ width: `${progressPercentage}%`, backgroundColor: colors.lime }} 
+                  style={{ width: `${progressPercentage}%`, backgroundColor: colors.green }} 
                   className="h-full rounded-full" 
                 />
               </View>
 
               <View className="flex-row justify-between items-center mb-4">
                 <Text className="text-xs font-medium" style={{ color: colors.muted }}>{progressPercentage}% Complete</Text>
-                <Text className="text-xs font-bold" style={{ color: colors.lime }}>Next: {nextMilestone}</Text>
+                <Text className="text-xs font-bold" style={{ color: colors.green }}>Next: {nextMilestone}</Text>
               </View>
 
               <Pressable
@@ -320,13 +320,13 @@ export default function HomeScreen() {
           <Animated3DCard scaleDown={0.98} onPress={() => router.push("/challenges" as any)}>
             <View 
               className="rounded-[32px] p-6 mb-6 overflow-hidden relative border"
-              style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}
+              style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}
             >
-              <View className="absolute right-[-20] top-[-20] w-32 h-32 rounded-full" style={{ backgroundColor: 'rgba(217, 255, 92, 0.05)' }} />
-              <View className="absolute right-10 bottom-[-10] w-20 h-20 rounded-full" style={{ backgroundColor: 'rgba(217, 255, 92, 0.1)' }} />
+              <View className="absolute right-[-20] top-[-20] w-32 h-32 rounded-full" style={{ backgroundColor: 'rgba(11, 110, 79, 0.05)' }} />
+              <View className="absolute right-10 bottom-[-10] w-20 h-20 rounded-full" style={{ backgroundColor: 'rgba(11, 110, 79, 0.1)' }} />
               
               <View className="flex-row items-center mb-2">
-                <Ionicons name="trophy" size={20} color={colors.lime} />
+                <Ionicons name="trophy" size={20} color={colors.green} />
               </View>
               <Text className="text-xl font-black mb-1" style={{ color: colors.text }}>Monthly Challenges</Text>
               <Text className="text-sm mb-4 max-w-[80%]" style={{ color: colors.muted }}>Complete challenges to earn bonus credits and build consistency.</Text>
@@ -344,14 +344,14 @@ export default function HomeScreen() {
           <Animated3DCard scaleDown={0.98} onPress={() => router.push("/tools/find-trainer" as any)}>
             <View 
               className="rounded-[32px] p-6 mb-6 overflow-hidden relative border"
-              style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}
+              style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}
             >
-              <View className="absolute right-[-20] top-[-20] w-32 h-32 rounded-full" style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)' }} />
-              <View className="absolute right-10 bottom-[-10] w-20 h-20 rounded-full" style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)' }} />
+              <View className="absolute right-[-20] top-[-20] w-32 h-32 rounded-full" style={{ backgroundColor: 'rgba(0, 0, 0, 0.03)' }} />
+              <View className="absolute right-10 bottom-[-10] w-20 h-20 rounded-full" style={{ backgroundColor: 'rgba(0, 0, 0, 0.05)' }} />
               
               <View className="flex-row items-center mb-2">
                 <View className="px-2.5 py-1 rounded-full mr-2 border" style={{ backgroundColor: colors.bg, borderColor: colors.secondary }}>
-                  <Text className="text-[10px] font-bold tracking-wider" style={{ color: colors.lime }}>NEW</Text>
+                  <Text className="text-[10px] font-bold tracking-wider" style={{ color: colors.green }}>NEW</Text>
                 </View>
                 <Ionicons name="people" size={16} color={colors.muted} />
               </View>
@@ -371,7 +371,7 @@ export default function HomeScreen() {
           <Text className="text-xs font-bold uppercase tracking-wider mb-2.5 ml-1" style={{ color: colors.muted }}>Momentum</Text>
           <View className="flex-row gap-x-4 mb-6">
             <Animated3DCard style={{ flex: 1 }} scaleDown={0.9}>
-              <View className="flex-1 rounded-[24px] p-4 border items-center" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
+              <View className="flex-1 rounded-[24px] p-4 border items-center" style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}>
                 <Text className="text-2xl mb-1">🔥</Text>
                 <Text className="text-xl font-bold" style={{ color: colors.text }}>{streak}</Text>
                 <Text className="text-[10px] font-medium uppercase mt-0.5" style={{ color: colors.muted }}>Day Streak</Text>
@@ -379,7 +379,7 @@ export default function HomeScreen() {
             </Animated3DCard>
 
             <Animated3DCard style={{ flex: 1 }} scaleDown={0.9}>
-              <View className="flex-1 rounded-[24px] p-4 border items-center" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
+              <View className="flex-1 rounded-[24px] p-4 border items-center" style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}>
                 <Text className="text-2xl mb-1">🏋️</Text>
                 <Text className="text-xl font-bold" style={{ color: colors.text }}>{totalWorkouts}</Text>
                 <Text className="text-[10px] font-medium uppercase mt-0.5" style={{ color: colors.muted }}>Total Visits</Text>
@@ -387,7 +387,7 @@ export default function HomeScreen() {
             </Animated3DCard>
 
             <Animated3DCard style={{ flex: 1 }} scaleDown={0.9}>
-              <View className="flex-1 rounded-[24px] p-4 border items-center" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
+              <View className="flex-1 rounded-[24px] p-4 border items-center" style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}>
                 <Text className="text-2xl mb-1">⏱️</Text>
                 <Text className="text-xl font-bold" style={{ color: colors.text }}>{trainingHours}</Text>
                 <Text className="text-[10px] font-medium uppercase mt-0.5" style={{ color: colors.muted }}>Total Hours</Text>
@@ -401,7 +401,7 @@ export default function HomeScreen() {
           <Text className="text-xs font-bold uppercase tracking-wider mb-2.5 ml-1" style={{ color: colors.muted }}>Fitness Tools</Text>
           <View className="flex-wrap flex-row justify-between gap-y-4 mb-6">
             <Animated3DCard scaleDown={0.95} style={{ width: '47%' }} onPress={() => router.push("/tools/ai-trainer" as any)}>
-              <View className="rounded-[24px] p-4 border" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
+              <View className="rounded-[24px] p-4 border" style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}>
                 <Text className="text-lg">🤖</Text>
                 <Text className="font-bold text-sm mt-1" style={{ color: colors.text }}>AI Trainer</Text>
                 <Text className="text-[10px] font-bold mt-0.5" style={{ color: colors.muted }}>Early Access</Text>
@@ -409,7 +409,7 @@ export default function HomeScreen() {
             </Animated3DCard>
 
             <Animated3DCard scaleDown={0.95} style={{ width: '47%' }} onPress={() => router.push("/tools/meal-scan" as any)}>
-              <View className="rounded-[24px] p-4 border" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
+              <View className="rounded-[24px] p-4 border" style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}>
                 <Text className="text-lg">📸</Text>
                 <Text className="font-bold text-sm mt-1" style={{ color: colors.text }}>Meal Scan</Text>
                 <Text className="text-[10px] font-bold mt-0.5" style={{ color: colors.muted }}>Early Access</Text>
@@ -417,7 +417,7 @@ export default function HomeScreen() {
             </Animated3DCard>
 
             <Animated3DCard scaleDown={0.95} style={{ width: '47%' }} onPress={() => router.push("/tools/workout-buddy" as any)}>
-              <View className="rounded-[24px] p-4 border" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
+              <View className="rounded-[24px] p-4 border" style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}>
                 <Text className="text-lg">👥</Text>
                 <Text className="font-bold text-sm mt-1" style={{ color: colors.text }}>Workout Buddy</Text>
                 <Text className="text-[10px] font-bold mt-0.5" style={{ color: colors.muted }}>Early Access</Text>
@@ -425,7 +425,7 @@ export default function HomeScreen() {
             </Animated3DCard>
 
             <Animated3DCard scaleDown={0.95} style={{ width: '47%' }} onPress={() => router.push("/tools/plans" as any)}>
-              <View className="rounded-[24px] p-4 border" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
+              <View className="rounded-[24px] p-4 border" style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}>
                 <Text className="text-lg">📋</Text>
                 <Text className="font-bold text-sm mt-1" style={{ color: colors.text }}>Workout Plans</Text>
                 <Text className="text-[10px] font-bold mt-0.5" style={{ color: colors.muted }}>Early Access</Text>
@@ -439,7 +439,7 @@ export default function HomeScreen() {
           <Animated3DCard scaleDown={0.95} onPress={rotateQuote}>
             <View 
               className="rounded-[24px] p-4 border items-center flex-row justify-between"
-              style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}
+              style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}
             >
               <View className="flex-1 mr-4">
                 <Text className="text-xs font-bold tracking-widest uppercase" style={{ color: colors.muted }}>Motivation</Text>
@@ -460,7 +460,7 @@ export default function HomeScreen() {
         visible={notificationsVisible}
         onRequestClose={() => setNotificationsVisible(false)}
       >
-        <View className="flex-1 justify-end bg-black/80">
+        <View className="flex-1 justify-end bg-black/50">
           <View className="rounded-t-[36px] p-6 h-[70%]" style={{ backgroundColor: colors.bg }}>
             <View className="flex-row justify-between items-center mb-6">
               <Text className="text-xl font-bold" style={{ color: colors.text }}>Notifications</Text>
@@ -477,9 +477,9 @@ export default function HomeScreen() {
                 </View>
               ) : (
                 notificationsList.map((notification, index) => (
-                  <View key={notification.id || index} className={`rounded-[24px] p-4 mb-3 border flex-row`} style={{ backgroundColor: notification.isRead ? colors.surface : 'rgba(217, 255, 92, 0.1)', borderColor: notification.isRead ? colors.secondary : 'rgba(217, 255, 92, 0.2)' }}>
+                  <View key={notification.id || index} className={`rounded-[24px] p-4 mb-3 border flex-row`} style={{ backgroundColor: notification.isRead ? colors.surface : 'rgba(11, 110, 79, 0.05)', borderColor: notification.isRead ? colors.secondary : 'rgba(11, 110, 79, 0.1)' }}>
                     <View className="w-10 h-10 rounded-full items-center justify-center mr-3 border" style={{ backgroundColor: colors.bg, borderColor: colors.secondary }}>
-                      <Ionicons name="notifications" size={18} color={notification.isRead ? colors.muted : colors.lime} />
+                      <Ionicons name="notifications" size={18} color={notification.isRead ? colors.muted : colors.green} />
                     </View>
                     <View className="flex-1">
                       <Text className="text-sm font-bold" style={{ color: colors.text }}>{notification.title}</Text>
@@ -500,25 +500,18 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  emeraldGlow: {
-    shadowColor: colors.green,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.6,
-    shadowRadius: 30,
-    elevation: 15,
-  },
-  emeraldGlowSm: {
-    shadowColor: colors.green,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
+  softShadowLg: {
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
     elevation: 8,
   },
-  neonGlow: {
-    shadowColor: colors.lime,
+  softShadow: {
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.8,
-    shadowRadius: 15,
-    elevation: 10,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
   }
 });
