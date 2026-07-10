@@ -33,13 +33,16 @@ export function BottomNav({ state, navigation }: BottomTabBarProps) {
             className="pointer-events-box-none"
         >
             <View 
-                className="flex-row items-center justify-between bg-white rounded-[32px] px-2 py-2 border border-black/5"
+                className="flex-row items-center justify-between rounded-[32px] px-2 py-2"
                 style={{
+                    backgroundColor: colors.surface,
+                    borderColor: colors.secondary,
+                    borderWidth: 1,
                     shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 8 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 24,
-                    elevation: 8,
+                    shadowOffset: { width: 0, height: 10 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 20,
+                    elevation: 10,
                 }}
             >
             {state.routes.map((route: { key: string; name: string }, index: number) => {
@@ -59,18 +62,21 @@ export function BottomNav({ state, navigation }: BottomTabBarProps) {
                     return (
                         <Pressable key={route.key} onPress={onPress} className="items-center mx-1 flex-1 -mt-7">
                             <View
-                                className="w-14 h-14 rounded-full items-center justify-center bg-[#6BCB77] border-[4px] border-white"
+                                className="w-14 h-14 rounded-full items-center justify-center"
                                 style={{
-                                    shadowColor: colors.green,
-                                    shadowOpacity: 0.4,
-                                    shadowRadius: 12,
-                                    shadowOffset: { width: 0, height: 6 },
+                                    backgroundColor: colors.green,
+                                    borderColor: colors.surface,
+                                    borderWidth: 4,
+                                    shadowColor: colors.lime,
+                                    shadowOpacity: 0.2,
+                                    shadowRadius: 10,
+                                    shadowOffset: { width: 0, height: 4 },
                                     elevation: 8,
                                 }}
                             >
-                                <MaterialIcons name={tab.icon} size={28} color="#FFFFFF" />
+                                <MaterialIcons name={tab.icon} size={28} color={colors.lime} />
                             </View>
-                            <Text className="text-[10px] mt-1.5 font-bold uppercase tracking-wider text-[#1F2520]">
+                            <Text className="text-[10px] mt-1.5 font-bold uppercase tracking-wider" style={{ color: colors.text }}>
                                 {tab.label}
                             </Text>
                         </Pressable>
@@ -79,11 +85,15 @@ export function BottomNav({ state, navigation }: BottomTabBarProps) {
 
                 return (
                     <Pressable key={route.key} onPress={onPress} className="items-center justify-center py-1 flex-1">
-                        <View className={`items-center justify-center w-12 h-9 rounded-2xl ${isFocused ? 'bg-[#EAF7EC]' : 'bg-transparent'}`}>
-                            <MaterialIcons name={tab.icon} size={24} color={isFocused ? '#059669' : '#8B958E'} />
+                        <View 
+                            className="items-center justify-center w-12 h-9 rounded-2xl" 
+                            style={{ backgroundColor: isFocused ? colors.secondary : 'transparent' }}
+                        >
+                            <MaterialIcons name={tab.icon} size={24} color={isFocused ? colors.lime : colors.muted} />
                         </View>
                         <Text 
-                            className={`text-[9px] mt-1 tracking-wider ${isFocused ? 'font-bold text-[#059669]' : 'font-medium text-[#8B958E]'}`} 
+                            className={`text-[9px] mt-1 tracking-wider ${isFocused ? 'font-bold' : 'font-medium'}`} 
+                            style={{ color: isFocused ? colors.lime : colors.muted }}
                         >
                             {tab.label}
                         </Text>
