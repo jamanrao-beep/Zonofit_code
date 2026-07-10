@@ -1,13 +1,14 @@
 "use client";
 
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, Environment, Float, MeshDistortMaterial, Sphere, Box } from "@react-three/drei";
-import { useRef } from "react";
+import { Environment } from "@react-three/drei";
+import { useRef, useEffect, useState } from "react";
 import * as THREE from "three";
-import { ArrowRight, BarChart3, Users, Building2, Activity } from "lucide-react";
+import { Store, UserCircle } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 
-// 3D Dumbbell Component
+// 3D Dumbbell Component (Keeping as central graphic)
 function Fitness3D() {
   const groupRef = useRef<THREE.Group>(null);
 
@@ -15,12 +16,12 @@ function Fitness3D() {
     if (groupRef.current) {
       groupRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.5) * 0.2;
       groupRef.current.rotation.y += 0.01;
-      groupRef.current.position.y = Math.sin(state.clock.elapsedTime) * 0.2;
+      groupRef.current.position.y = Math.sin(state.clock.elapsedTime) * 0.15;
     }
   });
 
   return (
-    <group ref={groupRef} scale={1.2} rotation={[0.5, 0, 0]}>
+    <group ref={groupRef} scale={1.8} rotation={[0.5, 0, 0]}>
       {/* Handle */}
       <mesh rotation={[0, 0, Math.PI / 2]}>
         <cylinderGeometry args={[0.15, 0.15, 2, 32]} />
@@ -30,110 +31,173 @@ function Fitness3D() {
       {/* Left Weights */}
       <mesh position={[-1, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
         <cylinderGeometry args={[0.7, 0.7, 0.4, 32]} />
-        <meshStandardMaterial color="#333333" metalness={0.5} roughness={0.4} />
+        <meshStandardMaterial color="#1C1C1E" metalness={0.5} roughness={0.4} />
       </mesh>
       <mesh position={[-1.4, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
         <cylinderGeometry args={[0.5, 0.5, 0.3, 32]} />
-        <meshStandardMaterial color="#333333" metalness={0.5} roughness={0.4} />
+        <meshStandardMaterial color="#1C1C1E" metalness={0.5} roughness={0.4} />
       </mesh>
 
       {/* Right Weights */}
       <mesh position={[1, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
         <cylinderGeometry args={[0.7, 0.7, 0.4, 32]} />
-        <meshStandardMaterial color="#333333" metalness={0.5} roughness={0.4} />
+        <meshStandardMaterial color="#1C1C1E" metalness={0.5} roughness={0.4} />
       </mesh>
       <mesh position={[1.4, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
         <cylinderGeometry args={[0.5, 0.5, 0.3, 32]} />
-        <meshStandardMaterial color="#333333" metalness={0.5} roughness={0.4} />
+        <meshStandardMaterial color="#1C1C1E" metalness={0.5} roughness={0.4} />
       </mesh>
       
       {/* Accent Rings */}
       <mesh position={[-1.2, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
         <cylinderGeometry args={[0.72, 0.72, 0.05, 32]} />
-        <meshStandardMaterial color="#10B981" emissive="#10B981" emissiveIntensity={0.5} />
+        <meshStandardMaterial color="#0B6E4F" emissive="#0B6E4F" emissiveIntensity={0.5} />
       </mesh>
       <mesh position={[1.2, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
         <cylinderGeometry args={[0.72, 0.72, 0.05, 32]} />
-        <meshStandardMaterial color="#10B981" emissive="#10B981" emissiveIntensity={0.5} />
+        <meshStandardMaterial color="#0B6E4F" emissive="#0B6E4F" emissiveIntensity={0.5} />
       </mesh>
     </group>
   );
 }
 
-export default function Home() {
+// Background Dots Pattern Component
+function BackgroundDots() {
   return (
-    <div className="relative min-h-[calc(100vh-80px)] overflow-hidden flex flex-col">
-      {/* Background gradients */}
-      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-emerald-100/60 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-emerald-200/40 blur-[120px] pointer-events-none" />
+    <div 
+      className="absolute inset-0 z-0 pointer-events-none opacity-20"
+      style={{
+        backgroundImage: 'radial-gradient(#111111 1px, transparent 1px)',
+        backgroundSize: '24px 24px'
+      }}
+    />
+  );
+}
 
-      <div className="flex-1 max-w-7xl mx-auto w-full px-6 flex flex-col lg:flex-row items-center relative z-10 pt-12 pb-24">
+// Floating Accents
+function FloatingAccents() {
+  return (
+    <>
+      <div className="absolute top-[15%] left-[5%] w-3 h-3 rounded-full bg-brand-green/60 blur-[1px] animate-pulse" />
+      <div className="absolute top-[30%] right-[12%] w-4 h-4 rounded-full bg-brand-coral/80 blur-[1px]" />
+      <div className="absolute bottom-[20%] left-[30%] w-2 h-2 rounded-full bg-brand-lime blur-[0.5px]" />
+      <div className="absolute bottom-[10%] right-[25%] w-5 h-5 rounded-full bg-brand-green/40 blur-[2px] animate-pulse" style={{ animationDelay: '1s' }} />
+      <div className="absolute top-[40%] left-[45%] w-1.5 h-1.5 rounded-full bg-foreground/30" />
+    </>
+  );
+}
+
+export default function Home() {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  return (
+    <div className="relative min-h-[calc(100vh-80px)] overflow-hidden flex flex-col bg-background selection:bg-brand-lime selection:text-foreground">
+      <BackgroundDots />
+      <FloatingAccents />
+
+      <div className="flex-1 max-w-7xl mx-auto w-full px-8 flex flex-col lg:flex-row items-center relative z-10 pt-20 pb-24 h-full">
         
         {/* Left Content */}
-        <div className="w-full lg:w-1/2 flex flex-col items-start justify-center gap-8 lg:pr-12">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-black/5 glass">
-            <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            <span className="text-sm font-medium text-gray-600">Welcome to ZonoFit</span>
+        <div className="w-full lg:w-1/2 flex flex-col items-start justify-center gap-8 lg:pr-12 mt-12 lg:mt-0 relative z-20">
+          
+          <div className="text-[11px] font-black tracking-[0.2em] text-muted uppercase">
+            DON'T JUST BUY A MEMBERSHIP. BUILD A HABIT.
           </div>
 
-          <h1 className="text-5xl lg:text-7xl font-bold leading-tight tracking-tighter text-black">
-            Fitness access,<br/>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-emerald-400">
-              without limits.
-            </span>
+          <h1 className="text-6xl lg:text-7xl xl:text-[80px] font-black leading-[0.95] tracking-tight text-foreground">
+            Track your<br/>
+            fitness across<br/>
+            the Network.
           </h1>
 
-          <p className="text-lg text-gray-600 max-w-xl leading-relaxed">
-            ZonoFit is a flexible, credit-powered fitness access network. Why commit to one gym when you can experience them all? Purchase credits, discover premium gyms, and build consistency on your terms.
+          <p className="text-base font-medium text-muted max-w-sm leading-relaxed mt-2">
+            A down-to-earth fitness pass focused on flexibility, consistency, and authenticity.
           </p>
 
-          <div className="flex flex-wrap items-center gap-4 mt-4">
-            <Link href="/auth/login" className="bg-primary hover:bg-primary-dark text-white px-8 py-4 rounded-full font-semibold transition-all hover:scale-105 active:scale-95 shadow-[0_4px_20px_rgba(16,185,129,0.3)] flex items-center gap-2">
-              Get Started <ArrowRight size={20} />
+          <div className="flex items-center gap-4 mt-4">
+            <Link 
+              href="/auth/signup" 
+              className="bg-brand-coral hover:bg-[#ff5252] text-white px-8 py-4 rounded-full text-sm font-bold transition-transform hover:scale-105 active:scale-95 shadow-[0_4px_14px_rgba(255,107,107,0.4)]"
+            >
+              Join the Network
+            </Link>
+            
+            <Link 
+              href="/partners" 
+              className="px-8 py-4 rounded-full border-2 border-foreground/10 text-sm font-bold text-foreground hover:border-foreground/30 transition-all flex items-center gap-2 bg-surface/50 backdrop-blur-sm"
+            >
+              <Store size={18} /> Find a gym
             </Link>
           </div>
-
-          {/* Quick Stats Bento */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-12 w-full">
-            {[
-              { icon: Users, label: "Active Members", value: "10k+" },
-              { icon: Building2, label: "Partner Gyms", value: "100+" },
-              { icon: Activity, label: "Daily Check-ins", value: "4.2k" },
-              { icon: BarChart3, label: "Success Rate", value: "99%" },
-            ].map((stat, i) => (
-              <div key={i} className="glass p-4 rounded-2xl flex flex-col gap-2 border border-black/5">
-                <stat.icon size={20} className="text-primary" />
-                <div className="text-2xl font-bold text-black">{stat.value}</div>
-                <div className="text-xs font-medium text-gray-500">{stat.label}</div>
-              </div>
-            ))}
+          
+          {/* Scroll arrow hint */}
+          <div className="mt-16 flex justify-center w-8 h-12 rounded-full border-2 border-foreground/10 items-center animate-bounce cursor-default">
+            <div className="w-1 h-3 bg-foreground/20 rounded-full" />
           </div>
         </div>
 
-        {/* Right 3D Canvas */}
-        <div className="w-full lg:w-1/2 h-[500px] lg:h-[700px] mt-12 lg:mt-0 relative">
-          <Canvas camera={{ position: [0, 0, 6], fov: 50 }}>
-            <ambientLight intensity={0.5} />
-            <directionalLight position={[10, 10, 5]} intensity={1} color="#10B981" />
-            <directionalLight position={[-10, -10, -5]} intensity={0.5} color="#ffffff" />
-            <Fitness3D />
-            <Environment preset="city" />
-          </Canvas>
+        {/* Right Graphic Area */}
+        <div className="w-full lg:w-1/2 h-[600px] lg:h-[800px] relative mt-12 lg:mt-0">
           
-          {/* Floating UI Elements over 3D */}
-          <div className="absolute top-[20%] right-[10%] glass p-4 rounded-2xl animate-bounce" style={{ animationDuration: "3s" }}>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-                <Activity size={20} className="text-primary" />
-              </div>
-              <div>
-                <div className="text-sm font-bold text-black">Credits Value</div>
-                <div className="text-xs font-semibold text-primary">1 Credit = ₹10</div>
-              </div>
+          {/* Subtle large backdrop arch/shape behind the 3D element */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] h-[90%] bg-white rounded-t-full rounded-b-3xl soft-shadow-lg opacity-80" />
+
+          {/* 3D Canvas */}
+          <div className="absolute inset-0 z-10">
+            {mounted && (
+              <Canvas camera={{ position: [0, 0, 7], fov: 50 }}>
+                <ambientLight intensity={0.7} />
+                <directionalLight position={[10, 10, 5]} intensity={1.5} color="#D9FF5C" />
+                <directionalLight position={[-10, -10, -5]} intensity={0.8} color="#ffffff" />
+                <Fitness3D />
+                <Environment preset="city" />
+              </Canvas>
+            )}
+          </div>
+          
+          {/* Floating UI Elements over 3D (Mimicking reference chat bubbles) */}
+          <div className="absolute top-[25%] left-[10%] z-20 bg-surface/90 backdrop-blur-md px-4 py-3 rounded-2xl soft-shadow-lg flex items-center gap-3 animate-bounce" style={{ animationDuration: "4s" }}>
+            <div className="w-8 h-8 rounded-full bg-brand-green/20 flex items-center justify-center">
+              <UserCircle size={18} className="text-brand-green" />
+            </div>
+            <div className="text-xs font-bold text-foreground">Coach, I'll beat my PR today</div>
+          </div>
+
+          <div className="absolute top-[40%] right-[5%] z-20 bg-surface-dark px-4 py-3 rounded-2xl soft-shadow-lg flex items-center gap-3 animate-bounce" style={{ animationDuration: "5s", animationDelay: "1s" }}>
+            <div className="w-8 h-8 rounded-full bg-brand-lime flex items-center justify-center">
+              <span className="text-[10px] font-black text-black">Z</span>
+            </div>
+            <div className="text-xs font-bold text-white">420 Credits Received <button className="ml-2 bg-black text-white px-2 py-1 rounded text-[10px]">Accept</button></div>
+          </div>
+          
+          {/* Score Card Mimic */}
+          <div className="absolute bottom-[15%] right-[15%] z-20 bg-surface/90 backdrop-blur-md p-5 rounded-3xl soft-shadow-lg animate-bounce" style={{ animationDuration: "6s", animationDelay: "0.5s" }}>
+            <div className="text-4xl font-black text-foreground mb-1">678</div>
+            <div className="text-xs font-bold text-muted mb-4">Your monthly visits</div>
+            
+            {/* Mini Bar Chart Mock */}
+            <div className="flex items-end gap-1.5 h-12">
+              <div className="w-4 bg-brand-coral/40 h-[40%] rounded-sm" />
+              <div className="w-4 bg-brand-green h-[80%] rounded-sm" />
+              <div className="w-4 bg-blue-500/80 h-[60%] rounded-sm" />
+              <div className="w-4 bg-brand-lime h-[100%] rounded-sm" />
             </div>
           </div>
-        </div>
 
+          {/* BPM/Heart rate Mimic */}
+          <div className="absolute bottom-[20%] left-[20%] z-20 flex items-center gap-2">
+            <div className="text-3xl font-black text-foreground">96</div>
+            <div>
+              <div className="text-[10px] font-bold text-brand-coral">♥ BPM</div>
+              <div className="text-[10px] font-medium text-muted">2 mins ago</div>
+            </div>
+          </div>
+
+        </div>
       </div>
     </div>
   );
