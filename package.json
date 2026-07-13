@@ -15,6 +15,7 @@
     "@shopify/react-native-skia": "2.6.2",
     "@tailwindcss/postcss": "^4.3.1",
     "expo": "~56.0.15",
+    "expo-build-properties": "~56.0.22",
     "expo-camera": "~56.0.8",
     "expo-constants": "~56.0.18",
     "expo-device": "~56.0.4",
