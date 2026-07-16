@@ -6,7 +6,8 @@ import {
   Pressable, 
   Modal,
   Image,
-  StyleSheet
+  StyleSheet,
+  Alert
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -123,14 +124,14 @@ export default function HomeScreen() {
           <View className="flex-row items-center gap-x-3">
             <Pressable 
               onPress={() => router.push("/marketplace" as any)}
-              className="w-10 h-10 rounded-full items-center justify-center border active:scale-95 transition-transform"
+              className="w-10 h-10 rounded-full items-center justify-center border active:scale-[0.95] transition-transform"
               style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}
             >
               <Ionicons name="cart-outline" size={20} color={colors.text} />
             </Pressable>
             <Pressable 
               onPress={() => setNotificationsVisible(true)}
-              className="w-10 h-10 rounded-full items-center justify-center border relative active:scale-95 transition-transform"
+              className="w-10 h-10 rounded-full items-center justify-center border relative active:scale-[0.95] transition-transform"
               style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}
             >
               <Ionicons name="notifications-outline" size={20} color={colors.text} />
@@ -141,7 +142,7 @@ export default function HomeScreen() {
             </Pressable>
             <Pressable 
               onPress={() => router.push("/profile")}
-              className="w-10 h-10 rounded-full items-center justify-center border overflow-hidden active:scale-95 transition-transform"
+              className="w-10 h-10 rounded-full items-center justify-center border overflow-hidden active:scale-[0.95] transition-transform"
               style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}
             >
               {avatarUrl ? (
@@ -242,7 +243,35 @@ export default function HomeScreen() {
                     <Text className="text-xs mt-0.5" style={{ color: colors.muted }}>Time Slot: {bookedTime}</Text>
                   </View>
                   <Pressable 
-                    onPress={cancelBooking}
+                    onPress={() => {
+                      const refundInfo = useBookingStore.getState().calculateRefund();
+                      let message = "Are you sure you want to cancel this booking?";
+                      
+                      if (refundInfo) {
+                        if (refundInfo.percentage === 0) {
+                          message = "This booking is within 6 hours of the workout time. You will be charged a 100% cancellation fee and receive NO refund. Are you sure you want to cancel?";
+                        } else if (refundInfo.percentage === 75) {
+                          message = `You are cancelling more than 1 hour after booking. A 25% cancellation fee applies. You will receive a refund of ${refundInfo.refundAmount} credits. Are you sure?`;
+                        } else {
+                          message = `You are cancelling within 1 hour of booking. You will receive a full refund of ${refundInfo.refundAmount} credits. Are you sure?`;
+                        }
+                      }
+
+                      Alert.alert(
+                        "Cancel Booking",
+                        message,
+                        [
+                          { text: "Keep Booking", style: "cancel" },
+                          { 
+                            text: "Yes, Cancel", 
+                            style: "destructive", 
+                            onPress: () => {
+                              cancelBooking();
+                            } 
+                          }
+                        ]
+                      );
+                    }}
                     className="p-1 active:opacity-70"
                   >
                     <Text className="text-xs font-semibold" style={{ color: colors.coral }}>Cancel</Text>

@@ -22,6 +22,8 @@ interface BookingState {
   bookedGymId: string | null;
   bookedGymName: string | null;
   bookedDate: string | null;
+  bookedVisitDateIso: string | null;
+  bookedCreatedAt: string | null;
   bookedTime: string | null;
   bookedCost: number;
   pastBookings: PastBooking[];
@@ -35,6 +37,7 @@ interface BookingState {
   bookVisit: (gymId: string, gymName: string, date: string, time: string, creditCost: number, couponCode?: string) => Promise<boolean>;
   checkIn: () => Promise<boolean>;
   cancelBooking: () => Promise<void>;
+  calculateRefund: () => { percentage: number; refundAmount: number } | null;
 }
 
 export const useBookingStore = create<BookingState>((set, get) => ({
@@ -43,6 +46,8 @@ export const useBookingStore = create<BookingState>((set, get) => ({
   bookedGymId: null,
   bookedGymName: null,
   bookedDate: null,
+  bookedVisitDateIso: null,
+  bookedCreatedAt: null,
   bookedTime: null,
   bookedCost: 0,
   pastBookings: [],
@@ -51,6 +56,33 @@ export const useBookingStore = create<BookingState>((set, get) => ({
 
   applyCoupon: (coupon) => set({ appliedCoupon: coupon }),
   clearCoupon: () => set({ appliedCoupon: null }),
+
+  calculateRefund: () => {
+    const { bookedVisitDateIso, bookedTime, bookedCreatedAt, bookedCost } = get();
+    if (!bookedVisitDateIso || !bookedTime || !bookedCreatedAt) return null;
+
+    const [startHour, startMinute] = bookedTime.split('-')[0].split(':').map(Number);
+    const workoutTime = new Date(bookedVisitDateIso);
+    workoutTime.setHours(startHour, startMinute, 0, 0);
+
+    const now = new Date();
+    const timeUntilWorkoutHours = (workoutTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+    const timeSinceBookingHours = (now.getTime() - new Date(bookedCreatedAt).getTime()) / (1000 * 60 * 60);
+
+    let refundPercentage = 0;
+    if (timeUntilWorkoutHours <= 6) {
+      refundPercentage = 0;
+    } else if (timeSinceBookingHours <= 1) {
+      refundPercentage = 100;
+    } else {
+      refundPercentage = 75;
+    }
+
+    return {
+      percentage: refundPercentage,
+      refundAmount: Math.floor(bookedCost * (refundPercentage / 100))
+    };
+  },
 
   fetchBookings: async (token) => {
     set({ loading: true });
@@ -79,6 +111,8 @@ export const useBookingStore = create<BookingState>((set, get) => ({
           bookedGymId: upcoming.gymId,
           bookedGymName: upcoming.gym.name,
           bookedDate: new Date(upcoming.visitDate).toLocaleDateString(),
+          bookedVisitDateIso: upcoming.visitDate,
+          bookedCreatedAt: upcoming.createdAt,
           bookedTime: upcoming.timeSlot,
           bookedCost: upcoming.creditsDeducted,
           pastBookings: past,
@@ -91,6 +125,8 @@ export const useBookingStore = create<BookingState>((set, get) => ({
           bookedGymId: null,
           bookedGymName: null,
           bookedDate: null,
+          bookedVisitDateIso: null,
+          bookedCreatedAt: null,
           bookedTime: null,
           bookedCost: 0,
           pastBookings: past,
@@ -133,6 +169,8 @@ export const useBookingStore = create<BookingState>((set, get) => ({
         bookedGymId: gymId,
         bookedGymName: gymName,
         bookedDate: date,
+        bookedVisitDateIso: data.booking.visitDate,
+        bookedCreatedAt: new Date().toISOString(),
         bookedTime: time,
         bookedCost: data.booking.creditsDeducted, // use actual deducted cost from backend
         appliedCoupon: null, // clear coupon after booking
@@ -183,20 +221,24 @@ export const useBookingStore = create<BookingState>((set, get) => ({
 
     try {
       const token = useAuthStore.getState().token;
-      await apiFetch(`/api/bookings/${bookingId}`, { method: "DELETE", token });
+      const response = await apiFetch(`/api/bookings/${bookingId}`, { method: "DELETE", token });
+      
+      const refundedCredits = response.refundedCredits ?? 0;
 
       // Refund credits
-      useCreditsStore.getState().addTransaction(
-        "credit",
-        bookedCost,
-        "credits",
-        `Refund - Cancelled Booking - ${bookedGymName}`
-      );
-      
-      // Add credits back
-      useCreditsStore.setState((state) => ({
-        credits: state.credits + bookedCost,
-      }));
+      if (refundedCredits > 0) {
+        useCreditsStore.getState().addTransaction(
+          "credit",
+          refundedCredits,
+          "credits",
+          `Refund - Cancelled Booking - ${bookedGymName}`
+        );
+        
+        // Add credits back
+        useCreditsStore.setState((state) => ({
+          credits: state.credits + refundedCredits,
+        }));
+      }
 
       set((state) => ({
         bookingStatus: "Not Booked",
@@ -214,7 +256,7 @@ export const useBookingStore = create<BookingState>((set, get) => ({
             date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
             time: "Cancelled",
             status: "Cancelled",
-            credits: bookedCost,
+            credits: bookedCost, // Store original cost in history, or maybe refundedCredits. Usually original cost is kept for display.
           },
           ...state.pastBookings,
         ],

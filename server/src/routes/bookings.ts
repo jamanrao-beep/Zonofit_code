@@ -347,14 +347,31 @@ router.delete(
         );
       }
 
-      // Minimum 2 hours before visit
-      const twoHoursBefore = new Date(booking.visitDate.getTime() - 2 * 60 * 60 * 1000);
-      if (new Date() > twoHoursBefore) {
-        throw createError(
-          "Cancellations must be made at least 2 hours before the visit.",
-          400,
-          "CancellationWindowClosed"
-        );
+      // Calculate the exact workout time
+      const [startHour, startMinute] = booking.timeSlot.split('-')[0].split(':').map(Number);
+      const workoutTime = new Date(booking.visitDate);
+      workoutTime.setHours(startHour, startMinute, 0, 0);
+
+      const now = new Date();
+      const timeUntilWorkoutMs = workoutTime.getTime() - now.getTime();
+      const timeUntilWorkoutHours = timeUntilWorkoutMs / (1000 * 60 * 60);
+
+      const timeSinceBookingMs = now.getTime() - booking.createdAt.getTime();
+      const timeSinceBookingHours = timeSinceBookingMs / (1000 * 60 * 60);
+
+      let refundPercentage = 0;
+
+      if (timeUntilWorkoutHours <= 6) {
+        // Booking is locked - 100% cancellation charge
+        refundPercentage = 0;
+      } else {
+        if (timeSinceBookingHours <= 1) {
+          // Free cancellation within 1 hour of booking
+          refundPercentage = 100;
+        } else {
+          // Partial cancellation fee (25% charge)
+          refundPercentage = 75;
+        }
       }
 
       await tx.booking.update({
@@ -362,31 +379,37 @@ router.delete(
         data: { status: "CANCELLED" },
       });
 
-      // Refund credits
-      const wallet = await tx.creditWallet.update({
-        where: { userId: req.dbUserId! },
-        data: { balance: { increment: booking.creditsDeducted } },
-      });
+      const refundedCredits = Math.floor(booking.creditsDeducted * (refundPercentage / 100));
+      let newBalance = 0;
 
-      const walletRecord = await tx.creditWallet.findUnique({
-        where: { userId: req.dbUserId! },
-      });
+      if (refundedCredits > 0) {
+        const wallet = await tx.creditWallet.update({
+          where: { userId: req.dbUserId! },
+          data: { balance: { increment: refundedCredits } },
+        });
+        
+        newBalance = wallet.balance;
+        const gymName = booking.gym.name;
 
-      const gymName = booking.gym.name;
+        await tx.creditTransaction.create({
+          data: {
+            userId: req.dbUserId!,
+            walletId: wallet.id,
+            type: "REFUND",
+            amount: refundedCredits,
+            balanceAfter: wallet.balance,
+            description: `Booking cancelled at ${gymName} — ${refundedCredits} credits refunded`,
+            bookingId: booking.id,
+          },
+        });
+      } else {
+        const walletRecord = await tx.creditWallet.findUnique({
+          where: { userId: req.dbUserId! },
+        });
+        newBalance = walletRecord?.balance || 0;
+      }
 
-      await tx.creditTransaction.create({
-        data: {
-          userId: req.dbUserId!,
-          walletId: walletRecord!.id,
-          type: "REFUND",
-          amount: booking.creditsDeducted,
-          balanceAfter: wallet.balance,
-          description: `Booking cancelled at ${gymName} — ${booking.creditsDeducted} credits refunded`,
-          bookingId: booking.id,
-        },
-      });
-
-      return { refundedCredits: booking.creditsDeducted, newBalance: wallet.balance };
+      return { refundedCredits, newBalance };
     });
 
     res.json({
