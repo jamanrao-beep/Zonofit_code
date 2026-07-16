@@ -173,14 +173,14 @@ export default function CreditsScreen() {
         <View className="flex-row items-center gap-x-3">
           <Pressable 
             onPress={() => router.push("/marketplace" as any)}
-            className="w-9 h-9 rounded-full items-center justify-center border active:scale-95 transition-transform"
+            className="w-9 h-9 rounded-full items-center justify-center border active:scale-[0.95] transition-transform"
             style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}
           >
             <Ionicons name="cart-outline" size={20} color={colors.text} />
           </Pressable>
           <Pressable 
             onPress={() => setInfoModalVisible(true)}
-            className="w-9 h-9 rounded-full items-center justify-center border active:scale-95 transition-transform"
+            className="w-9 h-9 rounded-full items-center justify-center border active:scale-[0.95] transition-transform"
             style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}
           >
             <Ionicons name="help-circle-outline" size={20} color={colors.text} />

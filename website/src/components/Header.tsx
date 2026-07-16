@@ -30,22 +30,21 @@ export default function Header() {
           <span className="text-2xl font-black tracking-tight text-foreground">
             ZonoFit
           </span>
-          <div className="w-6 h-3.5 rounded-full border-[3px] border-brand-coral group-hover:bg-brand-coral transition-colors" />
+          {/* A small rounded pill as an accent icon mimicking the reference */}
+          <div className="w-5 h-3.5 rounded-full border-[2.5px] border-brand-coral group-hover:bg-brand-coral transition-colors" />
         </Link>
         
-        {/* Center Nav - minimal text, black font, Chevron */}
-        <nav className="hidden md:flex items-center gap-12 text-sm font-bold text-foreground tracking-wide">
+        {/* Center Nav - matching the screenshot exactly */}
+        <nav className="hidden md:flex items-center gap-10 text-[13px] font-bold text-foreground tracking-wide">
           <Link href="/how-it-works" className="flex items-center gap-1 hover:text-brand-green transition-colors">
-            How it Works <ChevronDown size={14} className="mt-0.5" />
+            Products <ChevronDown size={14} className="mt-0.5" />
           </Link>
           <Link href="/plans" className="hover:text-brand-green transition-colors">
-            Plans
+            App & Network
           </Link>
-          {(!mounted || !user || user.role !== "GYM_OWNER") && (
-            <Link href="/partners" className="hover:text-brand-green transition-colors">
-              Gym Partners
-            </Link>
-          )}
+          <Link href="/support" className="hover:text-brand-green transition-colors">
+            Support
+          </Link>
         </nav>
         
         {/* Right Actions - Discover / Lock icon */}
@@ -54,13 +53,13 @@ export default function Header() {
             <div className="flex items-center gap-3">
               <Link 
                 href={user.role === "ADMIN" ? "/admin/dashboard" : "/gym/dashboard"} 
-                className="px-6 py-2.5 rounded-full border-2 border-foreground/10 text-sm font-bold text-foreground hover:border-foreground/30 transition-all bg-surface/50 backdrop-blur-md"
+                className="px-5 py-2 rounded-full border-[1.5px] border-foreground/20 text-[13px] font-bold text-foreground hover:border-foreground/40 transition-all bg-transparent"
               >
                 Dashboard
               </Link>
               <button 
                 onClick={logout}
-                className="w-10 h-10 rounded-full border-2 border-foreground/10 flex items-center justify-center hover:bg-foreground/5 transition-colors bg-surface/50 backdrop-blur-md"
+                className="w-10 h-10 rounded-full border-[1.5px] border-foreground/20 flex items-center justify-center hover:bg-foreground/5 transition-colors bg-transparent"
                 title="Logout"
               >
                 <LogOut size={16} className="text-foreground" />
@@ -70,13 +69,13 @@ export default function Header() {
             <>
               <Link 
                 href="/auth/signup" 
-                className="px-6 py-2.5 rounded-full border-2 border-foreground/10 text-sm font-bold text-foreground hover:border-foreground/30 transition-all bg-surface/50 backdrop-blur-md"
+                className="px-5 py-2 rounded-full border-[1.5px] border-foreground/20 text-[13px] font-bold text-foreground hover:border-foreground/40 transition-all bg-transparent"
               >
                 Discover
               </Link>
               <Link 
                 href="/auth/login" 
-                className="w-10 h-10 rounded-full border-2 border-foreground/10 flex items-center justify-center hover:bg-foreground/5 transition-colors bg-surface/50 backdrop-blur-md"
+                className="w-10 h-10 rounded-full border-[1.5px] border-foreground/20 flex items-center justify-center hover:bg-foreground/5 transition-colors bg-transparent"
                 title="Log in"
               >
                 <Lock size={16} className="text-foreground" />

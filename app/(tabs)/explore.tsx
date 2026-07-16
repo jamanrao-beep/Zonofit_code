@@ -690,7 +690,7 @@ export default function ExploreScreen() {
                 <Pressable
                   key={time}
                   onPress={() => setSelectedTime(time)}
-                  className={`flex-1 py-3 rounded-2xl border text-center items-center justify-center active:scale-95 transition-transform`}
+                  className={`flex-1 py-3 rounded-2xl border text-center items-center justify-center active:scale-[0.95] transition-transform`}
                   style={{
                     backgroundColor: selectedTime === time ? 'rgba(217, 255, 92, 0.1)' : colors.surface,
                     borderColor: selectedTime === time ? colors.lime : colors.secondary
