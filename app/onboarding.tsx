@@ -1,105 +1,172 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useRef, useState } from "react";
 import {
   Dimensions,
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { width } = Dimensions.get("window");
 
-// ─── Brand palette ────────────────────────────────────────────────────────────
 const C = {
-  primary: "#0B6E4F", // The requested brand green
-  greenLight: "#8CC63F",
-  greenBg: "#EAF4DA",
+  primary: "#328B57", // Vibrant ZonoFit Green from reference
+  lightGreen: "#EAF4DA",
+  lightGreen2: "#D8EAC2",
+  textDark: "#111827",
+  textMid: "#4B5563",
   white: "#FFFFFF",
-  offWhite: "#F7FAF3",
-  textDark: "#1C2B16",
-  textMid: "#3A5A2A",
-  textLight: "#6B8260",
-  purple: "#6B45C0",
-  amber: "#D97706",
-  bg: "#F2F8ED",      // Light greenish background from reference
-  cardBg: "#FFFFFF",
-  itemBg: "#F4F8EF",  // Very light green for grid items
+  dotsGrey: "#E5E7EB",
 };
 
-// ─── Slide data ───────────────────────────────────────────────────────────────
 interface Slide {
   id: string;
-  headline: string;
-  subheadline?: string;
+  headlineLine1: string;
+  headlineLine2: string;
   body: string;
-  accentColor: string;
-  bgColor: string;
-  illustration: "ecosystem" | "credits" | "community" | "goals";
+  illustration: "fitness" | "money" | "anywhere" | "consistency";
 }
 
 const slides: Slide[] = [
   {
     id: "s1",
-    headline: "Not just a gym.",
-    subheadline: "An ecosystem.",
-    body: "ZonoFit gives you flexible gym access, rewards for consistency, and tools to actually stay on track.",
-    accentColor: C.primary,
-    bgColor: C.bg,
-    illustration: "ecosystem",
+    headlineLine1: "Choose",
+    headlineLine2: "Your Fitness",
+    body: "One membership.\nMultiple gyms.\nEndless possibilities.",
+    illustration: "fitness",
   },
   {
     id: "s2",
-    headline: "Credits that work\nfor you.",
-    body: "Never lose value from a missed workout.\nYour plan converts to ZonoFit Credits — usable at gyms, activities, and more.",
-    accentColor: C.amber,
-    bgColor: "#FFF8ED",
-    illustration: "credits",
+    headlineLine1: "Never Lose",
+    headlineLine2: "Your Money",
+    body: "Missed days become credits.\n\nCan't make it to the gym?\nYour unused workout days\nturn into credits you can use for\npartner gyms and other\nfitness experiences.",
+    illustration: "money",
   },
   {
     id: "s3",
-    headline: "Stay Consistent",
-    subheadline: "Fitness is better together.",
-    body: "Find workout buddies, earn rewards for streaks, and celebrate progress with a community that keeps you accountable.",
-    accentColor: C.purple,
-    bgColor: "#F5F0FF",
-    illustration: "community",
+    headlineLine1: "Train",
+    headlineLine2: "Anywhere",
+    body: "Discover and book workouts\nat partner gyms across the city\nwhenever it suits your schedule.",
+    illustration: "anywhere",
   },
   {
     id: "s4",
-    headline: "Set a goal.\nTrack it. Crush it.",
-    body: "ZonoFit keeps you on timeline with visual progress, streaks, and milestone unlocks.",
-    accentColor: C.primary,
-    bgColor: C.offWhite,
-    illustration: "goals",
+    headlineLine1: "Consistency",
+    headlineLine2: "Pays Off",
+    body: "Stay consistent, unlock\nrewards, and make every\nworkout count.",
+    illustration: "consistency",
   },
 ];
 
-// ─── Illustration components ──────────────────────────────────────────────────
+// ─── Illustrations ─────────────────────────────────────────────────────────────
 
-function EcosystemIllustration() {
-  const items = [
-    { emoji: "🏋️", title: "100+ Gyms", desc: "Access 100+ gyms anytime" },
-    { emoji: "⚡", title: "Credits", desc: "Earn credits & unlock more" },
-    { emoji: "📍", title: "Near You", desc: "Find top gyms near you" },
-    { emoji: "🔥", title: "Streaks", desc: "Keep your streak alive" },
-    { emoji: "🏅", title: "Badges", desc: "Earn badges for milestones" },
-    { emoji: "📅", title: "Booking", desc: "Book your slot easily" },
-  ];
+function FitnessIllustration() {
   return (
-    <View style={styles.illustrationContainer}>
-      <View style={styles.illustrationCard}>
-        <View style={styles.gridWrap}>
-          {items.map((item) => (
-            <View key={item.title} style={styles.gridItem}>
-              <View style={styles.iconCircle}>
-                <Text style={{ fontSize: 24 }}>{item.emoji}</Text>
+    <View style={styles.illContainer}>
+      {/* Background buildings */}
+      <View style={[styles.fitnessCard, { position: "absolute", top: 40, left: -20, transform: [{ scale: 0.8 }], backgroundColor: "#F3F4F6" }]}>
+        <View style={[styles.gymPin, { backgroundColor: "#9CA3AF" }]}><Ionicons name="location" size={16} color="white" /></View>
+        <Text style={[styles.fitnessCardText, { color: "#9CA3AF" }]}>GYM</Text>
+      </View>
+      <View style={[styles.fitnessCard, { position: "absolute", top: 80, right: 0, transform: [{ scale: 0.9 }], backgroundColor: "#F3F4F6" }]}>
+        <View style={[styles.gymPin, { backgroundColor: "#9CA3AF" }]}><Ionicons name="location" size={16} color="white" /></View>
+        <Text style={[styles.fitnessCardText, { color: "#9CA3AF" }]}>GYM</Text>
+      </View>
+      
+      {/* Main building */}
+      <View style={[styles.fitnessCard, { marginTop: -40 }]}>
+        <View style={styles.gymPin}><Ionicons name="location" size={20} color="white" /></View>
+        <Text style={styles.fitnessCardText}>GYM</Text>
+      </View>
+
+      {/* Character */}
+      <View style={styles.personWrap}>
+        <Text style={{ fontSize: 90 }}>🧍🏻‍♂️</Text>
+        <View style={styles.bagTag}>
+          <Text style={{ fontSize: 32 }}>👜</Text>
+          <View style={styles.bagLogo}><Text style={{ color: "white", fontWeight: "bold", fontSize: 10 }}>Z</Text></View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function MoneyIllustration() {
+  return (
+    <View style={styles.illContainer}>
+      <View style={styles.moneyTop}>
+        {/* Calendar */}
+        <View style={styles.calendarCard}>
+          <View style={styles.calendarHeader} />
+          <View style={styles.calendarGrid}>
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
+              <View key={i} style={[styles.calSquare, i === 5 && styles.calSquareActive]}>
+                {i === 5 && <Ionicons name="close" size={12} color="white" />}
               </View>
-              <Text style={styles.gridTitle}>{item.title}</Text>
-              <Text style={styles.gridDesc}>{item.desc}</Text>
+            ))}
+          </View>
+        </View>
+
+        {/* Arrow */}
+        <View style={styles.arrowWrap}>
+          <Ionicons name="arrow-redo" size={24} color={C.lightGreen2} style={{ transform: [{ rotate: "45deg" }] }} />
+        </View>
+
+        {/* Wallet */}
+        <View style={styles.walletCard}>
+          <View style={styles.walletFlap} />
+          <View style={styles.zCoin}>
+            <Text style={styles.zCoinText}>Z</Text>
+          </View>
+          <Text style={styles.walletText}>Credits Added</Text>
+        </View>
+      </View>
+
+      {/* 3 Pills */}
+      <View style={styles.pillsRow}>
+        <View style={styles.pill}>
+          <Text style={styles.pillIcon}>🏋️</Text>
+          <Text style={styles.pillText}>Partner{"\n"}Gyms</Text>
+        </View>
+        <View style={styles.pill}>
+          <Text style={styles.pillIcon}>🎾</Text>
+          <Text style={styles.pillText}>Sports</Text>
+        </View>
+        <View style={styles.pill}>
+          <Text style={styles.pillIcon}>🌿</Text>
+          <Text style={styles.pillText}>Wellness{"\n"}& More</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function AnywhereIllustration() {
+  return (
+    <View style={styles.illContainer}>
+      <View style={styles.phoneFrame}>
+        <View style={styles.phoneNotch} />
+        {/* Map pins */}
+        <View style={[styles.phonePin, { top: 60, left: 20 }]}><Ionicons name="location" size={20} color="white" /></View>
+        <View style={[styles.phonePin, { top: 160, left: 40 }]}><Ionicons name="location" size={20} color="white" /></View>
+        <View style={[styles.phonePin, { top: 260, left: 25 }]}><Ionicons name="location" size={20} color="white" /></View>
+
+        {/* Gym List */}
+        <View style={styles.gymList}>
+          {["Being Fitness", "Fitness Zone", "Rnold Fitness"].map((name, i) => (
+            <View key={name} style={styles.phoneGymCard}>
+              <View style={styles.phoneGymImg}>
+                <Ionicons name="barbell" size={14} color="white" />
+              </View>
+              <View style={styles.phoneGymInfo}>
+                <Text style={styles.phoneGymName}>{name}</Text>
+                <Text style={styles.phoneGymDist}>{(1.2 + i * 1.2).toFixed(1)} km</Text>
+                <Text style={styles.phoneGymRating}>⭐ {(4.8 - i * 0.1).toFixed(1)}</Text>
+              </View>
             </View>
           ))}
         </View>
@@ -108,118 +175,58 @@ function EcosystemIllustration() {
   );
 }
 
-function CreditsIllustration() {
+function ConsistencyIllustration() {
   return (
-    <View style={styles.illustrationContainer}>
-      <View style={styles.illustrationCardLegacy}>
-        <View style={[styles.creditsBig, { backgroundColor: "#FFF3DC", borderColor: "#FBBF24" }]}>
-          <Text style={{ fontSize: 32 }}>⚡</Text>
-          <Text style={styles.creditsCount}>420</Text>
-          <Text style={styles.creditsLabel}>ZonoFit Credits</Text>
-          <Text style={styles.creditsValue}>≈ ₹4,200 Fitness Value</Text>
+    <View style={styles.illContainer}>
+      <View style={styles.consistencyRow}>
+        <View style={styles.flexPerson}>
+          <Text style={{ fontSize: 90 }}>🧍🏻</Text>
+          <Text style={{ fontSize: 40, position: "absolute", left: -25, top: 10, transform: [{ scaleX: -1 }] }}>💪🏼</Text>
         </View>
-        <View style={styles.creditsRow}>
-          <View style={styles.creditsMini}>
-            <Text style={styles.creditsMiniVal}>🏋️ 8</Text>
-            <Text style={styles.creditsMiniLabel}>per visit</Text>
+        
+        <View style={styles.circleProgressWrap}>
+          <View style={styles.circleTrack} />
+          <View style={styles.circleFill} />
+          <View style={styles.circleInner}>
+            <View style={styles.trophyIcon}><Ionicons name="trophy" size={24} color="white" /></View>
+            <Text style={styles.circleText}>Your{"\n"}Fitness{"\n"}Journey</Text>
           </View>
-          <View style={[styles.creditsMini, { backgroundColor: "#E8F5E9" }]}>
-            <Text style={styles.creditsMiniVal}>₹80</Text>
-            <Text style={styles.creditsMiniLabel}>value/visit</Text>
+        </View>
+      </View>
+
+      <View style={styles.rewardsList}>
+        <View style={styles.rewardPill}>
+          <View style={[styles.rewardIconBg, { backgroundColor: "#E6F4EA" }]}>
+            <Ionicons name="wallet" size={18} color={C.primary} />
           </View>
-          <View style={[styles.creditsMini, { backgroundColor: "#EDE9FE" }]}>
-            <Text style={styles.creditsMiniVal}>♾️</Text>
-            <Text style={styles.creditsMiniLabel}>no expiry</Text>
+          <Text style={styles.rewardText}>Earn Credits</Text>
+        </View>
+        <View style={styles.rewardPill}>
+          <View style={[styles.rewardIconBg, { backgroundColor: "#FEF3C7" }]}>
+            <Ionicons name="trophy" size={18} color="#D97706" />
           </View>
+          <Text style={styles.rewardText}>Unlock Rewards</Text>
+        </View>
+        <View style={styles.rewardPill}>
+          <View style={[styles.rewardIconBg, { backgroundColor: "#DBEAFE" }]}>
+            <Ionicons name="target" size={18} color="#2563EB" />
+          </View>
+          <Text style={styles.rewardText}>Reach Your Goals</Text>
         </View>
       </View>
     </View>
   );
 }
 
-function CommunityIllustration() {
-  const avatars = ["🧑‍💼", "👩‍🦱", "🧑‍🦲", "👩‍🦰"];
-  return (
-    <View style={styles.illustrationContainer}>
-      <View style={styles.illustrationCardLegacy}>
-        {/* Streak bar */}
-        <View style={[styles.communityStreak, { backgroundColor: "#F5F0FF" }]}>
-          <Text style={{ fontSize: 24 }}>🔥</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.communityStreakTitle}>14-Day Streak</Text>
-            <View style={{ flexDirection: "row", gap: 4, marginTop: 4 }}>
-              {Array.from({ length: 7 }).map((_, i) => (
-                <View key={i} style={[styles.streakDot, { backgroundColor: i < 5 ? C.purple : "#DDD6FE" }]} />
-              ))}
-            </View>
-          </View>
-          <Text style={styles.communityStreakBadge}>🏅</Text>
-        </View>
-
-        {/* Avatars */}
-        <View style={styles.communityAvatarRow}>
-          {avatars.map((a, i) => (
-            <View key={i} style={styles.communityAvatar}>
-              <Text style={{ fontSize: 22 }}>{a}</Text>
-            </View>
-          ))}
-          <View style={[styles.communityAvatar, { backgroundColor: C.purple }]}>
-            <Text style={{ color: "white", fontSize: 10, fontWeight: "700" }}>+12</Text>
-          </View>
-        </View>
-        <Text style={styles.communityAvatarLabel}>12 friends working out this week</Text>
-      </View>
-    </View>
-  );
-}
-
-function GoalsIllustration() {
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
-  const heights = [30, 45, 55, 70, 60, 85];
-  return (
-    <View style={styles.illustrationContainer}>
-      <View style={styles.illustrationCardLegacy}>
-        <View style={styles.goalsMilestone}>
-          <Text style={{ fontSize: 22 }}>👑</Text>
-          <View>
-            <Text style={styles.goalsMilestoneLabel}>Next Milestone</Text>
-            <Text style={styles.goalsMilestoneValue}>50 Workouts</Text>
-          </View>
-          <View style={[styles.goalsMilestoneBadge, { backgroundColor: C.greenBg }]}>
-            <Text style={{ color: C.primary, fontSize: 11, fontWeight: "700" }}>48 / 50</Text>
-          </View>
-        </View>
-
-        {/* Bar chart */}
-        <View style={styles.goalsChart}>
-          {months.map((m, i) => (
-            <View key={m} style={styles.goalsBar}>
-              <View style={[styles.goalsBarFill, { height: heights[i], backgroundColor: i === 5 ? C.greenLight : "#C8E6A8" }]} />
-              <Text style={styles.goalsBarLabel}>{m}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
-    </View>
-  );
-}
-
-const ILLUSTRATIONS: Record<Slide["illustration"], React.ComponentType> = {
-  ecosystem: EcosystemIllustration,
-  credits: CreditsIllustration,
-  community: CommunityIllustration,
-  goals: GoalsIllustration,
-};
-
-// ─── Main Onboarding Screen ───────────────────────────────────────────────────
+// ─── Main Component ────────────────────────────────────────────────────────────
 
 export default function OnboardingScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
   const isLast = activeIndex === slides.length - 1;
-  const currentSlide = slides[activeIndex];
 
   const goToNext = () => {
     if (isLast) {
@@ -238,28 +245,26 @@ export default function OnboardingScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: currentSlide.bgColor }]} edges={["top", "bottom"]}>
-      {/* Decorative leaf background (simulated via absolute positioning) */}
-      <View style={[styles.bgDecorTopLeft, { backgroundColor: currentSlide.bgColor === C.bg ? "#E2F2D9" : "rgba(255,255,255,0.4)" }]} />
-      <View style={[styles.bgDecorBottomRight, { backgroundColor: currentSlide.bgColor === C.bg ? "#E2F2D9" : "rgba(255,255,255,0.4)" }]} />
+    <View style={styles.container}>
+      {/* Decorative Blobs */}
+      <View style={styles.blobTopRight} />
+      <View style={styles.blobBottomLeft} />
+      <View style={styles.blobMiddleRight} />
 
       {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.wordmark}>
-          <Image
-            /* eslint-disable-next-line @typescript-eslint/no-require-imports */
-            source={require("@/assets/images/Zonofit logo.jpeg")}
-            style={styles.wordmarkLogo}
-            resizeMode="contain"
-          />
-          <Text style={[styles.wordmarkText, { color: currentSlide.accentColor }]}>ZonoFit</Text>
+      <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
+        <Text style={styles.logoText}>ZonoFit.</Text>
+        <View style={styles.topDots}>
+          {[0, 1, 2].map((i) => (
+            <View
+              key={i}
+              style={[
+                styles.topDot,
+                { backgroundColor: i <= activeIndex ? C.primary : C.dotsGrey },
+              ]}
+            />
+          ))}
         </View>
-
-        {!isLast && (
-          <Pressable onPress={() => router.replace("/sign-up" as any)} style={styles.skipBtn}>
-            <Text style={styles.skipText}>Skip</Text>
-          </Pressable>
-        )}
       </View>
 
       {/* Carousel */}
@@ -272,436 +277,614 @@ export default function OnboardingScreen() {
         scrollEventThrottle={16}
         style={{ flex: 1 }}
       >
-        {slides.map((slide) => {
-          const IllComp = ILLUSTRATIONS[slide.illustration];
-          return (
-            <View key={slide.id} style={[styles.slide, { width }]}>
-              <IllComp />
-              <View style={styles.textBlock}>
-                <Text style={styles.headline}>
-                  {slide.headline}{" "}
-                  {slide.subheadline && (
-                    <Text style={[styles.subheadline, { color: slide.accentColor }]}>{slide.subheadline}</Text>
-                  )}
-                </Text>
-                <Text style={styles.body}>{slide.body}</Text>
-              </View>
+        {slides.map((slide) => (
+          <View key={slide.id} style={[styles.slide, { width }]}>
+            <View style={styles.textBlock}>
+              <Text style={styles.headline}>
+                {slide.headlineLine1}
+                {"\n"}
+                <Text style={{ color: C.primary }}>{slide.headlineLine2}</Text>
+              </Text>
+              <Text style={styles.body}>{slide.body}</Text>
             </View>
-          );
-        })}
+
+            <View style={styles.illustrationWrap}>
+              {slide.illustration === "fitness" && <FitnessIllustration />}
+              {slide.illustration === "money" && <MoneyIllustration />}
+              {slide.illustration === "anywhere" && <AnywhereIllustration />}
+              {slide.illustration === "consistency" && <ConsistencyIllustration />}
+            </View>
+          </View>
+        ))}
       </ScrollView>
 
-      {/* Footer */}
-      <View style={styles.footer}>
-        <View style={styles.dots}>
+      {/* Footer Area */}
+      <View style={styles.footerContainer}>
+        {/* Pagination Dots */}
+        <View style={[styles.pagination, { marginBottom: isLast ? 24 : 32 }]}>
           {slides.map((_, i) => (
-            <Pressable
+            <View
               key={i}
-              onPress={() => {
-                scrollRef.current?.scrollTo({ x: i * width, animated: true });
-                setActiveIndex(i);
-              }}
-            >
-              <View
-                style={[
-                  styles.dot,
-                  i === activeIndex 
-                    ? [styles.dotActive, { backgroundColor: currentSlide.accentColor }] 
-                    : styles.dotInactive,
-                ]}
-              />
-            </Pressable>
+              style={[
+                styles.pageDot,
+                i === activeIndex ? styles.pageDotActive : null,
+              ]}
+            />
           ))}
         </View>
 
-        <Pressable
-          onPress={goToNext}
-          style={({ pressed }) => [
-            styles.ctaButton,
-            { backgroundColor: currentSlide.accentColor, shadowColor: currentSlide.accentColor, opacity: pressed ? 0.9 : 1 },
-          ]}
-        >
-          <Text style={styles.ctaText}>{isLast ? "Get Started" : "Next →"}</Text>
-        </Pressable>
-
-        <Pressable onPress={() => router.replace("/sign-in" as any)} style={styles.loginLink}>
-          <Text style={styles.loginLinkText}>
-            Already a member? <Text style={[styles.loginLinkBold, { color: currentSlide.accentColor }]}>Log In</Text>
-          </Text>
-        </Pressable>
+        {/* Action Buttons */}
+        {!isLast ? (
+          <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 16, paddingTop: 16 }]}>
+            <Pressable onPress={() => router.replace("/sign-up" as any)} style={styles.bottomBtnLeft}>
+              <Text style={styles.bottomBtnText}>SKIP</Text>
+            </Pressable>
+            <Pressable onPress={goToNext} style={styles.bottomBtnRight}>
+              <Text style={styles.bottomBtnText}>NEXT →</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <View style={[styles.lastPageFooter, { paddingBottom: insets.bottom + 20 }]}>
+            <Pressable onPress={() => router.replace("/sign-up" as any)} style={styles.getStartedBtn}>
+              <Text style={styles.getStartedText}>GET STARTED →</Text>
+            </Pressable>
+            <Pressable onPress={() => router.replace("/sign-in" as any)} style={styles.signInBtn}>
+              <Text style={styles.signInText}>
+                Already have an account? <Text style={styles.signInLink}>Sign In</Text>
+              </Text>
+            </Pressable>
+          </View>
+        )}
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const CARD_WIDTH = width - 40;
-
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
-    backgroundColor: C.bg,
+    backgroundColor: C.white,
   },
-  
-  // Fake Background Decors
-  bgDecorTopLeft: {
+
+  // Abstract Background Decor
+  blobTopRight: {
     position: "absolute",
     top: -50,
-    left: -50,
+    right: -50,
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+    backgroundColor: C.lightGreen,
+    opacity: 0.7,
+  },
+  blobBottomLeft: {
+    position: "absolute",
+    bottom: 50,
+    left: -80,
     width: 200,
     height: 200,
-    backgroundColor: "#E2F2D9",
     borderRadius: 100,
-    opacity: 0.5,
+    backgroundColor: C.lightGreen,
+    opacity: 0.7,
   },
-  bgDecorBottomRight: {
+  blobMiddleRight: {
     position: "absolute",
-    bottom: -100,
-    right: -50,
-    width: 300,
-    height: 300,
-    backgroundColor: "#E2F2D9",
-    borderRadius: 150,
-    opacity: 0.6,
+    top: "40%",
+    right: -100,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: C.lightGreen,
+    opacity: 0.5,
   },
 
   // Header
   header: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    marginBottom: 20,
+    alignItems: "center",
+    paddingHorizontal: 30,
     zIndex: 10,
   },
-  wordmark: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  wordmarkLogo: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-  },
-  wordmarkText: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: C.primary,
-    letterSpacing: -0.5,
-  },
-  skipBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 16,
-    backgroundColor: "rgba(0,0,0,0.05)",
-    borderRadius: 20,
-  },
-  skipText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: C.textLight,
-  },
-
-  // Slide
-  slide: {
-    alignItems: "center",
-  },
-
-  // Illustration Shared
-  illustrationContainer: {
-    width: CARD_WIDTH,
-    alignItems: "center",
-    justifyContent: "center",
-    marginHorizontal: 20,
-    marginBottom: 30,
-  },
-  illustrationCard: {
-    width: "100%",
-    backgroundColor: C.cardBg,
-    borderRadius: 32,
-    padding: 16,
-    // iOS shadow
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.05,
-    shadowRadius: 20,
-    // Android
-    elevation: 3,
-  },
-  illustrationCardLegacy: {
-    width: "100%",
-    borderRadius: 28,
-    backgroundColor: "#fff",
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 4,
-  },
-
-  // Ecosystem grid
-  gridWrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-    justifyContent: "space-between",
-  },
-  gridItem: {
-    width: "48%",
-    backgroundColor: C.itemBg,
-    paddingVertical: 16,
-    paddingHorizontal: 10,
-    borderRadius: 24,
-    alignItems: "center",
-  },
-  iconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  gridTitle: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: C.textDark,
-    marginBottom: 4,
-    textAlign: "center",
-  },
-  gridDesc: {
-    fontSize: 10,
-    color: C.textLight,
-    textAlign: "center",
-    lineHeight: 14,
-  },
-
-  // Credits Legacy
-  creditsBig: {
-    borderRadius: 20,
-    borderWidth: 1.5,
-    padding: 16,
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  creditsCount: {
-    fontSize: 40,
-    fontWeight: "900",
-    color: C.textDark,
-    marginTop: 2,
-  },
-  creditsLabel: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: C.textMid,
-    marginTop: 2,
-  },
-  creditsValue: {
-    fontSize: 11,
-    color: C.textLight,
-    marginTop: 2,
-  },
-  creditsRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  creditsMini: {
-    flex: 1,
-    backgroundColor: "#FFF3DC",
-    borderRadius: 14,
-    padding: 12,
-    alignItems: "center",
-  },
-  creditsMiniVal: {
-    fontSize: 16,
+  logoText: {
+    fontSize: 18,
     fontWeight: "800",
     color: C.textDark,
   },
-  creditsMiniLabel: {
-    fontSize: 9,
-    color: C.textLight,
-    marginTop: 2,
-    fontWeight: "600",
-  },
-
-  // Community Legacy
-  communityStreak: {
+  topDots: {
     flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 16,
-    padding: 14,
-    gap: 12,
-    marginBottom: 14,
+    gap: 6,
   },
-  communityStreakTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: C.textDark,
-  },
-  communityStreakBadge: {
-    fontSize: 22,
-  },
-  streakDot: {
-    width: 22,
+  topDot: {
+    width: 8,
     height: 8,
     borderRadius: 4,
   },
-  communityAvatarRow: {
-    flexDirection: "row",
-    gap: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 8,
-  },
-  communityAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#EDE9FE",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  communityAvatarLabel: {
-    fontSize: 11,
-    color: C.textLight,
-    textAlign: "center",
-    fontWeight: "600",
-  },
 
-  // Goals Legacy
-  goalsMilestone: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: 16,
-    backgroundColor: C.greenBg,
-    borderRadius: 16,
-    padding: 14,
+  // Slide Layout
+  slide: {
+    flex: 1,
   },
-  goalsMilestoneLabel: {
-    fontSize: 10,
-    color: C.textLight,
-    fontWeight: "600",
-  },
-  goalsMilestoneValue: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: C.textDark,
-  },
-  goalsMilestoneBadge: {
-    marginLeft: "auto",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-  },
-  goalsChart: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    justifyContent: "space-around",
-    height: 100,
-  },
-  goalsBar: {
-    alignItems: "center",
-    gap: 4,
-  },
-  goalsBarFill: {
-    width: 28,
-    borderRadius: 8,
-  },
-  goalsBarLabel: {
-    fontSize: 9,
-    color: C.textLight,
-    fontWeight: "600",
-  },
-
-  // Text block
   textBlock: {
     paddingHorizontal: 30,
-    alignItems: "center",
+    paddingTop: 40,
+    zIndex: 10,
   },
   headline: {
-    fontSize: 34,
+    fontSize: 38,
     fontWeight: "900",
     color: C.textDark,
-    textAlign: "center",
-    lineHeight: 40,
+    lineHeight: 44,
     letterSpacing: -1,
-  },
-  subheadline: {
-    color: C.primary,
   },
   body: {
     fontSize: 15,
-    lineHeight: 22,
-    color: C.textLight,
-    textAlign: "center",
-    marginTop: 16,
     fontWeight: "500",
-    paddingHorizontal: 10,
+    color: C.textMid,
+    lineHeight: 24,
+    marginTop: 20,
+    paddingRight: 40,
   },
 
-  // Footer
-  footer: {
-    paddingHorizontal: 24,
-    paddingBottom: 20,
-    paddingTop: 10,
+  illustrationWrap: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+    marginTop: 20,
+  },
+  illContainer: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  // --- Illustration 1: Fitness ---
+  fitnessCard: {
+    backgroundColor: C.white,
+    padding: 20,
+    borderRadius: 20,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 15,
+    elevation: 5,
+    width: 140,
+  },
+  gymPin: {
+    backgroundColor: C.primary,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+    marginTop: -40, // pop out top
+  },
+  fitnessCardText: {
+    fontSize: 22,
+    fontWeight: "900",
+    color: C.textDark,
+    letterSpacing: 1,
+  },
+  personWrap: {
+    marginTop: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    zIndex: 10,
+  },
+  bagTag: {
+    marginLeft: -10,
+    marginTop: 30,
     alignItems: "center",
   },
-  dots: {
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: 24,
+  bagLogo: {
+    position: "absolute",
+    bottom: 5,
+    backgroundColor: C.primary,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  dot: {
+
+  // --- Illustration 2: Money ---
+  moneyTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: "100%",
+    paddingHorizontal: 10,
+    marginBottom: 40,
+  },
+  calendarCard: {
+    backgroundColor: C.white,
+    borderRadius: 16,
+    width: 110,
+    height: 120,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 4,
+    overflow: "hidden",
+  },
+  calendarHeader: {
+    height: 30,
+    backgroundColor: C.primary,
+  },
+  calendarGrid: {
+    flex: 1,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    padding: 10,
+    gap: 6,
+    justifyContent: "center",
+    alignContent: "center",
+  },
+  calSquare: {
+    width: 20,
+    height: 20,
+    backgroundColor: "#F3F4F6",
+    borderRadius: 4,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  calSquareActive: {
+    backgroundColor: C.primary,
+  },
+  arrowWrap: {
+    borderWidth: 2,
+    borderStyle: "dashed",
+    borderColor: C.lightGreen2,
+    padding: 10,
+    borderRadius: 30,
+  },
+  walletCard: {
+    backgroundColor: C.primary,
+    borderRadius: 16,
+    width: 120,
+    height: 90,
+    shadowColor: C.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 4,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  walletFlap: {
+    position: "absolute",
+    top: 0,
+    width: "100%",
+    height: 30,
+    backgroundColor: "#297A4A",
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  zCoin: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#FBBF24",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "absolute",
+    top: -20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  zCoinText: {
+    fontSize: 22,
+    fontWeight: "900",
+    color: "#B45309",
+  },
+  walletText: {
+    color: C.white,
+    fontWeight: "700",
+    fontSize: 12,
+    marginTop: 20,
+  },
+  pillsRow: {
+    flexDirection: "row",
+    gap: 12,
+    width: "100%",
+    justifyContent: "center",
+  },
+  pill: {
+    backgroundColor: C.white,
+    borderRadius: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+    width: 90,
+  },
+  pillIcon: {
+    fontSize: 24,
+    marginBottom: 6,
+  },
+  pillText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: C.textDark,
+    textAlign: "center",
+  },
+
+  // --- Illustration 3: Anywhere ---
+  phoneFrame: {
+    width: 220,
+    height: 360,
+    backgroundColor: "#F9FAFB",
+    borderRadius: 36,
+    borderWidth: 6,
+    borderColor: "#E5E7EB",
+    position: "relative",
+    overflow: "hidden",
+  },
+  phoneNotch: {
+    position: "absolute",
+    top: 0,
+    alignSelf: "center",
+    width: 80,
+    height: 20,
+    backgroundColor: "#E5E7EB",
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+    zIndex: 10,
+  },
+  phonePin: {
+    position: "absolute",
+    backgroundColor: C.primary,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: C.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  gymList: {
+    position: "absolute",
+    right: -10,
+    top: 100,
+    gap: 12,
+  },
+  phoneGymCard: {
+    flexDirection: "row",
+    backgroundColor: C.white,
+    borderRadius: 12,
+    padding: 8,
+    width: 140,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  phoneGymImg: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: C.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  phoneGymInfo: {
+    flex: 1,
+  },
+  phoneGymName: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: C.textDark,
+  },
+  phoneGymDist: {
+    fontSize: 9,
+    color: C.textMid,
+    marginTop: 2,
+  },
+  phoneGymRating: {
+    fontSize: 9,
+    color: "#D97706",
+    fontWeight: "700",
+    marginTop: 2,
+  },
+
+  // --- Illustration 4: Consistency ---
+  consistencyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    width: "100%",
+    justifyContent: "center",
+    marginBottom: 40,
+    paddingRight: 20,
+  },
+  flexPerson: {
+    marginRight: -20,
+    zIndex: 10,
+  },
+  circleProgressWrap: {
+    width: 140,
+    height: 140,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  circleTrack: {
+    position: "absolute",
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    borderWidth: 12,
+    borderColor: "#E5E7EB",
+  },
+  circleFill: {
+    position: "absolute",
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    borderWidth: 12,
+    borderColor: C.primary,
+    borderLeftColor: "transparent",
+    borderBottomColor: "transparent",
+    transform: [{ rotate: "-45deg" }],
+  },
+  circleInner: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: C.white,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  trophyIcon: {
+    backgroundColor: C.primary,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
+  circleText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: C.textDark,
+    textAlign: "center",
+  },
+  rewardsList: {
+    width: "100%",
+    gap: 12,
+    alignItems: "center",
+  },
+  rewardPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: C.white,
+    padding: 10,
+    borderRadius: 30,
+    width: "70%",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  rewardIconBg: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  rewardText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: C.textDark,
+  },
+
+  // Footer / Pagination
+  footerContainer: {
+    width: "100%",
+    alignItems: "center",
+  },
+  pagination: {
+    flexDirection: "row",
+    gap: 6,
+  },
+  pageDot: {
+    width: 6,
     height: 6,
     borderRadius: 3,
+    backgroundColor: C.dotsGrey,
   },
-  dotActive: {
+  pageDotActive: {
     width: 24,
     backgroundColor: C.primary,
   },
-  dotInactive: {
-    width: 6,
-    backgroundColor: "#D1D5DB",
+
+  // Bottom Bar (Slides 1, 2, 3)
+  bottomBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+    backgroundColor: C.primary,
+    paddingHorizontal: 30,
   },
-  ctaButton: {
+  bottomBtnLeft: {
+    paddingVertical: 20,
+    paddingRight: 40,
+  },
+  bottomBtnRight: {
+    paddingVertical: 20,
+    paddingLeft: 40,
+  },
+  bottomBtnText: {
+    color: C.white,
+    fontSize: 14,
+    fontWeight: "800",
+    letterSpacing: 1,
+  },
+
+  // Last Page Footer (Slide 4)
+  lastPageFooter: {
+    width: "100%",
+    alignItems: "center",
+    paddingHorizontal: 30,
+  },
+  getStartedBtn: {
     width: "100%",
     height: 56,
     backgroundColor: C.primary,
     borderRadius: 28,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 16,
+    marginBottom: 20,
     shadowColor: C.primary,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
-    elevation: 6,
+    elevation: 5,
   },
-  ctaText: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#fff",
+  getStartedText: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: C.white,
+    letterSpacing: 0.5,
   },
-  loginLink: {
+  signInBtn: {
     paddingVertical: 8,
   },
-  loginLinkText: {
+  signInText: {
     fontSize: 14,
-    color: C.textLight,
+    color: C.textMid,
     fontWeight: "500",
   },
-  loginLinkBold: {
-    fontWeight: "700",
+  signInLink: {
     color: C.primary,
+    fontWeight: "700",
   },
 });

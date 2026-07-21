@@ -168,7 +168,7 @@ export default function CreditsScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={["top"]}>
       {/* Header */}
-      <Animated.View entering={FadeInDown.delay(100).springify()} className="px-5 pt-3 pb-2 flex-row justify-between items-center">
+      <View className="px-5 pt-3 pb-2 flex-row justify-between items-center">
         <Text className="text-2xl font-bold" style={{ color: colors.text }}>Credits & Wallet</Text>
         <View className="flex-row items-center gap-x-3">
           <Pressable 
@@ -186,11 +186,11 @@ export default function CreditsScreen() {
             <Ionicons name="help-circle-outline" size={20} color={colors.text} />
           </Pressable>
         </View>
-      </Animated.View>
+      </View>
 
       <ScrollView showsVerticalScrollIndicator={false} bounces={true} overScrollMode="never" contentContainerStyle={{ paddingBottom: 100 }}>
         {/* Section 1: Credit Overview Card */}
-        <Animated.View entering={FadeInDown.delay(200).springify()} className="px-5 mt-4">
+        <View className="px-5 mt-4">
           <Animated3DCard scaleDown={0.97}>
             <View 
               className="rounded-[28px] overflow-hidden p-6 relative"
@@ -220,10 +220,10 @@ export default function CreditsScreen() {
               </View>
             </View>
           </Animated3DCard>
-        </Animated.View>
+        </View>
 
         {/* Section 1.5: Converted Cash Overview Card */}
-        <Animated.View entering={FadeInDown.delay(300).springify()} className="px-5 mt-4">
+        <View className="px-5 mt-4">
           <Animated3DCard scaleDown={0.98}>
             <View className="rounded-[28px] overflow-hidden border p-6" style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}>
               <View className="flex-row justify-between items-center mb-4">
@@ -248,10 +248,10 @@ export default function CreditsScreen() {
               </Pressable>
             </View>
           </Animated3DCard>
-        </Animated.View>
+        </View>
 
         {/* Section 2: Quick Actions Grid */}
-        <Animated.View entering={FadeInDown.delay(400).springify()}>
+        <View>
           <Text className="text-xs font-bold uppercase tracking-wider mt-6 mb-3 ml-6" style={{ color: colors.muted }}>Quick Actions</Text>
           <View className="px-5 flex-row gap-x-4">
             {/* Action 1: Buy Credits */}
@@ -296,10 +296,10 @@ export default function CreditsScreen() {
               </View>
             </Animated3DCard>
           </View>
-        </Animated.View>
+        </View>
 
         {/* Section 2.5: Shop By Category */}
-        <Animated.View entering={FadeInDown.delay(500).springify()}>
+        <View>
           <View className="flex-row justify-between items-end mt-8 mb-3 px-6">
             <Text className="text-xs font-bold uppercase tracking-wider" style={{ color: colors.muted }}>Shop By Category</Text>
             <Pressable onPress={() => router.push("/marketplace" as any)} className="active:opacity-70">
@@ -375,10 +375,10 @@ export default function CreditsScreen() {
               </View>
             </Animated3DCard>
           </View>
-        </Animated.View>
+        </View>
 
         {/* Section 3: Recent Activity Ledger */}
-        <Animated.View entering={FadeInDown.delay(600).springify()}>
+        <View>
           <View className="flex-row justify-between items-end mt-6 mb-3 px-6">
             <Text className="text-xs font-bold uppercase tracking-wider" style={{ color: colors.muted }}>Recent Activity</Text>
             <Pressable onPress={() => router.push("/transactions" as any)} className="active:opacity-70">
@@ -396,7 +396,7 @@ export default function CreditsScreen() {
               ))
             )}
           </View>
-        </Animated.View>
+        </View>
       </ScrollView>
 
       {/* MODAL: Convert Credits/Cash */}

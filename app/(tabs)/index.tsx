@@ -116,7 +116,7 @@ export default function HomeScreen() {
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120, paddingTop: 12 }}
       >
         {/* Header Section */}
-        <Animated.View entering={FadeInDown.delay(100).springify()} className="flex-row justify-between items-center mb-6">
+        <View className="flex-row justify-between items-center mb-6">
           <View>
             <Text className="text-xs font-semibold uppercase tracking-wider" style={{ color: colors.muted }}>Welcome back</Text>
             <Text className="text-2xl font-bold mt-0.5" style={{ color: colors.text }}>{user?.username || "ZonoFit Member"}</Text>
@@ -152,10 +152,10 @@ export default function HomeScreen() {
               )}
             </Pressable>
           </View>
-        </Animated.View>
+        </View>
 
         {/* Section 1: Hero Access Card */}
-        <Animated.View entering={FadeInDown.delay(200).springify()}>
+        <View>
           <Animated3DCard scaleDown={0.97}>
             <View 
               className="rounded-[32px] p-6 mb-6 overflow-hidden relative"
@@ -203,10 +203,10 @@ export default function HomeScreen() {
               </View>
             </View>
           </Animated3DCard>
-        </Animated.View>
+        </View>
 
         {/* Section 2: Today's Booking Section (Blackish Container) */}
-        <Animated.View entering={FadeInDown.delay(300).springify()}>
+        <View>
           <Text className="text-xs font-bold uppercase tracking-wider mb-2.5 ml-1" style={{ color: colors.muted }}>Today's Workout</Text>
           
           {bookingStatus === "Not Booked" && (
@@ -303,10 +303,10 @@ export default function HomeScreen() {
               </View>
             </Animated3DCard>
           )}
-        </Animated.View>
+        </View>
 
         {/* Section 3: Fitness Journey (White Container) */}
-        <Animated.View entering={FadeInDown.delay(400).springify()}>
+        <View>
           <Animated3DCard scaleDown={0.98}>
             <View className="rounded-[28px] p-5 border mb-6" style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}>
               <View className="flex-row justify-between items-center mb-4">
@@ -342,10 +342,10 @@ export default function HomeScreen() {
               </Pressable>
             </View>
           </Animated3DCard>
-        </Animated.View>
+        </View>
 
         {/* Challenges Entry (Blackish Container) */}
-        <Animated.View entering={FadeInDown.delay(500).springify()}>
+        <View>
           <Animated3DCard scaleDown={0.98} onPress={() => router.push("/challenges" as any)}>
             <View 
               className="rounded-[32px] p-6 mb-6 overflow-hidden relative border"
@@ -366,10 +366,10 @@ export default function HomeScreen() {
               </View>
             </View>
           </Animated3DCard>
-        </Animated.View>
+        </View>
 
         {/* Find Trainer / Buddy Section (White Container) */}
-        <Animated.View entering={FadeInDown.delay(600).springify()}>
+        <View>
           <Animated3DCard scaleDown={0.98} onPress={() => router.push("/tools/find-trainer" as any)}>
             <View 
               className="rounded-[32px] p-6 mb-6 overflow-hidden relative border"
@@ -393,10 +393,10 @@ export default function HomeScreen() {
               </View>
             </View>
           </Animated3DCard>
-        </Animated.View>
+        </View>
 
         {/* Section 4: Momentum Bento Grid (White Containers) */}
-        <Animated.View entering={FadeInDown.delay(700).springify()}>
+        <View>
           <Text className="text-xs font-bold uppercase tracking-wider mb-2.5 ml-1" style={{ color: colors.muted }}>Momentum</Text>
           <View className="flex-row gap-x-4 mb-6">
             <Animated3DCard style={{ flex: 1 }} scaleDown={0.9}>
@@ -423,10 +423,10 @@ export default function HomeScreen() {
               </View>
             </Animated3DCard>
           </View>
-        </Animated.View>
+        </View>
 
         {/* Section 6: Fitness Tools Bento Grid (Blackish Containers) */}
-        <Animated.View entering={FadeInDown.delay(800).springify()}>
+        <View>
           <Text className="text-xs font-bold uppercase tracking-wider mb-2.5 ml-1" style={{ color: colors.muted }}>Fitness Tools</Text>
           <View className="flex-wrap flex-row justify-between gap-y-4 mb-6">
             <Animated3DCard scaleDown={0.95} style={{ width: '47%' }} onPress={() => router.push("/tools/ai-trainer" as any)}>
@@ -461,10 +461,10 @@ export default function HomeScreen() {
               </View>
             </Animated3DCard>
           </View>
-        </Animated.View>
+        </View>
 
         {/* Section 7: Motivation Quote (White Container) */}
-        <Animated.View entering={FadeInDown.delay(900).springify()}>
+        <View>
           <Animated3DCard scaleDown={0.95} onPress={rotateQuote}>
             <View 
               className="rounded-[24px] p-4 border items-center flex-row justify-between"
@@ -479,7 +479,7 @@ export default function HomeScreen() {
               <Ionicons name="refresh" size={16} color={colors.muted} />
             </View>
           </Animated3DCard>
-        </Animated.View>
+        </View>
       </ScrollView>
 
       {/* Notifications Modal */}
