@@ -352,7 +352,7 @@ export default function ExploreScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={["top"]}>
       {/* Sticky Search & Discovery Header */}
-      <Animated.View entering={FadeInDown.delay(100).springify()} className="px-5 pt-3 pb-4 border-b z-10" style={{ backgroundColor: colors.bg, borderBottomColor: colors.secondary }}>
+      <View className="px-5 pt-3 pb-4 border-b z-10" style={{ backgroundColor: colors.bg, borderBottomColor: colors.secondary }}>
         <View className="flex-row justify-between items-center mb-3">
           <View>
             <Text className="text-2xl font-bold" style={{ color: colors.text }}>Discover Venues</Text>
@@ -374,7 +374,7 @@ export default function ExploreScreen() {
             style={{ color: colors.text }}
           />
         </View>
-      </Animated.View>
+      </View>
 
       <ScrollView showsVerticalScrollIndicator={false} bounces={true} overScrollMode="never" contentContainerStyle={{ paddingBottom: 120 }}>
         {/* Quick Filter Tags (Horizontal List) */}
@@ -465,7 +465,7 @@ export default function ExploreScreen() {
                     </View>
                   </View>
                 </Animated3DCard>
-              </Animated.View>
+              </View>
             ))}
           </View>
 
@@ -474,7 +474,7 @@ export default function ExploreScreen() {
           <View className="space-y-6 mt-2">
             {/* Vote for New Gyms! */}
             {trialGyms.length > 0 && (
-              <Animated.View entering={FadeInDown.delay(300).springify()}>
+              <View>
                 <View className="px-5 mb-3 flex-row justify-between items-center">
                   <View>
                     <Text className="text-base font-bold" style={{ color: colors.text }}>Vote for Trial Gyms! 🔥</Text>
@@ -495,11 +495,11 @@ export default function ExploreScreen() {
                   keyExtractor={(item) => item.id}
                   contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 10 }}
                 />
-              </Animated.View>
+              </View>
             )}
 
             {/* Closest To You */}
-            <Animated.View entering={FadeInDown.delay(400).springify()}>
+            <View>
               <Text className="text-base font-bold px-5 mb-3" style={{ color: colors.text }}>Closest To You</Text>
               <FlatList
                 horizontal
@@ -515,10 +515,10 @@ export default function ExploreScreen() {
                 keyExtractor={(item) => item.id}
                 contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 10 }}
               />
-            </Animated.View>
+            </View>
 
             {/* Best Value */}
-            <Animated.View entering={FadeInDown.delay(500).springify()}>
+            <View>
               <Text className="text-base font-bold px-5 mb-3" style={{ color: colors.text }}>Best Value (Save Credits)</Text>
               <FlatList
                 horizontal
@@ -534,10 +534,10 @@ export default function ExploreScreen() {
                 keyExtractor={(item) => item.id}
                 contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 10 }}
               />
-            </Animated.View>
+            </View>
 
             {/* Premium Facilities */}
-            <Animated.View entering={FadeInDown.delay(600).springify()}>
+            <View>
               <Text className="text-base font-bold px-5 mb-3" style={{ color: colors.text }}>Premium Facilities</Text>
               <FlatList
                 horizontal
@@ -553,10 +553,10 @@ export default function ExploreScreen() {
                 keyExtractor={(item) => item.id}
                 contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 10 }}
               />
-            </Animated.View>
+            </View>
 
             {/* Beginner Friendly */}
-            <Animated.View entering={FadeInDown.delay(700).springify()}>
+            <View>
               <Text className="text-base font-bold px-5 mb-3" style={{ color: colors.text }}>Beginner Friendly</Text>
               <FlatList
                 horizontal
@@ -572,11 +572,11 @@ export default function ExploreScreen() {
                 keyExtractor={(item) => item.id}
                 contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 10 }}
               />
-            </Animated.View>
+            </View>
 
             {/* Near Your Primary Gym (Expansion / Upgrade Discovery) */}
             {nearPrimaryGyms.length > 0 && (
-              <Animated.View entering={FadeInDown.delay(800).springify()}>
+              <View>
                 <Text className="text-base font-bold px-5 mb-1" style={{ color: colors.text }}>Near Your Primary Gym</Text>
                 <Text className="text-xs px-5 mb-3" style={{ color: colors.muted }}>Unlock alternative access by upgrading your membership tier.</Text>
                 <FlatList
@@ -593,11 +593,11 @@ export default function ExploreScreen() {
                   keyExtractor={(item) => item.id}
                   contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 10 }}
                 />
-              </Animated.View>
+              </View>
             )}
 
             {/* All Available Gyms List */}
-            <Animated.View entering={FadeInDown.delay(900).springify()} className="px-5">
+            <View className="px-5">
               <Text className="text-base font-bold mb-3" style={{ color: colors.text }}>All Partner Venues</Text>
               {gyms.map((gym, index) => (
                 <Animated3DCard 
@@ -662,7 +662,7 @@ export default function ExploreScreen() {
                   </View>
                 </Animated3DCard>
               ))}
-            </Animated.View>
+            </View>
           </View>
         )}
       </ScrollView>
