@@ -413,7 +413,7 @@ export default function ExploreScreen() {
               Found {getFilteredGyms().length} results
             </Text>
             {getFilteredGyms().map((gym, index) => (
-              <Animated.View key={gym.id} entering={FadeInDown.delay(100 + index * 50).springify()}>
+              <View key={gym.id}>
                 <Animated3DCard onPress={() => router.push(`/gym/${gym.id}` as any)} className="mb-4">
                   <View 
                     className="rounded-3xl overflow-hidden border shadow-sm"
