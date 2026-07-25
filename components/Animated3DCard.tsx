@@ -40,12 +40,15 @@ export function Animated3DCard({ children, style, onPress, scaleDown = 0.95, cla
     const rotateX = withSpring(isPressed.value ? interpolate(y.value, [0, 1], [maxRotate, -maxRotate], Extrapolation.CLAMP) : 0, { mass: 0.5, damping: 12 });
     const rotateY = withSpring(isPressed.value ? interpolate(x.value, [0, 1], [-maxRotate, maxRotate], Extrapolation.CLAMP) : 0, { mass: 0.5, damping: 12 });
 
+    const safeRotateX = Number.isFinite(rotateX) ? rotateX : 0;
+    const safeRotateY = Number.isFinite(rotateY) ? rotateY : 0;
+
     return {
       transform: [
         { perspective: 800 },
         { scale },
-        { rotateX: `${rotateX}deg` },
-        { rotateY: `${rotateY}deg` }
+        { rotateX: `${safeRotateX}deg` },
+        { rotateY: `${safeRotateY}deg` }
       ]
     };
   });
