@@ -96,7 +96,7 @@ export default function HomeScreen() {
               </View>
               <Text className="text-white text-sm font-medium">Available Credits ₹{credits || "1,240"}</Text>
             </View>
-            <Pressable>
+            <Pressable onPress={() => router.push("/credits")}>
               <Text className="text-white/90 text-xs underline font-medium tracking-wide">View Wallet</Text>
             </Pressable>
           </View>
@@ -167,25 +167,36 @@ export default function HomeScreen() {
         </View>
 
         {/* Refer & Earn Card */}
-        <View className="bg-[#E8F5E9] rounded-[32px] p-6 mb-8 flex-row justify-between overflow-hidden relative">
-          <View className="flex-1 z-10 py-1">
-            <Text className="text-[#1F7A3E] text-[10px] font-bold tracking-[1px] uppercase mb-2">REFER & EARN</Text>
-            <Text className="text-black font-semibold text-[13px] mb-0.5">Invite friends and earn</Text>
-            <Text className="text-black text-3xl font-black mb-0.5">₹500</Text>
-            <Text className="text-gray-500 text-[11px] mb-4">for every successful join!</Text>
+        <View className="bg-[#EDF7EC] rounded-[24px] p-6 mb-8 flex-row justify-between overflow-hidden relative border border-black/5" style={styles.cardShadow}>
+          {/* Top Right Share Button */}
+          <Pressable 
+            onPress={() => router.push("/invite" as any)}
+            className="absolute top-4 right-4 w-9 h-9 bg-white rounded-xl items-center justify-center shadow-sm z-20 active:bg-gray-100 border border-black/5"
+          >
+            <Ionicons name="share-social-outline" size={18} color="#1F7A3E" />
+          </Pressable>
 
-            <Pressable className="bg-[#1F7A3E] self-start px-5 py-2.5 rounded-full flex-row items-center active:opacity-90">
-              <Text className="text-white font-bold text-xs tracking-wide mr-1.5">Invite Now</Text>
-              <Ionicons name="arrow-forward" size={14} color="white" />
+          <View className="w-[55%] z-10 py-1">
+            <Text className="text-[#1F7A3E] text-[18px] font-bold mb-1">Refer & Earn</Text>
+            <Text className="text-[#1F2520] text-[13px] font-medium mb-1">Invite friends and earn</Text>
+            <Text className="text-[#1F7A3E] text-3xl font-black tracking-tight mb-1">₹500</Text>
+            <Text className="text-[#1F2520] text-xs mb-4">for every successful join!</Text>
+
+            <Pressable 
+              onPress={() => router.push("/invite" as any)}
+              className="bg-[#1F7A3E] self-start px-5 py-3 rounded-xl flex-row items-center active:opacity-90 shadow-sm"
+            >
+              <Text className="text-white font-bold text-xs tracking-wide mr-2">Invite Now</Text>
+              <Ionicons name="chevron-forward" size={14} color="white" />
             </Pressable>
           </View>
 
-          {/* Decorative Person Image */}
-          <View className="absolute -right-3 -bottom-3 w-[120px] h-[120px] rounded-full overflow-hidden border-[6px] border-[#E8F5E9]">
+          {/* Extracted Animated Characters Illustration */}
+          <View className="absolute right-1 bottom-0 w-[185px] h-[160px] justify-end items-end pointer-events-none z-10">
             <Image 
-              source={{uri: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80"}} 
-              className="w-full h-full" 
-              resizeMode="cover" 
+              source={require("../../assets/images/refer-characters.png")} 
+              style={{ width: "100%", height: "100%" }} 
+              resizeMode="contain" 
             />
           </View>
         </View>
@@ -196,21 +207,34 @@ export default function HomeScreen() {
 
           <View className="flex-row gap-x-3 mb-6">
             {/* Workout Buddy Card */}
-            <Pressable className="flex-1 bg-[#F4F0FF] rounded-[24px] p-5 active:opacity-90">
-              <View className="w-10 h-10 rounded-full bg-white items-center justify-center mb-3 shadow-sm" style={styles.iconShadow}>
-                <Ionicons name="people-outline" size={18} color="#8B5CF6" />
+            <Pressable 
+              onPress={() => router.push("/tools/workout-buddy" as any)}
+              className="flex-1 bg-[#F4F0FF] rounded-[24px] p-5 active:opacity-90 flex-col justify-between"
+            >
+              <View>
+                <View className="w-10 h-10 rounded-full bg-white items-center justify-center mb-3 shadow-sm" style={styles.iconShadow}>
+                  <Ionicons name="people-outline" size={18} color="#8B5CF6" />
+                </View>
+                <Text className="text-black font-bold text-[13px] mb-1.5">Find Workout Buddy</Text>
+                <Text className="text-gray-500 text-[10px] leading-relaxed pr-2 mb-3">Find someone to stay motivated together</Text>
               </View>
-              <Text className="text-black font-bold text-[13px] mb-1.5">Find Workout Buddy</Text>
-              <Text className="text-gray-500 text-[10px] leading-relaxed pr-2">Find someone to stay motivated together</Text>
+              <View className="bg-white self-start px-3 py-1 rounded-full shadow-sm border border-gray-100">
+                <Text className="text-gray-400 text-[9px] font-bold tracking-wide">Coming Soon</Text>
+              </View>
             </Pressable>
 
             {/* Personal Trainer Card */}
-            <Pressable className="flex-1 bg-[#FFF4ED] rounded-[24px] p-5 active:opacity-90">
-              <View className="w-10 h-10 rounded-full bg-white items-center justify-center mb-3 shadow-sm" style={styles.iconShadow}>
-                <Ionicons name="person-outline" size={18} color="#F97316" />
+            <Pressable 
+              onPress={() => router.push("/tools/find-trainer" as any)}
+              className="flex-1 bg-[#FFF4ED] rounded-[24px] p-5 active:opacity-90 flex-col justify-between"
+            >
+              <View>
+                <View className="w-10 h-10 rounded-full bg-white items-center justify-center mb-3 shadow-sm" style={styles.iconShadow}>
+                  <Ionicons name="person-outline" size={18} color="#F97316" />
+                </View>
+                <Text className="text-black font-bold text-[13px] mb-1.5">Find Personal Trainer</Text>
+                <Text className="text-gray-500 text-[10px] leading-relaxed pr-2 mb-3">Connect with certified trainers near you</Text>
               </View>
-              <Text className="text-black font-bold text-[13px] mb-1.5">Find Personal Trainer</Text>
-              <Text className="text-gray-500 text-[10px] leading-relaxed pr-2 mb-3">Connect with certified trainers near you</Text>
               <View className="bg-white self-start px-3 py-1 rounded-full shadow-sm border border-gray-100">
                 <Text className="text-gray-400 text-[9px] font-bold tracking-wide">Coming Soon</Text>
               </View>
