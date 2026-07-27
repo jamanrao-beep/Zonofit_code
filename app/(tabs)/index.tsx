@@ -35,7 +35,10 @@ export default function HomeScreen() {
             <Text className="text-[28px] font-bold mt-0.5 text-black tracking-tight">{user?.username || "Saransh"}</Text>
           </View>
           <View className="flex-row items-center gap-x-3">
-            <Pressable className="w-10 h-10 rounded-full border border-gray-200 items-center justify-center relative bg-white">
+            <Pressable 
+              onPress={() => router.push("/booking-history")}
+              className="w-10 h-10 rounded-full border border-gray-200 items-center justify-center relative bg-white active:bg-gray-100"
+            >
               <Ionicons name="notifications-outline" size={20} color="black" />
               <View className="absolute top-2 right-2.5 w-2 h-2 rounded-full bg-orange-500 border border-white" />
             </Pressable>
@@ -54,7 +57,10 @@ export default function HomeScreen() {
 
         {/* Primary Gym Card */}
         <View className="bg-[#1F7A3E] rounded-[32px] p-6 mb-6">
-          <View className="flex-row justify-between items-start mb-6">
+          <Pressable 
+            onPress={() => router.push("/explore")}
+            className="flex-row justify-between items-start mb-6 active:opacity-80"
+          >
             <View>
               <Text className="text-white/70 text-[10px] font-bold tracking-[1.5px] uppercase mb-1">PRIMARY GYM</Text>
               <View className="flex-row items-center">
@@ -63,7 +69,7 @@ export default function HomeScreen() {
               </View>
             </View>
             <View className="w-12 h-12 rounded-full bg-white shadow-sm" />
-          </View>
+          </Pressable>
 
           <View className="flex-row justify-between items-end mb-2">
             <View>
@@ -111,13 +117,17 @@ export default function HomeScreen() {
         </View>
 
         {/* Your Journey Card */}
-        <View className="bg-white rounded-[32px] p-5 mb-6 border border-gray-100 shadow-sm" style={styles.cardShadow}>
+        <Pressable 
+          onPress={() => router.push("/journey")}
+          className="bg-white rounded-[32px] p-5 mb-6 border border-gray-100 shadow-sm active:opacity-95" 
+          style={styles.cardShadow}
+        >
           <View className="flex-row justify-between items-center mb-5">
             <Text className="text-[17px] font-bold text-black">Your Journey</Text>
-            <Pressable onPress={() => router.push("/journey")} className="flex-row items-center">
+            <View className="flex-row items-center">
               <Text className="text-[#1F7A3E] font-bold text-xs tracking-wide mr-0.5">View Journey</Text>
               <Ionicons name="chevron-forward" size={12} color="#1F7A3E" />
-            </Pressable>
+            </View>
           </View>
 
           <View className="flex-row justify-between items-end mb-3">
@@ -164,7 +174,7 @@ export default function HomeScreen() {
               <Text className="text-lg">🐷</Text>
             </View>
           </View>
-        </View>
+        </Pressable>
 
         {/* Refer & Earn Card */}
         <View className="bg-[#EDF7EC] rounded-[24px] p-6 mb-8 flex-row justify-between overflow-hidden relative border border-black/5" style={styles.cardShadow}>
@@ -240,6 +250,114 @@ export default function HomeScreen() {
               </View>
             </Pressable>
           </View>
+        </View>
+
+        {/* Trophy / Bonus Credits Card */}
+        <Pressable 
+          onPress={() => router.push("/credits")}
+          className="bg-[#EDF7EC] rounded-[24px] p-6 mb-6 flex-row justify-between overflow-hidden relative border border-black/5 active:opacity-95" 
+          style={styles.cardShadow}
+        >
+          <View className="w-[58%] z-10 py-1">
+            <Text className="text-[#0B6E4F] text-sm font-bold mb-2.5">Keep Going! 💚</Text>
+            <Text className="text-[#0B6E4F] text-[18px] font-black leading-snug">Only 2 visits left</Text>
+            <Text className="text-[#0B6E4F] text-[18px] font-black leading-snug">to earn your</Text>
+            <Text className="text-[#0B6E4F] text-[18px] font-black leading-snug">₹200 bonus credits!</Text>
+          </View>
+
+          {/* Extracted 3D Trophy Image */}
+          <View className="absolute right-1 bottom-1 w-[165px] h-[165px] justify-center items-center pointer-events-none z-10">
+            <Image 
+              source={require("../../assets/images/trophy.png")} 
+              style={{ width: "100%", height: "100%" }} 
+              resizeMode="contain" 
+            />
+          </View>
+        </Pressable>
+
+        {/* Motivation Quote Card */}
+        <Pressable 
+          onPress={() => router.push("/challenges")}
+          className="bg-white rounded-[24px] p-5 mb-8 border border-black/5 shadow-sm active:opacity-95" 
+          style={styles.cardShadow}
+        >
+          <View className="flex-row items-center mb-2.5">
+            <View className="w-6 h-6 rounded-full bg-[#EDF7EC] items-center justify-center mr-2">
+              <Text className="text-xs">⚡</Text>
+            </View>
+            <Text className="text-[#0B6E4F] text-[11px] font-bold uppercase tracking-wider">Daily Motivation • Day 24</Text>
+          </View>
+          <Text className="text-[#1F2520] text-[15px] font-bold italic leading-relaxed">
+            "Consistency beats intensity. You've already outperformed the person who stayed home."
+          </Text>
+        </Pressable>
+
+        {/* More Coming Your Way Section */}
+        <View className="mb-10">
+          <View className="flex-row items-center mb-4 ml-1">
+            <Ionicons name="globe-outline" size={18} color="#0B6E4F" />
+            <Text className="text-[#1F2520] text-[16px] font-bold ml-2">More Coming Your Way</Text>
+          </View>
+
+          {/* 4 Locked Feature Grid Cards */}
+          <View className="flex-row gap-x-2.5 mb-5">
+            {/* Nutrition */}
+            <Pressable 
+              onPress={() => router.push("/tools/meal-scan" as any)}
+              className="flex-1 bg-white rounded-2xl py-4 px-1 items-center border border-black/5 shadow-sm relative active:bg-gray-50"
+            >
+              <Ionicons name="lock-closed" size={10} color="#9CA3AF" className="absolute top-2 right-2" />
+              <View className="w-9 h-9 rounded-full bg-gray-50 items-center justify-center mb-1">
+                <Ionicons name="nutrition-outline" size={20} color="#1F2520" />
+              </View>
+              <Text className="text-[11px] font-semibold text-[#1F2520] mt-1 text-center">Nutrition</Text>
+            </Pressable>
+
+            {/* AI Coach */}
+            <Pressable 
+              onPress={() => router.push("/tools/ai-trainer" as any)}
+              className="flex-1 bg-white rounded-2xl py-4 px-1 items-center border border-black/5 shadow-sm relative active:bg-gray-50"
+            >
+              <Ionicons name="lock-closed" size={10} color="#9CA3AF" className="absolute top-2 right-2" />
+              <View className="w-9 h-9 rounded-full bg-gray-50 items-center justify-center mb-1">
+                <Ionicons name="hardware-chip-outline" size={20} color="#1F2520" />
+              </View>
+              <Text className="text-[11px] font-semibold text-[#1F2520] mt-1 text-center">AI Coach</Text>
+            </Pressable>
+
+            {/* Home Workout */}
+            <Pressable 
+              onPress={() => router.push("/tools/plans" as any)}
+              className="flex-1 bg-white rounded-2xl py-4 px-1 items-center border border-black/5 shadow-sm relative active:bg-gray-50"
+            >
+              <Ionicons name="lock-closed" size={10} color="#9CA3AF" className="absolute top-2 right-2" />
+              <View className="w-9 h-9 rounded-full bg-gray-50 items-center justify-center mb-1">
+                <Ionicons name="home-outline" size={20} color="#1F2520" />
+              </View>
+              <Text className="text-[11px] font-semibold text-[#1F2520] mt-1 text-center">Home Workout</Text>
+            </Pressable>
+
+            {/* Community */}
+            <Pressable 
+              onPress={() => router.push("/tools/community" as any)}
+              className="flex-1 bg-white rounded-2xl py-4 px-1 items-center border border-black/5 shadow-sm relative active:bg-gray-50"
+            >
+              <Ionicons name="lock-closed" size={10} color="#9CA3AF" className="absolute top-2 right-2" />
+              <View className="w-9 h-9 rounded-full bg-gray-50 items-center justify-center mb-1">
+                <Ionicons name="people-outline" size={20} color="#1F2520" />
+              </View>
+              <Text className="text-[11px] font-semibold text-[#1F2520] mt-1 text-center">Community</Text>
+            </Pressable>
+          </View>
+
+          {/* See All Upcoming Features Button */}
+          <Pressable 
+            onPress={() => router.push("/tools/ai-trainer" as any)}
+            className="w-full bg-white py-3.5 rounded-2xl flex-row items-center justify-center border border-[#0B6E4F] active:bg-green-50 shadow-sm"
+          >
+            <Text className="text-[#0B6E4F] font-bold text-sm tracking-wide mr-1.5">See All Upcoming Features</Text>
+            <Ionicons name="chevron-forward" size={14} color="#0B6E4F" />
+          </Pressable>
         </View>
 
       </ScrollView>
