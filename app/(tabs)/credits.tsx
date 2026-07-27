@@ -144,257 +144,268 @@ export default function CreditsScreen() {
     }
   };
 
-  const renderTransactionRow = ({ item }: { item: Transaction }) => {
-    const isCredit = item.type === "credit";
-    const isCash = item.currency === "cash";
+  const renderTransactionRow = (item: any) => {
+    const isPositive = item.type === "credit" || item.amount > 0 || (typeof item.amount === 'string' && item.amount.toString().includes('+'));
+    const isCash = item.currency === "cash" || (typeof item.description === 'string' && (item.description.includes("INR") || item.description.includes("₹") || item.description.includes("Court") || item.description.includes("Nutrition")));
     
+    let iconName: any = item.icon || "leaf-outline";
+    if (!item.icon) {
+      const desc = (item.description || "").toLowerCase();
+      if (desc.includes("gym") || desc.includes("visit")) iconName = "barbell-outline";
+      else if (desc.includes("order") || desc.includes("nutrition") || desc.includes("shop") || desc.includes("product")) iconName = "bag-handle-outline";
+      else if (desc.includes("purchase") || desc.includes("buy")) iconName = "add-circle-outline";
+      else if (desc.includes("top up") || desc.includes("inr") || desc.includes("wallet")) iconName = "wallet-outline";
+      else if (desc.includes("court") || desc.includes("badminton") || desc.includes("sports")) iconName = "trophy-outline";
+    }
+
+    const subtitle = item.subtitle || (
+      (item.description || "").includes("Visit") ? "Outside Primary Zone" :
+      (item.description || "").includes("Nutrition") ? "Order #ON12345" :
+      (item.description || "").includes("Purchase") ? "250 CR Package" :
+      (item.description || "").includes("Top Up") ? "Added to INR Wallet" :
+      (item.description || "").includes("Court") ? "Match Booking" :
+      item.date
+    );
+
+    const amountNum = Math.abs(item.amount);
+    const amountStr = isCash ? `₹${amountNum.toLocaleString()}` : `${amountNum} CR`;
+
     return (
-      <View className="flex-row justify-between items-center py-4 border-b" style={{ borderBottomColor: colors.secondary }}>
-        <View className="flex-1 mr-4">
-          <Text className="text-sm font-bold" style={{ color: colors.text }}>{item.description}</Text>
-          <Text className="text-[10px] mt-1" style={{ color: colors.muted }}>{item.date}</Text>
+      <View key={item.id} className="flex-row justify-between items-center py-3.5 border-b border-gray-100 last:border-b-0">
+        <View className="flex-row items-center flex-1 mr-2">
+          <View className="w-11 h-11 rounded-2xl bg-[#E8F5E9] items-center justify-center mr-3.5">
+            <Ionicons name={iconName} size={20} color="#1F7A3E" />
+          </View>
+          <View className="flex-1">
+            <Text className="text-[15px] font-bold text-black" numberOfLines={1}>{item.description}</Text>
+            <Text className="text-xs font-medium text-gray-400 mt-0.5" numberOfLines={1}>{subtitle}</Text>
+          </View>
         </View>
-        <Text 
-          className="text-sm font-extrabold"
-          style={{ color: isCredit ? colors.green : colors.text }}
-        >
-          {isCredit ? "+" : "-"}
-          {isCash ? `₹${item.amount}` : `${item.amount} Credits`}
-        </Text>
+        <View className="items-end">
+          <Text className={`text-[15px] font-bold ${isPositive ? "text-[#1F7A3E]" : "text-black"}`}>
+            {isPositive ? "+" : "-"}{amountStr}
+          </Text>
+          <Text className="text-[11px] font-medium text-gray-400 mt-0.5">{item.date}</Text>
+        </View>
       </View>
     );
   };
 
+  const displayTransactions = transactions && transactions.length > 0 ? transactions : [
+    { id: "tx-1", type: "debit", currency: "credit", amount: 20, description: "Gold's Gym Visit", subtitle: "Outside Primary Zone", date: "Today, 8:30 AM", icon: "barbell-outline" },
+    { id: "tx-2", type: "debit", currency: "cash", amount: 1299, description: "Optimum Nutrition Wh...", subtitle: "Order #ON12345", date: "Yesterday, 5:45 PM", icon: "bag-handle-outline" },
+    { id: "tx-3", type: "credit", currency: "credit", amount: 250, description: "Credit Purchase", subtitle: "250 CR Package", date: "2 Jul, 11:20 AM", icon: "add-circle-outline" },
+    { id: "tx-4", type: "credit", currency: "cash", amount: 1000, description: "INR Top Up", subtitle: "Added to INR Wallet", date: "1 Jul, 9:10 PM", icon: "wallet-outline" },
+    { id: "tx-5", type: "debit", currency: "cash", amount: 600, description: "Badminton Court", subtitle: "Match Booking", date: "1 Jul, 6:30 PM", icon: "trophy-outline" },
+  ];
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB" }} edges={["top"]}>
       {/* Header */}
-      <View className="px-5 pt-3 pb-2 flex-row justify-between items-center">
-        <Text className="text-2xl font-bold" style={{ color: colors.text }}>Credits & Wallet</Text>
-        <View className="flex-row items-center gap-x-3">
+      <View className="flex-row justify-between items-start mb-5 px-5 pt-4">
+        <View>
+          <Text className="text-[28px] font-bold text-black tracking-tight leading-8">Wallet</Text>
+          <Text className="text-gray-400 text-sm font-medium mt-0.5">Manage your credits and INR wallet</Text>
+        </View>
+        <View className="flex-row items-center gap-x-2.5">
           <Pressable 
-            onPress={() => router.push("/marketplace" as any)}
-            className="w-9 h-9 rounded-full items-center justify-center border active:scale-[0.95] transition-transform"
-            style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}
+            onPress={() => router.push("/booking-history" as any)}
+            className="w-10 h-10 rounded-full border border-gray-200 items-center justify-center relative bg-white active:bg-gray-100 shadow-sm"
           >
-            <Ionicons name="cart-outline" size={20} color={colors.text} />
+            <Ionicons name="notifications-outline" size={20} color="black" />
+            <View className="absolute top-2 right-2.5 w-2 h-2 rounded-full bg-orange-500 border border-white" />
           </Pressable>
           <Pressable 
-            onPress={() => setInfoModalVisible(true)}
-            className="w-9 h-9 rounded-full items-center justify-center border active:scale-[0.95] transition-transform"
-            style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}
+            onPress={() => router.push("/profile" as any)}
+            className="w-10 h-10 rounded-full overflow-hidden border border-gray-200 shadow-sm active:opacity-80 bg-gray-100 items-center justify-center"
           >
-            <Ionicons name="help-circle-outline" size={20} color={colors.text} />
+            <Ionicons name="person" size={22} color="#6B7280" />
           </Pressable>
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} bounces={true} overScrollMode="never" contentContainerStyle={{ paddingBottom: 100 }}>
-        {/* Section 1: Credit Overview Card */}
-        <View className="px-5 mt-4">
-          <Animated3DCard scaleDown={0.97}>
-            <View 
-              className="rounded-[28px] overflow-hidden p-6 relative"
-              style={[{ backgroundColor: colors.green }, styles.emeraldGlow]}
-            >
-              <View className="absolute top-[-40px] right-[-40px] w-36 h-36 rounded-full bg-white/5" />
-              
-              <View className="flex-row justify-between items-start">
-                <View>
-                  <Text className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.7)' }}>Fitness Credits</Text>
-                  <Text className="text-5xl font-black text-white mt-1">{credits}</Text>
-                </View>
-                
-                <Pressable 
-                  onPress={handleTopUpPress}
-                  className="px-4 py-2.5 rounded-2xl border active:opacity-80"
-                  style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)' }}
-                >
-                  <Text className="text-white font-bold text-xs">Top Up</Text>
-                </Pressable>
-              </View>
+      <ScrollView showsVerticalScrollIndicator={false} bounces={true} overScrollMode="never" contentContainerStyle={{ paddingBottom: 120 }}>
+        {/* Section 1: FITNESS WALLET Hero Card */}
+        <View className="px-5 mb-6">
+          <View className="bg-[#1F7A3E] rounded-[28px] p-6 relative overflow-hidden border border-black/5" style={styles.cardShadow}>
+            {/* Top row badge */}
+            <View className="flex-row items-center mb-4">
+              <Ionicons name="shield-checkmark-outline" size={14} color="rgba(255, 255, 255, 0.85)" />
+              <Text className="text-white/85 font-bold text-[11px] tracking-[1.5px] uppercase ml-1.5">FITNESS WALLET</Text>
+            </View>
 
-              <View className="mt-5">
-                <Text className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                  ≈ ₹{credits * 10} Fitness Value · {membershipStatus}
-                </Text>
+            {/* Split values row */}
+            <View className="flex-row justify-between items-start mb-5">
+              <View>
+                <Text className="text-white/80 font-medium text-[13px] mb-1">Available Credits</Text>
+                <View className="flex-row items-baseline">
+                  <Text className="text-white font-black text-4xl mr-1">{credits}</Text>
+                  <Text className="text-white font-bold text-lg">CR</Text>
+                </View>
+                <View className="flex-row items-center mt-1">
+                  <Ionicons name="information-circle-outline" size={13} color="rgba(255, 255, 255, 0.75)" />
+                  <Text className="text-white/75 text-xs font-medium ml-1">₹{credits * 10} Value</Text>
+                </View>
+              </View>
+              <View className="items-end">
+                <Text className="text-white/80 font-medium text-[13px] mb-1">INR Wallet</Text>
+                <Text className="text-white font-black text-4xl">₹{cashBalance}</Text>
               </View>
             </View>
-          </Animated3DCard>
+
+            {/* Bottom white capsule box */}
+            <View className="bg-white rounded-[16px] h-9 w-full shadow-sm" />
+          </View>
         </View>
 
-        {/* Section 1.5: Converted Cash Overview Card */}
-        <View className="px-5 mt-4">
-          <Animated3DCard scaleDown={0.98}>
-            <View className="rounded-[28px] overflow-hidden border p-6" style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}>
-              <View className="flex-row justify-between items-center mb-4">
-                <View>
-                  <Text className="text-xs font-bold uppercase tracking-wider" style={{ color: colors.muted }}>Converted Cash</Text>
-                  <Text className="text-3xl font-black mt-1" style={{ color: colors.text }}>₹{cashBalance}</Text>
+        {/* Section 2: Quick Actions Row (4 Buttons) */}
+        <View className="px-5 mb-8">
+          <View className="flex-row justify-between gap-x-2.5">
+            {/* Buy Credits */}
+            <Pressable 
+              onPress={handleTopUpPress}
+              className="flex-1 bg-white rounded-[20px] py-4 px-1 items-center border border-black/5 shadow-sm active:bg-gray-50"
+              style={styles.cardShadow}
+            >
+              <View className="w-11 h-11 rounded-2xl bg-[#E8F5E9] items-center justify-center mb-2">
+                <Ionicons name="add-circle-outline" size={24} color="#1F7A3E" />
+              </View>
+              <Text className="text-black font-bold text-xs text-center">Buy Credits</Text>
+            </Pressable>
+
+            {/* Top Up INR */}
+            <Pressable 
+              onPress={() => setCashModalVisible(true)}
+              className="flex-1 bg-white rounded-[20px] py-4 px-1 items-center border border-black/5 shadow-sm active:bg-gray-50"
+              style={styles.cardShadow}
+            >
+              <View className="w-11 h-11 rounded-2xl bg-[#E8F5E9] items-center justify-center mb-2">
+                <Text className="text-[#1F7A3E] font-extrabold text-lg">₹</Text>
+              </View>
+              <Text className="text-black font-bold text-xs text-center">Top Up INR</Text>
+            </Pressable>
+
+            {/* Convert */}
+            <Pressable 
+              onPress={() => setConvertModalVisible(true)}
+              className="flex-1 bg-white rounded-[20px] py-4 px-1 items-center border border-black/5 shadow-sm active:bg-gray-50"
+              style={styles.cardShadow}
+            >
+              <View className="w-11 h-11 rounded-2xl bg-[#E8F5E9] items-center justify-center mb-2">
+                <Ionicons name="swap-horizontal-outline" size={22} color="#1F7A3E" />
+              </View>
+              <Text className="text-black font-bold text-xs text-center">Convert</Text>
+            </Pressable>
+
+            {/* History */}
+            <Pressable 
+              onPress={() => router.push("/booking-history" as any)}
+              className="flex-1 bg-white rounded-[20px] py-4 px-1 items-center border border-black/5 shadow-sm active:bg-gray-50"
+              style={styles.cardShadow}
+            >
+              <View className="w-11 h-11 rounded-2xl bg-[#E8F5E9] items-center justify-center mb-2">
+                <Ionicons name="time-outline" size={22} color="#1F7A3E" />
+              </View>
+              <Text className="text-black font-bold text-xs text-center">History</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Section 3: Two Side-by-Side Cards (Use Credits For & Use INR For) */}
+        {/* Note: Convert Credits -> INR box is intentionally excluded per user instructions */}
+        <View className="px-5 mb-8">
+          <View className="flex-row gap-x-3">
+            {/* Use Credits For */}
+            <View 
+              className="flex-1 bg-[#EDF7EC] rounded-[24px] p-5 border border-[#1F7A3E]/15 flex-col justify-between min-h-[220px]"
+              style={styles.cardShadow}
+            >
+              <View>
+                <Text className="text-black font-bold text-[13px] mb-3">Use Credits For</Text>
+                <View className="w-10 h-10 rounded-2xl bg-[#1F7A3E] items-center justify-center mb-3 shadow-sm">
+                  <Ionicons name="barbell-outline" size={20} color="white" />
                 </View>
-                <Pressable 
-                  onPress={() => setCashModalVisible(true)}
-                  className="px-4 py-2.5 rounded-2xl border active:opacity-80"
-                  style={{ backgroundColor: 'rgba(217, 255, 92, 0.1)', borderColor: 'rgba(217, 255, 92, 0.2)' }}
-                >
-                  <Text className="font-bold text-xs" style={{ color: colors.green }}>Top Up</Text>
-                </Pressable>
+                <Text className="text-[#1F7A3E] font-bold text-[15px] mb-1">Partner Gyms</Text>
+                <Text className="text-gray-600 text-[11px] leading-relaxed mb-4 pr-1">Use at partner gyms outside your primary zone</Text>
               </View>
               <Pressable 
-                onPress={() => setConvertModalVisible(true)}
-                className="w-full py-3 rounded-2xl border active:opacity-80 items-center"
-                style={[{ backgroundColor: colors.surfaceDark, borderColor: colors.secondaryDark }, styles.amberGlowSm]}
+                onPress={() => router.push("/explore" as any)}
+                className="bg-white border border-[#1F7A3E] px-4 py-2 rounded-full self-start shadow-sm active:bg-gray-50"
               >
-                <Text className="font-bold text-xs" style={{ color: colors.amber }}>Convert Balance</Text>
+                <Text className="text-[#1F7A3E] font-bold text-xs">View Gyms</Text>
               </Pressable>
             </View>
-          </Animated3DCard>
-        </View>
 
-        {/* Section 2: Quick Actions Grid */}
-        <View>
-          <Text className="text-xs font-bold uppercase tracking-wider mt-6 mb-3 ml-6" style={{ color: colors.muted }}>Quick Actions</Text>
-          <View className="px-5 flex-row gap-x-4">
-            {/* Action 1: Buy Credits */}
-            <Animated3DCard style={{ flex: 1 }} scaleDown={0.93} onPress={handleTopUpPress}>
-              <View 
-                className="flex-1 rounded-3xl p-5 border items-center"
-                style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}
-              >
-                <View className="w-10 h-10 rounded-full items-center justify-center mb-3" style={{ backgroundColor: 'rgba(11, 110, 79, 0.1)' }}>
-                  <Ionicons name="add" size={20} color={colors.green} />
+            {/* Use INR For */}
+            <View 
+              className="flex-1 bg-[#FFF9F5] rounded-[24px] p-5 border border-[#F59E0B]/20 flex-col justify-between min-h-[220px]"
+              style={styles.cardShadow}
+            >
+              <View>
+                <Text className="text-black font-bold text-[13px] mb-3">Use INR For</Text>
+                <View className="flex-col gap-y-3.5 mb-6 mt-2">
+                  <View className="flex-row items-center">
+                    <Ionicons name="bag-handle" size={20} color="#F59E0B" />
+                    <Text className="text-gray-900 font-bold text-[15px] ml-2.5">Products</Text>
+                  </View>
+                  <View className="flex-row items-center">
+                    <Ionicons name="trophy" size={20} color="#F59E0B" />
+                    <Text className="text-gray-900 font-bold text-[15px] ml-2.5">Sports</Text>
+                  </View>
+                  <View className="flex-row items-center">
+                    <Ionicons name="heart" size={20} color="#F59E0B" />
+                    <Text className="text-gray-900 font-bold text-[15px] ml-2.5">Services</Text>
+                  </View>
                 </View>
-                <Text className="font-bold text-sm" style={{ color: colors.text }}>Buy Credits</Text>
-                <Text className="text-[10px] text-center mt-1" style={{ color: colors.muted }}>Get more gym visits</Text>
               </View>
-            </Animated3DCard>
-
-            {/* Action 2: Convert Credits */}
-            <Animated3DCard style={{ flex: 1 }} scaleDown={0.93} onPress={() => setConvertModalVisible(true)}>
-              <View 
-                className="flex-1 rounded-3xl p-5 border items-center"
-                style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}
+              <Pressable 
+                onPress={() => router.push("/marketplace" as any)}
+                className="bg-[#F59E0B] px-5 py-2 rounded-full self-start shadow-sm active:opacity-90"
               >
-                <View className="w-10 h-10 rounded-full items-center justify-center mb-3 border" style={{ backgroundColor: 'rgba(255, 176, 32, 0.1)', borderColor: 'rgba(255, 176, 32, 0.2)' }}>
-                  <Ionicons name="swap-horizontal" size={18} color={colors.amber} />
-                </View>
-                <Text className="font-bold text-sm" style={{ color: colors.text }}>Convert</Text>
-                <Text className="text-[10px] text-center mt-1" style={{ color: colors.muted }}>Convert to cash</Text>
-              </View>
-            </Animated3DCard>
-
-            {/* Action 3: Learn Rules */}
-            <Animated3DCard style={{ flex: 1 }} scaleDown={0.93} onPress={() => setInfoModalVisible(true)}>
-              <View 
-                className="flex-1 rounded-3xl p-5 border items-center"
-                style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}
-              >
-                <View className="w-10 h-10 rounded-full items-center justify-center mb-3 border" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', borderColor: 'rgba(59, 130, 246, 0.2)' }}>
-                  <Ionicons name="book-outline" size={18} color="#3B82F6" />
-                </View>
-                <Text className="font-bold text-sm" style={{ color: colors.text }}>Rules</Text>
-                <Text className="text-[10px] text-center mt-1" style={{ color: colors.muted }}>How credits work</Text>
-              </View>
-            </Animated3DCard>
+                <Text className="text-white font-bold text-xs">Shop Now</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
 
-        {/* Section 2.5: Shop By Category */}
-        <View>
-          <View className="flex-row justify-between items-end mt-8 mb-3 px-6">
-            <Text className="text-xs font-bold uppercase tracking-wider" style={{ color: colors.muted }}>Shop By Category</Text>
-            <Pressable onPress={() => router.push("/marketplace" as any)} className="active:opacity-70">
-              <Text className="text-xs font-bold" style={{ color: colors.green }}>View All</Text>
+        {/* Section 4: You Saved with ZonoFit Card */}
+        <View className="px-5 mb-8">
+          <View className="bg-white rounded-[24px] p-5 border border-black/5" style={styles.cardShadow}>
+            <View className="flex-row justify-between items-center mb-4">
+              <Text className="text-black font-bold text-[15px]">You Saved with ZonoFit</Text>
+              <Pressable onPress={() => setInfoModalVisible(true)} className="active:opacity-70">
+                <Text className="text-[#1F7A3E] font-bold text-xs">View Details</Text>
+              </Pressable>
+            </View>
+            <View className="flex-row justify-between items-center pt-2 border-t border-gray-100">
+              <View className="flex-1">
+                <Text className="text-[#1F7A3E] font-bold text-xl mb-0.5">₹4,820</Text>
+                <Text className="text-gray-400 font-medium text-[11px]">Total savings</Text>
+              </View>
+              <View className="w-[1px] h-8 bg-gray-200 mx-2" />
+              <View className="flex-1 pl-2">
+                <Text className="text-black font-bold text-xl mb-0.5">38</Text>
+                <Text className="text-gray-400 font-medium text-[11px]">Gym Visits</Text>
+              </View>
+              <View className="w-[1px] h-8 bg-gray-200 mx-2" />
+              <View className="flex-1 pl-2">
+                <Text className="text-black font-bold text-xl mb-0.5">12</Text>
+                <Text className="text-gray-400 font-medium text-[11px]">Products</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* Section 5: Recent Activity */}
+        <View className="px-5 mb-4">
+          <View className="flex-row justify-between items-end mb-3 px-1">
+            <Text className="text-black font-bold text-base">Recent Activity</Text>
+            <Pressable onPress={() => router.push("/booking-history" as any)} className="active:opacity-70">
+              <Text className="text-[#1F7A3E] font-bold text-xs">View All</Text>
             </Pressable>
           </View>
-          <View className="px-5 flex-row flex-wrap justify-between gap-y-4">
-            {/* Card 1: Products */}
-            <Animated3DCard style={{ width: '48%' }} scaleDown={0.96} onPress={() => router.push("/marketplace" as any)}>
-              <View 
-                className="rounded-[20px] p-4 border h-40 overflow-hidden relative"
-                style={[{ backgroundColor: colors.surfaceDark, borderColor: colors.secondaryDark }, styles.softShadow]}
-              >
-                <View className="z-10">
-                  <Text className="font-bold text-sm" style={{ color: colors.textLight }}>Products</Text>
-                  <Text className="text-[10px] mt-1 pr-2 leading-tight" style={{ color: colors.muted }}>Supplements, accessories & more</Text>
-                </View>
-                <View className="absolute bottom-4 left-4 px-3 py-1.5 rounded-full flex-row items-center gap-x-1 z-10" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}>
-                  <Text className="text-[10px] font-bold" style={{ color: colors.textLight }}>Explore</Text>
-                  <Ionicons name="chevron-forward" size={10} color={colors.textLight} />
-                </View>
-              </View>
-            </Animated3DCard>
-
-            {/* Card 2: Sports & Activities */}
-            <Animated3DCard style={{ width: '48%' }} scaleDown={0.96} onPress={() => router.push("/marketplace" as any)}>
-              <View 
-                className="rounded-[20px] p-4 border h-40 overflow-hidden relative"
-                style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}
-              >
-                <View className="z-10">
-                  <Text className="font-bold text-sm" style={{ color: colors.text }}>Sports & Activities</Text>
-                  <Text className="text-[10px] mt-1 pr-2 leading-tight" style={{ color: colors.muted }}>Book courts, sessions & classes</Text>
-                </View>
-                <View className="absolute bottom-4 left-4 px-3 py-1.5 rounded-full flex-row items-center gap-x-1 z-10 border" style={{ backgroundColor: colors.bg, borderColor: colors.secondary }}>
-                  <Text className="text-[10px] font-bold" style={{ color: colors.text }}>Explore</Text>
-                  <Ionicons name="chevron-forward" size={10} color={colors.text} />
-                </View>
-              </View>
-            </Animated3DCard>
-
-            {/* Card 3: Apparel & Gear */}
-            <Animated3DCard style={{ width: '48%' }} scaleDown={0.96} onPress={() => router.push("/marketplace" as any)}>
-              <View 
-                className="rounded-[20px] p-4 border h-40 overflow-hidden relative"
-                style={[{ backgroundColor: colors.surfaceDark, borderColor: colors.secondaryDark }, styles.softShadow]}
-              >
-                <View className="z-10">
-                  <Text className="font-bold text-sm" style={{ color: colors.textLight }}>Apparel & Gear</Text>
-                  <Text className="text-[10px] mt-1 pr-2 leading-tight" style={{ color: colors.muted }}>Gym wear, shoes & accessories</Text>
-                </View>
-                <View className="absolute bottom-4 left-4 px-3 py-1.5 rounded-full flex-row items-center gap-x-1 z-10 border" style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: colors.secondaryDark }}>
-                  <Text className="text-[10px] font-bold" style={{ color: colors.textLight }}>Explore</Text>
-                  <Ionicons name="chevron-forward" size={10} color={colors.textLight} />
-                </View>
-              </View>
-            </Animated3DCard>
-
-            {/* Card 4: Recovery & Wellness */}
-            <Animated3DCard style={{ width: '48%' }} scaleDown={0.96} onPress={() => router.push("/marketplace" as any)}>
-              <View 
-                className="rounded-[20px] p-4 border h-40 overflow-hidden relative"
-                style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}
-              >
-                <View className="z-10">
-                  <Text className="font-bold text-sm" style={{ color: colors.text }}>Recovery & Wellness</Text>
-                  <Text className="text-[10px] mt-1 pr-2 leading-tight" style={{ color: colors.muted }}>Massage, physio, ice bath & more</Text>
-                </View>
-                <View className="absolute bottom-4 left-4 px-3 py-1.5 rounded-full flex-row items-center gap-x-1 z-10 border" style={{ backgroundColor: colors.bg, borderColor: colors.secondary }}>
-                  <Text className="text-[10px] font-bold" style={{ color: colors.text }}>Explore</Text>
-                  <Ionicons name="chevron-forward" size={10} color={colors.text} />
-                </View>
-              </View>
-            </Animated3DCard>
-          </View>
-        </View>
-
-        {/* Section 3: Recent Activity Ledger */}
-        <View>
-          <View className="flex-row justify-between items-end mt-6 mb-3 px-6">
-            <Text className="text-xs font-bold uppercase tracking-wider" style={{ color: colors.muted }}>Recent Activity</Text>
-            <Pressable onPress={() => router.push("/transactions" as any)} className="active:opacity-70">
-              <Text className="text-xs font-bold" style={{ color: colors.green }}>View All</Text>
-            </Pressable>
-          </View>
-          <View className="mx-5 rounded-[28px] p-5 border" style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}>
-            {transactions.length === 0 ? (
-              <Text className="text-center text-xs py-4" style={{ color: colors.muted }}>No recent activity found.</Text>
-            ) : (
-              transactions.map((tx) => (
-                <View key={tx.id}>
-                  {renderTransactionRow({ item: tx })}
-                </View>
-              ))
-            )}
+          <View className="bg-white rounded-[24px] px-4 py-1 border border-black/5 mb-6" style={styles.cardShadow}>
+            {displayTransactions.map((tx) => renderTransactionRow(tx))}
           </View>
         </View>
       </ScrollView>
@@ -639,6 +650,13 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     borderWidth: 1,
     borderColor: colors.secondary,
+  },
+  cardShadow: {
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    elevation: 3,
   },
   softShadow: {
     shadowColor: "#000",
