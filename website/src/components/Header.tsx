@@ -24,7 +24,7 @@ export default function Header() {
   return (
     <header className="fixed top-0 w-full z-50 bg-transparent">
       <div className="max-w-7xl mx-auto px-8 h-24 flex items-center justify-between">
-        
+
         {/* Logo - similar to "fitness O" from reference */}
         <Link href="/" className="flex items-center gap-1.5 group">
           <span className="text-2xl font-black tracking-tight text-foreground">
@@ -33,7 +33,7 @@ export default function Header() {
           {/* A small rounded pill as an accent icon mimicking the reference */}
           <div className="w-5 h-3.5 rounded-full border-[2.5px] border-brand-coral group-hover:bg-brand-coral transition-colors" />
         </Link>
-        
+
         {/* Center Nav - matching the screenshot exactly */}
         <nav className="hidden md:flex items-center gap-10 text-[13px] font-bold text-foreground tracking-wide">
           <Link href="/how-it-works" className="flex items-center gap-1 hover:text-brand-green transition-colors">
@@ -46,18 +46,18 @@ export default function Header() {
             Support
           </Link>
         </nav>
-        
+
         {/* Right Actions - Discover / Lock icon */}
         <div className="flex items-center gap-3">
           {mounted && user ? (
             <div className="flex items-center gap-3">
-              <Link 
-                href={user.role === "ADMIN" ? "/admin/dashboard" : "/gym/dashboard"} 
+              <Link
+                href={user.role === "ADMIN" ? "/admin/dashboard" : "/gym/dashboard"}
                 className="px-5 py-2 rounded-full border-[1.5px] border-foreground/20 text-[13px] font-bold text-foreground hover:border-foreground/40 transition-all bg-transparent"
               >
                 Dashboard
               </Link>
-              <button 
+              <button
                 onClick={logout}
                 className="w-10 h-10 rounded-full border-[1.5px] border-foreground/20 flex items-center justify-center hover:bg-foreground/5 transition-colors bg-transparent"
                 title="Logout"
@@ -67,14 +67,14 @@ export default function Header() {
             </div>
           ) : (
             <>
-              <Link 
-                href="/auth/signup" 
+              <Link
+                href="/auth/signup"
                 className="px-5 py-2 rounded-full border-[1.5px] border-foreground/20 text-[13px] font-bold text-foreground hover:border-foreground/40 transition-all bg-transparent"
               >
                 Discover
               </Link>
-              <Link 
-                href="/auth/login" 
+              <Link
+                href="/auth/login"
                 className="w-10 h-10 rounded-full border-[1.5px] border-foreground/20 flex items-center justify-center hover:bg-foreground/5 transition-colors bg-transparent"
                 title="Log in"
               >
