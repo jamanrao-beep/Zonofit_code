@@ -3,15 +3,23 @@ import { View, Text, ScrollView, Pressable, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useFeatureStore, featureBaseData } from "@/store/useFeatureStore";
 
 export default function FutureOverviewScreen() {
   const router = useRouter();
+  const { votes, notifications, toggleVote, toggleNotify } = useFeatureStore();
 
   const renderCard = (
     id: string, icon: any, iconBg: string, iconColor: string, 
     title: string, items: string[], tag: string, tagBg: string, tagColor: string, 
-    waiting: string, primaryAction: any, secondaryAction?: any
+    showNotifyPrimary: boolean, hasVoteAction: boolean
   ) => {
+    
+    const hasVoted = !!votes[id];
+    const hasNotified = !!notifications[id];
+    const currentWaiting = (featureBaseData[id] || 0) + (hasVoted ? 1 : 0);
+    const waitingStr = currentWaiting.toLocaleString("en-US");
+
     return (
       <Pressable 
         key={id}
@@ -33,23 +41,44 @@ export default function FutureOverviewScreen() {
         </View>
         <View className="flex-row items-center mb-4">
           <Ionicons name="people" size={12} color="#4B5563" />
-          <Text className="text-black font-bold text-[12px] ml-1.5">{waiting} <Text className="font-normal text-gray-500">waiting</Text></Text>
+          <Text className="text-black font-bold text-[12px] ml-1.5">{waitingStr} <Text className="font-normal text-gray-500">waiting</Text></Text>
         </View>
         <View className="flex-row gap-x-2 mt-auto">
-          {secondaryAction && (
-            <Pressable className="flex-1 items-center justify-center py-2 border border-gray-200 rounded-[10px]">
+          {hasVoteAction && (
+            <Pressable 
+              onPress={() => toggleVote(id)}
+              className={`flex-1 items-center justify-center py-2 border rounded-[10px] ${hasVoted ? 'bg-gray-100 border-gray-300' : 'bg-white border-gray-200'}`}
+            >
               <View className="flex-row items-center">
-                <Ionicons name={secondaryAction.icon} size={12} color="#4B5563" />
-                <Text className="text-gray-700 font-bold text-[11px] ml-1">{secondaryAction.text}</Text>
+                <Ionicons name="thumbs-up-outline" size={12} color={hasVoted ? iconColor : "#4B5563"} />
+                <Text className={`font-bold text-[11px] ml-1 ${hasVoted ? tagColor : 'text-gray-700'}`}>{hasVoted ? 'Voted' : 'Vote'}</Text>
               </View>
             </Pressable>
           )}
-          <Pressable className={`flex-1 items-center justify-center py-2 rounded-[10px] ${primaryAction.bg}`}>
-            <View className="flex-row items-center">
-              {primaryAction.icon && <Ionicons name={primaryAction.icon} size={12} color={primaryAction.color} />}
-              <Text className={`font-bold text-[11px] ${primaryAction.icon ? 'ml-1' : ''} ${primaryAction.textClass}`}>{primaryAction.text}</Text>
-            </View>
-          </Pressable>
+          
+          {showNotifyPrimary ? (
+            <Pressable 
+              onPress={() => toggleNotify(id)}
+              className={`flex-1 items-center justify-center py-2 rounded-[10px] border ${hasNotified ? 'bg-gray-100 border-gray-200' : `${iconBg} border-[${iconColor}] border-opacity-20`}`}
+            >
+              <View className="flex-row items-center">
+                <Ionicons name="notifications-outline" size={12} color={hasNotified ? "#9CA3AF" : iconColor} />
+                <Text className={`font-bold text-[11px] ml-1 ${hasNotified ? 'text-gray-500' : tagColor}`}>
+                  {hasNotified ? 'Notified' : 'Notify Me'}
+                </Text>
+              </View>
+            </Pressable>
+          ) : !hasVoteAction ? (
+             <Pressable 
+              onPress={() => toggleVote(id)}
+              className={`flex-1 items-center justify-center py-2 border rounded-[10px] ${hasVoted ? 'bg-gray-100 border-gray-300' : 'bg-white border-gray-200'}`}
+            >
+              <View className="flex-row items-center">
+                <Ionicons name="thumbs-up-outline" size={12} color={hasVoted ? iconColor : "#4B5563"} />
+                <Text className={`font-bold text-[11px] ml-1 ${hasVoted ? tagColor : 'text-gray-700'}`}>{hasVoted ? 'Voted' : 'Vote'}</Text>
+              </View>
+            </Pressable>
+          ) : null}
         </View>
       </Pressable>
     );
@@ -135,20 +164,17 @@ export default function FutureOverviewScreen() {
             {renderCard(
               "recovery", "heart", "bg-rose-50", "#F43F5E",
               "Recovery", ["Recovery Centers", "Massage Therapy", "Ice Bath & More"],
-              "Coming Soon", "bg-rose-50", "text-rose-500", "8,250",
-              { text: "Notify Me", icon: "notifications-outline", color: "#F43F5E", bg: "border border-rose-200 bg-rose-50", textClass: "text-rose-500" }
+              "Coming Soon", "bg-rose-50", "text-rose-500", true, false
             )}
             {renderCard(
               "nutrition", "nutrition", "bg-orange-50", "#EA580C",
               "Nutrition", ["Nutrition Plans", "Meal Tracking", "Dietician Consultation"],
-              "Coming Soon", "bg-orange-50", "text-orange-500", "6,900",
-              { text: "Notify Me", icon: "notifications-outline", color: "#EA580C", bg: "border border-orange-200 bg-orange-50", textClass: "text-orange-500" }
+              "Coming Soon", "bg-orange-50", "text-orange-500", true, false
             )}
             {renderCard(
               "sports-booking", "football", "bg-blue-50", "#3B82F6",
               "Sports Booking", ["Courts & Grounds", "Classes & Activities", "Community Play"],
-              "Coming Soon", "bg-blue-50", "text-blue-500", "5,400",
-              { text: "Notify Me", icon: "notifications-outline", color: "#3B82F6", bg: "border border-blue-200 bg-blue-50", textClass: "text-blue-500" }
+              "Coming Soon", "bg-blue-50", "text-blue-500", true, false
             )}
           </ScrollView>
         </View>
@@ -163,23 +189,17 @@ export default function FutureOverviewScreen() {
             {renderCard(
               "ai-coach", "hardware-chip", "bg-purple-50", "#7C3AED",
               "AI Coach", ["Personal AI Trainer", "Adaptive Workouts", "Smart Guidance"],
-              "In Development", "bg-purple-100", "text-purple-600", "14,200",
-              { text: "Notify Me", icon: "notifications-outline", color: "#7C3AED", bg: "border border-purple-200 bg-purple-50", textClass: "text-purple-600" },
-              { text: "Vote", icon: "thumbs-up-outline" }
+              "In Development", "bg-purple-100", "text-purple-600", true, true
             )}
             {renderCard(
               "workout-generator", "barbell", "bg-teal-50", "#0D9488",
               "Workout Generator", ["Custom Workouts", "Goal Based Plans", "Exercise Library"],
-              "In Development", "bg-teal-100", "text-teal-600", "9,800",
-              { text: "Notify Me", icon: "notifications-outline", color: "#0D9488", bg: "border border-teal-200 bg-teal-50", textClass: "text-teal-600" },
-              { text: "Vote", icon: "thumbs-up-outline" }
+              "In Development", "bg-teal-100", "text-teal-600", true, true
             )}
             {renderCard(
               "personal-trainer", "person", "bg-orange-50", "#EA580C",
               "Personal Trainer", ["Book Trainers", "1-on-1 Sessions", "Training Plans"],
-              "In Development", "bg-orange-100", "text-orange-600", "7,600",
-              { text: "Notify Me", icon: "notifications-outline", color: "#EA580C", bg: "border border-orange-200 bg-orange-50", textClass: "text-orange-600" },
-              { text: "Vote", icon: "thumbs-up-outline" }
+              "In Development", "bg-orange-100", "text-orange-600", true, true
             )}
           </ScrollView>
         </View>
@@ -194,20 +214,17 @@ export default function FutureOverviewScreen() {
             {renderCard(
               "travel-fitness", "airplane", "bg-indigo-50", "#4F46E5",
               "Travel Fitness", ["Workouts on the go", "Hotel Gyms", "Travel Planner"],
-              "Planned", "bg-gray-100", "text-gray-600", "3,200",
-              { text: "Vote", bg: "border border-gray-200 bg-white", textClass: "text-gray-700" }
+              "Planned", "bg-gray-100", "text-gray-600", false, false
             )}
             {renderCard(
               "corporate-wellness", "briefcase", "bg-emerald-50", "#10B981",
               "Corporate Wellness", ["Corporate Plans", "Employee Challenges", "Wellness Programs"],
-              "Planned", "bg-gray-100", "text-gray-600", "2,800",
-              { text: "Vote", bg: "border border-gray-200 bg-white", textClass: "text-gray-700" }
+              "Planned", "bg-gray-100", "text-gray-600", false, false
             )}
             {renderCard(
               "smart-wearables", "watch", "bg-purple-50", "#7C3AED",
               "Smart Wearables", ["Wearable Sync", "Health Insights", "Smart Recommendations"],
-              "Planned", "bg-gray-100", "text-gray-600", "2,100",
-              { text: "Vote", bg: "border border-gray-200 bg-white", textClass: "text-gray-700" }
+              "Planned", "bg-gray-100", "text-gray-600", false, false
             )}
           </ScrollView>
         </View>
