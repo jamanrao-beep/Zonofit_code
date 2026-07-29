@@ -352,7 +352,7 @@ export default function HomeScreen() {
 
           {/* See All Upcoming Features Button */}
           <Pressable 
-            onPress={() => router.push("/tools/ai-trainer" as any)}
+            onPress={() => router.push("/future" as any)}
             className="w-full bg-white py-3.5 rounded-2xl flex-row items-center justify-center border border-[#0B6E4F] active:bg-green-50 shadow-sm"
           >
             <Text className="text-[#0B6E4F] font-bold text-sm tracking-wide mr-1.5">See All Upcoming Features</Text>
