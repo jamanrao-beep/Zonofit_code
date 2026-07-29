@@ -202,7 +202,7 @@ export default function CreditsScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB" }} edges={["top"]}>
       {/* Header */}
-      <View className="flex-row justify-between items-start mb-6 px-5 pt-16">
+      <View className="flex-row justify-between items-start mb-6 px-5 pt-4">
         <View>
           <Text className="text-[32px] font-black text-black tracking-tight leading-10">Wallet</Text>
           <Text className="text-gray-400 text-[14px] font-medium mt-1">Manage your credits and INR wallet</Text>
