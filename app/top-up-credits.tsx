@@ -1,37 +1,21 @@
 import React, { useState } from "react";
-import { View, Text, ScrollView, Pressable, Alert, ActivityIndicator, TextInput } from "react-native";
+import { View, Text, ScrollView, Pressable, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useCreditsStore } from "@/store/useCreditsStore";
 
 const CREDIT_PACKAGES = [
-  { id: "pack_10", credits: 10, price: 100, popular: false },
-  { id: "pack_50", credits: 50, price: 500, popular: true },
-  { id: "pack_100", credits: 100, price: 1000, popular: false },
+  { id: "pack_100", credits: 100, price: 1000 },
+  { id: "pack_250", credits: 250, price: 2500, tag: "MOST POPULAR" },
+  { id: "pack_500", credits: 500, price: 5000 },
+  { id: "pack_1000", credits: 1000, price: 10000, tag: "Best Value" },
 ];
 
 export default function TopUpCreditsScreen() {
-  const [sysSettings, setSysSettings] = useState({ creditPurchasePrice: 10, creditConversionValue: 8, cashExpiryDays: 15 });
-
-  React.useEffect(() => {
-    async function fetchSettings() {
-      try {
-        const data = await apiFetch("/api/content/settings");
-        if (data.success && data.settings) {
-          setSysSettings(data.settings);
-        }
-      } catch (err) {
-        console.log("Failed to fetch settings", err);
-      }
-    }
-    fetchSettings();
-  }, []);
-
   const router = useRouter();
   const { buyCredits } = useCreditsStore();
   const [loadingId, setLoadingId] = useState<string | null>(null);
-  const [customCredits, setCustomCredits] = useState<string>("");
 
   const handlePurchase = async (credits: number, price: number, id: string) => {
     Alert.alert(
@@ -60,121 +44,90 @@ export default function TopUpCreditsScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F7F4" }} edges={["bottom"]}>
-      <Stack.Screen 
-        options={{
-          headerShown: true,
-          title: "Top Up Credits",
-          headerTitleStyle: { fontWeight: "bold", color: "#1F2520" },
-          headerStyle: { backgroundColor: "#F5F7F4" },
-          headerShadowVisible: false,
-          headerLeft: () => (
-            <Pressable onPress={() => router.back()} className="mr-4 p-1">
-              <Ionicons name="arrow-back" size={24} color="#1F2520" />
-            </Pressable>
-          ),
-        }} 
-      />
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }} edges={["top", "bottom"]}>
+      <Stack.Screen options={{ headerShown: false }} />
+
+      {/* Header */}
+      <View className="flex-row items-center justify-center px-5 pt-20 pb-8 relative">
+        <Pressable onPress={() => router.back()} className="absolute left-5 top-20 z-10 p-2">
+          <Ionicons name="chevron-back" size={28} color="#000" />
+        </Pressable>
+        <View className="items-center">
+          <Text className="text-[32px] font-black text-black">Buy Credits</Text>
+          <Text className="text-[15px] text-gray-500 mt-2">Choose a package</Text>
+        </View>
+      </View>
 
       <ScrollView 
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: 20, paddingBottom: 60 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}
       >
-        <View className="mb-6">
-          <Text className="text-2xl font-black text-[#1F2520] mb-2">Buy Credits</Text>
-          <Text className="text-sm text-[#6B756E]">Purchase loose credits to use at any partner gym in our network. 1 Credit = ₹10.</Text>
-        </View>
-
-        {/* Credit Packages */}
         <View className="gap-y-4">
-          {CREDIT_PACKAGES.map((pkg) => (
-            <Pressable 
-              key={pkg.id}
-              onPress={() => handlePurchase(pkg.credits, pkg.price, pkg.id)}
-              disabled={loadingId !== null}
-              className={`bg-white rounded-3xl p-5 border shadow-sm relative overflow-hidden flex-row items-center justify-between active:bg-gray-50 ${
-                pkg.popular ? "border-emerald-500 shadow-emerald-500/10" : "border-black/5"
-              }`}
-            >
-              {pkg.popular && (
-                <View className="absolute top-0 right-0 bg-emerald-500 px-3 py-1 rounded-bl-xl">
-                  <Text className="text-white text-[10px] font-bold">MOST POPULAR</Text>
+          {CREDIT_PACKAGES.map((pkg) => {
+            const isPopular = pkg.id === "pack_250";
+            const isBestValue = pkg.id === "pack_1000";
+
+            return (
+              <Pressable 
+                key={pkg.id}
+                onPress={() => handlePurchase(pkg.credits, pkg.price, pkg.id)}
+                disabled={loadingId !== null}
+                className={`rounded-[20px] py-5 px-6 border flex-row items-start justify-between active:opacity-80 ${
+                  isPopular ? "bg-[#F6fcf7] border-[#1F7A3E]/30" : "bg-white border-gray-200"
+                }`}
+              >
+                {/* Left Side */}
+                <View className="flex-1 justify-center">
+                  <Text className="text-[22px] font-bold text-[#1F7A3E] mb-1">{pkg.credits} CR</Text>
+                  <Text className="text-[12px] text-gray-500 mb-2">1 CR = ₹10</Text>
+                  
+                  {isPopular && (
+                    <View 
+                      className="mt-1 px-3 py-1 rounded-full self-start items-center justify-center" 
+                      style={{ backgroundColor: '#75d38c' }}
+                    >
+                      <Text className="text-white text-[10px] font-bold tracking-wider">MOST POPULAR</Text>
+                    </View>
+                  )}
                 </View>
-              )}
 
-              <View className="flex-row items-center">
-                <View className={`w-12 h-12 rounded-full items-center justify-center mr-4 ${pkg.popular ? "bg-emerald-50" : "bg-[#EAF7EC]"}`}>
-                  <Ionicons name="flash" size={24} color="#059669" />
+                {/* Right Side */}
+                <View className="items-end justify-center relative min-w-[90px]">
+                  {isBestValue && (
+                    <View className="absolute -top-6 right-0 bg-[#A855F7] bg-opacity-70 px-2 py-0.5 rounded-full z-10 shadow-sm" style={{ backgroundColor: 'rgba(168, 85, 247, 0.7)' }}>
+                      <Text className="text-white text-[10px] font-bold">Best Value</Text>
+                    </View>
+                  )}
+                  
+                  <View className="flex-row items-center mb-3">
+                    <Text className="text-[20px] font-bold text-black">₹{pkg.price.toLocaleString('en-IN')}</Text>
+                    {isPopular && (
+                      <Ionicons name="leaf" size={14} color="#75d38c" style={{ position: 'absolute', right: -16, top: -4 }} />
+                    )}
+                  </View>
+                  
+                  <View className="border border-[#1F7A3E] rounded-[10px] px-5 py-1.5 w-full flex-row justify-center items-center">
+                    {loadingId === pkg.id ? (
+                      <ActivityIndicator size="small" color="#1F7A3E" />
+                    ) : (
+                      <Text className="text-[#1F7A3E] font-bold text-[13px]">Buy Now</Text>
+                    )}
+                  </View>
                 </View>
-                <View>
-                  <Text className="text-xl font-bold text-[#1F2520]">{pkg.credits} Credits</Text>
-                  <Text className="text-xs text-[#6B756E] mt-0.5">Value: ₹{pkg.credits * 10}</Text>
-                </View>
-              </View>
-
-              <View className="bg-emerald-600 px-5 py-2.5 rounded-xl">
-                {loadingId === pkg.id ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text className="text-white font-bold text-base">₹{pkg.price}</Text>
-                )}
-              </View>
-            </Pressable>
-          ))}
-        </View>
-
-        {/* Custom Input Section */}
-        <View className="mt-8">
-          <Text className="text-sm font-bold text-[#6B756E] uppercase tracking-wider mb-4 ml-2">Custom Amount</Text>
-          <View className="bg-white rounded-3xl p-5 border border-black/5 shadow-sm">
-            <View className="flex-row items-center bg-[#F5F7F4] rounded-2xl px-4 py-1 mb-4 border border-transparent focus:border-emerald-500">
-              <Ionicons name="flash" size={20} color="#059669" />
-              <TextInput
-                className="flex-1 h-12 ml-3 text-lg font-bold text-[#1F2520]"
-                placeholder="Enter amount (e.g. 25)"
-                placeholderTextColor="#A0A5A1"
-                keyboardType="number-pad"
-                value={customCredits}
-                onChangeText={setCustomCredits}
-              />
-            </View>
-
-            {customCredits && parseInt(customCredits) > 0 ? (
-              <View className="flex-row justify-between items-center mb-4 px-1">
-                <Text className="text-[#6B756E] font-medium">Cost (₹10/credit)</Text>
-                <Text className="text-[#1F2520] font-black text-lg">₹{parseInt(customCredits) * 10}</Text>
-              </View>
-            ) : null}
-
-            <Pressable
-              onPress={() => {
-                const credits = parseInt(customCredits);
-                if (credits > 0) {
-                  handlePurchase(credits, credits * 10, "custom");
-                }
-              }}
-              disabled={!customCredits || parseInt(customCredits) <= 0 || loadingId !== null}
-              className={`h-14 rounded-2xl items-center justify-center flex-row ${
-                customCredits && parseInt(customCredits) > 0 ? "bg-emerald-600 active:bg-emerald-700" : "bg-[#E9EBE6]"
-              }`}
-            >
-              {loadingId === "custom" ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text className={`font-bold text-base ${customCredits && parseInt(customCredits) > 0 ? "text-white" : "text-[#A0A5A1]"}`}>
-                  Buy Custom Amount
-                </Text>
-              )}
-            </Pressable>
-          </View>
+              </Pressable>
+            );
+          })}
         </View>
 
         {/* Info Banner */}
-        <View className="mt-8 bg-indigo-50 p-4 rounded-2xl border border-indigo-100 flex-row items-start">
-          <Ionicons name="information-circle" size={20} color="#4F46E5" style={{ marginTop: 2 }} />
-          <Text className="text-indigo-800 text-xs ml-3 flex-1 leading-relaxed">
-            Credits expire {sysSettings.cashExpiryDays} days after your active gym membership ends. If your membership expires, remaining credits will be automatically converted to non-convertible cash at a rate of ₹{sysSettings.creditConversionValue} per credit.
+        <View className="mt-8 bg-[#f9f5ff] rounded-[16px] p-5 flex-row items-center justify-between">
+          <Text className="text-[#374151] text-[12px] font-medium flex-1 leading-relaxed pr-4">
+            Credits are added instantly to your wallet and never expire.
           </Text>
+          <View className="relative items-center justify-center">
+            <Ionicons name="shield-outline" size={24} color="#A855F7" />
+            <Text className="absolute text-[#A855F7] text-[12px] font-bold mb-[1px]">+</Text>
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>

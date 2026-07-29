@@ -202,12 +202,12 @@ export default function CreditsScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB" }} edges={["top"]}>
       {/* Header */}
-      <View className="flex-row justify-between items-start mb-5 px-5 pt-4">
+      <View className="flex-row justify-between items-start mb-6 px-5 pt-16">
         <View>
-          <Text className="text-[28px] font-bold text-black tracking-tight leading-8">Wallet</Text>
-          <Text className="text-gray-400 text-sm font-medium mt-0.5">Manage your credits and INR wallet</Text>
+          <Text className="text-[32px] font-black text-black tracking-tight leading-10">Wallet</Text>
+          <Text className="text-gray-400 text-[14px] font-medium mt-1">Manage your credits and INR wallet</Text>
         </View>
-        <View className="flex-row items-center gap-x-2.5">
+        <View className="flex-row items-center gap-x-3 mt-2">
           <Pressable 
             onPress={() => router.push("/booking-history" as any)}
             className="w-10 h-10 rounded-full border border-gray-200 items-center justify-center relative bg-white active:bg-gray-100 shadow-sm"
@@ -275,7 +275,7 @@ export default function CreditsScreen() {
 
             {/* Top Up INR */}
             <Pressable 
-              onPress={() => setCashModalVisible(true)}
+              onPress={() => router.push("/top-up-inr" as any)}
               className="flex-1 bg-white rounded-[20px] py-4 px-1 items-center border border-black/5 shadow-sm active:bg-gray-50"
               style={styles.cardShadow}
             >
@@ -287,7 +287,7 @@ export default function CreditsScreen() {
 
             {/* Convert */}
             <Pressable 
-              onPress={() => setConvertModalVisible(true)}
+              onPress={() => router.push("/convert" as any)}
               className="flex-1 bg-white rounded-[20px] py-4 px-1 items-center border border-black/5 shadow-sm active:bg-gray-50"
               style={styles.cardShadow}
             >
