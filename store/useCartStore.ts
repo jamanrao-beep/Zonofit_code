@@ -1,8 +1,18 @@
 import { create } from "zustand";
-import { MarketplaceItem } from "@/app/marketplace"; // Make sure to export it if not already exported
+
+export interface ShopItem {
+  id: string;
+  name: string;
+  brand: string;
+  price: number;
+  originalPrice?: number;
+  image: string;
+  weight?: string;
+  flavor?: string;
+}
 
 export interface CartItem {
-  item: MarketplaceItem;
+  item: ShopItem;
   quantity: number;
 }
 
@@ -16,7 +26,7 @@ interface CartState {
   cartItems: CartItem[];
   appliedCoupon: AppliedCoupon | null;
   
-  addToCart: (item: MarketplaceItem) => void;
+  addToCart: (item: ShopItem) => void;
   removeFromCart: (itemId: string) => void;
   updateQuantity: (itemId: string, quantity: number) => void;
   clearCart: () => void;
@@ -68,7 +78,7 @@ export const useCartStore = create<CartState>((set, get) => ({
 
   getTotalPrice: () => {
     return get().cartItems.reduce(
-      (total, ci) => total + ci.item.pricePaise * ci.quantity,
+      (total, ci) => total + ci.item.price * ci.quantity,
       0
     );
   },
@@ -81,9 +91,9 @@ export const useCartStore = create<CartState>((set, get) => ({
     if (coupon.discountType === "PERCENTAGE") {
       return Math.max(0, Math.floor(total - (total * (coupon.discountValue / 100))));
     } else if (coupon.discountType === "RUPEES") {
-      return Math.max(0, total - (coupon.discountValue * 100));
+      return Math.max(0, total - coupon.discountValue);
     }
-    return total; // "CREDITS" shouldn't apply here, but if it does, ignore
+    return total;
   },
 
   getTotalItems: () => {
