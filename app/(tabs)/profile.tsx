@@ -86,12 +86,15 @@ export default function ProfileScreen() {
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={["top"]}>
-            <ScrollView showsVerticalScrollIndicator={false} bounces={true} overScrollMode="never" contentContainerStyle={{ paddingBottom: 120 }}>
-
-                {/* Header */}
-                <View className="px-5 pt-3 pb-2">
-                    <Text className="text-2xl font-bold" style={{ color: colors.text }}>Profile</Text>
+            {/* Standard Header */}
+            <View className="flex-row justify-between items-center px-5 pt-4 pb-4">
+                <View>
+                    <Text className="text-[28px] font-extrabold text-[#111827] tracking-tight">Profile</Text>
+                    <Text className="text-sm font-medium text-[#6B7280] mt-1">Manage your account & preferences</Text>
                 </View>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} bounces={true} overScrollMode="never" contentContainerStyle={{ paddingBottom: 120 }}>
 
                 {/* Profile Hero (Dark Container) */}
                 <View className="mx-5 mt-3 mb-5 rounded-[28px] p-5 border shadow-sm" style={[{ backgroundColor: colors.surfaceDark, borderColor: colors.secondaryDark }, styles.softShadowLg]}>
