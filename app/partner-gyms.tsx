@@ -78,34 +78,7 @@ export default function PartnerGymsScreen() {
           ))}
         </View>
 
-        {/* Protected Info Card */}
-        <View className="px-5 mb-3">
-          <View className="bg-[#F3FAF4] rounded-[16px] p-4">
-            <View className="flex-row items-start mb-3">
-              <View className="w-10 h-10 rounded-full bg-white items-center justify-center mr-3 shadow-sm border border-gray-100">
-                <Ionicons name="shield-checkmark" size={22} color="#1F7A3E" />
-              </View>
-              <View className="flex-1">
-                <Text className="text-[#166534] font-bold text-[14px] mb-1">Your Primary Gym is Protected</Text>
-                <Text className="text-[#166534] text-[12px] leading-snug">
-                  Your membership helps support your primary gym. You can freely use Credits at partner gyms outside your Primary Zone whenever you're travelling or working out in another location.
-                </Text>
-              </View>
-            </View>
-            <View className="flex-row justify-between items-center mt-2 ml-[52px]">
-              <View className="flex-row items-center">
-                <Text className="text-[#166534] text-[11px] font-medium mr-2">Primary Zone Radius</Text>
-                <View className="bg-[#DCFCE7] px-2.5 py-1 rounded-full">
-                  <Text className="text-[#166534] text-[10px] font-bold">3 km</Text>
-                </View>
-              </View>
-              <Pressable className="flex-row items-center">
-                <Text className="text-[#166534] font-bold text-[11px] mr-0.5">Learn More</Text>
-                <Ionicons name="chevron-forward" size={12} color="#166534" />
-              </Pressable>
-            </View>
-          </View>
-        </View>
+
 
         {/* Primary Gym Card */}
         <View className="px-5 mb-6">
@@ -245,22 +218,34 @@ export default function PartnerGymsScreen() {
           </View>
         </View>
 
+        {/* Help Grow Banner */}
         <View className="px-5 mb-8">
-          <View className="bg-[#1F7A3E] rounded-[16px] p-4 flex-row overflow-hidden relative">
-            <View className="flex-1 pr-[90px] z-10">
-              <Text className="text-white font-bold text-[14px] mb-1 leading-tight">Help Grow ZonoFit in Your City</Text>
-              <Text className="text-[#A7F3D0] text-[10px] mb-3 leading-tight pr-4">More members = More gyms, sports, trainers & services for everyone!</Text>
-              <Pressable className="bg-white px-4 py-1.5 rounded-lg self-start">
-                <Text className="text-[#1F7A3E] font-bold text-[11px]">Invite Friends</Text>
-              </Pressable>
-            </View>
+          <View className="bg-[#2A8737] rounded-2xl overflow-hidden relative" style={{ minHeight: 130 }}>
+            {/* The character image on the right */}
             <Image 
               source={require('@/assets/images/refer-characters.png')} 
-              className="absolute right-[-10px] bottom-[-20px] w-32 h-32 z-0"
+              className="absolute right-[-10px] bottom-[-10px] w-[160px] h-[140px] z-0"
               resizeMode="contain"
             />
+            {/* Gradient Overlay for text readability (optional, but helps if image clashes) */}
+            <View className="absolute inset-0 bg-black/5 z-0" />
+            
+            {/* Content */}
+            <View className="p-4 pr-[120px] z-10 justify-center flex-1">
+              <Text className="text-white font-extrabold text-[15px] mb-1.5 leading-tight">
+                Help Grow ZonoFit in Your City
+              </Text>
+              <Text className="text-white/90 text-[11px] mb-3 leading-snug font-medium">
+                More members = More gyms, sports,{"\n"}trainers & services for everyone!
+              </Text>
+              <Pressable className="bg-white px-4 py-1.5 rounded-lg self-start active:opacity-80 shadow-sm">
+                <Text className="text-[#2A8737] font-bold text-[12px]">Invite Friends</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
+
+
         
       </ScrollView>
     </SafeAreaView>

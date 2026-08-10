@@ -433,7 +433,7 @@ export default function ExploreScreen() {
 
                 {/* Shop Products Card */}
                 <Pressable 
-                  onPress={() => router.push("/future/meal-scan" as any)}
+                  onPress={() => router.push("/shop" as any)}
                   className="flex-1 bg-[#F4F8FF] rounded-[24px] p-5 flex-col justify-between border border-black/5 active:opacity-90 min-h-[170px]"
                   style={styles.cardShadow}
                 >
