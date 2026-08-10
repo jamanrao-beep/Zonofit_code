@@ -22,39 +22,39 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB" }} edges={["top"]}>
+      {/* Standard Header */}
+      <View className="flex-row justify-between items-center px-5 pt-4 pb-4">
+        <View>
+          <Text className="text-[28px] font-extrabold text-[#111827] tracking-tight">{user?.username || "Saransh"}</Text>
+          <Text className="text-sm font-medium text-[#6B7280] mt-1">Good Morning,</Text>
+        </View>
+        <View className="flex-row items-center gap-x-3">
+          <Pressable 
+            onPress={() => router.push("/booking-history")}
+            className="w-10 h-10 rounded-full border border-gray-200 items-center justify-center relative bg-white active:bg-gray-100"
+          >
+            <Ionicons name="notifications-outline" size={20} color="#111827" />
+            <View className="absolute top-2 right-2.5 w-2 h-2 rounded-full bg-orange-500 border border-white" />
+          </Pressable>
+          <Pressable onPress={() => router.push("/profile")}>
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} className="w-10 h-10 rounded-full bg-gray-200" />
+            ) : (
+              <Image 
+                source={{ uri: "https://images.unsplash.com/photo-1599566150163-29194dcaad36?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&q=80" }} 
+                className="w-10 h-10 rounded-full bg-gray-200" 
+              />
+            )}
+          </Pressable>
+        </View>
+      </View>
+
       <ScrollView 
         showsVerticalScrollIndicator={false}
         bounces={true}
         overScrollMode="never"
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120, paddingTop: 12 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120, paddingTop: 8 }}
       >
-        {/* Header Section */}
-        <View className="flex-row justify-between items-center mb-6">
-          <View>
-            <Text className="text-gray-500 text-sm font-medium">Good Morning,</Text>
-            <Text className="text-[28px] font-bold mt-0.5 text-black tracking-tight">{user?.username || "Saransh"}</Text>
-          </View>
-          <View className="flex-row items-center gap-x-3">
-            <Pressable 
-              onPress={() => router.push("/booking-history")}
-              className="w-10 h-10 rounded-full border border-gray-200 items-center justify-center relative bg-white active:bg-gray-100"
-            >
-              <Ionicons name="notifications-outline" size={20} color="black" />
-              <View className="absolute top-2 right-2.5 w-2 h-2 rounded-full bg-orange-500 border border-white" />
-            </Pressable>
-            <Pressable onPress={() => router.push("/profile")}>
-              {avatarUrl ? (
-                <Image source={{ uri: avatarUrl }} className="w-10 h-10 rounded-full bg-gray-200" />
-              ) : (
-                <Image 
-                  source={{ uri: "https://images.unsplash.com/photo-1599566150163-29194dcaad36?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&q=80" }} 
-                  className="w-10 h-10 rounded-full bg-gray-200" 
-                />
-              )}
-            </Pressable>
-          </View>
-        </View>
-
         {/* Primary Gym Card */}
         <View className="bg-[#1F7A3E] rounded-[32px] p-6 mb-6">
           <Pressable 

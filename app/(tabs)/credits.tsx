@@ -201,25 +201,25 @@ export default function CreditsScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB" }} edges={["top"]}>
-      {/* Header */}
-      <View className="flex-row justify-between items-start mb-6 px-5 pt-4">
+      {/* Standard Header */}
+      <View className="flex-row justify-between items-center px-5 pt-4 pb-4">
         <View>
-          <Text className="text-[32px] font-black text-black tracking-tight leading-10">Wallet</Text>
-          <Text className="text-gray-400 text-[14px] font-medium mt-1">Manage your credits and INR wallet</Text>
+          <Text className="text-[28px] font-extrabold text-[#111827] tracking-tight">Wallet</Text>
+          <Text className="text-sm font-medium text-[#6B7280] mt-1">Manage your credits and INR balance</Text>
         </View>
-        <View className="flex-row items-center gap-x-3 mt-2">
+        <View className="flex-row items-center gap-x-3">
           <Pressable 
             onPress={() => router.push("/booking-history" as any)}
             className="w-10 h-10 rounded-full border border-gray-200 items-center justify-center relative bg-white active:bg-gray-100 shadow-sm"
           >
-            <Ionicons name="notifications-outline" size={20} color="black" />
+            <Ionicons name="notifications-outline" size={20} color="#111827" />
             <View className="absolute top-2 right-2.5 w-2 h-2 rounded-full bg-orange-500 border border-white" />
           </Pressable>
           <Pressable 
             onPress={() => router.push("/profile" as any)}
             className="w-10 h-10 rounded-full overflow-hidden border border-gray-200 shadow-sm active:opacity-80 bg-gray-100 items-center justify-center"
           >
-            <Ionicons name="person" size={22} color="#6B7280" />
+            <Ionicons name="person" size={20} color="#6B7280" />
           </Pressable>
         </View>
       </View>

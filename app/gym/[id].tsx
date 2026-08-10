@@ -1,667 +1,315 @@
-import React, { useState } from "react";
-import {
-  ScrollView,
-  Text,
-  View,
-  Pressable,
-  Image,
-  Alert,
-  Modal,
-  Dimensions,
-  TextInput,
-  ActivityIndicator,
-} from "react-native";
-const { width: windowWidth } = Dimensions.get("window");
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { Gym } from "@/app/(tabs)/explore";
-import { apiFetch } from "@/lib/api";
-import { useBookingStore } from "@/store/useBookingStore";
-import { useCreditsStore } from "@/store/useCreditsStore";
-import { useAuthStore } from "@/store/useAuthStore";
+import React, { useState } from 'react';
+import { View, Text, ScrollView, Image, Pressable, Dimensions, StatusBar, StyleSheet, Platform } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
-const TIME_SLOTS = ["06:00 AM", "08:00 AM", "10:00 AM", "05:00 PM", "07:00 PM", "09:00 PM"];
+const { width } = Dimensions.get('window');
 
-const getNextDays = () => {
-  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const dates = [];
-  for (let i = 0; i < 5; i++) {
-    const d = new Date();
-    d.setDate(d.getDate() + i);
-    dates.push({
-      label: i === 0 ? "Today" : i === 1 ? "Tmrw" : days[d.getDay()],
-      date: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-    });
-  }
-  return dates;
+// Mock Data
+const GYM_DATA = {
+  name: "Being Fitness",
+  rating: 4.7,
+  reviews: 128,
+  distance: "2.4 km away",
+  status: "Open",
+  closesAt: "11:00 PM",
+  isPartner: true,
+  images: [
+    "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1470&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=1470&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1540497077202-7c8a3999166f?q=80&w=1470&auto=format&fit=crop"
+  ],
+  about: "Spacious gym with a strong strength-training setup, cardio equipment and functional training area.",
+  photos: [
+    "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=400&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=400&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1540497077202-7c8a3999166f?q=80&w=400&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=400&auto=format&fit=crop"
+  ],
+  credits: 10,
+  visitsAvailable: 1
 };
-const DATES = getNextDays();
 
 export default function GymDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-
-  const { bookingStatus, bookVisit, appliedCoupon, applyCoupon, clearCoupon } = useBookingStore();
-  const { credits } = useCreditsStore();
-
-  const [gym, setGym] = useState<Gym | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const { token } = useAuthStore();
-
-  const [selectedTime, setSelectedTime] = useState("07:00 PM");
-  const [selectedDate, setSelectedDate] = useState(DATES[0].date);
+  const insets = useSafeAreaInsets();
   const [activeImage, setActiveImage] = useState(0);
-  const [bookingModalVisible, setBookingModalVisible] = useState(false);
-  const [couponInput, setCouponInput] = useState("");
-  const [couponLoading, setCouponLoading] = useState(false);
-
-  React.useEffect(() => {
-    async function loadGym() {
-      if (!token) return;
-      setIsLoading(true);
-      try {
-        const g = await apiFetch(`/api/gyms/${id}`, { token });
-        if (!g || typeof g !== 'object') {
-          console.error("Gym response was empty or invalid:", g);
-          throw new Error("Invalid gym response");
-        }
-        
-        const formattedGym: Gym = {
-          id: g.id,
-          name: g.name,
-          address: g.address || g.city,
-          rating: g.rating || 4.5,
-          distance: g.distanceKm || 2.1,
-          cost: g.creditCost || 8,
-          slots: g.availableSlots || 20,
-          image: g.imageUrls?.[0] || "https://images.unsplash.com/photo-1534438327276-14e5300c3a48",
-          images: g.imageUrls?.length > 0 ? g.imageUrls : ["https://images.unsplash.com/photo-1534438327276-14e5300c3a48", "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b"],
-          tags: g.facilities || ["Strength", "Cardio"],
-          type: g.facilities?.includes("Turf") ? "turf" : g.facilities?.includes("Swimming") || g.facilities?.includes("Basketball") ? "sports" : "gym",
-          isPremium: g.category === "PREMIUM",
-          isBeginnerFriendly: true,
-          isBestValue: (g.creditCost || 8) <= 6,
-          isNearPrimary: false,
-          reviewCount: g.totalRatings || 120,
-          description: g.description || "A premium fitness facility.",
-          amenities: (g.facilities || []).map((f: string) => ({
-            label: f,
-            icon: f.includes("Pool") ? "water" : f.includes("AC") ? "snow" : "barbell"
-          })),
-          hours: (g.openingTime && g.closingTime) ? `${g.openingTime} - ${g.closingTime}` : "06:00 AM - 10:00 PM",
-          plans: g.plans || []
-        } as any; // Type override since we added local mock fields above
-        setGym(formattedGym);
-      } catch (e) {
-        console.error("Failed to load gym", e);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    loadGym();
-  }, [id, token]);
-
-  if (isLoading) {
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F7F4", alignItems: "center", justifyContent: "center" }} edges={["top"]}>
-        <Text className="text-[#1F2520] font-bold text-base mt-3">Loading Gym...</Text>
-      </SafeAreaView>
-    );
-  }
-
-  if (!gym) {
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F7F4", alignItems: "center", justifyContent: "center" }} edges={["top"]}>
-        <Ionicons name="alert-circle-outline" size={48} color="#6B756E" />
-        <Text className="text-[#1F2520] font-bold text-base mt-3">Gym not found</Text>
-        <Pressable onPress={() => router.back()} className="mt-4 px-6 py-3 bg-[#6BCB77] rounded-2xl">
-          <Text className="text-white font-bold">Go Back</Text>
-        </Pressable>
-      </SafeAreaView>
-    );
-  }
-
-  const handleBookVisit = () => {
-    if (bookingStatus !== "Not Booked") {
-      Alert.alert(
-        "Active Booking Exists",
-        "You already have an active booking today. Cancel it before making a new one."
-      );
-      return;
-    }
-    const isCashVenue = gym.type === 'turf' || gym.type === 'sports';
-    const cashCost = gym.cost * 50;
-
-    if (isCashVenue) {
-      if (useCreditsStore.getState().cashBalance < cashCost) {
-        Alert.alert(
-          "Insufficient Converted Cash",
-          `This venue requires ₹${cashCost} in converted cash. You have ₹${useCreditsStore.getState().cashBalance}. Please convert credits from the Credits tab.`
-        );
-        return;
-      }
-    } else {
-      if (credits < gym.cost) {
-        Alert.alert(
-          "Insufficient Credits",
-          `This booking requires ${gym.cost} credits. You have ${credits} credits. Please top up from the Credits tab.`
-        );
-        return;
-      }
-    }
-    setBookingModalVisible(true);
-  };
-
-  const handleConfirmBooking = async () => {
-    const isCashVenue = gym.type === 'turf' || gym.type === 'sports';
-    let finalCost = isCashVenue ? (gym.cost * 50) : gym.cost;
-    
-    if (appliedCoupon) {
-      if (appliedCoupon.discountType === "PERCENTAGE") {
-        finalCost = Math.max(0, Math.floor(finalCost - (finalCost * (appliedCoupon.discountValue / 100))));
-      } else if (appliedCoupon.discountType === "RUPEES" && isCashVenue) {
-        finalCost = Math.max(0, finalCost - appliedCoupon.discountValue);
-      } else if (appliedCoupon.discountType === "CREDITS" && !isCashVenue) {
-        finalCost = Math.max(0, finalCost - appliedCoupon.discountValue);
-      }
-    }
-
-    let success = false;
-    
-    if (isCashVenue) {
-      success = useCreditsStore.getState().bookVisitWithCash(gym.name, finalCost);
-      if (success) {
-        await bookVisit(gym.id, gym.name, selectedDate, selectedTime, 0, appliedCoupon?.code);
-      }
-    } else {
-      success = await bookVisit(gym.id, gym.name, selectedDate, selectedTime, gym.cost, appliedCoupon?.code);
-    }
-
-    if (success) {
-      setBookingModalVisible(false);
-      Alert.alert(
-        "Booking Confirmed! 🎉",
-        `You've booked a session at ${gym.name} for ${selectedTime}.`,
-        [{ text: "Go to Home", onPress: () => router.push("/") }]
-      );
-    } else {
-      Alert.alert("Error", "Booking failed. Please check your balance.");
-    }
-  };
-
-  const validateCoupon = async () => {
-    if (!couponInput.trim()) return;
-    setCouponLoading(true);
-    try {
-      const data = await apiFetch(`/api/coupons/validate?code=${couponInput.trim()}`, {
-        token
-      });
-      if (data.success && data.coupon) {
-        const isCashVenue = gym.type === 'turf' || gym.type === 'sports';
-        if (data.coupon.discountType === "CREDITS" && isCashVenue) {
-          Alert.alert("Invalid Coupon", "This coupon can only be used for credit bookings.");
-        } else if (data.coupon.discountType === "RUPEES" && !isCashVenue) {
-          Alert.alert("Invalid Coupon", "This coupon can only be used for cash bookings.");
-        } else {
-          applyCoupon(data.coupon);
-          Alert.alert("Success", "Coupon applied successfully!");
-        }
-      } else {
-        Alert.alert("Error", data.message || "Invalid coupon code");
-      }
-    } catch (err: any) {
-      Alert.alert("Error", err.message || "Failed to validate coupon");
-    } finally {
-      setCouponLoading(false);
-    }
-  };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F7F4" }} edges={["top"]}>
-      <ScrollView showsVerticalScrollIndicator={false} bounces={true} overScrollMode="never" contentContainerStyle={{ paddingBottom: 120 }}>
-
-        {/* Hero Carousel */}
-        <View style={{ position: "relative", height: 280 }}>
-          <ScrollView 
-            horizontal 
-            pagingEnabled 
-            showsHorizontalScrollIndicator={false} 
-            onScroll={(e) => setActiveImage(Math.round(e.nativeEvent.contentOffset.x / windowWidth))}
+    <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        contentContainerStyle={{ paddingBottom: 100 }}
+        bounces={false}
+      >
+        
+        {/* Header Images Carousel */}
+        <View style={{ width, height: 260, position: 'relative' }}>
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onScroll={(e) => setActiveImage(Math.round(e.nativeEvent.contentOffset.x / width))}
             scrollEventThrottle={16}
           >
-            {gym.images?.map((img: string, i: number) => (
-              <Image
-                key={i}
-                source={{ uri: img }}
-                style={{ width: windowWidth, height: 280 }}
-                resizeMode="cover"
-              />
+            {GYM_DATA.images.map((img, idx) => (
+              <Image key={idx} source={{ uri: img }} style={{ width, height: 260 }} resizeMode="cover" />
             ))}
           </ScrollView>
-          {/* Gradient overlay */}
-          <View
-            style={{
-              position: "absolute",
-              bottom: 0,
-              left: 0,
-              right: 0,
-              height: 120,
-              backgroundColor: "rgba(0,0,0,0.35)",
-            }}
-            pointerEvents="none"
-          />
-          {/* Pagination dots */}
-          <View className="absolute bottom-10 left-0 right-0 flex-row justify-center gap-1.5" pointerEvents="none">
-            {gym.images?.map((_: string, i: number) => (
-              <View 
-                key={i} 
-                className={`h-1.5 rounded-full ${activeImage === i ? 'bg-white w-4' : 'bg-white/50 w-1.5'}`} 
-              />
-            ))}
-          </View>
-          {/* Back button */}
-          <Pressable
-            onPress={() => router.back()}
-            style={{ position: "absolute", top: 16, left: 16, zIndex: 50, elevation: 10 }}
-            className="w-10 h-10 rounded-full bg-black/40 items-center justify-center"
-          >
-            <Ionicons name="arrow-back" size={20} color="white" />
-          </Pressable>
-          {/* Premium badge */}
-          {gym.isPremium && (
-            <View
-              style={{ position: "absolute", top: 16, right: 16 }}
-              className="bg-amber-500 px-3 py-1 rounded-full flex-row items-center"
-            >
-              <Ionicons name="star" size={12} color="white" />
-              <Text className="text-white text-xs font-bold ml-1">Premium</Text>
-            </View>
-          )}
-        </View>
 
-        {/* Gym Info Card */}
-        <View className="mx-5 -mt-6 bg-white rounded-[28px] p-5 border border-black/5 shadow-sm mb-5">
-          {/* Name + Rating */}
-          <View className="flex-row justify-between items-start mb-3">
-            <View className="flex-1 mr-3">
-              <View className="flex-row items-center gap-x-2 mb-1">
-                {gym.isVerified && (
-                  <View className="flex-row items-center bg-[#EAF7EC] px-2 py-0.5 rounded-full border border-[#D1F2D6]">
-                    <Ionicons name="shield-checkmark" size={10} color="#059669" />
-                    <Text className="text-[#059669] text-[10px] font-bold ml-1">Verified</Text>
-                  </View>
-                )}
-              </View>
-              <Text className="text-xl font-black text-[#1F2520]">{gym.name}</Text>
-              <Text className="text-xs text-[#6B756E] mt-0.5">📍 {gym.address}</Text>
-            </View>
-            <View className="items-end">
-              <View className="flex-row items-center bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-100">
-                <Ionicons name="star" size={14} color="#D97706" />
-                <Text className="text-amber-800 text-sm font-bold ml-1">{gym.rating}</Text>
-              </View>
-              <Text className="text-[10px] text-[#6B756E] mt-1">{gym.reviewCount} reviews</Text>
-            </View>
-          </View>
-
-          {/* Action Row */}
-          <View className="flex-row items-center justify-between mb-4 mt-2">
-            <Pressable
-              onPress={() => router.push(`/chat/${gym.id}` as any)}
-              className="flex-1 bg-[#F5F7F4] flex-row items-center justify-center py-2.5 rounded-xl border border-black/5 mr-2 active:bg-gray-200"
-            >
-              <Ionicons name="chatbubble-ellipses-outline" size={16} color="#1F2520" />
-              <Text className="text-[#1F2520] font-bold text-xs ml-2">Chat with Gym</Text>
+          {/* Top Actions */}
+          <View style={{ position: 'absolute', top: Math.max(insets.top, 40), left: 16, right: 16, flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Pressable onPress={() => router.back()} style={styles.iconButton}>
+              <Ionicons name="arrow-back" size={20} color="#000" />
             </Pressable>
-            <View className="flex-1 bg-[#F5F7F4] flex-row items-center justify-center py-2.5 rounded-xl border border-black/5 ml-2">
-              <Ionicons name="map-outline" size={16} color="#1F2520" />
-              <Text className="text-[#1F2520] font-bold text-xs ml-2">Directions</Text>
-            </View>
+            <Pressable style={styles.iconButton}>
+              <Ionicons name="heart-outline" size={20} color="#000" />
+            </Pressable>
           </View>
 
-          {/* Tags */}
-          <View className="flex-row flex-wrap gap-2 mb-4">
-            {gym.tags.map((tag) => (
-              <View key={tag} className="bg-[#F0F3ED] px-3 py-1 rounded-full border border-black/5">
-                <Text className="text-[11px] font-semibold text-[#6B756E]">{tag}</Text>
-              </View>
-            ))}
-          </View>
-
-          <View className="h-[1px] bg-black/5 mb-4" />
-
-          {/* Key metrics */}
-          <View className="flex-row justify-between">
-            <View className="items-center flex-1">
-              <Text className="text-xs font-bold text-[#1F2520]">{gym.distance} KM</Text>
-              <Text className="text-[10px] text-[#6B756E] mt-0.5">Away</Text>
-            </View>
-            <View className="w-[1px] bg-black/5" />
-            <View className="items-center flex-1">
-              {gym.type === 'turf' || gym.type === 'sports' ? (
-                <Text className="text-xs font-bold text-emerald-700">₹{gym.cost * 50} Cash</Text>
-              ) : (
-                <Text className="text-xs font-bold text-emerald-700">⚡ {gym.cost} Credits</Text>
-              )}
-              <Text className="text-[10px] text-[#6B756E] mt-0.5">Per Visit</Text>
-            </View>
-            <View className="w-[1px] bg-black/5" />
-            <View className="items-center flex-1">
-              <Text className="text-xs font-bold text-[#1F2520]">{gym.slots}</Text>
-              <Text className="text-[10px] text-[#6B756E] mt-0.5">Slots Left</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* About Section */}
-        <View className="mx-5 bg-white rounded-[24px] p-5 border border-black/5 shadow-sm mb-5">
-          <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider mb-2">About</Text>
-          <Text className="text-sm text-[#4A5043] leading-relaxed">{gym.description}</Text>
-        </View>
-
-        {/* Amenities Section */}
-        <View className="mx-5 bg-white rounded-[24px] p-5 border border-black/5 shadow-sm mb-5">
-          <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider mb-3">Amenities</Text>
-          <View className="flex-row flex-wrap gap-3">
-            {gym.amenities?.map((amenity) => (
-              <View
-                key={amenity.label}
-                className="flex-row items-center bg-[#F5F7F4] px-3 py-2 rounded-xl border border-black/5 gap-x-2"
-              >
-                <Ionicons name={amenity.icon as any} size={15} color="#6BCB77" />
-                <Text className="text-xs font-semibold text-[#1F2520]">{amenity.label}</Text>
-              </View>
+          {/* Pagination Dots */}
+          <View style={{ position: 'absolute', bottom: 12, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 6 }}>
+            {GYM_DATA.images.map((_, idx) => (
+              <View key={idx} style={[styles.dot, activeImage === idx ? styles.activeDot : styles.inactiveDot]} />
             ))}
           </View>
         </View>
 
-        {/* Hours Section */}
-        <View className="mx-5 bg-white rounded-[24px] p-5 border border-black/5 shadow-sm mb-5">
-          <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider mb-2">Opening Hours</Text>
-          <View className="flex-row items-center gap-x-2">
-            <Ionicons name="time-outline" size={16} color="#6BCB77" />
-            <Text className="text-sm text-[#4A5043] leading-relaxed flex-1">{gym.hours}</Text>
+        <View style={{ padding: 16 }}>
+          {/* Title Section */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+            <Text style={{ fontSize: 24, fontWeight: '800', color: '#111827', letterSpacing: -0.5 }}>{GYM_DATA.name}</Text>
+            {GYM_DATA.isPartner && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0FDF4', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 16 }}>
+                <Ionicons name="shield-checkmark" size={12} color="#16A34A" />
+                <Text style={{ fontSize: 11, fontWeight: '700', color: '#16A34A', marginLeft: 4 }}>Partner Gym</Text>
+              </View>
+            )}
           </View>
-        </View>
 
-        {/* Custom Plans Section */}
-        {gym.plans && gym.plans.length > 0 && (
-          <View className="mx-5 bg-white rounded-[24px] p-5 border border-black/5 shadow-sm mb-5">
-            <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider mb-3">Available Plans</Text>
-            <View>
-              {gym.plans.map((plan: any) => (
-                <Pressable 
-                  key={plan.id}
-                  onPress={() => {
-                    Alert.alert(
-                      "Subscribe to Plan",
-                      `This will redirect you to the payment gateway to purchase ${plan.name} for ₹${plan.priceInPaise / 100}. Continue?`,
-                      [
-                        { text: "Cancel", style: "cancel" },
-                        { 
-                          text: "Pay Now", 
-                          onPress: async () => {
-                            const { purchaseGymPlan } = useUserStore.getState();
-                            const result = await purchaseGymPlan(plan.id, plan.priceInPaise);
-                            if (result.success) {
-                              Alert.alert("Success", `You have successfully subscribed to ${plan.name}!`);
-                              router.push("/membership");
-                            } else {
-                              Alert.alert("Subscription Failed", result.message || "An error occurred.");
-                            }
-                          }
-                        }
-                      ]
-                    );
-                  }}
-                  className="bg-[#F5F7F4] p-4 rounded-xl border border-black/5 active:bg-[#E9EBE6] mb-3"
-                >
-                  <Text className="text-sm font-bold text-[#1F2520] mb-1">{plan.name}</Text>
-                  <Text className="text-xs text-[#6B756E]">
-                    First {plan.initialPeriodMonths} months: {plan.initialCutoffDays} days cutoff
-                  </Text>
-                  <Text className="text-xs text-[#6B756E]">
-                    After {plan.initialPeriodMonths} months: {plan.subsequentCutoffDays} days cutoff
-                  </Text>
-                </Pressable>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+            <Ionicons name="star" size={14} color="#16A34A" />
+            <Text style={{ fontSize: 13, fontWeight: '700', color: '#374151', marginLeft: 4 }}>{GYM_DATA.rating}</Text>
+            <Text style={{ fontSize: 13, color: '#6B7280' }}>  ·  {GYM_DATA.reviews} reviews</Text>
+          </View>
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+            <Ionicons name="location-outline" size={14} color="#6B7280" />
+            <Text style={{ fontSize: 13, color: '#6B7280', marginLeft: 4 }}>{GYM_DATA.distance}</Text>
+          </View>
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24 }}>
+            <Ionicons name="diamond" size={12} color="#16A34A" />
+            <Text style={{ fontSize: 13, fontWeight: '600', color: '#16A34A', marginLeft: 4 }}>{GYM_DATA.status}</Text>
+            <Text style={{ fontSize: 13, color: '#6B7280' }}>  ·  Closes {GYM_DATA.closesAt}</Text>
+          </View>
+
+          {/* Quick Info Grid */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 3, marginBottom: 24, borderWidth: 1, borderColor: '#F3F4F6' }}>
+            <View style={{ alignItems: 'center', flex: 1 }}>
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#F0FDF4', justifyContent: 'center', alignItems: 'center', marginBottom: 8 }}>
+                <MaterialCommunityIcons name="dumbbell" size={20} color="#16A34A" />
+              </View>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#111827', marginBottom: 4 }}>Equipment</Text>
+              <Text style={{ fontSize: 10, color: '#6B7280', textAlign: 'center', lineHeight: 14 }}>Strength · Cardio{'\n'}Functional</Text>
+            </View>
+            <View style={{ width: 1, backgroundColor: '#F3F4F6', marginHorizontal: 4 }} />
+            <View style={{ alignItems: 'center', flex: 1 }}>
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#F0FDF4', justifyContent: 'center', alignItems: 'center', marginBottom: 8 }}>
+                <MaterialCommunityIcons name="shower" size={20} color="#111827" />
+              </View>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#111827', marginBottom: 4 }}>Facilities</Text>
+              <Text style={{ fontSize: 10, color: '#6B7280', textAlign: 'center', lineHeight: 14 }}>Shower · Changing{'\n'}Parking</Text>
+            </View>
+            <View style={{ width: 1, backgroundColor: '#F3F4F6', marginHorizontal: 4 }} />
+            <View style={{ alignItems: 'center', flex: 1 }}>
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#F9FAFB', justifyContent: 'center', alignItems: 'center', marginBottom: 8 }}>
+                <Ionicons name="people-outline" size={20} color="#111827" />
+              </View>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#111827', marginBottom: 4 }}>Crowd</Text>
+              <Text style={{ fontSize: 10, color: '#6B7280', textAlign: 'center', lineHeight: 14 }}>Moderate</Text>
+              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#FBBF24', marginTop: 4 }} />
+            </View>
+            <View style={{ width: 1, backgroundColor: '#F3F4F6', marginHorizontal: 4 }} />
+            <View style={{ alignItems: 'center', flex: 1 }}>
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#F9FAFB', justifyContent: 'center', alignItems: 'center', marginBottom: 8 }}>
+                <Ionicons name="time-outline" size={20} color="#111827" />
+              </View>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#111827', marginBottom: 4 }}>Timings</Text>
+              <Text style={{ fontSize: 10, color: '#6B7280', textAlign: 'center', lineHeight: 14 }}>5:30 AM –{'\n'}11:00 PM</Text>
+            </View>
+          </View>
+
+          {/* About the Gym */}
+          <View style={{ marginBottom: 24 }}>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 8 }}>About the Gym</Text>
+            <Text style={{ fontSize: 13, color: '#374151', lineHeight: 20, marginBottom: 8 }}>{GYM_DATA.about}</Text>
+            <Pressable>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#16A34A' }}>Read more {'>'}</Text>
+            </Pressable>
+          </View>
+
+          {/* Gym Photos */}
+          <View style={{ marginBottom: 24 }}>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 12 }}>Gym Photos</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+              {GYM_DATA.photos.map((photo, idx) => (
+                <Image key={idx} source={{ uri: photo }} style={{ width: 120, height: 80, borderRadius: 12, backgroundColor: '#F3F4F6' }} />
               ))}
+            </ScrollView>
+          </View>
+
+          {/* Gym Rules */}
+          <View style={{ marginBottom: 24 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+              <Ionicons name="shield-checkmark" size={18} color="#16A34A" />
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827', marginLeft: 8 }}>Gym Rules</Text>
             </View>
-          </View>
-        )}
-
-        {/* Date Picker */}
-        <View className="mx-5 bg-white rounded-[24px] p-5 border border-black/5 shadow-sm mb-5">
-          <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider mb-3">Select a Date</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} bounces={true} overScrollMode="never" decelerationRate="fast" snapToInterval={80} snapToAlignment="start" disableIntervalMomentum={true} contentContainerStyle={{ gap: 10 }}>
-            {DATES.map((item) => (
-              <Pressable
-                key={item.date}
-                onPress={() => setSelectedDate(item.date)}
-                className={`px-4 py-2.5 rounded-xl border items-center justify-center ${
-                  selectedDate === item.date
-                    ? "bg-[#EAF7EC] border-[#6BCB77]"
-                    : "bg-[#F5F7F4] border-transparent"
-                }`}
-              >
-                <Text
-                  className={`text-xs font-bold mb-0.5 ${
-                    selectedDate === item.date ? "text-[#6BCB77]" : "text-[#1F2520]"
-                  }`}
-                >
-                  {item.label}
-                </Text>
-                <Text
-                  className={`text-[10px] ${
-                    selectedDate === item.date ? "text-[#059669]" : "text-[#6B756E]"
-                  }`}
-                >
-                  {item.date.split(" ")[1]} {item.date.split(" ")[0]}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* Time Slot Picker */}
-        <View className="mx-5 bg-white rounded-[24px] p-5 border border-black/5 shadow-sm mb-5">
-          <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider mb-3">Select a Time Slot</Text>
-          <View className="flex-row flex-wrap gap-2.5">
-            {TIME_SLOTS.map((time) => (
-              <Pressable
-                key={time}
-                onPress={() => setSelectedTime(time)}
-                className={`px-4 py-2.5 rounded-xl border ${
-                  selectedTime === time
-                    ? "bg-[#EAF7EC] border-[#6BCB77]"
-                    : "bg-[#F5F7F4] border-transparent"
-                }`}
-              >
-                <Text
-                  className={`text-xs font-bold ${
-                    selectedTime === time ? "text-[#6BCB77]" : "text-[#6B756E]"
-                  }`}
-                >
-                  {time}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-
-        {/* Reviews Section */}
-        <View className="mx-5 bg-white rounded-[24px] p-5 border border-black/5 shadow-sm mb-8">
-          <View className="flex-row justify-between items-center mb-4">
-            <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider">Reviews</Text>
-            <Pressable onPress={() => {Alert.alert("Write Review", "Review and rating features will be available in Phase 2!")}} className="bg-[#EAF7EC] px-3 py-1.5 rounded-xl active:bg-[#D1F2D6]">
-              <Text className="text-[#6BCB77] font-bold text-[10px]">Write Review</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 16, paddingRight: 16, paddingBottom: 16 }}>
+              <View style={styles.ruleItem}>
+                <View style={styles.ruleIconWrapper}>
+                  <Ionicons name="qr-code-outline" size={22} color="#4B5563" />
+                </View>
+                <Text style={styles.ruleText}>Carry your{'\n'}ZonoFit booking</Text>
+              </View>
+              <View style={styles.ruleItem}>
+                <View style={styles.ruleIconWrapper}>
+                  <Ionicons name="shirt-outline" size={22} color="#4B5563" />
+                </View>
+                <Text style={styles.ruleText}>Follow gym{'\n'}dress code</Text>
+              </View>
+              <View style={styles.ruleItem}>
+                <View style={styles.ruleIconWrapper}>
+                  <Ionicons name="layers-outline" size={22} color="#4B5563" />
+                </View>
+                <Text style={styles.ruleText}>Carry towel{'\n'}if required</Text>
+              </View>
+              <View style={styles.ruleItem}>
+                <View style={styles.ruleIconWrapper}>
+                  <Ionicons name="shield-checkmark-outline" size={22} color="#4B5563" />
+                </View>
+                <Text style={styles.ruleText}>Use equipment{'\n'}safely</Text>
+              </View>
+              <View style={styles.ruleItem}>
+                <View style={styles.ruleIconWrapper}>
+                  <Ionicons name="people-outline" size={22} color="#4B5563" />
+                </View>
+                <Text style={styles.ruleText}>Respect gym{'\n'}staff & members</Text>
+              </View>
+            </ScrollView>
+            <Pressable style={{ alignItems: 'center', marginTop: 8 }}>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#16A34A' }}>View all rules {'>'}</Text>
             </Pressable>
           </View>
-          
-          <View className="bg-[#F5F7F4] p-4 rounded-2xl">
-            <View className="flex-row justify-between items-start mb-2">
-              <View className="flex-row items-center">
-                <Ionicons name="person-circle" size={28} color="#9CA3AF" />
-                <View className="ml-2">
-                  <Text className="font-bold text-[#1F2520] text-sm">Sarah J.</Text>
-                  <Text className="text-[10px] text-[#6B756E]">2 days ago</Text>
+
+          <View style={{ height: 1, backgroundColor: '#F3F4F6', marginBottom: 24 }} />
+
+          {/* Location */}
+          <View style={{ marginBottom: 24 }}>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 12 }}>Location</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F9FAFB', borderRadius: 12, padding: 12, justifyContent: 'space-between' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name="location-outline" size={20} color="#4B5563" />
+                <Text style={{ fontSize: 13, color: '#4B5563', marginLeft: 8 }}>{GYM_DATA.distance}</Text>
+              </View>
+              <View style={{ width: 140, height: 48, borderRadius: 8, overflow: 'hidden', position: 'relative' }}>
+                <Image source={{ uri: "https://maps.googleapis.com/maps/api/staticmap?center=40.714728,-73.998672&zoom=13&size=400x150&maptype=roadmap" }} style={{ width: '100%', height: '100%' }} />
+                <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.6)', justifyContent: 'center', alignItems: 'center' }}>
+                  <View style={{ backgroundColor: 'white', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, flexDirection: 'row', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 }}>
+                    <Ionicons name="location" size={12} color="#16A34A" />
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#16A34A', marginLeft: 4 }}>View on Map</Text>
+                  </View>
                 </View>
               </View>
-              <View className="flex-row bg-white px-2 py-1 rounded-full border border-black/5 items-center">
-                <Ionicons name="star" size={10} color="#D97706" />
-                <Text className="text-[10px] font-bold text-amber-800 ml-1">5.0</Text>
-              </View>
             </View>
-            <Text className="text-[#4A5043] text-xs leading-relaxed mt-1">
-              Amazing facilities and great equipment! The gym is super clean and the staff is very helpful. Highly recommend!
-            </Text>
           </View>
-        </View>
 
+          <View style={{ height: 1, backgroundColor: '#F3F4F6', marginBottom: 24 }} />
+
+          {/* Your Visit */}
+          <View style={{ marginBottom: 40, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                <Ionicons name="calendar-outline" size={20} color="#111827" />
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827', marginLeft: 8 }}>Your Visit</Text>
+              </View>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#16A34A', marginLeft: 28 }}>Available to book</Text>
+            </View>
+            <View style={{ backgroundColor: '#F0FDF4', paddingHorizontal: 32, paddingVertical: 14, borderRadius: 12, alignItems: 'center' }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827' }}>{GYM_DATA.visitsAvailable} Visit</Text>
+              <Text style={{ fontSize: 13, color: '#4B5563', marginTop: 4 }}>{GYM_DATA.credits} Credits</Text>
+            </View>
+          </View>
+
+        </View>
       </ScrollView>
 
-      {/* Sticky Footer CTA */}
-      <View
-        style={{
-          position: "absolute",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          backgroundColor: "white",
-          paddingHorizontal: 20,
-          paddingTop: 16,
-          paddingBottom: 32,
-          borderTopWidth: 1,
-          borderTopColor: "rgba(0,0,0,0.06)",
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 12,
-        }}
-      >
-        <View className="mr-2">
-          <Text className="text-[10px] text-[#6B756E] font-semibold uppercase tracking-wider">Visit Cost</Text>
-          {gym.type === 'turf' || gym.type === 'sports' ? (
-            <Text className="text-lg font-black text-[#1F2520]">₹{gym.cost * 50} Cash</Text>
-          ) : (
-            <Text className="text-lg font-black text-[#1F2520]">⚡ {gym.cost} Credits</Text>
-          )}
-        </View>
-        
-        <Pressable
-          onPress={() => router.push("/chat" as any)}
-          className="w-14 h-14 rounded-2xl border border-black/5 items-center justify-center bg-[#F5F7F4] active:bg-[#E9EBE6]"
-        >
-          <Ionicons name="chatbubble-ellipses-outline" size={24} color="#1F2520" />
-        </Pressable>
-
-        <Pressable
-          onPress={handleBookVisit}
-          className="flex-1 bg-[#6BCB77] h-14 rounded-2xl items-center justify-center active:opacity-90"
-        >
-          <Text className="text-white font-bold text-base">Book Visit • {selectedDate}</Text>
-        </Pressable>
-      </View>
-
-      {/* Booking Confirmation Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={bookingModalVisible}
-        onRequestClose={() => setBookingModalVisible(false)}
-      >
-        <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.6)" }}>
-          <View className="bg-white rounded-t-[36px] p-6">
-            <View className="w-12 h-1.5 bg-[#E9EBE6] rounded-full mb-6 mx-auto" />
-
-            <Text className="text-xs font-bold text-[#6BCB77] uppercase tracking-wider">Confirm Booking</Text>
-            <Text className="text-2xl font-bold text-[#1F2520] mt-1">{gym.name}</Text>
-            <Text className="text-xs text-[#6B756E] mt-0.5">📍 {gym.address}</Text>
-
-            <View className="h-[1px] bg-black/5 my-4" />
-
-            <View className="bg-[#F5F7F4] rounded-2xl p-4 flex-row justify-between items-center mb-6">
-              <View>
-                <Text className="text-[#6B756E] text-xs">Visit Time</Text>
-                <Text className="text-base font-bold text-[#1F2520] mt-0.5">🕐 {selectedTime}</Text>
-                <Text className="text-xs text-[#6B756E] mt-0.5">📅 {selectedDate}</Text>
-              </View>
-              <View className="items-end">
-                <Text className="text-[#6B756E] text-xs">Cost</Text>
-                {(() => {
-                  const isCashVenue = gym.type === 'turf' || gym.type === 'sports';
-                  let finalCost = isCashVenue ? (gym.cost * 50) : gym.cost;
-                  
-                  if (appliedCoupon) {
-                    if (appliedCoupon.discountType === "PERCENTAGE") {
-                      finalCost = Math.max(0, Math.floor(finalCost - (finalCost * (appliedCoupon.discountValue / 100))));
-                    } else if (appliedCoupon.discountType === "RUPEES" && isCashVenue) {
-                      finalCost = Math.max(0, finalCost - appliedCoupon.discountValue);
-                    } else if (appliedCoupon.discountType === "CREDITS" && !isCashVenue) {
-                      finalCost = Math.max(0, finalCost - appliedCoupon.discountValue);
-                    }
-                  }
-
-                  return (
-                    <Text className="text-base font-bold text-emerald-700 mt-0.5">
-                      {isCashVenue ? `₹${finalCost}` : `⚡ ${finalCost}`}
-                      {appliedCoupon && <Text className="text-xs text-emerald-600 ml-1"> (Discounted)</Text>}
-                    </Text>
-                  );
-                })()}
-              </View>
-            </View>
-
-            <View className="mb-6">
-              <View className="flex-row gap-2">
-                <TextInput 
-                  className="flex-1 bg-gray-50 px-4 py-3 rounded-xl border border-black/5"
-                  placeholder="Coupon Code"
-                  value={couponInput}
-                  onChangeText={setCouponInput}
-                  autoCapitalize="characters"
-                />
-                <Pressable 
-                  onPress={validateCoupon}
-                  disabled={couponLoading || !couponInput.trim()}
-                  className="bg-black px-6 items-center justify-center rounded-xl"
-                >
-                  {couponLoading ? <ActivityIndicator color="white" /> : <Text className="text-white font-bold">Apply</Text>}
-                </Pressable>
-              </View>
-              {appliedCoupon && (
-                <View className="flex-row justify-between items-center mt-2 bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-100">
-                  <Text className="text-emerald-700 font-bold">{appliedCoupon.code} Applied!</Text>
-                  <Pressable onPress={() => { clearCoupon(); setCouponInput(""); }}>
-                    <Ionicons name="close-circle" size={20} color="#059669" />
-                  </Pressable>
-                </View>
-              )}
-            </View>
-
-            <View className="bg-amber-50 rounded-xl p-3 mb-6 flex-row items-center gap-x-2 border border-amber-100">
-              <Ionicons name="information-circle-outline" size={16} color="#D97706" />
-              <Text className="text-amber-800 text-xs flex-1">
-                Your balance after booking: {gym.type === 'turf' || gym.type === 'sports' ? `₹${useCreditsStore.getState().cashBalance - (gym.cost * 50)} cash` : `${credits - gym.cost} credits`}
-              </Text>
-            </View>
-
-            <View className="flex-row gap-x-4">
-              <Pressable
-                onPress={() => setBookingModalVisible(false)}
-                className="flex-1 bg-[#F5F7F4] h-12 rounded-2xl items-center justify-center border border-black/5"
-              >
-                <Text className="text-[#6B756E] font-bold text-sm">Cancel</Text>
-              </Pressable>
-              <Pressable
-                onPress={handleConfirmBooking}
-                className="flex-1 bg-[#6BCB77] h-12 rounded-2xl items-center justify-center"
-              >
-                <Text className="text-white font-bold text-sm">Confirm & Book</Text>
-              </Pressable>
-            </View>
+      {/* Bottom Fixed Action Bar */}
+      <View style={{ position: 'absolute', bottom: Math.max(insets.bottom, 16), left: 16, right: 16, backgroundColor: '#4C9A2A', borderRadius: 12, flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, shadowColor: '#4C9A2A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+          <MaterialCommunityIcons name="ticket-outline" size={24} color="white" />
+          <View style={{ marginLeft: 12 }}>
+            <Text style={{ color: 'white', fontSize: 13, fontWeight: '600' }}>{GYM_DATA.visitsAvailable} Visit Available</Text>
+            <Text style={{ color: 'white', fontSize: 12, opacity: 0.9 }}>{GYM_DATA.credits} Credits</Text>
           </View>
         </View>
-      </Modal>
-    </SafeAreaView>
+        <View style={{ width: 1, height: 32, backgroundColor: 'rgba(255,255,255,0.3)', marginHorizontal: 16 }} />
+        <Pressable style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Text style={{ color: 'white', fontSize: 14, fontWeight: '700', marginRight: 8, letterSpacing: 0.5 }}>BOOK VISIT</Text>
+          <Ionicons name="arrow-forward" size={16} color="white" />
+        </Pressable>
+      </View>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  iconButton: {
+    width: 44,
+    height: 44,
+    backgroundColor: 'white',
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  dot: {
+    height: 8,
+    borderRadius: 4,
+    marginHorizontal: 1,
+  },
+  activeDot: {
+    width: 24,
+    backgroundColor: '#84CC16', // A brighter green like the image
+  },
+  inactiveDot: {
+    width: 8,
+    backgroundColor: 'rgba(255,255,255,0.6)',
+  },
+  ruleItem: {
+    alignItems: 'center',
+    width: 80,
+  },
+  ruleIconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  ruleText: {
+    fontSize: 10,
+    color: '#111827',
+    textAlign: 'center',
+    lineHeight: 14,
+  }
+});

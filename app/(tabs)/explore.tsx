@@ -352,17 +352,17 @@ export default function ExploreScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB" }} edges={["top"]}>
-      {/* Header */}
-      <View className="flex-row justify-between items-start mb-5 px-5 pt-4">
+      {/* Standard Header */}
+      <View className="flex-row justify-between items-center px-5 pt-4 pb-4">
         <View>
-          <Text className="text-[28px] font-bold text-black tracking-tight leading-8">Explore</Text>
-          <Text className="text-gray-400 text-sm font-medium mt-0.5">Find experiences, products & more</Text>
+          <Text className="text-[28px] font-extrabold text-[#111827] tracking-tight">Explore</Text>
+          <Text className="text-sm font-medium text-[#6B7280] mt-1">Find experiences, products & more</Text>
         </View>
         <Pressable 
           onPress={() => router.push("/booking-history" as any)}
           className="w-10 h-10 rounded-full border border-gray-200 items-center justify-center relative bg-white active:bg-gray-100 shadow-sm"
         >
-          <Ionicons name="notifications-outline" size={20} color="black" />
+          <Ionicons name="notifications-outline" size={20} color="#111827" />
           <View className="absolute top-2 right-2.5 w-2 h-2 rounded-full bg-orange-500 border border-white" />
         </Pressable>
       </View>
