@@ -414,7 +414,7 @@ export default function ExploreScreen() {
               <View className="flex-row gap-x-3">
                 {/* Partner Gyms Card */}
                 <Pressable 
-                  onPress={() => setShowGymsList(true)}
+                  onPress={() => router.push("/partner-gyms" as any)}
                   className="flex-1 bg-[#FFF9F5] rounded-[24px] p-5 flex-col justify-between border border-black/5 active:opacity-90 min-h-[170px]"
                   style={styles.cardShadow}
                 >
@@ -433,7 +433,7 @@ export default function ExploreScreen() {
 
                 {/* Shop Products Card */}
                 <Pressable 
-                  onPress={() => router.push("/tools/meal-scan" as any)}
+                  onPress={() => router.push("/future/meal-scan" as any)}
                   className="flex-1 bg-[#F4F8FF] rounded-[24px] p-5 flex-col justify-between border border-black/5 active:opacity-90 min-h-[170px]"
                   style={styles.cardShadow}
                 >
@@ -458,7 +458,7 @@ export default function ExploreScreen() {
               <View className="flex-col gap-y-3">
                 {/* Sports */}
                 <Pressable 
-                  onPress={() => router.push("/tools/sports" as any)}
+                  onPress={() => router.push("/future/sports" as any)}
                   className="bg-white rounded-[20px] p-4 flex-row items-center justify-between border border-black/5 shadow-sm active:bg-gray-50"
                   style={styles.cardShadow}
                 >
@@ -476,7 +476,7 @@ export default function ExploreScreen() {
 
                 {/* Studio Classes */}
                 <Pressable 
-                  onPress={() => router.push("/tools/studio-classes" as any)}
+                  onPress={() => router.push("/future/studio-classes" as any)}
                   className="bg-white rounded-[20px] p-4 flex-row items-center justify-between border border-black/5 shadow-sm active:bg-gray-50"
                   style={styles.cardShadow}
                 >
@@ -494,7 +494,7 @@ export default function ExploreScreen() {
 
                 {/* Recovery */}
                 <Pressable 
-                  onPress={() => router.push("/tools/recovery" as any)}
+                  onPress={() => router.push("/future/recovery" as any)}
                   className="bg-white rounded-[20px] p-4 flex-row items-center justify-between border border-black/5 shadow-sm active:bg-gray-50"
                   style={styles.cardShadow}
                 >

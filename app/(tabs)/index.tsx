@@ -218,7 +218,7 @@ export default function HomeScreen() {
           <View className="flex-row gap-x-3 mb-6">
             {/* Workout Buddy Card */}
             <Pressable 
-              onPress={() => router.push("/tools/workout-buddy" as any)}
+              onPress={() => router.push("/future/workout-buddy" as any)}
               className="flex-1 bg-[#F4F0FF] rounded-[24px] p-5 active:opacity-90 flex-col justify-between"
             >
               <View>
@@ -235,7 +235,7 @@ export default function HomeScreen() {
 
             {/* Personal Trainer Card */}
             <Pressable 
-              onPress={() => router.push("/tools/find-trainer" as any)}
+              onPress={() => router.push("/future/personal-trainer" as any)}
               className="flex-1 bg-[#FFF4ED] rounded-[24px] p-5 active:opacity-90 flex-col justify-between"
             >
               <View>
@@ -303,7 +303,7 @@ export default function HomeScreen() {
           <View className="flex-row gap-x-2.5 mb-5">
             {/* Nutrition */}
             <Pressable 
-              onPress={() => router.push("/tools/meal-scan" as any)}
+              onPress={() => router.push("/future/nutrition" as any)}
               className="flex-1 bg-white rounded-2xl py-4 px-1 items-center border border-black/5 shadow-sm relative active:bg-gray-50"
             >
               <Ionicons name="lock-closed" size={10} color="#9CA3AF" className="absolute top-2 right-2" />
@@ -315,7 +315,7 @@ export default function HomeScreen() {
 
             {/* AI Coach */}
             <Pressable 
-              onPress={() => router.push("/tools/ai-trainer" as any)}
+              onPress={() => router.push("/future/ai-coach" as any)}
               className="flex-1 bg-white rounded-2xl py-4 px-1 items-center border border-black/5 shadow-sm relative active:bg-gray-50"
             >
               <Ionicons name="lock-closed" size={10} color="#9CA3AF" className="absolute top-2 right-2" />
@@ -327,7 +327,7 @@ export default function HomeScreen() {
 
             {/* Home Workout */}
             <Pressable 
-              onPress={() => router.push("/tools/plans" as any)}
+              onPress={() => router.push("/future/home-workout" as any)}
               className="flex-1 bg-white rounded-2xl py-4 px-1 items-center border border-black/5 shadow-sm relative active:bg-gray-50"
             >
               <Ionicons name="lock-closed" size={10} color="#9CA3AF" className="absolute top-2 right-2" />
@@ -339,7 +339,7 @@ export default function HomeScreen() {
 
             {/* Community */}
             <Pressable 
-              onPress={() => router.push("/tools/community" as any)}
+              onPress={() => router.push("/future/community" as any)}
               className="flex-1 bg-white rounded-2xl py-4 px-1 items-center border border-black/5 shadow-sm relative active:bg-gray-50"
             >
               <Ionicons name="lock-closed" size={10} color="#9CA3AF" className="absolute top-2 right-2" />
