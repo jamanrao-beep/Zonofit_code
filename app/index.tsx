@@ -119,10 +119,11 @@ export default function SplashAnimationScreen() {
     const delay = Math.max(0, MIN_SPLASH_MS - elapsed);
 
     const timer = setTimeout(() => {
-      if (isSignedInRef.current) {
+      const { isOnboarded } = useAuthStore.getState();
+      if (isSignedInRef.current && isOnboarded) {
         router.replace("/(tabs)");
       } else {
-        router.replace("/onboarding");
+        router.replace("/(auth)/create-account");
       }
     }, delay);
 
