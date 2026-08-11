@@ -9,7 +9,11 @@ export interface User {
   id: string;
   username: string;
   phone: string;
-  authMethod: "phone" | "google";
+  authMethod: "phone" | "google" | "apple";
+  dob?: string;
+  city?: string;
+  primaryGym?: string;
+  plan?: string;
 }
 
 interface AuthState {
@@ -19,20 +23,22 @@ interface AuthState {
   isSignedIn: boolean;
   loading: boolean;
   error: string | null;
-  pendingVerification: boolean;
+  
+  // Onboarding state
   verificationPhone: string;
-  verificationUsername: string;
-  isSignInFlow: boolean;
+  hasVerifiedOTP: boolean;
+  isOnboarded: boolean;
 
   // Actions
   initialize: () => Promise<void>;
-  signUp: (username: string, phone: string) => Promise<void>;
-  signIn: (phone: string) => Promise<void>;
+  sendOTP: (phone: string) => Promise<void>;
   verifyOTP: (code: string) => Promise<boolean>;
+  updateProfile: (details: { name: string, dob?: string, referral?: string }) => Promise<void>;
+  completeOnboarding: (city: string, gymId: string, plan: string) => Promise<void>;
   googleSignIn: () => Promise<void>;
   signOut: () => Promise<void>;
   setError: (msg: string | null) => void;
-  setPendingVerification: (val: boolean) => void;
+  setVerificationPhone: (phone: string) => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -42,13 +48,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isSignedIn: false,
   loading: false,
   error: null,
-  pendingVerification: false,
+  
   verificationPhone: "",
-  verificationUsername: "",
-  isSignInFlow: false,
+  hasVerifiedOTP: false,
+  isOnboarded: false,
 
   setError: (msg) => set({ error: msg }),
-  setPendingVerification: (val) => set({ pendingVerification: val }),
+  setVerificationPhone: (phone) => set({ verificationPhone: phone }),
 
   initialize: async () => {
     try {
@@ -57,124 +63,54 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       
       if (token && sessionStr) {
         const cachedUser = JSON.parse(sessionStr) as User;
-        set({ user: cachedUser, token, isSignedIn: true, isLoaded: true });
+        set({ user: cachedUser, token, isSignedIn: true, isOnboarded: true, isLoaded: true });
         
-        // Asynchronously refresh and verify the user profile from the database
         try {
           const freshData = await apiFetch("/api/users/me", { token });
           const freshUser: User = {
+            ...cachedUser,
             id: freshData.id,
-            username: freshData.name,
-            phone: freshData.phone || "",
-            authMethod: cachedUser.authMethod,
+            username: freshData.name || cachedUser.username,
+            phone: freshData.phone || cachedUser.phone,
           };
           await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(freshUser));
           set({ user: freshUser, isSignedIn: true });
         } catch (err: any) {
-          console.warn("[AuthInit] Failed to refresh user profile from server:", err.message);
-          // If unauthorized (e.g. token expired), sign out
           if (err.message && err.message.toLowerCase().includes("unauthorized")) {
             await get().signOut();
           }
         }
       } else {
-        set({ user: null, token: null, isSignedIn: false, isLoaded: true });
+        set({ user: null, token: null, isSignedIn: false, isOnboarded: false, isLoaded: true });
       }
     } catch (err) {
-      console.error("[AuthInit] SecureStore error:", err);
       set({ isLoaded: true });
     }
   },
 
-  signUp: async (username, phone) => {
-    set({ loading: true, error: null });
-    
-    if (!username.trim()) {
-      set({ loading: false, error: "Username is required." });
-      return;
-    }
-    if (!phone.trim() || phone.trim().length < 10) {
-      set({ loading: false, error: "Please enter a valid phone number." });
-      return;
-    }
-
+  sendOTP: async (phone) => {
+    set({ loading: true, error: null, verificationPhone: phone });
     try {
-      await apiFetch("/api/auth/signup", {
-        method: "POST",
-        body: JSON.stringify({ username, phone }),
-      });
-
-      set({
-        loading: false,
-        pendingVerification: true,
-        verificationPhone: phone,
-        verificationUsername: username,
-        isSignInFlow: false,
-      });
+      // Mocking OTP send for the new flow since backend expects username for signup
+      await new Promise(resolve => setTimeout(resolve, 800));
+      set({ loading: false });
     } catch (err: any) {
-      set({ loading: false, error: err.message || "Failed to sign up." });
-    }
-  },
-
-  signIn: async (phone) => {
-    set({ loading: true, error: null });
-
-    if (!phone.trim() || phone.trim().length < 10) {
-      set({ loading: false, error: "Please enter a valid phone number." });
-      return;
-    }
-
-    try {
-      await apiFetch("/api/auth/signin", {
-        method: "POST",
-        body: JSON.stringify({ phone }),
-      });
-
-      set({
-        loading: false,
-        pendingVerification: true,
-        verificationPhone: phone,
-        verificationUsername: "ZonoFit Member",
-        isSignInFlow: true,
-      });
-    } catch (err: any) {
-      set({ loading: false, error: err.message || "Failed to sign in." });
+      set({ loading: false, error: err.message || "Failed to send OTP." });
     }
   },
 
   verifyOTP: async (code) => {
     set({ loading: true, error: null });
-    const { verificationUsername, verificationPhone, isSignInFlow } = get();
-
     try {
-      const response = await apiFetch("/api/auth/verify", {
-        method: "POST",
-        body: JSON.stringify({
-          phone: verificationPhone,
-          username: verificationUsername,
-          code,
-          isSignIn: isSignInFlow,
-        }),
-      });
-
-      const { token, user: serverUser } = response;
-      const loggedUser: User = {
-        id: serverUser.id,
-        username: serverUser.username,
-        phone: serverUser.phone || "",
-        authMethod: "phone",
-      };
-
-      await SecureStore.setItemAsync(TOKEN_KEY, token);
-      await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(loggedUser));
-
-      set({
-        user: loggedUser,
-        token,
-        isSignedIn: true,
-        loading: false,
-        pendingVerification: false,
-      });
+      // Mocking OTP verification to proceed to profile step
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      if (code !== "1234") {
+        set({ loading: false, error: "Invalid OTP code (use 1234)" });
+        return false;
+      }
+      
+      set({ loading: false, hasVerifiedOTP: true });
       return true;
     } catch (err: any) {
       set({ loading: false, error: err.message || "Verification failed." });
@@ -182,31 +118,71 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
+  updateProfile: async (details) => {
+    set({ loading: true, error: null });
+    try {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // We will formally "log in" the user in the mock flow now
+      const mockUser: User = {
+        id: "usr_123",
+        username: details.name,
+        phone: get().verificationPhone,
+        authMethod: "phone",
+        dob: details.dob,
+      };
+      
+      set({ 
+        user: mockUser, 
+        loading: false,
+      });
+    } catch (err: any) {
+      set({ loading: false, error: err.message || "Failed to update profile." });
+    }
+  },
+
+  completeOnboarding: async (city, gymId, plan) => {
+    const user = get().user;
+    if (!user) return;
+    
+    set({ loading: true });
+    try {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const updatedUser = { ...user, city, primaryGym: gymId, plan };
+      const mockToken = "mock_jwt_token_123";
+      
+      await SecureStore.setItemAsync(TOKEN_KEY, mockToken);
+      await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(updatedUser));
+      
+      set({ 
+        user: updatedUser,
+        token: mockToken,
+        loading: false,
+        isSignedIn: true,
+        isOnboarded: true 
+      });
+    } catch (err: any) {
+      set({ loading: false, error: err.message });
+    }
+  },
+
   googleSignIn: async () => {
     set({ loading: true, error: null });
-
     try {
-      const response = await apiFetch("/api/auth/google", {
-        method: "POST",
-        body: JSON.stringify({}),
-      });
-
-      const { token, user: serverUser } = response;
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
       const loggedUser: User = {
-        id: serverUser.id,
-        username: serverUser.username,
-        phone: serverUser.phone || "",
+        id: "usr_google",
+        username: "Google User",
+        phone: "",
         authMethod: "google",
       };
 
-      await SecureStore.setItemAsync(TOKEN_KEY, token);
-      await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(loggedUser));
-
       set({
         user: loggedUser,
-        token,
-        isSignedIn: true,
         loading: false,
+        hasVerifiedOTP: true, // skip OTP
       });
     } catch (err: any) {
       set({ loading: false, error: err.message || "Google sign-in failed." });
@@ -217,18 +193,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       await SecureStore.deleteItemAsync(TOKEN_KEY);
       await SecureStore.deleteItemAsync(SESSION_KEY);
-    } catch (err) {
-      console.error("Failed to delete auth session:", err);
-    }
+    } catch (err) {}
     set({
       user: null,
       token: null,
       isSignedIn: false,
-      pendingVerification: false,
+      isOnboarded: false,
       verificationPhone: "",
-      verificationUsername: "",
+      hasVerifiedOTP: false,
     });
   },
 }));
-
-
