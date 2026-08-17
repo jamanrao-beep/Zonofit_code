@@ -1,13 +1,13 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-primary: #0B6E4F;
-  --color-primary-dark: #074a35;
+  --color-primary: #1F7A3E;
+  --color-primary-dark: #145A2E;
   --color-background: #F2F2F7;
   --color-foreground: #111111;
   
   /* Additional ZonoFit Brand Colors */
-  --color-brand-green: #0B6E4F;
+  --color-brand-green: #39FF14;
   --color-brand-lime: #D9FF5C;
   --color-brand-coral: #FF6B6B;
   --color-brand-amber: #FFB020;
@@ -18,18 +18,25 @@
   
   /* Text and muted */
   --color-muted: #8E8E93;
+  --color-muted-foreground: #8E8E93;
   --color-text-light: #F2F2F7;
+  --color-primary-foreground: #111111;
   
   /* Borders */
   --color-secondary: #E5E5EA;
   --color-secondary-dark: #2C2C2E;
+  --color-border: #E5E5EA;
 
-  --font-sans: var(--font-geist-sans);
+  /* Custom Backgrounds */
+  --color-light-green: #E8F5E9;
+  --color-dark-bg: #1A1A1A;
+
+  --font-sans: var(--font-jakarta);
   --font-mono: var(--font-geist-mono);
 }
 
 :root {
-  --background: #F2F2F7;
+  --background: #ffffff;
   --foreground: #111111;
 }
 
@@ -64,11 +71,11 @@ body {
 }
 
 .emerald-glow {
-  box-shadow: 0 10px 30px 0 rgba(11, 110, 79, 0.6);
+  box-shadow: 0 10px 30px 0 rgba(57, 255, 20, 0.6);
 }
 
 .emerald-glow-sm {
-  box-shadow: 0 4px 10px 0 rgba(11, 110, 79, 0.4);
+  box-shadow: 0 4px 10px 0 rgba(57, 255, 20, 0.4);
 }
 
 .neon-glow-sm {
@@ -92,4 +99,103 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #8E8E93;
+}
+
+/* Landing Page Specific Classes */
+.section-label {
+  @apply text-xs font-bold tracking-[0.15em] uppercase text-primary mb-3 block;
+}
+.section-label-dark {
+  @apply text-primary/80;
+}
+
+.spotlight-card {
+  position: relative;
+  overflow: hidden;
+}
+.spotlight-card::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: radial-gradient(800px circle at var(--mouse-x) var(--mouse-y), rgba(255,255,255,0.06), transparent 40%);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.cal-day {
+  @apply w-full aspect-square rounded-full flex items-center justify-center text-xs font-semibold transition-all duration-300;
+}
+.cal-day.used {
+  @apply bg-primary text-primary-foreground font-bold shadow-[0_0_15px_rgba(31,122,62,0.5)];
+}
+.cal-day.unused {
+  @apply bg-gray-200 text-gray-500;
+}
+
+.progress-fill {
+  @apply h-full bg-primary rounded-full;
+  box-shadow: 0 0 10px rgba(31,122,62,0.5);
+}
+
+.value-float {
+  animation: float-up 2s ease-in-out infinite alternate;
+}
+@keyframes float-up {
+  0% { transform: translateY(0); box-shadow: 0 0 10px rgba(31,122,62,0.4); }
+  100% { transform: translateY(-8px); box-shadow: 0 0 20px rgba(31,122,62,0.8); }
+}
+
+.dark-section-gradient {
+  background: linear-gradient(180deg, #111111 0%, #0a0a0a 100%);
+}
+
+.habit-marker {
+  @apply w-full aspect-square rounded-full flex items-center justify-center text-xs font-bold transition-all duration-500;
+}
+.habit-marker.workout {
+  @apply bg-primary text-primary-foreground shadow-[0_0_15px_rgba(31,122,62,0.3)] scale-110;
+}
+.habit-marker.rest {
+  @apply bg-gray-100 text-gray-400 scale-90;
+}
+
+.ecosystem-card {
+  @apply bg-background rounded-2xl p-4 shadow-sm border border-border transition-all duration-300 hover:-translate-y-1 hover:shadow-md;
+}
+
+.pulse-green {
+  animation: pulse-green 2s infinite;
+}
+@keyframes pulse-green {
+  0% { box-shadow: 0 0 0 0 rgba(31,122,62, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(31,122,62, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(31,122,62, 0); }
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: all 0.8s cubic-bezier(0.5, 0, 0, 1);
+}
+.reveal.active {
+  opacity: 1;
+  transform: translateY(0);
+}
+.reveal-delay-1 { transition-delay: 100ms; }
+.reveal-delay-2 { transition-delay: 200ms; }
+.reveal-delay-3 { transition-delay: 300ms; }
+
+/* Phone Mockup Animations */
+.screen-dot {
+  @apply w-2 h-2 rounded-full bg-white/20 transition-all duration-300;
+}
+.screen-dot.active {
+  @apply w-6 bg-primary;
+}
+
+.phone-screen {
+  @apply absolute inset-0 opacity-0 transition-opacity duration-500 pointer-events-none;
+}
+.phone-screen.active {
+  @apply opacity-100 pointer-events-auto;
 }
