@@ -180,14 +180,8 @@ export default function LandingPage() {
               width="32"
               height="32"
               decoding="async"
-              data-nimg="1"
-              className="h-8 w-auto object-contain bg-gray-200"
-              style={{ color: 'transparent' }}
-              srcSet="
-                /_next/image?url=%2Fassets%2Fimages%2Fzonofit-logo-1786463111486.png&amp;w=32&amp;q=85 1x,
-                /_next/image?url=%2Fassets%2Fimages%2Fzonofit-logo-1786463111486.png&amp;w=64&amp;q=85 2x
-              "
-              src="/_next/image?url=%2Fassets%2Fimages%2Fzonofit-logo-1786463111486.png&amp;w=64&amp;q=85"
+              className="h-8 w-8 object-cover rounded-md"
+              src="/logo.jpeg"
             /><span className="font-extrabold text-lg tracking-tight"
               >ZonoFit</span
             ></a
