@@ -55,7 +55,7 @@ export default function LandingPage() {
         }
         return prev + 1;
       });
-    }, 2000);
+    }, 3500);
     return () => clearInterval(interval);
   }, [showSplash]);
 
@@ -63,21 +63,48 @@ export default function LandingPage() {
     <div className="relative min-h-screen bg-background">
       {/* Splash Screen */}
       <div 
-        className={`fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center px-6 transition-opacity duration-700 ${showSplash ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        className={`fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center px-6 transition-all duration-1000 ${showSplash ? 'opacity-100' : 'opacity-0 pointer-events-none scale-105'}`}
       >
-        <div className="w-full max-w-2xl text-center">
-          <div className="cinematic-frame">
-            <h1 className="hero-text-xl font-extrabold tracking-tight text-foreground transition-opacity duration-300">
+        <button 
+          onClick={() => setShowSplash(false)}
+          className="absolute top-8 right-8 px-6 py-2 rounded-full border border-gray-200 text-sm font-bold text-gray-400 hover:text-gray-900 hover:bg-gray-50 hover:border-gray-300 transition-all z-50"
+        >
+          Skip Intro
+        </button>
+        <div 
+          className="w-full max-w-5xl text-center cursor-pointer group"
+          onClick={() => {
+            if (splashStep >= SPLASH_MESSAGES.length - 1) {
+              setShowSplash(false);
+            } else {
+              setSplashStep(s => s + 1);
+            }
+          }}
+        >
+          <div className="overflow-hidden py-10">
+            <h1 
+              key={splashStep}
+              className="text-5xl md:text-8xl font-black tracking-tighter text-gray-900 animate-fade-up"
+              style={{ lineHeight: '1.1' }}
+            >
               {SPLASH_MESSAGES[splashStep]}
             </h1>
           </div>
+          <p className="mt-6 text-sm font-bold tracking-widest uppercase text-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            Tap to continue
+          </p>
         </div>
-        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex gap-2">
+        <div className="absolute bottom-16 left-1/2 -translate-x-1/2 flex gap-3">
           {SPLASH_MESSAGES.map((_, i) => (
             <div 
               key={i} 
-              className={`h-1.5 rounded-full transition-all duration-500 ${
-                i <= splashStep ? 'w-6 bg-primary' : 'w-1.5 bg-border'
+              onClick={() => setSplashStep(i)}
+              className={`h-2 rounded-full cursor-pointer transition-all duration-700 ${
+                i === splashStep 
+                  ? 'w-12 bg-primary shadow-[0_0_12px_rgba(31,122,62,0.6)]' 
+                  : i < splashStep 
+                    ? 'w-4 bg-primary/40 hover:bg-primary/60' 
+                    : 'w-4 bg-gray-200 hover:bg-gray-300'
               }`}
             />
           ))}
@@ -87,7 +114,7 @@ export default function LandingPage() {
       {/* Main Content */}
       <div className={`transition-opacity duration-700 ${!showSplash ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
 <header
-        className="fixed top-0 left-0 right-0 z-50 transition-all duration-500 bg-transparent"
+        className="fixed top-0 left-0 right-0 z-50 transition-all duration-500 bg-white shadow-sm"
       >
         <div
           className="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between"
@@ -98,14 +125,8 @@ export default function LandingPage() {
               width="32"
               height="32"
               decoding="async"
-              data-nimg="1"
-              className="h-8 w-auto object-contain bg-gray-200"
-              style={{ color: 'transparent' }}
-              srcSet="
-                /_next/image?url=%2Fassets%2Fimages%2Fzonofit-logo-1786463111486.png&amp;w=32&amp;q=85 1x,
-                /_next/image?url=%2Fassets%2Fimages%2Fzonofit-logo-1786463111486.png&amp;w=64&amp;q=85 2x
-              "
-              src="/_next/image?url=%2Fassets%2Fimages%2Fzonofit-logo-1786463111486.png&amp;w=64&amp;q=85"
+              className="h-8 w-8 object-cover rounded-md"
+              src="/logo.jpeg"
             /><span
               className="font-extrabold text-lg tracking-tight text-foreground"
               >ZonoFit</span
@@ -2294,14 +2315,8 @@ export default function LandingPage() {
                 width="48"
                 height="48"
                 decoding="async"
-                data-nimg="1"
-                className="h-12 w-auto object-contain bg-gray-200"
-                style={{ color: 'transparent' }}
-                srcSet="
-                  /_next/image?url=%2Fassets%2Fimages%2Fzonofit-logo-1786463111486.png&amp;w=48&amp;q=85 1x,
-                  /_next/image?url=%2Fassets%2Fimages%2Fzonofit-logo-1786463111486.png&amp;w=96&amp;q=85 2x
-                "
-                src="/_next/image?url=%2Fassets%2Fimages%2Fzonofit-logo-1786463111486.png&amp;w=96&amp;q=85"
+                className="h-12 w-12 object-cover rounded-md"
+                src="/logo.jpeg"
               /><span className="text-3xl font-black tracking-tight text-foreground"
                 >ZonoFit</span
               >
@@ -2352,14 +2367,8 @@ export default function LandingPage() {
               width="24"
               height="24"
               decoding="async"
-              data-nimg="1"
-              className="h-6 w-auto object-contain bg-gray-200"
-              style={{ color: 'transparent' }}
-              srcSet="
-                /_next/image?url=%2Fassets%2Fimages%2Fzonofit-logo-1786463111486.png&amp;w=32&amp;q=85 1x,
-                /_next/image?url=%2Fassets%2Fimages%2Fzonofit-logo-1786463111486.png&amp;w=48&amp;q=85 2x
-              "
-              src="/_next/image?url=%2Fassets%2Fimages%2Fzonofit-logo-1786463111486.png&amp;w=48&amp;q=85"
+              className="h-6 w-6 object-cover rounded-md"
+              src="/logo.jpeg"
             /><span
               className="font-extrabold text-sm tracking-tight text-foreground"
               >ZonoFit</span
