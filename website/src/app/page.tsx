@@ -21,6 +21,15 @@ export default function LandingPage() {
   const valueUsed = Math.round((membership / 30) * visits);
   const estimatedUnused = membership - valueUsed;
 
+  // Autoplay carousel for the app preview
+  useEffect(() => {
+    if (showSplash) return;
+    const interval = setInterval(() => {
+      setActiveScreen(prev => (prev + 1) % 6);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [showSplash]);
+
 
   // Scroll reveal animation
   useEffect(() => {
@@ -1839,6 +1848,167 @@ export default function LandingPage() {
             </div>
           </div>
         </section>
+        
+        {/* Journey Section */}
+        <section className="bg-white py-20 md:py-28 px-5">
+          <div className="max-w-5xl mx-auto">
+            
+            {/* Header */}
+            <div className="mb-16">
+              <h2 className="text-4xl md:text-5xl font-black tracking-tight text-gray-900 leading-tight">
+                You&apos;re not just completing visits.<br />
+                <span className="text-primary">You&apos;re building a journey.</span>
+              </h2>
+            </div>
+
+            {/* Grid Layout */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+              
+              {/* Left Timeline Box */}
+              <div className="md:col-span-7 bg-[#F7F7F7] rounded-[24px] p-8 md:p-12 border border-gray-200">
+                <div className="relative">
+                  {/* Vertical Line */}
+                  <div className="absolute left-[7px] top-3 bottom-3 w-0.5 bg-primary"></div>
+                  
+                  {/* Timeline Items */}
+                  <div className="space-y-10 relative">
+                    <div className="flex items-start gap-8">
+                      <div className="w-4 h-4 rounded-full bg-white border-2 border-primary mt-1 shrink-0 z-10"></div>
+                      <div className="flex gap-12 w-full">
+                        <span className="text-sm font-semibold text-gray-400 w-16">Month 1</span>
+                        <span className="text-sm font-bold text-gray-900">Starting.</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start gap-8">
+                      <div className="w-4 h-4 rounded-full bg-white border-2 border-primary mt-1 shrink-0 z-10"></div>
+                      <div className="flex gap-12 w-full">
+                        <span className="text-sm font-semibold text-gray-400 w-16">Month 2</span>
+                        <span className="text-sm font-bold text-gray-900">Building consistency.</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-8">
+                      <div className="w-4 h-4 rounded-full bg-white border-2 border-primary mt-1 shrink-0 z-10"></div>
+                      <div className="flex gap-12 w-full">
+                        <span className="text-sm font-semibold text-gray-400 w-16">Month 4</span>
+                        <span className="text-sm font-bold text-gray-900">Foundation.</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-8">
+                      <div className="w-4 h-4 rounded-full bg-white border-2 border-primary mt-1 shrink-0 z-10"></div>
+                      <div className="flex gap-12 w-full">
+                        <span className="text-sm font-semibold text-gray-400 w-16">Month 6</span>
+                        <span className="text-sm font-bold text-gray-900">Momentum.</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-8">
+                      <div className="w-4 h-4 rounded-full bg-white border-2 border-primary mt-1 shrink-0 z-10"></div>
+                      <div className="flex gap-12 w-full">
+                        <span className="text-sm font-semibold text-gray-400 w-16">Month 9</span>
+                        <span className="text-sm font-bold text-gray-900">Progress.</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-8">
+                      <div className="w-4 h-4 rounded-full bg-white border-2 border-primary mt-1 shrink-0 z-10"></div>
+                      <div className="flex gap-12 w-full">
+                        <span className="text-sm font-semibold text-gray-400 w-16">Month 12</span>
+                        <span className="text-sm font-bold text-gray-900">Completion.</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Boxes */}
+              <div className="md:col-span-5 flex flex-col gap-6">
+                
+                {/* Z Score Box */}
+                <div className="bg-[#f0fdf4] rounded-[24px] p-8 border border-primary/20">
+                  <p className="text-xs font-bold text-gray-500 mb-4">Your Z Score</p>
+                  <div className="flex items-baseline gap-2 mb-1">
+                    <span className="text-6xl font-black text-gray-900 tracking-tighter">78</span>
+                    <span className="text-xl font-bold text-gray-400">/ 100</span>
+                  </div>
+                  <p className="text-sm font-bold text-gray-900 mb-4">Strong Momentum</p>
+                  <p className="text-[13px] text-gray-500 leading-relaxed font-medium">
+                    Your consistency is shaping your journey. The score reflects how steadily you show up and how far you&apos;ve moved through your 12 months.
+                  </p>
+                </div>
+
+                {/* What's Next Box */}
+                <div className="bg-white rounded-[24px] p-8 border border-gray-200 shadow-sm flex-1">
+                  <p className="text-base font-extrabold text-gray-900 mb-1">What&apos;s next?</p>
+                  <p className="text-[13px] text-gray-500 mb-6 font-medium">Your next chapter could be:</p>
+                  
+                  <ul className="space-y-4">
+                    <li className="flex items-center gap-3">
+                      <div className="w-1.5 h-1.5 rounded-sm bg-primary shrink-0"></div>
+                      <span className="text-[13px] font-bold text-gray-600">A stronger consistency goal</span>
+                    </li>
+                    <li className="flex items-center gap-3">
+                      <div className="w-1.5 h-1.5 rounded-sm bg-primary shrink-0"></div>
+                      <span className="text-[13px] font-bold text-gray-600">A new fitness goal</span>
+                    </li>
+                    <li className="flex items-center gap-3">
+                      <div className="w-1.5 h-1.5 rounded-sm bg-primary shrink-0"></div>
+                      <span className="text-[13px] font-bold text-gray-600">A new phase of your journey</span>
+                    </li>
+                    <li className="flex items-center gap-3">
+                      <div className="w-1.5 h-1.5 rounded-sm bg-primary shrink-0"></div>
+                      <span className="text-[13px] font-bold text-gray-600">More ways to stay active</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Bottom Connected Section */}
+        <section className="bg-[#F7F7F7] py-24 px-5 border-t border-gray-100">
+          <div className="max-w-4xl mx-auto text-center">
+            <h2 className="text-3xl md:text-5xl font-black tracking-tight text-gray-900 mb-4">
+              Your fitness doesn&apos;t stop at the gym.
+            </h2>
+            <p className="text-[15px] font-bold text-gray-400 mb-20">
+              One membership, more ways to keep moving.
+            </p>
+            
+            {/* Horizontal Timeline */}
+            <div className="relative max-w-2xl mx-auto">
+              {/* Line */}
+              <div className="absolute top-1/2 left-[10%] right-[10%] h-[1px] bg-gray-300 -translate-y-1/2 z-0"></div>
+              
+              {/* Nodes */}
+              <div className="relative z-10 flex justify-between items-center">
+                <div className="flex flex-col items-center gap-4 bg-[#F7F7F7]">
+                  <div className="w-10 h-10 rounded-full bg-primary shadow-lg shadow-primary/30"></div>
+                  <span className="text-xs font-bold text-gray-900">Gym</span>
+                </div>
+                
+                <div className="flex flex-col items-center gap-4 bg-[#F7F7F7]">
+                  <div className="w-10 h-10 rounded-full bg-white border border-gray-300"></div>
+                  <span className="text-xs font-bold text-gray-400">Sports</span>
+                </div>
+                
+                <div className="flex flex-col items-center gap-4 bg-[#F7F7F7]">
+                  <div className="w-10 h-10 rounded-full bg-white border border-gray-300"></div>
+                  <span className="text-xs font-bold text-gray-400">Wellness</span>
+                </div>
+                
+                <div className="flex flex-col items-center gap-4 bg-[#F7F7F7]">
+                  <div className="w-10 h-10 rounded-full bg-white border border-gray-300"></div>
+                  <span className="text-xs font-bold text-gray-400">More possibilities</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        
         <section className="bg-background py-20 md:py-28 px-5">
           <div className="max-w-5xl mx-auto">
             <span className="section-label">07 / WHAT HAPPENS NEXT</span>
