@@ -18,6 +18,7 @@ export default function LandingPage() {
   const [activeScreen, setActiveScreen] = useState(0);
   const [membership, setMembership] = useState(3000);
   const [visits, setVisits] = useState(15);
+  const [sliderVisits, setSliderVisits] = useState(10);
   const valueUsed = Math.round((membership / 30) * visits);
   const estimatedUnused = membership - valueUsed;
 
@@ -234,189 +235,237 @@ export default function LandingPage() {
         </nav>
       </div>
       <main>
-        <section id="calculator" className="bg-background py-20 md:py-28 px-5">
+        {/* SECTION 1: SIMPLE TO START */}
+        <section className="bg-[#f9f9f9] py-20 md:py-28 px-5">
           <div className="max-w-6xl mx-auto">
-            <div className="mb-10">
-              <span className="section-label">02 / PERSONAL VALUE CALCULATOR</span>
-              <h2
-                className="mt-4 text-3xl md:text-5xl font-extrabold tracking-tight text-foreground leading-tight"
-              >
-                How much of your membership<br /><span className="text-primary"
-                  >do you actually use?</span
-                >
-              </h2>
-              <p className="mt-3 text-base text-muted-foreground max-w-md">
-                Adjust the values below. This is an estimate based on your
-                inputs — not a guarantee.
-              </p>
-            </div>
-            <div
-              className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-start"
-            >
-              <div className="space-y-8">
-                <div className="spotlight-card bg-secondary rounded-2xl p-6">
-                  <div className="flex justify-between items-baseline mb-4">
-                    <label className="section-label">Monthly Membership</label
-                    ><span
-                      className="text-3xl font-black text-foreground tracking-tight"
-                      >₹{membership.toLocaleString()}</span
-                    >
-                  </div>
-                  <input
-                    type="range"
-                    min="500"
-                    max="8000"
-                    step="100"
-                    className="w-full"
-                    aria-label="Monthly membership cost"
-                    value={membership}
-                    onChange={(e) => setMembership(Number(e.target.value))}
-                  />
-                  <div className="flex justify-between mt-1.5">
-                    <span className="text-xs text-muted-foreground">₹500</span
-                    ><span className="text-xs text-muted-foreground">₹8,000</span>
-                  </div>
+            <h2 className="text-3xl md:text-5xl font-black tracking-tight text-gray-900 mb-16">
+              Simple to start. Built for consistency.
+            </h2>
+            
+            <div className="relative mt-8 max-w-5xl">
+              {/* Horizontal Line connecting nodes */}
+              <div className="absolute top-4 left-4 right-4 h-[1px] bg-gray-300 z-0"></div>
+              {/* Highlighted part of line (to node 4) */}
+              <div className="absolute top-4 left-4 w-3/4 h-[2px] bg-[#73d500] z-0"></div>
+
+              <div className="relative z-10 grid grid-cols-1 md:grid-cols-4 gap-6 md:gap-4">
+                {/* Step 1 */}
+                <div>
+                  <div className="w-8 h-8 rounded-full bg-white border border-gray-300 flex items-center justify-center text-[10px] font-bold text-gray-400 mb-4">01</div>
+                  <p className="text-sm font-bold text-gray-500 pr-4">Choose your gym.</p>
                 </div>
-                <div className="spotlight-card bg-secondary rounded-2xl p-6">
-                  <div className="flex justify-between items-baseline mb-4">
-                    <label className="section-label">Your Actual Visits</label
-                    ><span
-                      className="text-3xl font-black text-foreground tracking-tight"
-                      >{visits}<span
-                        className="text-base font-semibold text-muted-foreground ml-1"
-                        >/ 30 days</span
-                      ></span
-                    >
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="30"
-                    step="1"
-                    className="w-full"
-                    aria-label="Number of gym visits"
-                    value={visits}
-                    onChange={(e) => setVisits(Number(e.target.value))}
-                  />
-                  <div className="flex justify-between mt-1.5">
-                    <span className="text-xs text-muted-foreground">0</span
-                    ><span className="text-xs text-muted-foreground">30</span>
-                  </div>
+                {/* Step 2 */}
+                <div>
+                  <div className="w-8 h-8 rounded-full bg-white border border-gray-300 flex items-center justify-center text-[10px] font-bold text-gray-400 mb-4">02</div>
+                  <p className="text-sm font-bold text-gray-500 pr-4">Choose your membership.</p>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div
-                    className="spotlight-card bg-light-green rounded-2xl p-5 border border-primary/20"
-                  >
-                    <p className="section-label mb-2">Value Used</p>
-                    <p className="text-2xl font-black text-foreground">₹{valueUsed.toLocaleString()}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {visits} visits
-                    </p>
-                  </div>
-                  <div className="spotlight-card bg-secondary rounded-2xl p-5">
-                    <p className="section-label mb-2">Estimated Unused</p>
-                    <p className="text-2xl font-black text-foreground">₹{estimatedUnused.toLocaleString()}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {30 - visits} days unused
-                    </p>
-                  </div>
+                {/* Step 3 */}
+                <div>
+                  <div className="w-8 h-8 rounded-full bg-white border border-gray-300 flex items-center justify-center text-[10px] font-bold text-gray-400 mb-4">03</div>
+                  <p className="text-sm font-bold text-gray-500 pr-4">Complete your committed visits.</p>
+                </div>
+                {/* Step 4 */}
+                <div>
+                  <div className="w-8 h-8 rounded-full bg-[#73d500] flex items-center justify-center text-[10px] font-bold text-white mb-4 shadow-[0_0_15px_rgba(115,213,0,0.5)]">04</div>
+                  <p className="text-sm font-bold text-gray-900 pr-4 mb-2">Build value through your journey.</p>
+                  <p className="text-[11px] font-medium text-gray-500 pr-2 leading-relaxed">Consistency builds progress, milestones and credits inside your ZonoFit wallet.</p>
                 </div>
               </div>
-              <div className="space-y-8">
-                <div className="bg-secondary rounded-2xl p-6">
-                  <div className="flex justify-between items-center mb-5">
-                    <span className="section-label">Your Month</span>
-                    <div className="flex items-center gap-4 text-xs font-semibold">
-                      <span className="flex items-center gap-1.5"
-                        ><span
-                          className="w-3 h-3 rounded-full bg-primary inline-block"
-                        ></span
-                        >Used</span
-                      ><span className="flex items-center gap-1.5"
-                        ><span
-                          className="w-3 h-3 rounded-full bg-gray-200 inline-block"
-                        ></span
-                        >Unused</span
-                      >
-                    </div>
+            </div>
+          </div>
+        </section>
+
+        {/* SECTION 2: MEMBERSHIP JOURNEY */}
+        <section className="bg-white py-20 md:py-28 px-5">
+          <div className="max-w-6xl mx-auto">
+            <h2 className="text-3xl md:text-5xl font-black tracking-tight text-gray-900 mb-2">
+              Your membership has a journey.
+            </h2>
+            <p className="text-[13px] font-bold text-gray-500 mb-10">Start with consistency. Build momentum over time.</p>
+            
+            <div className="flex flex-wrap gap-3 mb-10">
+              <span className="inline-flex items-center px-4 py-2 rounded-full bg-[#f7f7f7] text-[10px] font-extrabold text-gray-600 tracking-wide">Months 1-4 • 10 visits each month</span>
+              <span className="inline-flex items-center px-4 py-2 rounded-full bg-[#f0fdf4] text-[10px] font-extrabold text-primary tracking-wide">Months 5-12 • 15 visits each month</span>
+            </div>
+
+            {/* Horizontal Scroll / Cards */}
+            <div className="flex overflow-x-auto pb-6 -mx-5 px-5 gap-4 hide-scrollbar">
+              <div className="shrink-0 w-[120px] p-4 rounded-[16px] bg-[#f0fdf4] border border-primary/20 shadow-sm flex flex-col justify-between h-[110px]">
+                <div className="w-6 h-6 rounded-full bg-[#73d500] flex items-center justify-center text-white text-[10px] font-bold">1</div>
+                <div>
+                  <p className="text-[12px] font-bold text-gray-900">Month 1</p>
+                  <p className="text-[9px] font-bold text-gray-400 mt-0.5">10/10 visits</p>
+                </div>
+              </div>
+              <div className="shrink-0 w-[120px] p-4 rounded-[16px] bg-white border border-gray-200 flex flex-col justify-between h-[110px]">
+                <div className="w-6 h-6 rounded-full bg-[#73d500] flex items-center justify-center text-white text-[10px] font-bold">2</div>
+                <div>
+                  <p className="text-[12px] font-bold text-gray-900">Month 2</p>
+                  <p className="text-[9px] font-bold text-gray-400 mt-0.5">10/10 visits</p>
+                </div>
+              </div>
+              <div className="shrink-0 w-[120px] p-4 rounded-[16px] bg-white border border-gray-200 flex flex-col justify-between h-[110px] opacity-60">
+                <div className="w-6 h-6 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-400 text-[10px] font-bold">3</div>
+                <div>
+                  <p className="text-[12px] font-bold text-gray-900">Month 3</p>
+                  <p className="text-[9px] font-bold text-gray-400 mt-0.5">0/10 visits</p>
+                </div>
+              </div>
+              <div className="shrink-0 w-[120px] p-4 rounded-[16px] bg-white border border-gray-200 flex flex-col justify-between h-[110px] opacity-60">
+                <div className="w-6 h-6 rounded-full bg-[#73d500] flex items-center justify-center text-white text-[10px] font-bold">4</div>
+                <div>
+                  <p className="text-[12px] font-bold text-gray-900">Month 4</p>
+                  <p className="text-[9px] font-bold text-gray-400 mt-0.5">10/10 visits</p>
+                </div>
+              </div>
+              <div className="shrink-0 w-[120px] p-4 rounded-[16px] bg-white border border-gray-200 flex flex-col justify-between h-[110px] opacity-60">
+                <div className="w-6 h-6 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-400 text-[10px] font-bold">5</div>
+                <div>
+                  <p className="text-[12px] font-bold text-gray-900">Month 5</p>
+                  <p className="text-[9px] font-bold text-gray-400 mt-0.5">13/15 visits</p>
+                </div>
+              </div>
+              <div className="shrink-0 w-[120px] p-4 rounded-[16px] bg-white border border-gray-200 flex flex-col justify-between h-[110px] opacity-60">
+                <div className="w-6 h-6 rounded-full bg-[#73d500] flex items-center justify-center text-white text-[10px] font-bold">6</div>
+                <div>
+                  <p className="text-[12px] font-bold text-gray-900">Month 6</p>
+                  <p className="text-[9px] font-bold text-gray-400 mt-0.5">15/15 visits</p>
+                </div>
+              </div>
+              <div className="shrink-0 w-[120px] p-4 rounded-[16px] bg-white border border-gray-200 flex flex-col justify-between h-[110px] opacity-60">
+                <div className="w-6 h-6 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-400 text-[10px] font-bold">7</div>
+                <div>
+                  <p className="text-[12px] font-bold text-gray-900">Month 7</p>
+                  <p className="text-[9px] font-bold text-gray-400 mt-0.5">14/15 visits</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Detailed Phase View */}
+            <div className="mt-8 bg-[#f9f9f9] rounded-[24px] border border-gray-200 p-6 md:p-8">
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <p className="text-[9px] font-bold tracking-widest text-gray-400 uppercase mb-2">Phase 1 • Month 1</p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">🌱</span>
+                    <h3 className="text-xl font-bold text-gray-900">Start</h3>
                   </div>
-                  <div className="grid grid-cols-7 gap-2">
-                    {[...Array(30)].map((_, i) => (
-                      <div 
-                        key={i} 
-                        className={`cal-day cursor-pointer hover:opacity-80 ${i < visits ? 'used' : 'unused'}`} 
-                        title={`Day ${i + 1}`}
-                        onClick={() => setVisits(i + 1)}
-                      >
-                        {i + 1}
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-5">
-                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="progress-fill" style={{ width: `${(visits / 30) * 100}%` }}></div>
-                    </div>
-                    <div
-                      className="flex justify-between mt-2 text-xs text-muted-foreground font-medium"
+                  <p className="text-[11px] font-semibold text-gray-500 mt-1">Beginning your journey.</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[11px] font-bold text-gray-600">10 of 10 mandatory visits</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2 mb-8">
+                {[1,2,3,4,5,6,7,8,9,10].map(dot => (
+                  <div key={dot} className="w-3 h-3 rounded-full bg-[#73d500]"></div>
+                ))}
+              </div>
+              <p className="text-[11px] font-medium text-gray-400">First, build the habit. Then build momentum. Then complete the journey.</p>
+            </div>
+          </div>
+        </section>
+
+        {/* SECTION 3: SEE HOW YOUR MEMBERSHIP WORKS (Interactive Calendar) */}
+        <section id="calculator" className="bg-[#f9f9f9] py-20 md:py-28 px-5 border-t border-gray-200">
+          <style dangerouslySetInnerHTML={{__html: `
+            .slider-thumb::-webkit-slider-thumb {
+              -webkit-appearance: none;
+              appearance: none;
+              width: 14px;
+              height: 14px;
+              border-radius: 50%;
+              background: #73d500;
+              cursor: pointer;
+            }
+          `}} />
+          <div className="max-w-5xl mx-auto">
+            <h2 className="text-3xl md:text-5xl font-black tracking-tight text-gray-900 mb-2">
+              See how your membership works.
+            </h2>
+            <p className="text-[13px] font-bold text-gray-500 mb-12">Move the slider and watch your month take shape.</p>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-start">
+              
+              {/* Left Side: Calendar Grid */}
+              <div className="bg-white rounded-[24px] p-8 md:p-10 border border-gray-200 shadow-sm">
+                <p className="text-[13px] font-extrabold text-gray-900 mb-6">A month at your gym</p>
+                <div className="grid grid-cols-7 gap-2 md:gap-3">
+                  {[...Array(30)].map((_, i) => (
+                    <div 
+                      key={i} 
+                      className={`aspect-square rounded-[10px] md:rounded-[14px] flex items-center justify-center text-[9px] font-bold transition-colors duration-300 ${
+                        i < sliderVisits 
+                          ? 'bg-[#73d500] text-white shadow-sm' 
+                          : 'bg-white border border-gray-200 text-gray-400'
+                      }`}
                     >
-                      <span>{Math.round((visits / 30) * 100)}% used</span><span>{Math.round(((30 - visits) / 30) * 100)}% unused</span>
+                      {i + 1}
                     </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Right Side: Controls */}
+              <div className="bg-white rounded-[24px] p-8 md:p-10 border border-gray-200 shadow-sm">
+                <p className="text-[13px] font-extrabold text-gray-900 mb-6">How often would you realistically work out?</p>
+                
+                <div className="flex items-baseline gap-2 mb-8">
+                  <span className="text-6xl font-black text-gray-900 tracking-tighter">{sliderVisits}</span>
+                  <span className="text-[11px] font-bold text-gray-400">visits / month</span>
+                </div>
+
+                <div className="mb-10 relative">
+                  <input 
+                    type="range" 
+                    min="5" 
+                    max="15" 
+                    value={sliderVisits} 
+                    onChange={(e) => setSliderVisits(parseInt(e.target.value))}
+                    className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer focus:outline-none slider-thumb"
+                    style={{
+                      background: `linear-gradient(to right, #73d500 ${((sliderVisits - 5) / 10) * 100}%, #f3f4f6 ${((sliderVisits - 5) / 10) * 100}%)`
+                    }}
+                  />
+                  <div className="flex justify-between mt-4 text-[9px] font-extrabold text-gray-400 px-1 tracking-widest">
+                    <span>5</span>
+                    <span>8</span>
+                    <span>10</span>
+                    <span>12</span>
+                    <span>15</span>
                   </div>
                 </div>
-                <div
-                  className="bg-dark-bg rounded-2xl p-6 transition-all duration-700 opacity-0 translate-y-6"
-                >
-                  <p
-                    className="text-xs font-bold tracking-widest uppercase text-gray-400 mb-4"
-                  >
-                    What if unused value could stay useful?
-                  </p>
-                  <div className="flex items-center gap-3 mb-5">
-                    <div className="text-center">
-                      <p className="text-xs text-gray-500 mb-1">Traditional</p>
-                      <p className="text-xl font-black text-gray-400 line-through">
-                        ₹{estimatedUnused.toLocaleString()}
-                      </p>
-                      <p className="text-xs text-gray-600 mt-0.5">gone</p>
-                    </div>
-                    <div className="flex-1 flex items-center justify-center">
-                      <div className="flex flex-col items-center gap-0.5">
-                        <div className="w-px h-4 bg-primary/40"></div>
-                        <div
-                          className="w-2 h-2 rounded-full bg-primary value-float"
-                        ></div>
-                        <div className="w-px h-4 bg-primary/40"></div>
-                      </div>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-xs text-primary/70 mb-1">ZonoFit</p>
-                      <p className="text-xl font-black text-primary">₹{estimatedUnused.toLocaleString()}</p>
-                      <p className="text-xs text-primary/60 mt-0.5">→ credits</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <span
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-semibold text-gray-300"
-                      >💊{/* */} 
-                      {/* */} Supplements</span
-                    ><span
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-semibold text-gray-300"
-                      >🧘{/* */} 
-                      {/* */} Wellness</span
-                    ><span
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-semibold text-gray-300"
-                      >🏃{/* */} 
-                      {/* */} Sports</span
-                    ><span
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-semibold text-gray-300"
-                      >✨{/* */} 
-                      {/* */} More</span
-                    >
-                  </div>
-                  <p className="mt-4 text-sm font-semibold text-white leading-snug">
-                    That&#x27;s where ZonoFit changes the model.
-                  </p>
+
+                <div className="mb-3 flex justify-between items-end">
+                  <span className="text-[11px] font-extrabold text-gray-700">Monthly commitment</span>
+                  <span className="text-[10px] font-bold text-gray-400">10 / 10</span>
                 </div>
+                {/* Progress bar */}
+                <div className="h-[3px] w-full bg-gray-100 rounded-full mb-6 overflow-hidden">
+                  <div className="h-full bg-[#73d500] transition-all duration-300" style={{ width: '100%' }}></div>
+                </div>
+
+                {/* Status Box */}
+                <div className="bg-[#f0fdf4] rounded-[16px] p-5 border border-primary/20 mb-4">
+                  <p className="text-[11px] font-extrabold text-gray-900 mb-1">Commitment met — journey on track</p>
+                  <p className="text-[10px] font-semibold text-gray-500 leading-relaxed">Visits beyond your commitment keep your momentum and Z Score climbing.</p>
+                </div>
+
+                {/* Wallet Box */}
+                <div className="bg-white rounded-[16px] p-5 border border-gray-200 flex justify-between items-center shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
+                  <div>
+                    <p className="text-[11px] font-extrabold text-gray-900">ZonoFit Wallet</p>
+                    <p className="text-[9px] font-semibold text-gray-400 mt-0.5">Value from your membership, tracked as credits.</p>
+                  </div>
+                  <div className="flex gap-1 items-end h-[18px]">
+                    <div className="w-1.5 h-full bg-[#73d500] rounded-sm"></div>
+                    <div className="w-1.5 h-full bg-[#73d500] rounded-sm"></div>
+                    <div className="w-1.5 h-full bg-[#73d500] rounded-sm"></div>
+                    <div className="w-1.5 h-[12px] bg-gray-200 rounded-sm"></div>
+                    <div className="w-1.5 h-[8px] bg-gray-200 rounded-sm"></div>
+                  </div>
+                </div>
+
               </div>
             </div>
           </div>
