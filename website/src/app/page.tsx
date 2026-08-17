@@ -235,6 +235,185 @@ export default function LandingPage() {
         </nav>
       </div>
       <main>
+        <section id="calculator" className="bg-white py-20 md:py-28 px-5 border-t border-gray-200">
+          <div className="max-w-6xl mx-auto">
+            <div className="mb-12">
+              <span className="inline-flex items-center px-3 py-1 rounded-full bg-gray-100 text-[10px] font-extrabold text-gray-600 tracking-wider mb-4">02 / PERSONAL VALUE CALCULATOR</span>
+              <h2 className="text-3xl md:text-5xl font-black tracking-tight text-gray-900 leading-tight">
+                How much of your membership<br /><span className="text-[#73d500]">do you actually use?</span>
+              </h2>
+              <p className="mt-4 text-[13px] font-bold text-gray-500 max-w-md leading-relaxed">
+                Adjust the values below. This is an estimate based on your
+                inputs — not a guarantee.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-start">
+              
+              {/* LEFT SIDE */}
+              <div className="space-y-6">
+                
+                {/* Insight Card Added to make it less boring */}
+                <div className="bg-[#f0fdf4] rounded-[20px] p-6 border border-[#73d500]/20 relative overflow-hidden shadow-sm">
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-[#73d500]/10 rounded-bl-full pointer-events-none"></div>
+                  <div className="flex items-center gap-3 mb-3 relative z-10">
+                    <div className="w-10 h-10 rounded-full bg-[#73d500] flex items-center justify-center shadow-md shadow-[#73d500]/30">
+                      <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 className="text-[13px] font-extrabold text-gray-900">The ZonoFit Advantage</h4>
+                    </div>
+                  </div>
+                  <p className="text-[11px] font-bold text-gray-600 leading-relaxed relative z-10">
+                    Traditional gyms rely on breakage—hoping you pay but don&apos;t show up. We flip the model. Any unused value automatically converts into ZonoFit Credits.
+                  </p>
+                </div>
+
+                <div className="bg-[#f9f9f9] rounded-[20px] p-6 border border-gray-200">
+                  <div className="flex justify-between items-baseline mb-5">
+                    <label className="text-[11px] font-extrabold text-gray-700 uppercase tracking-wide">Monthly Membership</label>
+                    <span className="text-3xl font-black text-gray-900 tracking-tight">₹{membership.toLocaleString()}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="500"
+                    max="8000"
+                    step="100"
+                    className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer focus:outline-none slider-thumb"
+                    style={{ background: `linear-gradient(to right, #73d500 ${((membership - 500) / 7500) * 100}%, #e5e7eb ${((membership - 500) / 7500) * 100}%)` }}
+                    aria-label="Monthly membership cost"
+                    value={membership}
+                    onChange={(e) => setMembership(Number(e.target.value))}
+                  />
+                  <div className="flex justify-between mt-3">
+                    <span className="text-[10px] font-bold text-gray-400">₹500</span>
+                    <span className="text-[10px] font-bold text-gray-400">₹8,000</span>
+                  </div>
+                </div>
+
+                <div className="bg-[#f9f9f9] rounded-[20px] p-6 border border-gray-200">
+                  <div className="flex justify-between items-baseline mb-5">
+                    <label className="text-[11px] font-extrabold text-gray-700 uppercase tracking-wide">Your Actual Visits</label>
+                    <span className="text-3xl font-black text-gray-900 tracking-tight">
+                      {visits}<span className="text-xs font-bold text-gray-400 ml-1">/ 30 days</span>
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="30"
+                    step="1"
+                    className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer focus:outline-none slider-thumb"
+                    style={{ background: `linear-gradient(to right, #73d500 ${(visits / 30) * 100}%, #e5e7eb ${(visits / 30) * 100}%)` }}
+                    aria-label="Number of gym visits"
+                    value={visits}
+                    onChange={(e) => setVisits(Number(e.target.value))}
+                  />
+                  <div className="flex justify-between mt-3">
+                    <span className="text-[10px] font-bold text-gray-400">0</span>
+                    <span className="text-[10px] font-bold text-gray-400">30</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-[#f0fdf4] rounded-[20px] p-5 border border-[#73d500]/30 shadow-sm">
+                    <p className="text-[10px] font-extrabold text-[#73d500] uppercase tracking-wider mb-2">Value Used</p>
+                    <p className="text-2xl font-black text-gray-900">₹{valueUsed.toLocaleString()}</p>
+                    <p className="text-[10px] font-bold text-gray-500 mt-1">{visits} visits</p>
+                  </div>
+                  <div className="bg-white rounded-[20px] p-5 border border-gray-200 shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
+                    <p className="text-[10px] font-extrabold text-gray-500 uppercase tracking-wider mb-2">Estimated Unused</p>
+                    <p className="text-2xl font-black text-gray-900">₹{estimatedUnused.toLocaleString()}</p>
+                    <p className="text-[10px] font-bold text-gray-400 mt-1">{30 - visits} days unused</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* RIGHT SIDE */}
+              <div className="space-y-6">
+                <div className="bg-white rounded-[24px] p-8 border border-gray-200 shadow-sm">
+                  <div className="flex justify-between items-center mb-6">
+                    <span className="text-[13px] font-extrabold text-gray-900">Your Month</span>
+                    <div className="flex items-center gap-4 text-[10px] font-bold">
+                      <span className="flex items-center gap-1.5 text-gray-600">
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#73d500] inline-block shadow-sm"></span>Used
+                      </span>
+                      <span className="flex items-center gap-1.5 text-gray-400">
+                        <span className="w-2.5 h-2.5 rounded-full bg-gray-100 border border-gray-200 inline-block"></span>Unused
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-7 gap-2 md:gap-3">
+                    {[...Array(30)].map((_, i) => (
+                      <div 
+                        key={i} 
+                        className={`aspect-square rounded-[10px] flex items-center justify-center text-[9px] font-bold cursor-pointer transition-colors duration-300 ${
+                          i < visits 
+                            ? 'bg-[#73d500] text-white shadow-sm hover:bg-[#65bc00]' 
+                            : 'bg-white border border-gray-200 text-gray-400 hover:bg-gray-50'
+                        }`} 
+                        title={`Day ${i + 1}`}
+                        onClick={() => setVisits(i + 1)}
+                      >
+                        {i + 1}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-8">
+                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-[#73d500] transition-all duration-300" style={{ width: `${(visits / 30) * 100}%` }}></div>
+                    </div>
+                    <div className="flex justify-between mt-3 text-[10px] text-gray-500 font-bold">
+                      <span>{Math.round((visits / 30) * 100)}% used</span>
+                      <span>{Math.round(((30 - visits) / 30) * 100)}% unused</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-[#f9f9f9] rounded-[24px] p-6 border border-gray-200">
+                  <p className="text-[9px] font-black tracking-widest uppercase text-gray-400 mb-5">
+                    What if unused value could stay useful?
+                  </p>
+                  
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="text-center w-24">
+                      <p className="text-[10px] font-bold text-gray-500 mb-1">Traditional</p>
+                      <p className="text-xl font-black text-gray-400 line-through">₹{estimatedUnused.toLocaleString()}</p>
+                      <p className="text-[9px] font-bold text-gray-400 mt-1">gone</p>
+                    </div>
+                    
+                    <div className="flex-1 flex flex-col items-center justify-center gap-1">
+                      <div className="w-[1px] h-3 bg-gray-300"></div>
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#73d500]"></div>
+                      <div className="w-[1px] h-3 bg-gray-300"></div>
+                    </div>
+                    
+                    <div className="text-center w-24 bg-[#f0fdf4] py-3 rounded-xl border border-[#73d500]/20">
+                      <p className="text-[10px] font-bold text-[#73d500] mb-1">ZonoFit</p>
+                      <p className="text-xl font-black text-[#73d500]">₹{estimatedUnused.toLocaleString()}</p>
+                      <p className="text-[9px] font-bold text-[#73d500] mt-1">→ credits</p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-[10px] font-bold text-gray-600 shadow-[0_2px_5px_rgba(0,0,0,0.02)]">💊 Supplements</span>
+                    <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-[10px] font-bold text-gray-600 shadow-[0_2px_5px_rgba(0,0,0,0.02)]">🧘 Wellness</span>
+                    <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-[10px] font-bold text-gray-600 shadow-[0_2px_5px_rgba(0,0,0,0.02)]">🏃 Sports</span>
+                    <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-[10px] font-bold text-gray-600 shadow-[0_2px_5px_rgba(0,0,0,0.02)]">✨ More</span>
+                  </div>
+                  
+                  <p className="mt-5 text-[12px] font-extrabold text-gray-900 leading-snug">
+                    That&apos;s where ZonoFit changes the model.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* SECTION 1: SIMPLE TO START */}
         <section className="bg-[#f9f9f9] py-20 md:py-28 px-5">
           <div className="max-w-6xl mx-auto">
@@ -367,7 +546,7 @@ export default function LandingPage() {
         </section>
 
         {/* SECTION 3: SEE HOW YOUR MEMBERSHIP WORKS (Interactive Calendar) */}
-        <section id="calculator" className="bg-[#f9f9f9] py-20 md:py-28 px-5 border-t border-gray-200">
+        <section id="membership-simulator" className="bg-[#f9f9f9] py-20 md:py-28 px-5 border-t border-gray-200">
           <style dangerouslySetInnerHTML={{__html: `
             .slider-thumb::-webkit-slider-thumb {
               -webkit-appearance: none;
