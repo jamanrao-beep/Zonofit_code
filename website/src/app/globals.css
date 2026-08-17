@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-primary: #1F7A3E;
-  --color-primary-dark: #145A2E;
+  --color-primary: #22C55E;
+  --color-primary-dark: #16A34A;
   --color-background: #F2F2F7;
   --color-foreground: #111111;
   
@@ -20,7 +20,7 @@
   --color-muted: #8E8E93;
   --color-muted-foreground: #8E8E93;
   --color-text-light: #F2F2F7;
-  --color-primary-foreground: #111111;
+  --color-primary-foreground: #FFFFFF;
   
   /* Borders */
   --color-secondary: #E5E5EA;
@@ -126,7 +126,7 @@ body {
   @apply w-full aspect-square rounded-full flex items-center justify-center text-xs font-semibold transition-all duration-300;
 }
 .cal-day.used {
-  @apply bg-primary text-primary-foreground font-bold shadow-[0_0_15px_rgba(31,122,62,0.5)];
+  @apply bg-primary text-primary-foreground font-bold shadow-[0_0_15px_rgba(34,197,94,0.5)];
 }
 .cal-day.unused {
   @apply bg-gray-200 text-gray-500;
@@ -134,15 +134,15 @@ body {
 
 .progress-fill {
   @apply h-full bg-primary rounded-full;
-  box-shadow: 0 0 10px rgba(31,122,62,0.5);
+  box-shadow: 0 0 10px rgba(34,197,94,0.5);
 }
 
 .value-float {
   animation: float-up 2s ease-in-out infinite alternate;
 }
 @keyframes float-up {
-  0% { transform: translateY(0); box-shadow: 0 0 10px rgba(31,122,62,0.4); }
-  100% { transform: translateY(-8px); box-shadow: 0 0 20px rgba(31,122,62,0.8); }
+  0% { transform: translateY(0); box-shadow: 0 0 10px rgba(34,197,94,0.4); }
+  100% { transform: translateY(-8px); box-shadow: 0 0 20px rgba(34,197,94,0.8); }
 }
 
 .dark-section-gradient {
@@ -153,7 +153,7 @@ body {
   @apply w-full aspect-square rounded-full flex items-center justify-center text-xs font-bold transition-all duration-500;
 }
 .habit-marker.workout {
-  @apply bg-primary text-primary-foreground shadow-[0_0_15px_rgba(31,122,62,0.3)] scale-110;
+  @apply bg-primary text-primary-foreground shadow-[0_0_15px_rgba(34,197,94,0.3)] scale-110;
 }
 .habit-marker.rest {
   @apply bg-gray-100 text-gray-400 scale-90;
@@ -167,9 +167,9 @@ body {
   animation: pulse-green 2s infinite;
 }
 @keyframes pulse-green {
-  0% { box-shadow: 0 0 0 0 rgba(31,122,62, 0.4); }
-  70% { box-shadow: 0 0 0 10px rgba(31,122,62, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(31,122,62, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(34,197,94, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(34,197,94, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(34,197,94, 0); }
 }
 
 .reveal {
@@ -207,4 +207,11 @@ body {
 }
 .animate-fade-up {
   animation: fade-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+
+.phone-wrapper {
+  width: min(320px, 90vw);
+  aspect-ratio: 9/19;
+  position: relative;
 }
