@@ -11,6 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useCartStore } from "@/store/useCartStore";
+import CartModal from "@/components/CartModal";
 
 const FLAVOURS = ["Chocolate", "Vanilla", "Strawberry", "Cookies & Cream"];
 const SIZES = ["1kg", "2kg", "5lb (2.27kg)"];
@@ -21,7 +22,9 @@ export default function ProductDetailScreen() {
   
   const [selectedFlavour, setSelectedFlavour] = useState("Chocolate");
   const [selectedSize, setSelectedSize] = useState("1kg");
+  const [isCartOpen, setIsCartOpen] = useState(false);
 
+  const cartCount = useCartStore((state) => state.getTotalItems());
   const addToCart = useCartStore((state) => state.addToCart);
 
   // Hardcoded product data to match the design EXACTLY
@@ -59,8 +62,13 @@ export default function ProductDetailScreen() {
           <Pressable className="mr-4">
             <Ionicons name="heart-outline" size={22} color="#111827" />
           </Pressable>
-          <Pressable>
-            <Ionicons name="share-social-outline" size={22} color="#111827" />
+          <Pressable className="relative" onPress={() => setIsCartOpen(true)}>
+            <Ionicons name="cart-outline" size={22} color="#111827" />
+            {cartCount > 0 && (
+              <View className="absolute -top-1.5 -right-1.5 bg-[#1F7A3E] w-[14px] h-[14px] rounded-full items-center justify-center border border-white">
+                <Text className="text-white text-[8px] font-bold">{cartCount}</Text>
+              </View>
+            )}
           </Pressable>
         </View>
       </View>
@@ -217,6 +225,7 @@ export default function ProductDetailScreen() {
           </Pressable>
         </View>
       </View>
+      <CartModal visible={isCartOpen} onClose={() => setIsCartOpen(false)} />
     </SafeAreaView>
   );
 }

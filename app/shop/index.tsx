@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { colors } from "@/constants/colors";
 import { useCartStore } from "@/store/useCartStore";
+import CartModal from "@/components/CartModal";
 
 const CATEGORIES = [
   { id: "supplements", name: "Supplements", icon: "nutrition-outline" },
@@ -74,6 +75,7 @@ export default function ShopHomeScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const cartCount = useCartStore((state) => state.getTotalItems());
   const addToCart = useCartStore((state) => state.addToCart);
+  const [isCartOpen, setIsCartOpen] = useState(false);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }} edges={["top"]}>
@@ -89,7 +91,7 @@ export default function ShopHomeScreen() {
           <Pressable className="mr-5">
             <Ionicons name="heart-outline" size={24} color="#111827" />
           </Pressable>
-          <Pressable className="relative" onPress={() => {}}>
+          <Pressable className="relative" onPress={() => setIsCartOpen(true)}>
             <Ionicons name="cart-outline" size={24} color="#111827" />
             {cartCount > 0 && (
               <View className="absolute -top-2 -right-2 bg-[#1F7A3E] w-4 h-4 rounded-full items-center justify-center border border-white">
@@ -256,6 +258,7 @@ export default function ShopHomeScreen() {
         </View>
 
       </ScrollView>
+      <CartModal visible={isCartOpen} onClose={() => setIsCartOpen(false)} />
     </SafeAreaView>
   );
 }
