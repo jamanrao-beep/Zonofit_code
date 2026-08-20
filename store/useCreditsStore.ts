@@ -51,7 +51,7 @@ export const useCreditsStore = create<CreditsState>((set, get) => ({
       // Optionally fetch the first page of transactions automatically
       get().fetchTransactions(token, 1);
     } catch (err) {
-      console.error("Failed to fetch wallet:", err);
+      // console.error("Failed to fetch wallet:", err); // Muted to prevent annoying toasts
       set({ loading: false });
     }
   },
