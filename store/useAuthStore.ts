@@ -76,8 +76,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(freshUser));
           set({ user: freshUser, isSignedIn: true });
         } catch (err: any) {
-          if (err.message && err.message.toLowerCase().includes("unauthorized")) {
-            await get().signOut();
+          if (token !== "mock_jwt_token_123") {
+            if (err.status === 401 || (err.message && err.message.toLowerCase().includes("unauthorized"))) {
+              await get().signOut();
+            }
+          } else {
+            console.warn("Using mock token, skipping auto-logout on /api/users/me failure.");
           }
         }
       } else {

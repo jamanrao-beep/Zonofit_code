@@ -56,7 +56,23 @@ export async function apiFetch(path: string, options: RequestOptions = {}) {
       if (data?.error === "ValidationError" && Array.isArray(data?.details) && data.details.length > 0) {
         errorMessage = data.details[0].msg || errorMessage;
       }
-      throw new Error(errorMessage);
+      
+      if (response.status === 401 || errorMessage.toLowerCase().includes("invalid or expired session token")) {
+        try {
+          if (options.token !== "mock_jwt_token_123") {
+            const { useAuthStore } = require("@/store/useAuthStore");
+            useAuthStore.getState().signOut();
+          } else {
+            // console.warn("Using mock token, skipping global auto sign-out on 401."); // Muted to prevent annoying toasts
+          }
+        } catch (e) {
+          console.warn("Failed to auto sign-out on 401:", e);
+        }
+      }
+      
+      const error = new Error(errorMessage);
+      (error as any).status = response.status;
+      throw error;
     }
 
     return data;
@@ -68,6 +84,17 @@ export async function apiFetch(path: string, options: RequestOptions = {}) {
         `10.0.2.2, not localhost — check EXPO_PUBLIC_API_URL in your .env.`
       );
     }
+    
+    if (err.status) {
+      if (err.status !== 401) {
+        console.warn(`[API Error] Request to ${url} failed:`, err.message);
+        throw err;
+      } else {
+        // Throw a plain object for 401s so `console.error` in stores doesn't spam stack traces
+        throw { message: err.message, status: err.status };
+      }
+    }
+    
     console.warn(`[API Error] Request to ${url} failed:`, err);
     throw new Error(
       err.message ||
