@@ -12,6 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useCartStore } from "@/store/useCartStore";
+import CartModal from "@/components/CartModal";
 
 const FILTERS = ["All", "Protein", "Creatine", "Pre Workout", "BCAA"];
 
@@ -63,6 +64,7 @@ export default function CategoryScreen() {
   
   const cartCount = useCartStore((state) => state.getTotalItems());
   const addToCart = useCartStore((state) => state.addToCart);
+  const [isCartOpen, setIsCartOpen] = useState(false);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }} edges={["top"]}>
@@ -81,7 +83,7 @@ export default function CategoryScreen() {
           <Pressable className="mr-4">
             <Ionicons name="heart-outline" size={22} color="#111827" />
           </Pressable>
-          <Pressable className="relative" onPress={() => {}}>
+          <Pressable className="relative" onPress={() => setIsCartOpen(true)}>
             <Ionicons name="cart-outline" size={22} color="#111827" />
             {cartCount > 0 && (
               <View className="absolute -top-1.5 -right-1.5 bg-[#1F7A3E] w-[14px] h-[14px] rounded-full items-center justify-center border border-white">
@@ -209,6 +211,7 @@ export default function CategoryScreen() {
         </View>
 
       </ScrollView>
+      <CartModal visible={isCartOpen} onClose={() => setIsCartOpen(false)} />
     </SafeAreaView>
   );
 }
