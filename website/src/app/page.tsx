@@ -4,21 +4,55 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 
-const SPLASH_MESSAGES = [
-  "Have you bought a gym membership?",
-  "And stopped going after a month?",
-  "We know the feeling.",
-  "It's time for a change."
+const SPLASH_SCREENS = [
+  (
+    <div key="1" className="flex flex-col items-center justify-center space-y-4 px-4 text-center h-full">
+      <h1 className="text-3xl md:text-5xl font-medium tracking-tight text-gray-500">
+        Have you ever bought<br />a gym membership...
+      </h1>
+    </div>
+  ),
+  (
+    <div key="2" className="flex flex-col items-center justify-center space-y-4 px-4 text-center h-full">
+      <h1 className="text-3xl md:text-5xl font-medium tracking-tight text-gray-500">
+        ...and stopped going?
+      </h1>
+    </div>
+  ),
+  (
+    <div key="3" className="flex flex-col items-center justify-center space-y-4 px-4 text-center h-full">
+      <p className="text-xs md:text-sm font-semibold tracking-[0.2em] text-gray-400 uppercase mb-2">
+        The average Indian membership
+      </p>
+      <h1 className="text-7xl md:text-8xl font-semibold text-gray-700 tracking-tighter mb-2">
+        ₹3,000
+      </h1>
+      <p className="text-2xl md:text-3xl font-medium text-gray-500">
+        Gone.
+      </p>
+    </div>
+  ),
+  (
+    <div key="4" className="flex flex-col items-center justify-center space-y-8 px-4 text-center h-full">
+      <h1 className="text-6xl md:text-8xl font-bold tracking-tight text-black">
+        Zono<span className="text-[#4ADE80]">Fit</span>
+      </h1>
+      <p className="text-xl md:text-3xl text-gray-500 font-medium">
+        Fitness That Fits Life.
+      </p>
+    </div>
+  )
 ];
 
 export default function LandingPage() {
   const [splashStep, setSplashStep] = useState(0);
   const [showSplash, setShowSplash] = useState(true);
+  const touchStartY = React.useRef(0);
 
   const [activeScreen, setActiveScreen] = useState(0);
   const [membership, setMembership] = useState(3000);
   const [visits, setVisits] = useState(15);
-  const [sliderVisits, setSliderVisits] = useState(10);
+  const [faqCategory, setFaqCategory] = useState("All");
   const valueUsed = Math.round((membership / 30) * visits);
   const estimatedUnused = membership - valueUsed;
 
@@ -58,9 +92,8 @@ export default function LandingPage() {
     if (!showSplash) return;
     const interval = setInterval(() => {
       setSplashStep((prev) => {
-        if (prev >= SPLASH_MESSAGES.length - 1) {
+        if (prev >= SPLASH_SCREENS.length - 1) {
           clearInterval(interval);
-          setTimeout(() => setShowSplash(false), 1000);
           return prev;
         }
         return prev + 1;
@@ -73,61 +106,98 @@ export default function LandingPage() {
     <div className="relative min-h-screen bg-background">
       {/* Splash Screen */}
       <div 
-        className={`fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center px-6 transition-all duration-1000 ${showSplash ? 'opacity-100' : 'opacity-0 pointer-events-none scale-105'}`}
+        className={`fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center px-6 transition-all duration-[1200ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${showSplash ? 'translate-y-0' : '-translate-y-full pointer-events-none shadow-2xl'}`}
+        onWheel={(e) => {
+          if (splashStep === SPLASH_SCREENS.length - 1 && e.deltaY > 0) {
+            setShowSplash(false);
+          }
+        }}
+        onTouchStart={(e) => {
+          touchStartY.current = e.touches[0].clientY;
+        }}
+        onTouchMove={(e) => {
+          if (splashStep === SPLASH_SCREENS.length - 1 && touchStartY.current - e.touches[0].clientY > 50) {
+            setShowSplash(false);
+          }
+        }}
       >
-        <button 
-          onClick={() => setShowSplash(false)}
-          className="absolute top-8 right-8 px-6 py-2 rounded-full border border-gray-200 text-sm font-bold text-gray-400 hover:text-gray-900 hover:bg-gray-50 hover:border-gray-300 transition-all z-50"
-        >
-          Skip Intro
-        </button>
+        <div className="absolute top-0 left-0 right-0 p-4 md:p-6 flex justify-between items-center z-50 max-w-7xl mx-auto w-full">
+          <div className="flex items-center gap-2">
+            <img src="/logo.jpeg" alt="ZonoFit logo" className="w-8 h-8 rounded-full" />
+            <span className="font-bold text-xl tracking-tight text-gray-900">ZonoFit</span>
+          </div>
+          <nav className="hidden md:flex gap-8 items-center text-sm font-medium text-gray-500">
+            <a href="#how-it-works" onClick={() => setShowSplash(false)} className="hover:text-gray-900 transition-colors">How It Works</a>
+            <a href="#membership" onClick={() => setShowSplash(false)} className="hover:text-gray-900 transition-colors">Membership</a>
+            <a href="#app" onClick={() => setShowSplash(false)} className="hover:text-gray-900 transition-colors">App</a>
+            <a href="#faq" onClick={() => setShowSplash(false)} className="hover:text-gray-900 transition-colors">FAQ</a>
+          </nav>
+          <div className="flex items-center gap-6">
+            <Link href="/auth/login" className="text-gray-500 text-sm font-medium hover:text-gray-900 transition-colors">Login</Link>
+            <Link href="/auth/signup" className="bg-[#4ADE80] text-white px-6 py-2.5 rounded-full text-sm font-bold hover:bg-[#3bca6b] transition-colors shadow-sm">
+              Join ZonoFit
+            </Link>
+          </div>
+        </div>
         <div 
-          className="w-full max-w-5xl text-center cursor-pointer group"
+          className="w-full max-w-5xl text-center cursor-pointer group flex-1 flex flex-col justify-center mt-16 md:mt-0"
           onClick={() => {
-            if (splashStep >= SPLASH_MESSAGES.length - 1) {
+            if (splashStep >= SPLASH_SCREENS.length - 1) {
               setShowSplash(false);
             } else {
               setSplashStep(s => s + 1);
             }
           }}
         >
-          <div className="overflow-hidden py-10">
-            <h1 
-              key={splashStep}
-              className="text-5xl md:text-8xl font-black tracking-tighter text-gray-900 animate-fade-up"
-              style={{ lineHeight: '1.1' }}
-            >
-              {SPLASH_MESSAGES[splashStep]}
-            </h1>
-          </div>
-          <p className="mt-6 text-sm font-bold tracking-widest uppercase text-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            Tap to continue
-          </p>
-        </div>
-        <div className="absolute bottom-16 left-1/2 -translate-x-1/2 flex gap-3">
-          {SPLASH_MESSAGES.map((_, i) => (
+          <div className="overflow-hidden py-10 flex items-center justify-center min-h-[40vh]">
             <div 
-              key={i} 
-              onClick={() => setSplashStep(i)}
-              className={`h-2 rounded-full cursor-pointer transition-all duration-700 ${
-                i === splashStep 
-                  ? 'w-12 bg-primary shadow-[0_0_12px_rgba(31,122,62,0.6)]' 
-                  : i < splashStep 
-                    ? 'w-4 bg-primary/40 hover:bg-primary/60' 
-                    : 'w-4 bg-gray-200 hover:bg-gray-300'
-              }`}
-            />
-          ))}
+              key={splashStep}
+              className="animate-fade-up w-full"
+            >
+              {SPLASH_SCREENS[splashStep]}
+            </div>
+          </div>
+          {splashStep === SPLASH_SCREENS.length - 1 ? (
+            <div className="mt-12 flex flex-col items-center gap-4 animate-fade-up">
+              <p className="text-sm md:text-base font-medium tracking-wide text-gray-500">
+                Scroll to see what you're actually losing
+              </p>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-bounce text-[#4ADE80]"><path d="m6 9 6 6 6-6"/></svg>
+            </div>
+          ) : (
+            <p className="mt-6 text-sm font-bold tracking-widest uppercase text-[#4ADE80] opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+              Tap to continue
+            </p>
+          )}
         </div>
+        {splashStep < SPLASH_SCREENS.length - 1 && (
+          <div className="absolute bottom-8 md:bottom-12 left-1/2 -translate-x-1/2 w-full max-w-md px-6 flex flex-col items-center gap-6 z-50">
+            <div className="flex gap-2 w-full z-50">
+              {SPLASH_SCREENS.map((_, i) => (
+                <div 
+                  key={i} 
+                  onClick={(e) => { e.stopPropagation(); setSplashStep(i); }}
+                  className={`h-1.5 rounded-full cursor-pointer transition-all duration-700 flex-1 ${
+                    i === splashStep 
+                      ? 'bg-[#4ADE80]' 
+                      : i < splashStep 
+                        ? 'bg-[#4ADE80]/40 hover:bg-[#4ADE80]/60' 
+                        : 'bg-gray-200 hover:bg-gray-300'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Main Content */}
-      <div className={`transition-opacity duration-700 ${!showSplash ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+      <div className={`transition-all duration-[1200ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${showSplash ? 'opacity-0 translate-y-32 h-screen overflow-hidden pointer-events-none' : 'opacity-100 translate-y-0'}`}>
 <header
         className="fixed top-0 left-0 right-0 z-50 transition-all duration-500 bg-white shadow-sm"
       >
         <div
-          className="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between"
+          className="max-w-5xl mx-auto px-5 h-16 flex items-center justify-between"
         >
           <a className="flex items-center gap-2.5" href="/"
             ><img
@@ -148,7 +218,7 @@ export default function LandingPage() {
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               >How It Works</a
             ><a
-              href="#habit"
+              href="#membership"
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               >Membership</a
             ><a
@@ -213,7 +283,7 @@ export default function LandingPage() {
             style={{ transitionDelay: '0ms' }}
             >How It Works</a
           ><a
-            href="#habit"
+            href="#membership"
             className="text-2xl font-bold text-foreground hover:text-primary transition-colors"
             style={{ transitionDelay: '60ms' }}
             >Membership</a
@@ -235,2556 +305,721 @@ export default function LandingPage() {
         </nav>
       </div>
       <main>
-        <section id="calculator" className="bg-white py-20 md:py-28 px-5 border-t border-gray-200">
-          <div className="max-w-6xl mx-auto">
+        <section id="how-it-works" className="bg-white py-24 md:py-32 px-5 border-t border-gray-100">
+          <div className="max-w-5xl mx-auto">
             <div className="mb-12">
-              <span className="inline-flex items-center px-3 py-1 rounded-full bg-gray-100 text-[10px] font-extrabold text-gray-600 tracking-wider mb-4">02 / PERSONAL VALUE CALCULATOR</span>
-              <h2 className="text-3xl md:text-5xl font-black tracking-tight text-gray-900 leading-tight">
-                How much of your membership<br /><span className="text-[#73d500]">do you actually use?</span>
+              <h2 className="text-4xl md:text-6xl font-semibold tracking-tight text-black leading-tight reveal">
+                Let&apos;s make this personal.
               </h2>
-              <p className="mt-4 text-[13px] font-bold text-gray-500 max-w-md leading-relaxed">
-                Adjust the values below. This is an estimate based on your
-                inputs — not a guarantee.
+              <p className="mt-4 text-base md:text-lg text-gray-500 font-medium max-w-2xl leading-relaxed">
+                How much did your last gym membership cost? And be honest — how many days did you really go?
               </p>
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-start">
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
               
               {/* LEFT SIDE */}
-              <div className="space-y-6">
-                
-                {/* Insight Card Added to make it less boring */}
-                <div className="bg-[#f0fdf4] rounded-[20px] p-6 border border-[#73d500]/20 relative overflow-hidden shadow-sm">
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-[#73d500]/10 rounded-bl-full pointer-events-none"></div>
-                  <div className="flex items-center gap-3 mb-3 relative z-10">
-                    <div className="w-10 h-10 rounded-full bg-[#73d500] flex items-center justify-center shadow-md shadow-[#73d500]/30">
-                      <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
+              <div className="bg-white rounded-[24px] p-8 border border-gray-200 shadow-sm flex flex-col justify-between reveal">
+                <div className="space-y-12">
+                  <div>
+                    <div className="flex justify-between items-baseline mb-4">
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Membership Price / Month</label>
+                      <span className="text-3xl font-medium text-black tracking-tight">₹{membership.toLocaleString()}</span>
                     </div>
-                    <div>
-                      <h4 className="text-[13px] font-extrabold text-gray-900">The ZonoFit Advantage</h4>
+                    <div className="relative h-2 bg-gray-100 rounded-full">
+                      <div className="absolute top-0 left-0 h-full bg-[#4ADE80] rounded-full" style={{ width: `${((membership - 500) / 7500) * 100}%` }}></div>
+                      <input
+                        type="range"
+                        min="500"
+                        max="8000"
+                        step="100"
+                        className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
+                        value={membership}
+                        onChange={(e) => setMembership(Number(e.target.value))}
+                      />
+                      <div className="absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white border-2 border-[#4ADE80] rounded-full shadow-sm pointer-events-none" style={{ left: `calc(${((membership - 500) / 7500) * 100}% - 10px)` }}></div>
                     </div>
                   </div>
-                  <p className="text-[11px] font-bold text-gray-600 leading-relaxed relative z-10">
-                    Traditional gyms rely on breakage—hoping you pay but don&apos;t show up. We flip the model. Any unused value automatically converts into ZonoFit Credits.
-                  </p>
-                </div>
 
-                <div className="bg-[#f9f9f9] rounded-[20px] p-6 border border-gray-200">
-                  <div className="flex justify-between items-baseline mb-5">
-                    <label className="text-[11px] font-extrabold text-gray-700 uppercase tracking-wide">Monthly Membership</label>
-                    <span className="text-3xl font-black text-gray-900 tracking-tight">₹{membership.toLocaleString()}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="500"
-                    max="8000"
-                    step="100"
-                    className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer focus:outline-none slider-thumb"
-                    style={{ background: `linear-gradient(to right, #73d500 ${((membership - 500) / 7500) * 100}%, #e5e7eb ${((membership - 500) / 7500) * 100}%)` }}
-                    aria-label="Monthly membership cost"
-                    value={membership}
-                    onChange={(e) => setMembership(Number(e.target.value))}
-                  />
-                  <div className="flex justify-between mt-3">
-                    <span className="text-[10px] font-bold text-gray-400">₹500</span>
-                    <span className="text-[10px] font-bold text-gray-400">₹8,000</span>
+                  <div>
+                    <div className="flex justify-between items-baseline mb-4">
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Days You Visited</label>
+                      <span className="text-3xl font-medium text-black tracking-tight">{visits} days</span>
+                    </div>
+                    <div className="relative h-2 bg-gray-100 rounded-full">
+                      <div className="absolute top-0 left-0 h-full bg-[#4ADE80] rounded-full" style={{ width: `${(visits / 30) * 100}%` }}></div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="30"
+                        step="1"
+                        className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
+                        value={visits}
+                        onChange={(e) => setVisits(Number(e.target.value))}
+                      />
+                      <div className="absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white border-2 border-[#4ADE80] rounded-full shadow-sm pointer-events-none" style={{ left: `calc(${(visits / 30) * 100}% - 10px)` }}></div>
+                    </div>
                   </div>
                 </div>
 
-                <div className="bg-[#f9f9f9] rounded-[20px] p-6 border border-gray-200">
-                  <div className="flex justify-between items-baseline mb-5">
-                    <label className="text-[11px] font-extrabold text-gray-700 uppercase tracking-wide">Your Actual Visits</label>
-                    <span className="text-3xl font-black text-gray-900 tracking-tight">
-                      {visits}<span className="text-xs font-bold text-gray-400 ml-1">/ 30 days</span>
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="30"
-                    step="1"
-                    className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer focus:outline-none slider-thumb"
-                    style={{ background: `linear-gradient(to right, #73d500 ${(visits / 30) * 100}%, #e5e7eb ${(visits / 30) * 100}%)` }}
-                    aria-label="Number of gym visits"
-                    value={visits}
-                    onChange={(e) => setVisits(Number(e.target.value))}
-                  />
-                  <div className="flex justify-between mt-3">
-                    <span className="text-[10px] font-bold text-gray-400">0</span>
-                    <span className="text-[10px] font-bold text-gray-400">30</span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-[#f0fdf4] rounded-[20px] p-5 border border-[#73d500]/30 shadow-sm">
-                    <p className="text-[10px] font-extrabold text-[#73d500] uppercase tracking-wider mb-2">Value Used</p>
-                    <p className="text-2xl font-black text-gray-900">₹{valueUsed.toLocaleString()}</p>
-                    <p className="text-[10px] font-bold text-gray-500 mt-1">{visits} visits</p>
-                  </div>
-                  <div className="bg-white rounded-[20px] p-5 border border-gray-200 shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
-                    <p className="text-[10px] font-extrabold text-gray-500 uppercase tracking-wider mb-2">Estimated Unused</p>
-                    <p className="text-2xl font-black text-gray-900">₹{estimatedUnused.toLocaleString()}</p>
-                    <p className="text-[10px] font-bold text-gray-400 mt-1">{30 - visits} days unused</p>
-                  </div>
+                <div className="mt-12 pt-6 border-t border-gray-100 text-sm font-medium text-gray-500">
+                  ₹{membership.toLocaleString()} ÷ 30 = ₹{Math.round(membership/30).toLocaleString()}/day · {30 - visits} unused days × ₹{Math.round(membership/30).toLocaleString()}
                 </div>
               </div>
 
               {/* RIGHT SIDE */}
-              <div className="space-y-6">
-                <div className="bg-white rounded-[24px] p-8 border border-gray-200 shadow-sm">
-                  <div className="flex justify-between items-center mb-6">
-                    <span className="text-[13px] font-extrabold text-gray-900">Your Month</span>
-                    <div className="flex items-center gap-4 text-[10px] font-bold">
-                      <span className="flex items-center gap-1.5 text-gray-600">
-                        <span className="w-2.5 h-2.5 rounded-full bg-[#73d500] inline-block shadow-sm"></span>Used
-                      </span>
-                      <span className="flex items-center gap-1.5 text-gray-400">
-                        <span className="w-2.5 h-2.5 rounded-full bg-gray-100 border border-gray-200 inline-block"></span>Unused
-                      </span>
-                    </div>
-                  </div>
+              <div className="bg-white rounded-[24px] p-8 border border-gray-200 shadow-sm flex flex-col justify-between reveal">
+                <div>
+                  <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-6">Your Membership</h3>
                   
-                  <div className="grid grid-cols-7 gap-2 md:gap-3">
-                    {[...Array(30)].map((_, i) => (
-                      <div 
-                        key={i} 
-                        className={`aspect-square rounded-[10px] flex items-center justify-center text-[9px] font-bold cursor-pointer transition-colors duration-300 ${
-                          i < visits 
-                            ? 'bg-[#73d500] text-white shadow-sm hover:bg-[#65bc00]' 
-                            : 'bg-white border border-gray-200 text-gray-400 hover:bg-gray-50'
-                        }`} 
-                        title={`Day ${i + 1}`}
-                        onClick={() => setVisits(i + 1)}
-                      >
-                        {i + 1}
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="mt-8">
-                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-[#73d500] transition-all duration-300" style={{ width: `${(visits / 30) * 100}%` }}></div>
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center text-sm font-medium text-gray-600 pb-4 border-b border-gray-100 border-dashed">
+                      <span>Paid</span>
+                      <span className="text-black font-semibold">₹{membership.toLocaleString()}</span>
                     </div>
-                    <div className="flex justify-between mt-3 text-[10px] text-gray-500 font-bold">
-                      <span>{Math.round((visits / 30) * 100)}% used</span>
-                      <span>{Math.round(((30 - visits) / 30) * 100)}% unused</span>
+                    <div className="flex justify-between items-center text-sm font-medium text-gray-600 pb-4 border-b border-gray-100 border-dashed">
+                      <span>Days available</span>
+                      <span className="text-black font-semibold">30</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm font-medium text-gray-600 pb-4 border-b border-gray-100 border-dashed">
+                      <span>Days used</span>
+                      <span className="text-black font-semibold">{visits}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm font-medium text-gray-600 pb-4 border-b border-gray-100 border-dashed">
+                      <span>Unused days</span>
+                      <span className="text-black font-semibold">{30 - visits}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-[#f9f9f9] rounded-[24px] p-6 border border-gray-200">
-                  <p className="text-[9px] font-black tracking-widest uppercase text-gray-400 mb-5">
-                    What if unused value could stay useful?
+                <div className="mt-8">
+                  <h3 className="text-xs font-bold text-[#4ADE80] uppercase tracking-widest mb-2">Potential Unused Value</h3>
+                  <div className="text-5xl font-bold tracking-tight text-[#4ADE80] mb-2">
+                    ₹{estimatedUnused.toLocaleString()}
+                  </div>
+                  <p className="text-sm font-medium text-gray-500 mb-8">
+                    Potential membership value left unused.
                   </p>
                   
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="text-center w-24">
-                      <p className="text-[10px] font-bold text-gray-500 mb-1">Traditional</p>
-                      <p className="text-xl font-black text-gray-400 line-through">₹{estimatedUnused.toLocaleString()}</p>
-                      <p className="text-[9px] font-bold text-gray-400 mt-1">gone</p>
-                    </div>
-                    
-                    <div className="flex-1 flex flex-col items-center justify-center gap-1">
-                      <div className="w-[1px] h-3 bg-gray-300"></div>
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#73d500]"></div>
-                      <div className="w-[1px] h-3 bg-gray-300"></div>
-                    </div>
-                    
-                    <div className="text-center w-24 bg-[#f0fdf4] py-3 rounded-xl border border-[#73d500]/20">
-                      <p className="text-[10px] font-bold text-[#73d500] mb-1">ZonoFit</p>
-                      <p className="text-xl font-black text-[#73d500]">₹{estimatedUnused.toLocaleString()}</p>
-                      <p className="text-[9px] font-bold text-[#73d500] mt-1">→ credits</p>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-[10px] font-bold text-gray-600 shadow-[0_2px_5px_rgba(0,0,0,0.02)]">💊 Supplements</span>
-                    <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-[10px] font-bold text-gray-600 shadow-[0_2px_5px_rgba(0,0,0,0.02)]">🧘 Wellness</span>
-                    <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-[10px] font-bold text-gray-600 shadow-[0_2px_5px_rgba(0,0,0,0.02)]">🏃 Sports</span>
-                    <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-[10px] font-bold text-gray-600 shadow-[0_2px_5px_rgba(0,0,0,0.02)]">✨ More</span>
-                  </div>
-                  
-                  <p className="mt-5 text-[12px] font-extrabold text-gray-900 leading-snug">
-                    That&apos;s where ZonoFit changes the model.
-                  </p>
+                  <Link href="/auth/signup" className="block w-full py-4 px-6 bg-black text-white text-center rounded-2xl text-sm font-semibold hover:bg-gray-800 transition-colors">
+                    What if that value could keep you moving?
+                  </Link>
                 </div>
               </div>
+
             </div>
           </div>
         </section>
 
-        {/* SECTION 1: SIMPLE TO START */}
-        <section className="bg-[#f9f9f9] py-20 md:py-28 px-5">
-          <div className="max-w-6xl mx-auto">
-            <h2 className="text-3xl md:text-5xl font-black tracking-tight text-gray-900 mb-16">
-              Simple to start. Built for consistency.
-            </h2>
-            
-            <div className="relative mt-8 max-w-5xl">
-              {/* Horizontal Line connecting nodes */}
-              <div className="absolute top-4 left-4 right-4 h-[1px] bg-gray-300 z-0"></div>
-              {/* Highlighted part of line (to node 4) */}
-              <div className="absolute top-4 left-4 w-3/4 h-[2px] bg-[#73d500] z-0"></div>
-
-              <div className="relative z-10 grid grid-cols-1 md:grid-cols-4 gap-6 md:gap-4">
-                {/* Step 1 */}
-                <div>
-                  <div className="w-8 h-8 rounded-full bg-white border border-gray-300 flex items-center justify-center text-[10px] font-bold text-gray-400 mb-4">01</div>
-                  <p className="text-sm font-bold text-gray-500 pr-4">Choose your gym.</p>
-                </div>
-                {/* Step 2 */}
-                <div>
-                  <div className="w-8 h-8 rounded-full bg-white border border-gray-300 flex items-center justify-center text-[10px] font-bold text-gray-400 mb-4">02</div>
-                  <p className="text-sm font-bold text-gray-500 pr-4">Choose your membership.</p>
-                </div>
-                {/* Step 3 */}
-                <div>
-                  <div className="w-8 h-8 rounded-full bg-white border border-gray-300 flex items-center justify-center text-[10px] font-bold text-gray-400 mb-4">03</div>
-                  <p className="text-sm font-bold text-gray-500 pr-4">Complete your committed visits.</p>
-                </div>
-                {/* Step 4 */}
-                <div>
-                  <div className="w-8 h-8 rounded-full bg-[#73d500] flex items-center justify-center text-[10px] font-bold text-white mb-4 shadow-[0_0_15px_rgba(115,213,0,0.5)]">04</div>
-                  <p className="text-sm font-bold text-gray-900 pr-4 mb-2">Build value through your journey.</p>
-                  <p className="text-[11px] font-medium text-gray-500 pr-2 leading-relaxed">Consistency builds progress, milestones and credits inside your ZonoFit wallet.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* SECTION 2: MEMBERSHIP JOURNEY */}
-        <section className="bg-white py-20 md:py-28 px-5">
-          <div className="max-w-6xl mx-auto">
-            <h2 className="text-3xl md:text-5xl font-black tracking-tight text-gray-900 mb-2">
-              Your membership has a journey.
-            </h2>
-            <p className="text-[13px] font-bold text-gray-500 mb-10">Start with consistency. Build momentum over time.</p>
-            
-            <div className="flex flex-wrap gap-3 mb-10">
-              <span className="inline-flex items-center px-4 py-2 rounded-full bg-[#f7f7f7] text-[10px] font-extrabold text-gray-600 tracking-wide">Months 1-4 • 10 visits each month</span>
-              <span className="inline-flex items-center px-4 py-2 rounded-full bg-[#f0fdf4] text-[10px] font-extrabold text-primary tracking-wide">Months 5-12 • 15 visits each month</span>
-            </div>
-
-            {/* Horizontal Scroll / Cards */}
-            <div className="flex overflow-x-auto pb-6 -mx-5 px-5 gap-4 hide-scrollbar">
-              <div className="shrink-0 w-[120px] p-4 rounded-[16px] bg-[#f0fdf4] border border-primary/20 shadow-sm flex flex-col justify-between h-[110px]">
-                <div className="w-6 h-6 rounded-full bg-[#73d500] flex items-center justify-center text-white text-[10px] font-bold">1</div>
-                <div>
-                  <p className="text-[12px] font-bold text-gray-900">Month 1</p>
-                  <p className="text-[9px] font-bold text-gray-400 mt-0.5">10/10 visits</p>
-                </div>
-              </div>
-              <div className="shrink-0 w-[120px] p-4 rounded-[16px] bg-white border border-gray-200 flex flex-col justify-between h-[110px]">
-                <div className="w-6 h-6 rounded-full bg-[#73d500] flex items-center justify-center text-white text-[10px] font-bold">2</div>
-                <div>
-                  <p className="text-[12px] font-bold text-gray-900">Month 2</p>
-                  <p className="text-[9px] font-bold text-gray-400 mt-0.5">10/10 visits</p>
-                </div>
-              </div>
-              <div className="shrink-0 w-[120px] p-4 rounded-[16px] bg-white border border-gray-200 flex flex-col justify-between h-[110px] opacity-60">
-                <div className="w-6 h-6 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-400 text-[10px] font-bold">3</div>
-                <div>
-                  <p className="text-[12px] font-bold text-gray-900">Month 3</p>
-                  <p className="text-[9px] font-bold text-gray-400 mt-0.5">0/10 visits</p>
-                </div>
-              </div>
-              <div className="shrink-0 w-[120px] p-4 rounded-[16px] bg-white border border-gray-200 flex flex-col justify-between h-[110px] opacity-60">
-                <div className="w-6 h-6 rounded-full bg-[#73d500] flex items-center justify-center text-white text-[10px] font-bold">4</div>
-                <div>
-                  <p className="text-[12px] font-bold text-gray-900">Month 4</p>
-                  <p className="text-[9px] font-bold text-gray-400 mt-0.5">10/10 visits</p>
-                </div>
-              </div>
-              <div className="shrink-0 w-[120px] p-4 rounded-[16px] bg-white border border-gray-200 flex flex-col justify-between h-[110px] opacity-60">
-                <div className="w-6 h-6 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-400 text-[10px] font-bold">5</div>
-                <div>
-                  <p className="text-[12px] font-bold text-gray-900">Month 5</p>
-                  <p className="text-[9px] font-bold text-gray-400 mt-0.5">13/15 visits</p>
-                </div>
-              </div>
-              <div className="shrink-0 w-[120px] p-4 rounded-[16px] bg-white border border-gray-200 flex flex-col justify-between h-[110px] opacity-60">
-                <div className="w-6 h-6 rounded-full bg-[#73d500] flex items-center justify-center text-white text-[10px] font-bold">6</div>
-                <div>
-                  <p className="text-[12px] font-bold text-gray-900">Month 6</p>
-                  <p className="text-[9px] font-bold text-gray-400 mt-0.5">15/15 visits</p>
-                </div>
-              </div>
-              <div className="shrink-0 w-[120px] p-4 rounded-[16px] bg-white border border-gray-200 flex flex-col justify-between h-[110px] opacity-60">
-                <div className="w-6 h-6 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-400 text-[10px] font-bold">7</div>
-                <div>
-                  <p className="text-[12px] font-bold text-gray-900">Month 7</p>
-                  <p className="text-[9px] font-bold text-gray-400 mt-0.5">14/15 visits</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Detailed Phase View */}
-            <div className="mt-8 bg-[#f9f9f9] rounded-[24px] border border-gray-200 p-6 md:p-8">
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <p className="text-[9px] font-bold tracking-widest text-gray-400 uppercase mb-2">Phase 1 • Month 1</p>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">🌱</span>
-                    <h3 className="text-xl font-bold text-gray-900">Start</h3>
-                  </div>
-                  <p className="text-[11px] font-semibold text-gray-500 mt-1">Beginning your journey.</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[11px] font-bold text-gray-600">10 of 10 mandatory visits</p>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2 mb-8">
-                {[1,2,3,4,5,6,7,8,9,10].map(dot => (
-                  <div key={dot} className="w-3 h-3 rounded-full bg-[#73d500]"></div>
-                ))}
-              </div>
-              <p className="text-[11px] font-medium text-gray-400">First, build the habit. Then build momentum. Then complete the journey.</p>
-            </div>
-          </div>
-        </section>
-
-        {/* SECTION 3: SEE HOW YOUR MEMBERSHIP WORKS (Interactive Calendar) */}
-        <section id="membership-simulator" className="bg-[#f9f9f9] py-20 md:py-28 px-5 border-t border-gray-200">
-          <style dangerouslySetInnerHTML={{__html: `
-            .slider-thumb::-webkit-slider-thumb {
-              -webkit-appearance: none;
-              appearance: none;
-              width: 14px;
-              height: 14px;
-              border-radius: 50%;
-              background: #73d500;
-              cursor: pointer;
-            }
-          `}} />
+        <section className="bg-[#fcfcfc] py-24 md:py-32 px-5 border-t border-gray-100">
           <div className="max-w-5xl mx-auto">
-            <h2 className="text-3xl md:text-5xl font-black tracking-tight text-gray-900 mb-2">
-              See how your membership works.
+            <h2 className="text-4xl md:text-6xl font-semibold tracking-tight text-black leading-tight mb-16 reveal">
+              Your unused value doesn&apos;t<br />have to stop there.
             </h2>
-            <p className="text-[13px] font-bold text-gray-500 mb-12">Move the slider and watch your month take shape.</p>
+            
+            <div className="flex flex-col md:flex-row gap-6">
+              {/* Left Large Card */}
+              <div className="flex-1 bg-white rounded-[24px] p-8 md:p-12 border border-gray-200 shadow-sm flex flex-col items-center justify-center text-center">
+                <div className="w-24 h-24 rounded-full bg-[#3FA836] text-white flex items-center justify-center mb-6 shadow-lg shadow-[#3FA836]/20">
+                  <span className="text-3xl font-medium">₹</span>
+                </div>
+                <h3 className="text-lg font-bold text-black mb-3">ZonoFit Credits</h3>
+                <p className="text-sm font-medium text-gray-500 max-w-xs">
+                  Value keeps moving instead of quietly disappearing.
+                </p>
+              </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-start">
-              
-              {/* Left Side: Calendar Grid */}
-              <div className="bg-white rounded-[24px] p-8 md:p-10 border border-gray-200 shadow-sm">
-                <p className="text-[13px] font-extrabold text-gray-900 mb-6">A month at your gym</p>
-                <div className="grid grid-cols-7 gap-2 md:gap-3">
-                  {[...Array(30)].map((_, i) => (
-                    <div 
-                      key={i} 
-                      className={`aspect-square rounded-[10px] md:rounded-[14px] flex items-center justify-center text-[9px] font-bold transition-colors duration-300 ${
-                        i < sliderVisits 
-                          ? 'bg-[#73d500] text-white shadow-sm' 
-                          : 'bg-white border border-gray-200 text-gray-400'
-                      }`}
-                    >
-                      {i + 1}
+              {/* Right Grid */}
+              <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-white rounded-[20px] p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="text-[#3FA836] mb-4">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                  </div>
+                  <h4 className="text-sm font-bold text-black mb-2">Other Partnered Gyms</h4>
+                  <p className="text-xs font-medium text-gray-500 leading-relaxed">
+                    Explore other participating fitness locations according to ZonoFit rules.
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-[20px] p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="text-[#3FA836] mb-4">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+                  </div>
+                  <h4 className="text-sm font-bold text-black mb-2">Sports</h4>
+                  <p className="text-xs font-medium text-gray-500 leading-relaxed">
+                    Use credits toward eligible sports experiences.
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-[20px] p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="text-[#3FA836] mb-4">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>
+                  </div>
+                  <h4 className="text-sm font-bold text-black mb-2">Wellness</h4>
+                  <p className="text-xs font-medium text-gray-500 leading-relaxed">
+                    Access participating wellness experiences.
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-[20px] p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="text-[#3FA836] mb-4">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>
+                  </div>
+                  <h4 className="text-sm font-bold text-black mb-2">Supplements / Products</h4>
+                  <p className="text-xs font-medium text-gray-500 leading-relaxed">
+                    Use credits on eligible fitness products.
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-[20px] p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="text-[#3FA836] mb-4">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
+                  </div>
+                  <h4 className="text-sm font-bold text-black mb-2">More</h4>
+                  <p className="text-xs font-medium text-gray-500 leading-relaxed">
+                    The ecosystem keeps expanding with new partners.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <p className="mt-8 text-[10px] font-medium text-gray-400 max-w-xl">
+              Available through participating partners and subject to ZonoFit plan terms.
+            </p>
+          </div>
+        </section>
+
+        {/* SECTION 1: This is where ZonoFit changes the equation */}
+        <section className="bg-white py-24 md:py-32 px-5">
+          <div className="max-w-5xl mx-auto">
+            <h2 className="text-4xl md:text-6xl font-semibold tracking-tight text-black leading-tight mb-16 reveal">
+              This is where ZonoFit<br />changes the equation.
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Traditional Membership */}
+              <div className="bg-[#fcfcfc] rounded-[24px] p-8 border border-gray-200">
+                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-8">Traditional Membership</h3>
+                <ul className="space-y-6 text-sm font-medium text-gray-500">
+                  <li>Pay</li>
+                  <li>Go</li>
+                  <li>Miss</li>
+                  <li>Value disappears</li>
+                </ul>
+              </div>
+
+              {/* ZonoFit */}
+              <div className="bg-white rounded-[24px] p-8 border border-gray-200 shadow-[0_2px_20px_rgba(0,0,0,0.04)] reveal">
+                <h3 className="text-xs font-bold text-[#3FA836] uppercase tracking-widest mb-8">ZonoFit</h3>
+                <ul className="space-y-6 text-sm font-medium text-black">
+                  <li className="flex items-center gap-4">
+                    <span className="text-[10px] text-[#3FA836] font-bold w-4">01</span> Pay
+                  </li>
+                  <li className="flex items-center gap-4">
+                    <span className="text-[10px] text-[#3FA836] font-bold w-4">02</span> Choose your primary gym
+                  </li>
+                  <li className="flex items-center gap-4">
+                    <span className="text-[10px] text-[#3FA836] font-bold w-4">03</span> Commit
+                  </li>
+                  <li className="flex items-center gap-4">
+                    <span className="text-[10px] text-[#3FA836] font-bold w-4">04</span> Visit
+                  </li>
+                  <li className="flex items-center gap-4">
+                    <span className="text-[10px] text-[#3FA836] font-bold w-4">05</span> Build consistency
+                  </li>
+                  <li className="flex items-center gap-4">
+                    <span className="text-[10px] text-[#3FA836] font-bold w-4">06</span> Unused value can become credits
+                  </li>
+                  <li className="flex items-center gap-4">
+                    <span className="text-[10px] text-[#3FA836] font-bold w-4">07</span> Use within the ZonoFit ecosystem
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* SECTION 2: Your membership. Your starting point. */}
+        <section id="membership" className="bg-white py-24 md:py-32 px-5">
+          <div className="max-w-5xl mx-auto">
+            <h2 className="text-4xl md:text-6xl font-semibold tracking-tight text-black leading-tight mb-4 reveal">
+              Your membership.<br />Your starting point.
+            </h2>
+            <p className="text-sm md:text-base font-medium text-gray-500 max-w-lg leading-relaxed mb-16">
+              Plans, pricing and credit structure are managed centrally and may vary by city and partner gym.
+            </p>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch pt-4">
+              {/* Starter */}
+              <div className="bg-white rounded-[24px] p-8 border border-gray-200 shadow-sm flex flex-col reveal transition-all duration-500 hover:-translate-y-3 hover:shadow-2xl hover:border-gray-300 group cursor-pointer">
+                <div className="mb-8">
+                  <h3 className="text-sm font-bold text-black mb-4">Starter</h3>
+                  <div className="text-4xl font-bold tracking-tight text-black mb-1">₹1,499</div>
+                  <div className="text-xs font-medium text-gray-500">per month</div>
+                </div>
+                
+                <div className="space-y-6 flex-1 mb-10">
+                  <div>
+                    <h4 className="text-xs font-medium text-gray-500 mb-1">Primary gym</h4>
+                    <p className="text-sm font-semibold text-black">1 selected at signup</p>
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-medium text-gray-500 mb-1">Visit commitment</h4>
+                    <p className="text-sm font-semibold text-black">10 visits / month</p>
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-medium text-gray-500 mb-1">Credit structure</h4>
+                    <p className="text-sm font-semibold text-black leading-relaxed">Eligible unused value converts to credits monthly</p>
+                  </div>
+                </div>
+
+                <ul className="space-y-4 mb-8 text-sm font-medium text-black">
+                  <li className="flex gap-3 items-center"><svg className="text-[#3FA836] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 1 Primary Gym</li>
+                  <li className="flex gap-3 items-center"><svg className="text-[#3FA836] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Digital check in</li>
+                  <li className="flex gap-3 items-center"><svg className="text-[#3FA836] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Credit wallet</li>
+                  <li className="flex gap-3 items-center"><svg className="text-[#3FA836] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Partner network access</li>
+                </ul>
+
+                <Link href="/auth/signup" className="block w-full py-4 text-center rounded-full border border-gray-200 text-sm font-semibold text-black hover:bg-gray-50 transition-colors mt-auto">
+                  Join ZonoFit
+                </Link>
+              </div>
+
+              {/* Momentum */}
+              <div className="bg-white rounded-[24px] p-8 border-2 border-[#3FA836] shadow-md relative flex flex-col transform lg:-translate-y-4 reveal transition-all duration-500 hover:-translate-y-3 lg:hover:-translate-y-7 hover:shadow-2xl group cursor-pointer">
+                <div className="absolute -top-3 left-8 bg-[#E6F7E5] text-[#3FA836] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest">
+                  Most chosen
+                </div>
+                <div className="mb-8 mt-2">
+                  <h3 className="text-sm font-bold text-black mb-4">Momentum</h3>
+                  <div className="text-4xl font-bold tracking-tight text-black mb-1">₹3,999</div>
+                  <div className="text-xs font-medium text-gray-500">3 months</div>
+                </div>
+                
+                <div className="space-y-6 flex-1 mb-10">
+                  <div>
+                    <h4 className="text-xs font-medium text-gray-500 mb-1">Primary gym</h4>
+                    <p className="text-sm font-semibold text-black">1 selected at signup</p>
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-medium text-gray-500 mb-1">Visit commitment</h4>
+                    <p className="text-sm font-semibold text-black">10 visits / month</p>
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-medium text-gray-500 mb-1">Credit structure</h4>
+                    <p className="text-sm font-semibold text-black leading-relaxed">Credits carry forward within the plan period</p>
+                  </div>
+                </div>
+
+                <ul className="space-y-4 mb-8 text-sm font-medium text-black">
+                  <li className="flex gap-3 items-center"><svg className="text-[#3FA836] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 1 Primary Gym</li>
+                  <li className="flex gap-3 items-center"><svg className="text-[#3FA836] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Digital check in</li>
+                  <li className="flex gap-3 items-center"><svg className="text-[#3FA836] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Credit wallet</li>
+                  <li className="flex gap-3 items-center"><svg className="text-[#3FA836] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Sports & wellness partners</li>
+                  <li className="flex gap-3 items-center"><svg className="text-[#3FA836] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Priority support</li>
+                </ul>
+
+                <Link href="/auth/signup" className="block w-full py-4 text-center rounded-full bg-[#3FA836] text-white text-sm font-semibold hover:bg-[#35902d] transition-colors mt-auto">
+                  Join ZonoFit
+                </Link>
+              </div>
+
+              {/* Journey */}
+              <div className="bg-white rounded-[24px] p-8 border border-gray-200 shadow-sm flex flex-col reveal transition-all duration-500 hover:-translate-y-3 hover:shadow-2xl hover:border-gray-300 group cursor-pointer">
+                <div className="mb-8">
+                  <h3 className="text-sm font-bold text-black mb-4">Journey</h3>
+                  <div className="text-4xl font-bold tracking-tight text-black mb-1">₹13,999</div>
+                  <div className="text-xs font-medium text-gray-500">12 months</div>
+                </div>
+                
+                <div className="space-y-6 flex-1 mb-10">
+                  <div>
+                    <h4 className="text-xs font-medium text-gray-500 mb-1">Primary gym</h4>
+                    <p className="text-sm font-semibold text-black">1 selected at signup</p>
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-medium text-gray-500 mb-1">Visit commitment</h4>
+                    <p className="text-sm font-semibold text-black">10 visits (M1-4), 15 visits (M5-12)</p>
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-medium text-gray-500 mb-1">Credit structure</h4>
+                    <p className="text-sm font-semibold text-black leading-relaxed">Highest credit eligibility across the ecosystem</p>
+                  </div>
+                </div>
+
+                <ul className="space-y-4 mb-8 text-sm font-medium text-black">
+                  <li className="flex gap-3 items-center"><svg className="text-[#3FA836] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 1 Primary Gym</li>
+                  <li className="flex gap-3 items-center"><svg className="text-[#3FA836] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Digital check in</li>
+                  <li className="flex gap-3 items-center"><svg className="text-[#3FA836] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Credit wallet</li>
+                  <li className="flex gap-3 items-center"><svg className="text-[#3FA836] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Full partner ecosystem</li>
+                  <li className="flex gap-3 items-center"><svg className="text-[#3FA836] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Product & supplement credits</li>
+                </ul>
+
+                <Link href="/auth/signup" className="block w-full py-4 text-center rounded-full border border-gray-200 text-sm font-semibold text-black hover:bg-gray-50 transition-colors mt-auto">
+                  Join ZonoFit
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+
+
+        {/* Flexibility section */}
+        <section className="bg-white py-24 md:py-32 px-5 border-t border-gray-100">
+          <div className="max-w-5xl mx-auto text-center">
+            <h2 className="text-4xl md:text-6xl font-semibold tracking-tight text-black leading-tight mb-4 md:text-left reveal">
+              Flexibility doesn&apos;t mean<br />zero commitment.
+            </h2>
+            <p className="text-xs text-gray-400 mb-16 md:text-left">
+              We believe consistency is built through showing up — not chasing<br className="hidden md:block" /> perfection.
+            </p>
+            
+            {/* The two cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12 text-left">
+              <div className="bg-white rounded-[24px] p-8 border border-gray-200 shadow-sm reveal">
+                <p className="text-[10px] font-bold text-gray-400 tracking-widest uppercase mb-4">Months 1-4</p>
+                <div className="flex items-baseline gap-2 mb-1">
+                  <span className="text-4xl font-bold text-black tracking-tight">10</span>
+                  <span className="text-2xl font-semibold text-black tracking-tight">Visits</span>
+                </div>
+                <p className="text-[10px] text-gray-500 mb-8 font-medium">per month · Build the habit</p>
+                
+                <div className="space-y-3">
+                  {[1, 2, 3, 4].map(m => (
+                    <div key={m} className="flex items-center gap-3">
+                      <span className="text-[10px] text-gray-400 w-4 font-medium">M{m}</span>
+                      <div className="flex gap-1.5">
+                        {[...Array(10)].map((_, i) => (
+                          <div key={i} className="w-2 h-2 rounded-full bg-[#3FA836]"></div>
+                        ))}
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Right Side: Controls */}
-              <div className="bg-white rounded-[24px] p-8 md:p-10 border border-gray-200 shadow-sm">
-                <p className="text-[13px] font-extrabold text-gray-900 mb-6">How often would you realistically work out?</p>
+              <div className="bg-white rounded-[24px] p-8 border border-gray-200 shadow-[0_2px_20px_rgba(0,0,0,0.04)] reveal">
+                <p className="text-[10px] font-bold text-[#3FA836] tracking-widest uppercase mb-4">Months 5-12</p>
+                <div className="flex items-baseline gap-2 mb-1">
+                  <span className="text-4xl font-bold text-[#3FA836] tracking-tight">15</span>
+                  <span className="text-2xl font-semibold text-[#3FA836] tracking-tight">Visits</span>
+                </div>
+                <p className="text-[10px] text-gray-500 mb-8 font-medium">per month · Build the momentum</p>
                 
-                <div className="flex items-baseline gap-2 mb-8">
-                  <span className="text-6xl font-black text-gray-900 tracking-tighter">{sliderVisits}</span>
-                  <span className="text-[11px] font-bold text-gray-400">visits / month</span>
-                </div>
-
-                <div className="mb-10 relative">
-                  <input 
-                    type="range" 
-                    min="5" 
-                    max="15" 
-                    value={sliderVisits} 
-                    onChange={(e) => setSliderVisits(parseInt(e.target.value))}
-                    className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer focus:outline-none slider-thumb"
-                    style={{
-                      background: `linear-gradient(to right, #73d500 ${((sliderVisits - 5) / 10) * 100}%, #f3f4f6 ${((sliderVisits - 5) / 10) * 100}%)`
-                    }}
-                  />
-                  <div className="flex justify-between mt-4 text-[9px] font-extrabold text-gray-400 px-1 tracking-widest">
-                    <span>5</span>
-                    <span>8</span>
-                    <span>10</span>
-                    <span>12</span>
-                    <span>15</span>
-                  </div>
-                </div>
-
-                <div className="mb-3 flex justify-between items-end">
-                  <span className="text-[11px] font-extrabold text-gray-700">Monthly commitment</span>
-                  <span className="text-[10px] font-bold text-gray-400">10 / 10</span>
-                </div>
-                {/* Progress bar */}
-                <div className="h-[3px] w-full bg-gray-100 rounded-full mb-6 overflow-hidden">
-                  <div className="h-full bg-[#73d500] transition-all duration-300" style={{ width: '100%' }}></div>
-                </div>
-
-                {/* Status Box */}
-                <div className="bg-[#f0fdf4] rounded-[16px] p-5 border border-primary/20 mb-4">
-                  <p className="text-[11px] font-extrabold text-gray-900 mb-1">Commitment met — journey on track</p>
-                  <p className="text-[10px] font-semibold text-gray-500 leading-relaxed">Visits beyond your commitment keep your momentum and Z Score climbing.</p>
-                </div>
-
-                {/* Wallet Box */}
-                <div className="bg-white rounded-[16px] p-5 border border-gray-200 flex justify-between items-center shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
-                  <div>
-                    <p className="text-[11px] font-extrabold text-gray-900">ZonoFit Wallet</p>
-                    <p className="text-[9px] font-semibold text-gray-400 mt-0.5">Value from your membership, tracked as credits.</p>
-                  </div>
-                  <div className="flex gap-1 items-end h-[18px]">
-                    <div className="w-1.5 h-full bg-[#73d500] rounded-sm"></div>
-                    <div className="w-1.5 h-full bg-[#73d500] rounded-sm"></div>
-                    <div className="w-1.5 h-full bg-[#73d500] rounded-sm"></div>
-                    <div className="w-1.5 h-[12px] bg-gray-200 rounded-sm"></div>
-                    <div className="w-1.5 h-[8px] bg-gray-200 rounded-sm"></div>
-                  </div>
-                </div>
-
-              </div>
-            </div>
-          </div>
-        </section>
-        <section
-          id="how-it-works"
-          className="dark-section-gradient py-24 md:py-32 px-5 relative overflow-hidden"
-        >
-          <div
-            className="absolute inset-0 opacity-5 pointer-events-none"
-            style={{ backgroundImage: "linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px)", backgroundSize: "60px 60px" }}
-          ></div>
-          <div className="max-w-5xl mx-auto relative z-10">
-            <span className="section-label section-label-dark"
-              >03 / ZONOFIT REVEAL</span
-            >
-            <div className="mt-6 reveal">
-              <h2
-                className="text-3xl md:text-5xl lg:text-6xl font-extrabold text-white leading-tight tracking-tight"
-              >
-                A gym membership that thinks<br /><span className="text-primary"
-                  >beyond the gym.</span
-                >
-              </h2>
-              <p
-                className="mt-5 text-xl md:text-2xl font-light text-gray-400 max-w-xl leading-relaxed"
-              >
-                Meet ZonoFit.
-              </p>
-            </div>
-            <div
-              className="mt-16 grid grid-cols-1 md:grid-cols-2 gap-8 reveal reveal-delay-1"
-            >
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
-                <p
-                  className="text-xs font-bold tracking-widest uppercase text-gray-500 mb-6"
-                >
-                  Traditional Membership
-                </p>
                 <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-xs font-bold text-gray-500"
-                    >
-                      1
+                  {[5, 6, 7, 8].map(m => (
+                    <div key={m} className="flex items-center gap-3">
+                      <span className="text-[10px] text-gray-400 w-4 font-medium">M{m}</span>
+                      <div className="flex gap-1.5">
+                        {[...Array(15)].map((_, i) => (
+                          <div key={i} className="w-2 h-2 rounded-full bg-[#3FA836]"></div>
+                        ))}
+                      </div>
                     </div>
-                    <span className="text-base font-semibold text-gray-400"
-                      >Pay</span
-                    >
-                    <div className="ml-auto text-gray-700 text-sm">↓</div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-xs font-bold text-gray-500"
-                    >
-                      2
-                    </div>
-                    <span className="text-base font-semibold text-gray-400"
-                      >Use</span
-                    >
-                    <div className="ml-auto text-gray-700 text-sm">↓</div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-xs font-bold text-gray-500"
-                    >
-                      3
-                    </div>
-                    <span className="text-base font-semibold text-gray-400"
-                      >Miss Days</span
-                    >
-                    <div className="ml-auto text-gray-700 text-sm">↓</div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-xs font-bold text-gray-500"
-                    >
-                      4
-                    </div>
-                    <span
-                      className="text-base font-semibold text-gray-600 line-through"
-                      >Value Unused</span
-                    >
-                  </div>
+                  ))}
                 </div>
               </div>
-              <div
-                className="bg-primary/5 border border-primary/20 rounded-2xl p-8 relative"
-              >
-                <div
-                  className="absolute top-4 right-4 px-2 py-0.5 bg-primary/10 rounded-full text-xs font-bold text-primary"
-                >
-                  ZonoFit
-                </div>
-                <p
-                  className="text-xs font-bold tracking-widest uppercase text-primary/60 mb-6"
-                >
-                  ZonoFit Model
-                </p>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-white/5 border border-white/10 text-gray-500"
-                    >
-                      1
-                    </div>
-                    <span className="text-base font-semibold text-gray-300"
-                      >Pay</span
-                    >
-                    <div className="ml-auto text-primary/40 text-sm">↓</div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-white/5 border border-white/10 text-gray-500"
-                    >
-                      2
-                    </div>
-                    <span className="text-base font-semibold text-gray-300"
-                      >Commit</span
-                    >
-                    <div className="ml-auto text-primary/40 text-sm">↓</div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-white/5 border border-white/10 text-gray-500"
-                    >
-                      3
-                    </div>
-                    <span className="text-base font-semibold text-gray-300"
-                      >Show Up</span
-                    >
-                    <div className="ml-auto text-primary/40 text-sm">↓</div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-primary text-primary-foreground"
-                    >
-                      4
-                    </div>
-                    <span className="text-base font-semibold text-primary"
-                      >Build Habit</span
-                    >
-                    <div className="ml-auto text-primary/40 text-sm">↓</div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-primary text-primary-foreground"
-                    >
-                      5
-                    </div>
-                    <span className="text-base font-semibold text-primary"
-                      >Value</span
-                    >
-                    <div className="ml-auto text-primary/40 text-sm">↓</div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-primary text-primary-foreground"
-                    >
-                      6
-                    </div>
-                    <span className="text-base font-semibold text-primary"
-                      >Credits</span
-                    >
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="mt-20 text-center">
-              <h3
-                className="scroll-scrub-text text-2xl md:text-4xl font-extrabold tracking-tight leading-tight"
-                style={{
-                  backgroundImage: "linear-gradient(to right, #ffffff 50%, #3a3a3a 50%)",
-                  backgroundSize: "200% 100%",
-                  backgroundPosition: "100% 0",
-                  WebkitBackgroundClip: "text",
-                  backgroundClip: "text",
-                  color: "transparent"
-                }}
-              >
-                Your life can change.<br />Your membership can adapt.
-              </h3>
-            </div>
-          </div>
-        </section>
-        <section id="habit" className="bg-background py-20 md:py-28 px-5">
-          <div className="max-w-5xl mx-auto">
-            <span className="section-label">04 / BUILD THE HABIT</span>
-            <div className="mt-6 reveal">
-              <h2
-                className="text-3xl md:text-5xl font-extrabold tracking-tight text-foreground leading-tight"
-              >
-                Don&#x27;t start by trying to<br />become perfect.
-              </h2>
-              <p className="mt-3 text-2xl md:text-3xl font-extrabold text-primary">
-                Start by becoming consistent.
-              </p>
-            </div>
-            <div
-              className="mt-14 grid grid-cols-1 md:grid-cols-2 gap-10 items-start"
-            >
-              <div className="reveal reveal-delay-1">
-                <div className="bg-secondary rounded-2xl p-7">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="section-label">First 4 Months</span
-                    ><span
-                      className="text-xs font-bold text-primary bg-light-green px-2.5 py-1 rounded-full"
-                      >Phase 1</span
-                    >
-                  </div>
-                  <p
-                    className="text-4xl font-black text-foreground mt-3 tracking-tight"
-                  >
-                    10<span
-                      className="text-lg font-semibold text-muted-foreground ml-2"
-                      >visits / month</span
-                    >
-                  </p>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    Build the habit. That&#x27;s the only goal.
-                  </p>
-                  <div className="mt-6">
-                    <div className="grid grid-cols-7 gap-1.5">
-                      <div
-                        className="habit-marker workout"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        ✓
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        2
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        3
-                      </div>
-                      <div
-                        className="habit-marker workout"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        ✓
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        5
-                      </div>
-                      <div
-                        className="habit-marker workout"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        ✓
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        7
-                      </div>
-                      <div
-                        className="habit-marker workout"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        ✓
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        9
-                      </div>
-                      <div
-                        className="habit-marker workout"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        ✓
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        11
-                      </div>
-                      <div
-                        className="habit-marker workout"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        ✓
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        13
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        14
-                      </div>
-                      <div
-                        className="habit-marker workout"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        ✓
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        16
-                      </div>
-                      <div
-                        className="habit-marker workout"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        ✓
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        18
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        19
-                      </div>
-                      <div
-                        className="habit-marker workout"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        ✓
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        21
-                      </div>
-                      <div
-                        className="habit-marker workout"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        ✓
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        23
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        24
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        25
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        26
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        27
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        28
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        29
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        30
-                      </div>
-                    </div>
-                    <p className="mt-3 text-xs text-muted-foreground font-medium">
-                      10 workouts highlighted — the rest is yours.
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div
-                className="reveal reveal-delay-2 transition-all duration-700 opacity-40"
-              >
-                <div className="bg-secondary rounded-2xl p-7">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="section-label">After 4 Months</span
-                    ><span
-                      className="text-xs font-bold text-primary bg-light-green px-2.5 py-1 rounded-full"
-                      >Phase 2</span
-                    >
-                  </div>
-                  <p
-                    className="text-4xl font-black text-foreground mt-3 tracking-tight"
-                  >
-                    15<span
-                      className="text-lg font-semibold text-muted-foreground ml-2"
-                      >visits / month</span
-                    >
-                  </p>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    Once the habit is built, your commitment can grow.
-                  </p>
-                  <div className="mt-6">
-                    <div className="grid grid-cols-7 gap-1.5">
-                      <div
-                        className="habit-marker workout"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        ✓
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        2
-                      </div>
-                      <div
-                        className="habit-marker workout"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        ✓
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        4
-                      </div>
-                      <div
-                        className="habit-marker workout"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        ✓
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        6
-                      </div>
-                      <div
-                        className="habit-marker workout"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        ✓
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        8
-                      </div>
-                      <div
-                        className="habit-marker workout"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        ✓
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        10
-                      </div>
-                      <div
-                        className="habit-marker workout"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        ✓
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        12
-                      </div>
-                      <div
-                        className="habit-marker workout"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        ✓
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        14
-                      </div>
-                      <div
-                        className="habit-marker workout"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        ✓
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        16
-                      </div>
-                      <div
-                        className="habit-marker workout"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        ✓
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        18
-                      </div>
-                      <div
-                        className="habit-marker workout"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        ✓
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        20
-                      </div>
-                      <div
-                        className="habit-marker workout"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        ✓
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        22
-                      </div>
-                      <div
-                        className="habit-marker workout"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        ✓
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        24
-                      </div>
-                      <div
-                        className="habit-marker workout"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        ✓
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        26
-                      </div>
-                      <div
-                        className="habit-marker workout"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        ✓
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        28
-                      </div>
-                      <div
-                        className="habit-marker workout"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        ✓
-                      </div>
-                      <div
-                        className="habit-marker rest"
-                        style={{ transitionDelay: '0ms' }}
-                      >
-                        30
-                      </div>
-                    </div>
-                    <p className="mt-3 text-xs text-muted-foreground font-medium">
-                      15 workouts — consistency becomes normal.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="mt-14 reveal reveal-delay-2">
-              <div
-                className="bg-light-green border border-primary/20 rounded-2xl p-8"
-              >
-                <div className="flex items-start gap-4">
-                  <div
-                    className="w-10 h-10 rounded-full bg-primary flex items-center justify-center flex-shrink-0"
-                  >
-                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                      <path
-                        d="M3 9l4.5 4.5L15 4.5"
-                        stroke="#111111"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      ></path>
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-lg font-bold text-foreground leading-snug">
-                      You are not financially punished before you&#x27;ve built
-                      the habit.
-                    </p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      The initial commitment is designed to help you establish
-                      consistency. Minimum ≠ maximum. Do more whenever
-                      you&#x27;re ready.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-        <section id="value" className="bg-secondary py-20 md:py-28 px-5">
-          <div className="max-w-5xl mx-auto">
-            <span className="section-label">05 / HOW VALUE WORKS</span>
-            <div className="mt-6 reveal">
-              <h2
-                className="text-3xl md:text-5xl font-extrabold tracking-tight text-foreground leading-tight"
-              >
-                Show up first.<br /><span className="text-primary"
-                  >Build value along the way.</span
-                >
-              </h2>
-              <p className="mt-4 text-base text-muted-foreground max-w-lg">
-                Consistency creates the foundation. The value system exists to
-                make your membership more flexible and useful — not to replace
-                showing up.
-              </p>
-            </div>
-            <div className="mt-14 reveal reveal-delay-1">
-              <div className="flex flex-col md:flex-row items-stretch gap-0">
-                <div
-                  className="flex-1 bg-background rounded-2xl p-5 text-center shadow-sm border border-border"
-                >
-                  <div className="text-3xl mb-2">🏋️</div>
-                  <p className="text-sm font-bold text-foreground">
-                    Your Membership
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Start with a realistic commitment
-                  </p>
-                </div>
-                <div className="flex items-center justify-center px-2 py-2 md:py-0">
-                  <span
-                    className="text-primary font-bold text-lg md:text-xl rotate-90 md:rotate-0"
-                    >→</span
-                  >
-                </div>
-                <div
-                  className="flex-1 bg-background rounded-2xl p-5 text-center shadow-sm border border-border"
-                >
-                  <div className="text-3xl mb-2">✅</div>
-                  <p className="text-sm font-bold text-foreground">Your Visits</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    10 visits/month, Phase 1
-                  </p>
-                </div>
-                <div className="flex items-center justify-center px-2 py-2 md:py-0">
-                  <span
-                    className="text-primary font-bold text-lg md:text-xl rotate-90 md:rotate-0"
-                    >→</span
-                  >
-                </div>
-                <div
-                  className="flex-1 bg-background rounded-2xl p-5 text-center shadow-sm border border-border"
-                >
-                  <div className="text-3xl mb-2">📅</div>
-                  <p className="text-sm font-bold text-foreground">
-                    Your Consistency
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Show up. Build the rhythm.
-                  </p>
-                </div>
-                <div className="flex items-center justify-center px-2 py-2 md:py-0">
-                  <span
-                    className="text-primary font-bold text-lg md:text-xl rotate-90 md:rotate-0"
-                    >→</span
-                  >
-                </div>
-                <div
-                  className="flex-1 bg-background rounded-2xl p-5 text-center shadow-sm border border-border"
-                >
-                  <div className="text-3xl mb-2">💚</div>
-                  <p className="text-sm font-bold text-foreground">ZonoFit Value</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Commitment earns credits
-                  </p>
-                </div>
-                <div className="flex items-center justify-center px-2 py-2 md:py-0">
-                  <span
-                    className="text-primary font-bold text-lg md:text-xl rotate-90 md:rotate-0"
-                    >→</span
-                  >
-                </div>
-                <div
-                  className="flex-1 bg-background rounded-2xl p-5 text-center shadow-sm border border-border"
-                >
-                  <div className="text-3xl mb-2">🪙</div>
-                  <p className="text-sm font-bold text-foreground">Credits</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Usable across the ecosystem
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="mt-14 reveal reveal-delay-2">
-              <p className="section-label mb-6">Credits can be used across</p>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div
-                  className="ecosystem-card text-center"
-                  style={{ transitionDelay: '0ms' }}
-                >
-                  <div className="text-3xl mb-3">💊</div>
-                  <p className="font-bold text-foreground text-sm">Supplements</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Protein, vitamins, recovery
-                  </p>
-                </div>
-                <div
-                  className="ecosystem-card text-center"
-                  style={{ transitionDelay: '80ms' }}
-                >
-                  <div className="text-3xl mb-3">🧘</div>
-                  <p className="font-bold text-foreground text-sm">Wellness</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Yoga, meditation, recovery
-                  </p>
-                </div>
-                <div
-                  className="ecosystem-card text-center"
-                  style={{ transitionDelay: '160ms' }}
-                >
-                  <div className="text-3xl mb-3">🏃</div>
-                  <p className="font-bold text-foreground text-sm">Sports</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Equipment, classes, gear
-                  </p>
-                </div>
-                <div
-                  className="ecosystem-card text-center"
-                  style={{ transitionDelay: '240ms' }}
-                >
-                  <div className="text-3xl mb-3">✨</div>
-                  <p className="font-bold text-foreground text-sm">More</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Growing ZonoFit ecosystem
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="mt-12 reveal reveal-delay-3">
-              <div className="text-center py-8 border-t border-border">
-                <p
-                  className="text-2xl md:text-3xl font-extrabold text-foreground tracking-tight"
-                >
-                  Consistency creates the foundation.
-                </p>
-                <p
-                  className="mt-3 text-base text-muted-foreground max-w-md mx-auto"
-                >
-                  The value system exists to make your membership more flexible
-                  — not to skip the gym.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-        <section
-          id="app"
-          className="dark-section-gradient py-24 md:py-32 px-5 relative overflow-hidden"
-        >
-          <div
-            className="absolute inset-0 opacity-5 pointer-events-none"
-            style={{ backgroundImage: "linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px)", backgroundSize: "60px 60px" }}
-          ></div>
-          <div className="max-w-5xl mx-auto relative z-10">
-            <span className="section-label section-label-dark"
-              >06 / EXPERIENCE THE APP</span
-            >
-            <div className="mt-6 reveal">
-              <h2
-                className="text-3xl md:text-5xl font-extrabold text-white tracking-tight leading-tight"
-              >
-                And this is what ZonoFit<br /><span className="text-primary"
-                  >feels like.</span
-                >
-              </h2>
-            </div>
-            <div className="mt-14 flex flex-col md:flex-row items-center gap-12">
-              <div className="flex-shrink-0 reveal reveal-delay-1">
-                <div className="phone-wrapper mx-auto">
-                  <div className="relative w-full h-full">
-                    <div
-                      className="absolute inset-0 bg-gray-900 rounded-[36px] shadow-2xl border-2 border-gray-700"
-                    ></div>
-                    <div
-                      className="absolute top-3 left-1/2 -translate-x-1/2 w-20 h-5 bg-gray-900 rounded-full z-20 border border-gray-700"
-                    ></div>
-                    <div
-                      className="absolute top-8 bottom-6 left-2 right-2 bg-white rounded-[28px] overflow-hidden"
-                    >
-                      <div className={`phone-screen ${activeScreen === 0 ? "active" : ""}`}>
-                        <div className="flex flex-col h-full bg-white p-4">
-                          <div className="flex items-center justify-between mb-5">
-                            <div>
-                              <p className="text-xs text-gray-400 font-medium">
-                                Good morning
-                              </p>
-                              <p
-                                className="text-base font-extrabold text-gray-900 tracking-tight"
-                              >
-                                Rahul
-                              </p>
-                            </div>
-                            <div
-                              className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-xs font-black text-primary-foreground"
-                            >
-                              R
-                            </div>
-                          </div>
-                          <div className="bg-gray-900 rounded-2xl p-4 mb-4">
-                            <p className="text-xs text-gray-400 mb-1">
-                              Phase 1 Membership
-                            </p>
-                            <p className="text-xl font-black text-white">
-                              ₹3,000 / mo
-                            </p>
-                            <div
-                              className="mt-3 h-1.5 bg-gray-700 rounded-full overflow-hidden"
-                            >
-                              <div
-                                className="h-full bg-primary rounded-full"
-                                style={{ width: '53%' }}
-                              ></div>
-                            </div>
-                            <div className="flex justify-between mt-1.5">
-                              <span className="text-xs text-gray-400"
-                                >8 / 10 visits</span
-                              ><span className="text-xs text-primary font-bold"
-                                >2 remaining</span
-                              >
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-3 mb-4">
-                            <div className="bg-gray-50 rounded-xl p-3">
-                              <p className="text-xs text-gray-400">This Month</p>
-                              <p className="text-lg font-black text-gray-900">8</p>
-                              <p className="text-xs text-gray-500">visits</p>
-                            </div>
-                            <div className="bg-light-green rounded-xl p-3">
-                              <p className="text-xs text-green-700">Credits</p>
-                              <p className="text-lg font-black text-green-800">
-                                ₹240
-                              </p>
-                              <p className="text-xs text-green-600">available</p>
-                            </div>
-                          </div>
-                          <button
-                            className="w-full bg-primary text-primary-foreground font-bold text-sm py-3 rounded-xl"
-                          >
-                            Book Next Visit
-                          </button>
-                        </div>
-                      </div>
-                      <div className={`phone-screen ${activeScreen === 1 ? "active" : ""}`}>
-                        <div className="flex flex-col h-full bg-white p-4">
-                          <p
-                            className="text-base font-extrabold text-gray-900 mb-4"
-                          >
-                            Book a Visit
-                          </p>
-                          <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
-                            <div
-                              className="flex-shrink-0 px-3 py-2 rounded-xl text-xs font-bold bg-gray-100 text-gray-600"
-                            >
-                              Mon 11
-                            </div>
-                            <div
-                              className="flex-shrink-0 px-3 py-2 rounded-xl text-xs font-bold bg-primary text-primary-foreground"
-                            >
-                              Tue 12
-                            </div>
-                            <div
-                              className="flex-shrink-0 px-3 py-2 rounded-xl text-xs font-bold bg-gray-100 text-gray-600"
-                            >
-                              Wed 13
-                            </div>
-                            <div
-                              className="flex-shrink-0 px-3 py-2 rounded-xl text-xs font-bold bg-gray-100 text-gray-600"
-                            >
-                              Thu 14
-                            </div>
-                            <div
-                              className="flex-shrink-0 px-3 py-2 rounded-xl text-xs font-bold bg-gray-100 text-gray-600"
-                            >
-                              Fri 15
-                            </div>
-                          </div>
-                          <p className="text-xs text-gray-400 font-medium mb-3">
-                            Available Times
-                          </p>
-                          <div className="space-y-2 flex-1">
-                            <div
-                              className="flex items-center justify-between px-4 py-3 rounded-xl bg-gray-50"
-                            >
-                              <span className="text-sm font-semibold text-gray-700"
-                                >06:00 AM</span
-                              >
-                            </div>
-                            <div
-                              className="flex items-center justify-between px-4 py-3 rounded-xl bg-gray-50"
-                            >
-                              <span className="text-sm font-semibold text-gray-700"
-                                >07:30 AM</span
-                              >
-                            </div>
-                            <div
-                              className="flex items-center justify-between px-4 py-3 rounded-xl bg-primary/10 border border-primary/30"
-                            >
-                              <span className="text-sm font-semibold text-primary"
-                                >09:00 AM</span
-                              ><span className="text-xs text-primary font-bold"
-                                >Selected</span
-                              >
-                            </div>
-                            <div
-                              className="flex items-center justify-between px-4 py-3 rounded-xl bg-gray-50"
-                            >
-                              <span className="text-sm font-semibold text-gray-700"
-                                >05:30 PM</span
-                              >
-                            </div>
-                            <div
-                              className="flex items-center justify-between px-4 py-3 rounded-xl bg-gray-50"
-                            >
-                              <span className="text-sm font-semibold text-gray-700"
-                                >07:00 PM</span
-                              >
-                            </div>
-                          </div>
-                          <button
-                            className="w-full bg-primary text-primary-foreground font-bold text-sm py-3 rounded-xl mt-3"
-                          >
-                            Confirm Booking
-                          </button>
-                        </div>
-                      </div>
-                      <div className={`phone-screen ${activeScreen === 2 ? "active" : ""}`}>
-                        <div
-                          className="flex flex-col h-full bg-white p-4 items-center justify-center text-center"
-                        >
-                          <div
-                            className="w-20 h-20 rounded-full bg-primary flex items-center justify-center mb-5"
-                          >
-                            <svg
-                              width="36"
-                              height="36"
-                              viewBox="0 0 36 36"
-                              fill="none"
-                            >
-                              <path
-                                d="M7 18l8 8L29 10"
-                                stroke="#111111"
-                                strokeWidth="3.5"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              ></path>
-                            </svg>
-                          </div>
-                          <p
-                            className="text-xl font-extrabold text-gray-900 tracking-tight"
-                          >
-                            You&#x27;re Checked In!
-                          </p>
-                          <p className="text-sm text-gray-500 mt-2">
-                            Tuesday, Aug 12 · 09:00 AM
-                          </p>
-                          <div
-                            className="mt-5 bg-light-green rounded-2xl px-6 py-4 border border-primary/20"
-                          >
-                            <p className="text-xs text-green-700 font-medium">
-                              Visit 9 of 10
-                            </p>
-                            <p className="text-2xl font-black text-green-800 mt-1">
-                              ₹30
-                            </p>
-                            <p className="text-xs text-green-600">
-                              credits earned today
-                            </p>
-                          </div>
-                          <p className="mt-5 text-sm text-gray-400">
-                            1 more visit to complete Phase 1 goal
-                          </p>
-                        </div>
-                      </div>
-                      <div className={`phone-screen ${activeScreen === 3 ? "active" : ""}`}>
-                        <div className="flex flex-col h-full bg-white p-4">
-                          <p
-                            className="text-base font-extrabold text-gray-900 mb-4"
-                          >
-                            My Wallet
-                          </p>
-                          <div
-                            className="bg-gray-900 rounded-2xl p-5 mb-4 text-center"
-                          >
-                            <p className="text-xs text-gray-400 mb-1">
-                              Total Credits
-                            </p>
-                            <p className="text-4xl font-black text-primary">₹240</p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              Available to use
-                            </p>
-                          </div>
-                          <p className="text-xs text-gray-400 font-medium mb-3">
-                            Recent Activity
-                          </p>
-                          <div className="space-y-2 flex-1">
-                            <div
-                              className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3"
-                            >
-                              <div>
-                                <p className="text-xs font-semibold text-gray-800">
-                                  Visit #8 — Morning Session
-                                </p>
-                                <p className="text-xs text-gray-400">Today</p>
-                              </div>
-                              <span className="text-sm font-bold text-primary"
-                                >+₹30</span
-                              >
-                            </div>
-                            <div
-                              className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3"
-                            >
-                              <div>
-                                <p className="text-xs font-semibold text-gray-800">
-                                  Visit #7 — Evening Session
-                                </p>
-                                <p className="text-xs text-gray-400">Aug 9</p>
-                              </div>
-                              <span className="text-sm font-bold text-primary"
-                                >+₹30</span
-                              >
-                            </div>
-                            <div
-                              className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3"
-                            >
-                              <div>
-                                <p className="text-xs font-semibold text-gray-800">
-                                  Supplements — Protein
-                                </p>
-                                <p className="text-xs text-gray-400">Aug 7</p>
-                              </div>
-                              <span className="text-sm font-bold text-gray-500"
-                                >-₹150</span
-                              >
-                            </div>
-                            <div
-                              className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3"
-                            >
-                              <div>
-                                <p className="text-xs font-semibold text-gray-800">
-                                  Visit #6 — Morning Session
-                                </p>
-                                <p className="text-xs text-gray-400">Aug 5</p>
-                              </div>
-                              <span className="text-sm font-bold text-primary"
-                                >+₹30</span
-                              >
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className={`phone-screen ${activeScreen === 4 ? "active" : ""}`}>
-                        <div className="flex flex-col h-full bg-white p-4">
-                          <p
-                            className="text-base font-extrabold text-gray-900 mb-4"
-                          >
-                            My Journey
-                          </p>
-                          <div
-                            className="bg-light-green rounded-2xl p-4 mb-4 flex items-center gap-4"
-                          >
-                            <div
-                              className="w-14 h-14 rounded-full bg-primary flex items-center justify-center flex-shrink-0"
-                            >
-                              <span
-                                className="text-lg font-black text-primary-foreground"
-                                >87</span
-                              >
-                            </div>
-                            <div>
-                              <p className="text-sm font-extrabold text-green-900">
-                                Consistency Score
-                              </p>
-                              <p className="text-xs text-green-700 mt-0.5">
-                                Great momentum this month!
-                              </p>
-                            </div>
-                          </div>
-                          <p className="text-xs text-gray-400 font-medium mb-3">
-                            Milestones
-                          </p>
-                          <div className="space-y-2 flex-1">
-                            <div
-                              className="flex items-center gap-3 px-4 py-3 rounded-xl bg-light-green"
-                            >
-                              <div
-                                className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 bg-primary"
-                              >
-                                <svg
-                                  width="10"
-                                  height="10"
-                                  viewBox="0 0 10 10"
-                                  fill="none"
-                                >
-                                  <path
-                                    d="M2 5l2.5 2.5L8 3"
-                                    stroke="#111111"
-                                    strokeWidth="1.5"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                  ></path>
-                                </svg>
-                              </div>
-                              <span className="text-xs font-semibold text-green-800"
-                                >First Week Done</span
-                              >
-                            </div>
-                            <div
-                              className="flex items-center gap-3 px-4 py-3 rounded-xl bg-light-green"
-                            >
-                              <div
-                                className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 bg-primary"
-                              >
-                                <svg
-                                  width="10"
-                                  height="10"
-                                  viewBox="0 0 10 10"
-                                  fill="none"
-                                >
-                                  <path
-                                    d="M2 5l2.5 2.5L8 3"
-                                    stroke="#111111"
-                                    strokeWidth="1.5"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                  ></path>
-                                </svg>
-                              </div>
-                              <span className="text-xs font-semibold text-green-800"
-                                >5 Visits Streak</span
-                              >
-                            </div>
-                            <div
-                              className="flex items-center gap-3 px-4 py-3 rounded-xl bg-light-green"
-                            >
-                              <div
-                                className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 bg-primary"
-                              >
-                                <svg
-                                  width="10"
-                                  height="10"
-                                  viewBox="0 0 10 10"
-                                  fill="none"
-                                >
-                                  <path
-                                    d="M2 5l2.5 2.5L8 3"
-                                    stroke="#111111"
-                                    strokeWidth="1.5"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                  ></path>
-                                </svg>
-                              </div>
-                              <span className="text-xs font-semibold text-green-800"
-                                >8 Visits This Month</span
-                              >
-                            </div>
-                            <div
-                              className="flex items-center gap-3 px-4 py-3 rounded-xl bg-gray-50"
-                            >
-                              <div
-                                className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 bg-gray-200"
-                              ></div>
-                              <span className="text-xs font-semibold text-gray-400"
-                                >Phase 1 Complete</span
-                              >
-                            </div>
-                            <div
-                              className="flex items-center gap-3 px-4 py-3 rounded-xl bg-gray-50"
-                            >
-                              <div
-                                className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 bg-gray-200"
-                              ></div>
-                              <span className="text-xs font-semibold text-gray-400"
-                                >Phase 2 Unlocked</span
-                              >
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className={`phone-screen ${activeScreen === 5 ? "active" : ""}`}>
-                        <div className="flex flex-col h-full bg-white p-4">
-                          <p
-                            className="text-base font-extrabold text-gray-900 mb-4"
-                          >
-                            Discover
-                          </p>
-                          <div className="grid grid-cols-2 gap-3 flex-1">
-                            <div
-                              className="bg-gray-900 rounded-2xl p-4 flex flex-col justify-between"
-                            >
-                              <span className="text-2xl">🏋️</span>
-                              <div>
-                                <p className="text-sm font-extrabold text-white">
-                                  Gym
-                                </p>
-                                <p className="text-xs text-gray-400 mt-0.5">
-                                  Book sessions
-                                </p>
-                              </div>
-                            </div>
-                            <div
-                              className="bg-light-green rounded-2xl p-4 flex flex-col justify-between"
-                            >
-                              <span className="text-2xl">🧘</span>
-                              <div>
-                                <p
-                                  className="text-sm font-extrabold text-green-900"
-                                >
-                                  Wellness
-                                </p>
-                                <p className="text-xs text-green-700 mt-0.5">
-                                  Yoga &amp; recovery
-                                </p>
-                              </div>
-                            </div>
-                            <div
-                              className="bg-secondary rounded-2xl p-4 flex flex-col justify-between"
-                            >
-                              <span className="text-2xl">🏃</span>
-                              <div>
-                                <p
-                                  className="text-sm font-extrabold text-foreground"
-                                >
-                                  Sports
-                                </p>
-                                <p className="text-xs text-muted-foreground mt-0.5">
-                                  Outdoor activities
-                                </p>
-                              </div>
-                            </div>
-                            <div
-                              className="bg-primary rounded-2xl p-4 flex flex-col justify-between"
-                            >
-                              <span className="text-2xl">💊</span>
-                              <div>
-                                <p
-                                  className="text-sm font-extrabold text-primary-foreground"
-                                >
-                                  Supplements
-                                </p>
-                                <p
-                                  className="text-xs text-primary-foreground/70 mt-0.5"
-                                >
-                                  Use credits
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div
-                      className="absolute bottom-2 left-1/2 -translate-x-1/2 w-16 h-1 bg-gray-600 rounded-full"
-                    ></div>
-                  </div>
-                </div>
-              </div>
-              <div className="flex-1 w-full reveal reveal-delay-2">
-                <div className="flex flex-wrap gap-2 mb-8">
-                  <button
-                    className={activeScreen === 0 ? "px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 bg-primary text-primary-foreground" : "px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10"}
-                    onClick={() => setActiveScreen(0)}
-                  >
-                    Home
-                  </button>
-                  <button
-                    className={activeScreen === 1 ? "px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 bg-primary text-primary-foreground" : "px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10"}
-                    onClick={() => setActiveScreen(1)}
-                  >
-                    Book
-                  </button>
-                  <button
-                    className={activeScreen === 2 ? "px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 bg-primary text-primary-foreground" : "px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10"}
-                    onClick={() => setActiveScreen(2)}
-                  >
-                    Check In
-                  </button>
-                  <button
-                    className={activeScreen === 3 ? "px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 bg-primary text-primary-foreground" : "px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10"}
-                    onClick={() => setActiveScreen(3)}
-                  >
-                    Wallet
-                  </button>
-                  <button
-                    className={activeScreen === 4 ? "px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 bg-primary text-primary-foreground" : "px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10"}
-                    onClick={() => setActiveScreen(4)}
-                  >
-                    Journey
-                  </button>
-                  <button
-                    className={activeScreen === 5 ? "px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 bg-primary text-primary-foreground" : "px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10"}
-                    onClick={() => setActiveScreen(5)}
-                  >
-                    Discover
-                  </button>
-                </div>
-                <div className="mb-8">
-                  <p
-                    className="text-2xl md:text-3xl font-extrabold text-white tracking-tight"
-                  >
-                    {[
-                      "Your Dashboard",
-                      "Book a Visit",
-                      "Check In",
-                      "Wallet",
-                      "My Journey",
-                      "Discover"
-                    ][activeScreen]}
-                  </p>
-                  <p className="text-base text-gray-400 mt-2">
-                    {[
-                      "Track visits & credits",
-                      "Find your gym and reserve a slot",
-                      "Scan QR code at the front desk",
-                      "Manage your credits and value",
-                      "Track milestones and consistency",
-                      "Explore premium facilities near you"
-                    ][activeScreen]}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    className={`screen-dot ${activeScreen === 0 ? "active" : ""}`}
-                    aria-label="View screen 1"
-                    onClick={() => setActiveScreen(0)}
-                  ></button>
-                  <button
-                    className={`screen-dot ${activeScreen === 1 ? "active" : ""}`}
-                    aria-label="View screen 2"
-                    onClick={() => setActiveScreen(1)}
-                  ></button>
-                  <button
-                    className={`screen-dot ${activeScreen === 2 ? "active" : ""}`}
-                    aria-label="View screen 3"
-                    onClick={() => setActiveScreen(2)}
-                  ></button>
-                  <button
-                    className={`screen-dot ${activeScreen === 3 ? "active" : ""}`}
-                    aria-label="View screen 4"
-                    onClick={() => setActiveScreen(3)}
-                  ></button>
-                  <button
-                    className={`screen-dot ${activeScreen === 4 ? "active" : ""}`}
-                    aria-label="View screen 5"
-                    onClick={() => setActiveScreen(4)}
-                  ></button>
-                  <button
-                    className={`screen-dot ${activeScreen === 5 ? "active" : ""}`}
-                    aria-label="View screen 6"
-                    onClick={() => setActiveScreen(5)}
-                  ></button>
-                </div>
-                <div className="mt-10 pt-8 border-t border-white/10">
-                  <p className="text-lg font-bold text-white leading-snug">
-                    You don&#x27;t need to change everything at once.
-                  </p>
-                  <p className="text-base text-gray-400 mt-2">
-                    You just need to keep showing up.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-        
-        {/* Journey Section */}
-        <section className="bg-white py-20 md:py-28 px-5">
-          <div className="max-w-5xl mx-auto">
-            
-            {/* Header */}
-            <div className="mb-16">
-              <h2 className="text-4xl md:text-5xl font-black tracking-tight text-gray-900 leading-tight">
-                You&apos;re not just completing visits.<br />
-                <span className="text-primary">You&apos;re building a journey.</span>
-              </h2>
             </div>
 
-            {/* Grid Layout */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-              
-              {/* Left Timeline Box */}
-              <div className="md:col-span-7 bg-[#F7F7F7] rounded-[24px] p-8 md:p-12 border border-gray-200">
-                <div className="relative">
-                  {/* Vertical Line */}
-                  <div className="absolute left-[7px] top-3 bottom-3 w-0.5 bg-primary"></div>
-                  
-                  {/* Timeline Items */}
-                  <div className="space-y-10 relative">
-                    <div className="flex items-start gap-8">
-                      <div className="w-4 h-4 rounded-full bg-white border-2 border-primary mt-1 shrink-0 z-10"></div>
-                      <div className="flex gap-12 w-full">
-                        <span className="text-sm font-semibold text-gray-400 w-16">Month 1</span>
-                        <span className="text-sm font-bold text-gray-900">Starting.</span>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-start gap-8">
-                      <div className="w-4 h-4 rounded-full bg-white border-2 border-primary mt-1 shrink-0 z-10"></div>
-                      <div className="flex gap-12 w-full">
-                        <span className="text-sm font-semibold text-gray-400 w-16">Month 2</span>
-                        <span className="text-sm font-bold text-gray-900">Building consistency.</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start gap-8">
-                      <div className="w-4 h-4 rounded-full bg-white border-2 border-primary mt-1 shrink-0 z-10"></div>
-                      <div className="flex gap-12 w-full">
-                        <span className="text-sm font-semibold text-gray-400 w-16">Month 4</span>
-                        <span className="text-sm font-bold text-gray-900">Foundation.</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start gap-8">
-                      <div className="w-4 h-4 rounded-full bg-white border-2 border-primary mt-1 shrink-0 z-10"></div>
-                      <div className="flex gap-12 w-full">
-                        <span className="text-sm font-semibold text-gray-400 w-16">Month 6</span>
-                        <span className="text-sm font-bold text-gray-900">Momentum.</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start gap-8">
-                      <div className="w-4 h-4 rounded-full bg-white border-2 border-primary mt-1 shrink-0 z-10"></div>
-                      <div className="flex gap-12 w-full">
-                        <span className="text-sm font-semibold text-gray-400 w-16">Month 9</span>
-                        <span className="text-sm font-bold text-gray-900">Progress.</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start gap-8">
-                      <div className="w-4 h-4 rounded-full bg-white border-2 border-primary mt-1 shrink-0 z-10"></div>
-                      <div className="flex gap-12 w-full">
-                        <span className="text-sm font-semibold text-gray-400 w-16">Month 12</span>
-                        <span className="text-sm font-bold text-gray-900">Completion.</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Boxes */}
-              <div className="md:col-span-5 flex flex-col gap-6">
-                
-                {/* Z Score Box */}
-                <div className="bg-[#f0fdf4] rounded-[24px] p-8 border border-primary/20">
-                  <p className="text-xs font-bold text-gray-500 mb-4">Your Z Score</p>
-                  <div className="flex items-baseline gap-2 mb-1">
-                    <span className="text-6xl font-black text-gray-900 tracking-tighter">78</span>
-                    <span className="text-xl font-bold text-gray-400">/ 100</span>
-                  </div>
-                  <p className="text-sm font-bold text-gray-900 mb-4">Strong Momentum</p>
-                  <p className="text-[13px] text-gray-500 leading-relaxed font-medium">
-                    Your consistency is shaping your journey. The score reflects how steadily you show up and how far you&apos;ve moved through your 12 months.
-                  </p>
-                </div>
-
-                {/* What's Next Box */}
-                <div className="bg-white rounded-[24px] p-8 border border-gray-200 shadow-sm flex-1">
-                  <p className="text-base font-extrabold text-gray-900 mb-1">What&apos;s next?</p>
-                  <p className="text-[13px] text-gray-500 mb-6 font-medium">Your next chapter could be:</p>
-                  
-                  <ul className="space-y-4">
-                    <li className="flex items-center gap-3">
-                      <div className="w-1.5 h-1.5 rounded-sm bg-primary shrink-0"></div>
-                      <span className="text-[13px] font-bold text-gray-600">A stronger consistency goal</span>
-                    </li>
-                    <li className="flex items-center gap-3">
-                      <div className="w-1.5 h-1.5 rounded-sm bg-primary shrink-0"></div>
-                      <span className="text-[13px] font-bold text-gray-600">A new fitness goal</span>
-                    </li>
-                    <li className="flex items-center gap-3">
-                      <div className="w-1.5 h-1.5 rounded-sm bg-primary shrink-0"></div>
-                      <span className="text-[13px] font-bold text-gray-600">A new phase of your journey</span>
-                    </li>
-                    <li className="flex items-center gap-3">
-                      <div className="w-1.5 h-1.5 rounded-sm bg-primary shrink-0"></div>
-                      <span className="text-[13px] font-bold text-gray-600">More ways to stay active</span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Bottom Connected Section */}
-        <section className="bg-[#F7F7F7] py-24 px-5 border-t border-gray-100">
-          <div className="max-w-4xl mx-auto text-center">
-            <h2 className="text-3xl md:text-5xl font-black tracking-tight text-gray-900 mb-4">
-              Your fitness doesn&apos;t stop at the gym.
-            </h2>
-            <p className="text-[15px] font-bold text-gray-400 mb-20">
-              One membership, more ways to keep moving.
+            <p className="text-lg md:text-xl font-semibold text-black mb-32">
+              First build the habit. Then build the momentum.
             </p>
-            
-            {/* Horizontal Timeline */}
-            <div className="relative max-w-2xl mx-auto">
-              {/* Line */}
-              <div className="absolute top-1/2 left-[10%] right-[10%] h-[1px] bg-gray-300 -translate-y-1/2 z-0"></div>
+
+            <p className="text-[11px] font-medium text-gray-400 mb-6">
+              "Wait. If ZonoFit is flexible, why do I have to commit to visits?"
+            </p>
+            <h2 className="text-4xl md:text-6xl font-semibold tracking-tight text-black leading-tight mb-4 reveal">
+              Because flexibility<br />without consistency<br />is just another excuse.
+            </h2>
+            <p className="text-sm font-medium text-[#3FA836] mb-12">Consistency &gt; Perfection</p>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-16">
+              <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-sm reveal">
+                <p className="text-[10px] text-gray-500 mb-1 font-medium">Missed one day?</p>
+                <p className="text-sm font-bold text-black">Come back.</p>
+              </div>
+              <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-sm reveal">
+                <p className="text-[10px] text-gray-500 mb-1 font-medium">Bad week?</p>
+                <p className="text-sm font-bold text-black">Start again.</p>
+              </div>
+              <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-sm reveal">
+                <p className="text-[10px] text-gray-500 mb-1 font-medium">Busy month?</p>
+                <p className="text-sm font-bold text-black">Keep moving.</p>
+              </div>
+            </div>
+
+            <p className="text-xl md:text-2xl font-semibold text-black leading-snug mb-24">
+              The goal isn&apos;t to never miss.<br />The goal is to keep coming back.
+            </p>
+
+            {/* Real 10 days card */}
+            <div className="bg-white rounded-[24px] p-8 md:p-12 border border-gray-200 shadow-[0_2px_20px_rgba(0,0,0,0.03)] max-w-2xl mx-auto reveal">
+              <p className="text-[10px] font-bold text-gray-500 tracking-widest uppercase mb-10">A Real Ten Days</p>
               
-              {/* Nodes */}
-              <div className="relative z-10 flex justify-between items-center">
-                <div className="flex flex-col items-center gap-4 bg-[#F7F7F7]">
-                  <div className="w-10 h-10 rounded-full bg-primary shadow-lg shadow-primary/30"></div>
-                  <span className="text-xs font-bold text-gray-900">Gym</span>
-                </div>
-                
-                <div className="flex flex-col items-center gap-4 bg-[#F7F7F7]">
-                  <div className="w-10 h-10 rounded-full bg-white border border-gray-300"></div>
-                  <span className="text-xs font-bold text-gray-400">Sports</span>
-                </div>
-                
-                <div className="flex flex-col items-center gap-4 bg-[#F7F7F7]">
-                  <div className="w-10 h-10 rounded-full bg-white border border-gray-300"></div>
-                  <span className="text-xs font-bold text-gray-400">Wellness</span>
-                </div>
-                
-                <div className="flex flex-col items-center gap-4 bg-[#F7F7F7]">
-                  <div className="w-10 h-10 rounded-full bg-white border border-gray-300"></div>
-                  <span className="text-xs font-bold text-gray-400">More possibilities</span>
-                </div>
+              <div className="flex justify-center gap-2 md:gap-3 mb-10">
+                {/* 10 days array: check, check, x, check, check, x, check, check, check */}
+                {[true, true, false, true, true, false, true, true, true].map((attended, i) => (
+                  <div key={i} className={`w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center ${attended ? 'bg-[#E6F7E5]' : 'bg-gray-100'}`}>
+                    {attended ? (
+                      <svg className="w-3 h-3 md:w-4 md:h-4 text-[#3FA836]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                    ) : (
+                      <svg className="w-3 h-3 md:w-4 md:h-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    )}
+                  </div>
+                ))}
               </div>
+
+              <p className="text-sm font-bold text-black mb-2">
+                Real life isn&apos;t perfect. Your fitness journey doesn&apos;t need to be either.
+              </p>
+              <p className="text-[10px] font-medium text-gray-500">
+                ZonoFit is designed to reward the journey — not punish the missed day.
+              </p>
             </div>
           </div>
         </section>
-        
-        <section className="bg-background py-20 md:py-28 px-5">
+
+        {/* What you get with Zonofit */}
+        <section id="app" className="bg-white py-24 md:py-32 px-5">
           <div className="max-w-5xl mx-auto">
-            <span className="section-label">07 / WHAT HAPPENS NEXT</span>
-            <div className="mt-6 reveal">
-              <h2
-                className="text-3xl md:text-5xl font-extrabold tracking-tight text-foreground leading-tight"
-              >
-                What happens when consistency<br /><span className="text-primary"
-                  >becomes normal?</span
-                >
-              </h2>
-            </div>
-            <div className="mt-14 reveal reveal-delay-1">
-              <div className="hidden md:flex items-center gap-0">
-                <div
-                  className="flex-1 text-center py-6 px-4 rounded-2xl transition-all duration-500 cursor-pointer bg-primary/10 border-2 border-primary scale-105"
-                >
-                  <div className="text-3xl mb-2">🏋️</div>
-                  <p className="text-sm font-bold text-foreground">Gym</p>
-                  <p className="text-xs mt-1 text-muted-foreground">
-                    Start showing up
-                  </p>
-                </div>
-                <div
-                  className="px-1 text-xl transition-colors duration-500 text-border"
-                >
-                  →
-                </div>
-                <div
-                  className="flex-1 text-center py-6 px-4 rounded-2xl transition-all duration-500 cursor-pointer bg-secondary border-2 border-transparent"
-                >
-                  <div className="text-3xl mb-2">📅</div>
-                  <p className="text-sm font-bold text-muted-foreground">Habit</p>
-                  <p className="text-xs mt-1 text-muted-foreground/50">
-                    Consistency builds
-                  </p>
-                </div>
-                <div
-                  className="px-1 text-xl transition-colors duration-500 text-border"
-                >
-                  →
-                </div>
-                <div
-                  className="flex-1 text-center py-6 px-4 rounded-2xl transition-all duration-500 cursor-pointer bg-secondary border-2 border-transparent"
-                >
-                  <div className="text-3xl mb-2">💪</div>
-                  <p className="text-sm font-bold text-muted-foreground">
-                    Strength
-                  </p>
-                  <p className="text-xs mt-1 text-muted-foreground/50">
-                    Progress compounds
-                  </p>
-                </div>
-                <div
-                  className="px-1 text-xl transition-colors duration-500 text-border"
-                >
-                  →
-                </div>
-                <div
-                  className="flex-1 text-center py-6 px-4 rounded-2xl transition-all duration-500 cursor-pointer bg-secondary border-2 border-transparent"
-                >
-                  <div className="text-3xl mb-2">🎯</div>
-                  <p className="text-sm font-bold text-muted-foreground">
-                    Confidence
-                  </p>
-                  <p className="text-xs mt-1 text-muted-foreground/50">
-                    New goals emerge
-                  </p>
-                </div>
-                <div
-                  className="px-1 text-xl transition-colors duration-500 text-border"
-                >
-                  →
-                </div>
-                <div
-                  className="flex-1 text-center py-6 px-4 rounded-2xl transition-all duration-500 cursor-pointer bg-secondary border-2 border-transparent"
-                >
-                  <div className="text-3xl mb-2">🚀</div>
-                  <p className="text-sm font-bold text-muted-foreground">
-                    Next Chapter
-                  </p>
-                  <p className="text-xs mt-1 text-muted-foreground/50">
-                    Your journey continues
-                  </p>
+            <h2 className="text-4xl md:text-6xl font-semibold tracking-tight text-black leading-tight mb-16 reveal">
+              What you get<br />with ZonoFit.
+            </h2>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm flex flex-col h-full reveal">
+                <svg className="w-5 h-5 text-[#3FA836] mb-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                <div className="mt-auto">
+                  <h3 className="text-xs font-bold text-black mb-1">Primary Gym Access</h3>
+                  <p className="text-[10px] font-medium text-gray-500 leading-relaxed">Your regular fitness base.</p>
                 </div>
               </div>
-              <div className="md:hidden space-y-3">
-                <div
-                  className="flex items-center gap-4 p-4 rounded-2xl transition-all duration-500 bg-primary/10 border-2 border-primary"
-                >
-                  <span className="text-2xl">🏋️</span>
-                  <div>
-                    <p className="text-sm font-bold text-foreground">Gym</p>
-                    <p className="text-xs text-muted-foreground">
-                      Start showing up
-                    </p>
-                  </div>
-                  <div
-                    className="ml-auto w-2 h-2 rounded-full bg-primary pulse-green"
-                  ></div>
-                </div>
-                <div
-                  className="flex items-center gap-4 p-4 rounded-2xl transition-all duration-500 bg-secondary border-2 border-transparent"
-                >
-                  <span className="text-2xl">📅</span>
-                  <div>
-                    <p className="text-sm font-bold text-muted-foreground">Habit</p>
-                    <p className="text-xs text-muted-foreground">
-                      Consistency builds
-                    </p>
-                  </div>
-                </div>
-                <div
-                  className="flex items-center gap-4 p-4 rounded-2xl transition-all duration-500 bg-secondary border-2 border-transparent"
-                >
-                  <span className="text-2xl">💪</span>
-                  <div>
-                    <p className="text-sm font-bold text-muted-foreground">
-                      Strength
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Progress compounds
-                    </p>
-                  </div>
-                </div>
-                <div
-                  className="flex items-center gap-4 p-4 rounded-2xl transition-all duration-500 bg-secondary border-2 border-transparent"
-                >
-                  <span className="text-2xl">🎯</span>
-                  <div>
-                    <p className="text-sm font-bold text-muted-foreground">
-                      Confidence
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      New goals emerge
-                    </p>
-                  </div>
-                </div>
-                <div
-                  className="flex items-center gap-4 p-4 rounded-2xl transition-all duration-500 bg-secondary border-2 border-transparent"
-                >
-                  <span className="text-2xl">🚀</span>
-                  <div>
-                    <p className="text-sm font-bold text-muted-foreground">
-                      Next Chapter
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Your journey continues
-                    </p>
-                  </div>
+              <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm flex flex-col h-full reveal">
+                <svg className="w-5 h-5 text-[#3FA836] mb-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                <div className="mt-auto">
+                  <h3 className="text-xs font-bold text-black mb-1">Structured Commitment</h3>
+                  <p className="text-[10px] font-medium text-gray-500 leading-relaxed">A system designed to help you show up.</p>
                 </div>
               </div>
-            </div>
-            <div className="mt-14 reveal reveal-delay-2">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div
-                  className="bg-light-green rounded-2xl p-8 border border-primary/20"
-                >
-                  <p
-                    className="text-xl font-extrabold text-foreground leading-snug"
-                  >
-                    A system you grow with.
-                  </p>
-                  <p className="mt-3 text-sm text-muted-foreground">
-                    Not a membership you repeatedly buy and forget. ZonoFit is
-                    designed to evolve as your commitment deepens.
-                  </p>
+              <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm flex flex-col h-full reveal">
+                <svg className="w-5 h-5 text-[#3FA836] mb-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+                <div className="mt-auto">
+                  <h3 className="text-xs font-bold text-black mb-1">ZonoFit Credits</h3>
+                  <p className="text-[10px] font-medium text-gray-500 leading-relaxed">Eligible unused membership value can become credits according to plan rules.</p>
                 </div>
-                <div className="bg-secondary rounded-2xl p-8">
-                  <p
-                    className="text-xl font-extrabold text-foreground leading-snug"
-                  >
-                    The goal isn&#x27;t perfection.
-                  </p>
-                  <p className="mt-3 text-sm text-muted-foreground">
-                    The goal is to help you become someone who consistently
-                    shows up. Everything else follows from that.
-                  </p>
+              </div>
+              <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm flex flex-col h-full reveal">
+                <svg className="w-5 h-5 text-[#3FA836] mb-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                <div className="mt-auto">
+                  <h3 className="text-xs font-bold text-black mb-1">Fitness Ecosystem</h3>
+                  <p className="text-[10px] font-medium text-gray-500 leading-relaxed">Partnered gyms, sports, wellness and eligible products.</p>
+                </div>
+              </div>
+              <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm flex flex-col h-full reveal">
+                <svg className="w-5 h-5 text-[#3FA836] mb-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
+                <div className="mt-auto">
+                  <h3 className="text-xs font-bold text-black mb-1">Digital Check-In</h3>
+                  <p className="text-[10px] font-medium text-gray-500 leading-relaxed">Simple and trackable.</p>
+                </div>
+              </div>
+              <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm flex flex-col h-full reveal">
+                <svg className="w-5 h-5 text-[#3FA836] mb-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"></path></svg>
+                <div className="mt-auto">
+                  <h3 className="text-xs font-bold text-black mb-1">One Membership</h3>
+                  <p className="text-[10px] font-medium text-gray-500 leading-relaxed">One platform connecting multiple fitness experiences.</p>
                 </div>
               </div>
             </div>
           </div>
         </section>
-        <section id="faq" className="bg-background py-20 md:py-28 px-5">
-          <div className="max-w-3xl mx-auto">
-            <span className="section-label">09 / FAQ</span>
-            <div className="mt-6 reveal">
-              <h2
-                className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground"
-              >
-                Still wondering?
-              </h2>
+
+        {/* The Rhetorical Questions */}
+        <section className="bg-[#fcfcfc] py-24 md:py-32 px-5 border-t border-gray-100">
+          <div className="max-w-5xl mx-auto space-y-20 md:space-y-32">
+            <h2 className="text-4xl md:text-5xl font-semibold tracking-tight text-black leading-tight text-center reveal">
+              What if missing a day didn&apos;t<br />mean the journey ended?
+            </h2>
+            <h2 className="text-4xl md:text-5xl font-semibold tracking-tight text-black leading-tight text-center reveal">
+              What if your membership<br />could move with you?
+            </h2>
+            <h2 className="text-4xl md:text-5xl font-semibold tracking-tight text-black leading-tight text-center reveal">
+              What if fitness<br />wasn&apos;t just one gym?
+            </h2>
+            <h2 className="text-4xl md:text-5xl font-semibold tracking-tight text-black leading-tight text-center reveal">
+              What if the value you didn&apos;t use<br />could still help you stay active?
+            </h2>
+            <h2 className="text-5xl md:text-7xl font-bold tracking-tight text-[#3FA836] pt-10 text-center reveal">
+              That&apos;s ZonoFit.
+            </h2>
+          </div>
+        </section>
+
+        {/* For Gyms Dark Section */}
+        <section className="bg-[#111111] py-24 px-5">
+          <div className="max-w-5xl mx-auto">
+            <h2 className="text-3xl md:text-5xl font-semibold tracking-tight text-white leading-tight mb-12 reveal">
+              For gyms, ZonoFit is a new<br />way to fill unused capacity.
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-sm reveal">
+                <h3 className="text-xs font-bold text-white mb-2">Bring in new members</h3>
+                <p className="text-[10px] text-gray-400 font-medium">Reach people looking for flexible fitness options.</p>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-sm reveal">
+                <h3 className="text-xs font-bold text-white mb-2">Improve utilization</h3>
+                <p className="text-[10px] text-gray-400 font-medium">Turn quieter periods into additional visits.</p>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-sm reveal">
+                <h3 className="text-xs font-bold text-white mb-2">Grow revenue</h3>
+                <p className="text-[10px] text-gray-400 font-medium">Create another channel for member acquisition.</p>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-sm reveal">
+                <h3 className="text-xs font-bold text-white mb-2">Simple digital management</h3>
+                <p className="text-[10px] text-gray-400 font-medium">Track ZonoFit users and visits through the partner system.</p>
+              </div>
             </div>
-            <div className="mt-10 reveal reveal-delay-1">
-              <div className="border-b border-border">
-                <button
-                  className="w-full flex items-center justify-between py-5 text-left gap-4 group"
-                  aria-expanded="true"
-                >
-                  <span
-                    className="text-base font-semibold transition-colors text-foreground"
-                    >How does ZonoFit work?</span
-                  >
-                  <div
-                    className="flex-shrink-0 w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all duration-300 border-primary bg-primary rotate-45"
-                  >
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                      <path
-                        d="M5 2v6M2 5h6"
-                        stroke="#111111"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                      ></path>
-                    </svg>
-                  </div>
-                </button>
-                <div className="faq-answer open">
-                  <p className="pb-5 text-sm text-muted-foreground leading-relaxed">
-                    ZonoFit is a commitment-based gym membership. You start with
-                    a realistic goal — 10 visits per month in Phase 1. As you
-                    build consistency, your commitment grows to 15 visits in
-                    Phase 2. Your membership is structured around building a
-                    habit, not just paying for access.
-                  </p>
-                </div>
-              </div>
-              <div className="border-b border-border">
-                <button
-                  className="w-full flex items-center justify-between py-5 text-left gap-4 group"
-                  aria-expanded="false"
-                >
-                  <span
-                    className="text-base font-semibold transition-colors text-foreground/80 group-hover:text-foreground"
-                    >Why are there mandatory visits?</span
-                  >
-                  <div
-                    className="flex-shrink-0 w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all duration-300 border-border"
-                  >
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                      <path
-                        d="M5 2v6M2 5h6"
-                        stroke="#6b7280"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                      ></path>
-                    </svg>
-                  </div>
-                </button>
-                <div className="faq-answer">
-                  <p className="pb-5 text-sm text-muted-foreground leading-relaxed">
-                    Mandatory visits exist because consistency is the foundation
-                    of any fitness habit. Rather than punishing you for not
-                    going, ZonoFit starts with a manageable minimum — 10 visits
-                    — to help you establish a rhythm before asking for more.
-                  </p>
-                </div>
-              </div>
-              <div className="border-b border-border">
-                <button
-                  className="w-full flex items-center justify-between py-5 text-left gap-4 group"
-                  aria-expanded="false"
-                >
-                  <span
-                    className="text-base font-semibold transition-colors text-foreground/80 group-hover:text-foreground"
-                    >What happens if I miss a mandatory visit?</span
-                  >
-                  <div
-                    className="flex-shrink-0 w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all duration-300 border-border"
-                  >
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                      <path
-                        d="M5 2v6M2 5h6"
-                        stroke="#6b7280"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                      ></path>
-                    </svg>
-                  </div>
-                </button>
-                <div className="faq-answer">
-                  <p className="pb-5 text-sm text-muted-foreground leading-relaxed">
-                    ZonoFit is designed to support your journey, not penalize
-                    you. If you miss visits, your progress is tracked and the
-                    system helps you understand where you are relative to your
-                    commitment. Specific policies will be communicated clearly
-                    at signup.
-                  </p>
-                </div>
-              </div>
-              <div className="border-b border-border">
-                <button
-                  className="w-full flex items-center justify-between py-5 text-left gap-4 group"
-                  aria-expanded="false"
-                >
-                  <span
-                    className="text-base font-semibold transition-colors text-foreground/80 group-hover:text-foreground"
-                    >How do credits work?</span
-                  >
-                  <div
-                    className="flex-shrink-0 w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all duration-300 border-border"
-                  >
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                      <path
-                        d="M5 2v6M2 5h6"
-                        stroke="#6b7280"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                      ></path>
-                    </svg>
-                  </div>
-                </button>
-                <div className="faq-answer">
-                  <p className="pb-5 text-sm text-muted-foreground leading-relaxed">
-                    As you meet your visit commitments, your membership earns
-                    ZonoFit credits. These credits represent the value of your
-                    consistency and can be applied across the ZonoFit ecosystem.
-                    The exact credit structure will be detailed in your
-                    membership agreement.
-                  </p>
-                </div>
-              </div>
-              <div className="border-b border-border">
-                <button
-                  className="w-full flex items-center justify-between py-5 text-left gap-4 group"
-                  aria-expanded="false"
-                >
-                  <span
-                    className="text-base font-semibold transition-colors text-foreground/80 group-hover:text-foreground"
-                    >Where can I use credits?</span
-                  >
-                  <div
-                    className="flex-shrink-0 w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all duration-300 border-border"
-                  >
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                      <path
-                        d="M5 2v6M2 5h6"
-                        stroke="#6b7280"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                      ></path>
-                    </svg>
-                  </div>
-                </button>
-                <div className="faq-answer">
-                  <p className="pb-5 text-sm text-muted-foreground leading-relaxed">
-                    ZonoFit credits can be used across supported ecosystem
-                    partners including supplements, wellness services, sports,
-                    and more. The ecosystem is growing — specific partners and
-                    categories are available in the app.
-                  </p>
-                </div>
-              </div>
-              <div className="border-b border-border">
-                <button
-                  className="w-full flex items-center justify-between py-5 text-left gap-4 group"
-                  aria-expanded="false"
-                >
-                  <span
-                    className="text-base font-semibold transition-colors text-foreground/80 group-hover:text-foreground"
-                    >Can I do more than the minimum visits?</span
-                  >
-                  <div
-                    className="flex-shrink-0 w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all duration-300 border-border"
-                  >
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                      <path
-                        d="M5 2v6M2 5h6"
-                        stroke="#6b7280"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                      ></path>
-                    </svg>
-                  </div>
-                </button>
-                <div className="faq-answer">
-                  <p className="pb-5 text-sm text-muted-foreground leading-relaxed">
-                    Absolutely. The minimum is just that — a minimum. You can
-                    visit as often as you like. Additional visits beyond the
-                    requirement are encouraged and tracked in your journey.
-                  </p>
-                </div>
-              </div>
-              <div className="border-b border-border">
-                <button
-                  className="w-full flex items-center justify-between py-5 text-left gap-4 group"
-                  aria-expanded="false"
-                >
-                  <span
-                    className="text-base font-semibold transition-colors text-foreground/80 group-hover:text-foreground"
-                    >Can I choose my gym?</span
-                  >
-                  <div
-                    className="flex-shrink-0 w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all duration-300 border-border"
-                  >
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                      <path
-                        d="M5 2v6M2 5h6"
-                        stroke="#6b7280"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                      ></path>
-                    </svg>
-                  </div>
-                </button>
-                <div className="faq-answer">
-                  <p className="pb-5 text-sm text-muted-foreground leading-relaxed">
-                    ZonoFit works with partner gyms and fitness facilities. When
-                    you sign up, you&#x27;ll select your primary gym from the
-                    available network. Gym availability depends on your city and
-                    the ZonoFit network.
-                  </p>
-                </div>
-              </div>
-              <div className="border-b border-border">
-                <button
-                  className="w-full flex items-center justify-between py-5 text-left gap-4 group"
-                  aria-expanded="false"
-                >
-                  <span
-                    className="text-base font-semibold transition-colors text-foreground/80 group-hover:text-foreground"
-                    >What happens after my membership ends?</span
-                  >
-                  <div
-                    className="flex-shrink-0 w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all duration-300 border-border"
-                  >
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                      <path
-                        d="M5 2v6M2 5h6"
-                        stroke="#6b7280"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                      ></path>
-                    </svg>
-                  </div>
-                </button>
-                <div className="faq-answer">
-                  <p className="pb-5 text-sm text-muted-foreground leading-relaxed">
-                    Any earned credits remain in your wallet for the duration
-                    specified in your membership terms. Your journey data and
-                    consistency score are preserved. You can renew, upgrade, or
-                    pause depending on your situation.
-                  </p>
-                </div>
-              </div>
+
+            <div className="flex flex-wrap gap-4">
+              <Link href="#" className="bg-[#3FA836] text-white text-[11px] font-bold px-6 py-2.5 rounded-full hover:bg-[#35902d] transition-colors">
+                Become a ZonoFit Partner
+              </Link>
+              <Link href="#" className="bg-transparent text-white border border-white/20 text-[11px] font-bold px-6 py-2.5 rounded-full hover:bg-white/5 transition-colors">
+                Gym Partner Login
+              </Link>
             </div>
           </div>
         </section>
-        <section id="final-cta" className="bg-background py-28 md:py-36 px-5">
-          <div className="max-w-3xl mx-auto text-center">
-            <div className="reveal">
-              <h2
-                className="text-4xl md:text-6xl font-extrabold tracking-tight text-foreground leading-tight"
-              >
-                Don&#x27;t waste the membership<br />you already paid for.
-              </h2>
-            </div>
-            <div className="mt-5 reveal reveal-delay-1">
-              <p className="text-lg md:text-xl text-muted-foreground font-medium">
-                Make it part of your journey.
-              </p>
-            </div>
-            <div
-              className="mt-12 flex items-center justify-center gap-3 reveal reveal-delay-2"
-            >
-              <img
-                alt="ZonoFit logo"
-                loading="lazy"
-                width="48"
-                height="48"
-                decoding="async"
-                className="h-12 w-12 object-cover rounded-md"
-                src="/logo.jpeg"
-              /><span className="text-3xl font-black tracking-tight text-foreground"
-                >ZonoFit</span
-              >
-            </div>
-            <div
-              className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 reveal reveal-delay-3"
-            >
-              <a
-                href="#calculator"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground font-extrabold text-base px-8 py-4 rounded-full hover:opacity-90 transition-opacity pulse-green"
-                >Start Your Journey<svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 16 16"
-                  fill="none"
+
+        {/* FAQ Section */}
+        <section id="faq" className="bg-white py-24 md:py-32 px-5">
+          <div className="max-w-5xl mx-auto">
+            <h2 className="text-4xl md:text-6xl font-semibold tracking-tight text-black mb-10 reveal">
+              You probably have questions.
+            </h2>
+            
+            <div className="flex flex-wrap gap-2 mb-12">
+              {['All', 'Membership', 'Credits', 'Gyms', 'Commitment', 'Payments', 'Partners'].map(cat => (
+                <button 
+                  key={cat}
+                  onClick={() => setFaqCategory(cat)}
+                  className={`text-[10px] font-medium px-4 py-1.5 rounded-full border transition-colors ${
+                    faqCategory === cat 
+                      ? 'bg-[#3FA836] text-white border-[#3FA836]' 
+                      : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                  }`}
                 >
-                  <path
-                    d="M3 8h10M9 4l4 4-4 4"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  ></path></svg></a
-              ><a
-                href="#how-it-works"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 border-2 border-border text-foreground font-semibold text-base px-8 py-4 rounded-full hover:border-foreground transition-colors"
-                >Explore ZonoFit</a
-              >
+                  {cat}
+                </button>
+              ))}
             </div>
-            <div className="mt-10 reveal reveal-delay-3">
-              <p
-                className="text-sm font-bold tracking-widest uppercase text-muted-foreground"
-              >
-                Move Better. Live Smarter.
-              </p>
+
+            <div className="space-y-0">
+              {[
+                { category: 'Commitment', q: 'Wait... what happens if I miss a day?' },
+                { category: 'Gyms', q: 'Can I visit another gym?' },
+                { category: 'Credits', q: 'Where can I use my credits?' },
+                { category: 'Credits', q: 'How is my credit amount calculated?' },
+                { category: 'Membership', q: 'Do I have to choose one gym?' },
+                { category: 'Membership', q: 'Can I cancel?' },
+                { category: 'Membership', q: 'How does check-in work?' },
+                { category: 'Partners', q: 'Can my gym join ZonoFit?' }
+              ]
+                .filter(item => faqCategory === 'All' || item.category === faqCategory)
+                .map((item, i) => (
+                <div key={i} className="border-t border-gray-200 py-6 flex justify-between items-center group cursor-pointer hover:bg-gray-50 transition-colors -mx-5 px-5 md:mx-0 md:px-0">
+                  <h3 className="text-[13px] font-bold text-black">{item.q}</h3>
+                  <svg className="w-5 h-5 text-[#3FA836]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                </div>
+              ))}
+              <div className="border-t border-gray-200"></div>
+            </div>
+          </div>
+        </section>
+
+        {/* Final CTA */}
+        <section className="bg-[#fcfcfc] py-32 px-5 text-center border-t border-gray-100">
+          <div className="max-w-5xl mx-auto">
+            <h2 className="text-4xl md:text-6xl font-semibold tracking-tight text-black mb-2 reveal">
+              Don&apos;t waste the membership<br />you already paid for.
+            </h2>
+            <h3 className="text-4xl md:text-6xl font-semibold tracking-tight text-gray-400 mb-16">
+              Make it part of your<br />journey.
+            </h3>
+            
+            <div className="flex flex-col items-center gap-2 mb-12">
+              <div className="flex items-center gap-1">
+                <span className="text-2xl font-semibold text-black tracking-tight">Zono<span className="text-[#3FA836]">Fit</span></span>
+              </div>
+              <p className="text-[9px] text-gray-500 font-medium">Fitness That Fits Life.</p>
+            </div>
+
+            <div className="flex justify-center gap-4">
+              <Link href="/auth/signup" className="bg-[#3FA836] text-white text-xs font-bold px-8 py-3 rounded-full hover:bg-[#35902d] transition-colors">
+                Join ZonoFit
+              </Link>
+              <Link href="#" className="bg-white border border-gray-200 text-gray-600 text-xs font-bold px-8 py-3 rounded-full hover:bg-gray-50 transition-colors">
+                Explore How It Works
+              </Link>
             </div>
           </div>
         </section>
       </main>
-      <footer className="border-t border-border py-8 px-5">
-        <div
-          className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4"
-        >
-          <a className="flex items-center gap-2" href="/"
-            ><img
-              alt="ZonoFit logo"
-              loading="lazy"
-              width="24"
-              height="24"
-              decoding="async"
-              className="h-6 w-6 object-cover rounded-md"
-              src="/logo.jpeg"
-            /><span
-              className="font-extrabold text-sm tracking-tight text-foreground"
-              >ZonoFit</span
-            ></a
-          >
-          <div
-            className="flex items-center gap-6 text-sm font-medium text-muted-foreground"
-          >
-            <a
-              href="#how-it-works"
-              className="hover:text-foreground transition-colors"
-              >How It Works</a
-            ><a href="#faq" className="hover:text-foreground transition-colors"
-              >FAQ</a
-            ><a href="#" className="hover:text-foreground transition-colors"
-              >Privacy</a
-            ><a href="#" className="hover:text-foreground transition-colors"
-              >Terms</a
-            >
+      <footer className="bg-[#fcfcfc] pt-16 border-t border-gray-100">
+        <div className="max-w-5xl mx-auto px-5 mb-16">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-8">
+            <div className="md:col-span-4">
+              <div className="flex items-center gap-2 mb-4">
+                <img src="/logo.jpeg" alt="ZonoFit" className="w-6 h-6 rounded-md" />
+                <span className="font-bold text-[13px] text-gray-900 tracking-tight">ZonoFit</span>
+              </div>
+              <p className="text-[11px] text-gray-500 font-medium mb-6 leading-relaxed max-w-[220px]">
+                Fitness That Fits Life. Don&apos;t waste the membership you already paid for.
+              </p>
+              <p className="text-[9px] text-gray-400 font-medium">
+                Social handles are added once officially confirmed.
+              </p>
+            </div>
+            
+            <div className="md:col-span-2 md:col-start-6">
+              <h4 className="text-[9px] font-bold text-gray-400 tracking-widest uppercase mb-4">Explore</h4>
+              <ul className="space-y-3">
+                <li><Link href="#" className="text-[11px] font-medium text-gray-600 hover:text-gray-900 transition-colors">How It Works</Link></li>
+                <li><Link href="#" className="text-[11px] font-medium text-gray-600 hover:text-gray-900 transition-colors">Membership</Link></li>
+                <li><Link href="#" className="text-[11px] font-medium text-gray-600 hover:text-gray-900 transition-colors">Credits</Link></li>
+                <li><Link href="#" className="text-[11px] font-medium text-gray-600 hover:text-gray-900 transition-colors">Partner Gyms</Link></li>
+                <li><Link href="#" className="text-[11px] font-medium text-gray-600 hover:text-gray-900 transition-colors">FAQ</Link></li>
+              </ul>
+            </div>
+            
+            <div className="md:col-span-2">
+              <h4 className="text-[9px] font-bold text-gray-400 tracking-widest uppercase mb-4">Business</h4>
+              <ul className="space-y-3">
+                <li><Link href="#" className="text-[11px] font-medium text-gray-600 hover:text-gray-900 transition-colors">Partner With Us</Link></li>
+                <li><Link href="#" className="text-[11px] font-medium text-gray-600 hover:text-gray-900 transition-colors">Gym Login</Link></li>
+                <li><Link href="#" className="text-[11px] font-medium text-gray-600 hover:text-gray-900 transition-colors">Partner Dashboard</Link></li>
+              </ul>
+            </div>
+            
+            <div className="md:col-span-2">
+              <h4 className="text-[9px] font-bold text-gray-400 tracking-widest uppercase mb-4">Company</h4>
+              <ul className="space-y-3">
+                <li><Link href="#" className="text-[11px] font-medium text-gray-600 hover:text-gray-900 transition-colors">Contact</Link></li>
+                <li><Link href="#" className="text-[11px] font-medium text-gray-600 hover:text-gray-900 transition-colors">Terms &amp; Conditions</Link></li>
+                <li><Link href="#" className="text-[11px] font-medium text-gray-600 hover:text-gray-900 transition-colors">Privacy Policy</Link></li>
+                <li><Link href="#" className="text-[11px] font-medium text-gray-600 hover:text-gray-900 transition-colors">Refund / Cancellation</Link></li>
+              </ul>
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground">
-            © 2026 ZonoFit. Move Better. Live Smarter.
-          </p>
         </div>
+
+        <div className="border-t border-gray-200 py-6 px-5">
+          <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <p className="text-[9px] text-gray-500 font-medium">© 2026 ZonoFit. All rights reserved.</p>
+            <p className="text-[9px] text-gray-500 font-medium">Credits, partner access and benefits are subject to ZonoFit plan terms.</p>
+          </div>
+        </div>
+        <div className="h-4 w-full bg-[#1e1e1e]"></div>
       </footer>
       </div>
     </div>
