@@ -34,10 +34,11 @@ const SPLASH_SCREENS = [
   ),
   (
     <div key="4" className="flex flex-col items-center justify-center space-y-8 px-4 text-center h-full">
-      <h1 className="text-6xl md:text-8xl font-bold tracking-tight text-black">
-        Zono<span className="text-[#4ADE80]">Fit</span>
+      <h1 className="text-6xl md:text-8xl font-bold tracking-tight text-black flex flex-col items-center gap-6">
+        <span>Zono<span className="text-[#4EA02B]">Fit</span></span>
+        <img src="/Zonofit_final_logo.jpeg" alt="ZonoFit Logo" className="w-24 h-24 md:w-32 md:h-32 rounded-full shadow-md object-cover" />
       </h1>
-      <p className="text-xl md:text-3xl text-gray-500 font-medium">
+      <p className="text-xl md:text-3xl text-gray-500 font-medium mt-4">
         Fitness That Fits Life.
       </p>
     </div>
@@ -53,8 +54,17 @@ export default function LandingPage() {
   const [membership, setMembership] = useState(3000);
   const [visits, setVisits] = useState(15);
   const [faqCategory, setFaqCategory] = useState("All");
+  const [expandedFaq, setExpandedFaq] = useState<string | null>(null);
   const valueUsed = Math.round((membership / 30) * visits);
   const estimatedUnused = membership - valueUsed;
+  const [selectedGymId, setSelectedGymId] = useState('being-fitness');
+
+  const GYMS = [
+    { id: 'being-fitness', name: 'Being Fitness', price: 1800, rating: 4.5, distance: 1.2 },
+    { id: 'iron-yard', name: 'Iron Yard Studio', price: 2400, rating: 4.3, distance: 2.6 },
+    { id: 'pulse', name: 'Pulse Strength Club', price: 3200, rating: 4.6, distance: 3.4 }
+  ];
+  const selectedGym = GYMS.find(g => g.id === selectedGymId) || GYMS[0];
 
   // Autoplay carousel for the app preview
   useEffect(() => {
@@ -123,7 +133,7 @@ export default function LandingPage() {
       >
         <div className="absolute top-0 left-0 right-0 p-4 md:p-6 flex justify-between items-center z-50 max-w-7xl mx-auto w-full">
           <div className="flex items-center gap-2">
-            <img src="/logo.jpeg" alt="ZonoFit logo" className="w-8 h-8 rounded-full" />
+            <img src="/Zonofit_final_logo.jpeg" alt="ZonoFit logo" className="w-8 h-8 rounded-full" />
             <span className="font-bold text-xl tracking-tight text-gray-900">ZonoFit</span>
           </div>
           <nav className="hidden md:flex gap-8 items-center text-sm font-medium text-gray-500">
@@ -134,7 +144,7 @@ export default function LandingPage() {
           </nav>
           <div className="flex items-center gap-6">
             <Link href="/auth/login" className="text-gray-500 text-sm font-medium hover:text-gray-900 transition-colors">Login</Link>
-            <Link href="/auth/signup" className="bg-[#4ADE80] text-white px-6 py-2.5 rounded-full text-sm font-bold hover:bg-[#3bca6b] transition-colors shadow-sm">
+            <Link href="/auth/signup" className="bg-[#4EA02B] text-white px-6 py-2.5 rounded-full text-sm font-bold hover:bg-[#3d8120] transition-colors shadow-sm">
               Join ZonoFit
             </Link>
           </div>
@@ -162,10 +172,10 @@ export default function LandingPage() {
               <p className="text-sm md:text-base font-medium tracking-wide text-gray-500">
                 Scroll to see what you're actually losing
               </p>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-bounce text-[#4ADE80]"><path d="m6 9 6 6 6-6"/></svg>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-bounce text-[#4EA02B]"><path d="m6 9 6 6 6-6"/></svg>
             </div>
           ) : (
-            <p className="mt-6 text-sm font-bold tracking-widest uppercase text-[#4ADE80] opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <p className="mt-6 text-sm font-bold tracking-widest uppercase text-[#4EA02B] opacity-0 group-hover:opacity-100 transition-opacity duration-300">
               Tap to continue
             </p>
           )}
@@ -179,9 +189,9 @@ export default function LandingPage() {
                   onClick={(e) => { e.stopPropagation(); setSplashStep(i); }}
                   className={`h-1.5 rounded-full cursor-pointer transition-all duration-700 flex-1 ${
                     i === splashStep 
-                      ? 'bg-[#4ADE80]' 
+                      ? 'bg-[#4EA02B]' 
                       : i < splashStep 
-                        ? 'bg-[#4ADE80]/40 hover:bg-[#4ADE80]/60' 
+                        ? 'bg-[#4EA02B]/40 hover:bg-[#4EA02B]/60' 
                         : 'bg-gray-200 hover:bg-gray-300'
                   }`}
                 />
@@ -206,7 +216,7 @@ export default function LandingPage() {
               height="32"
               decoding="async"
               className="h-8 w-8 object-cover rounded-md"
-              src="/logo.jpeg"
+              src="/Zonofit_final_logo.jpeg"
             /><span
               className="font-extrabold text-lg tracking-tight text-foreground"
               >ZonoFit</span
@@ -261,7 +271,7 @@ export default function LandingPage() {
               height="32"
               decoding="async"
               className="h-8 w-8 object-cover rounded-md"
-              src="/logo.jpeg"
+              src="/Zonofit_final_logo.jpeg"
             /><span className="font-extrabold text-lg tracking-tight"
               >ZonoFit</span
             ></a
@@ -327,7 +337,7 @@ export default function LandingPage() {
                       <span className="text-3xl font-medium text-black tracking-tight">₹{membership.toLocaleString()}</span>
                     </div>
                     <div className="relative h-2 bg-gray-100 rounded-full">
-                      <div className="absolute top-0 left-0 h-full bg-[#4ADE80] rounded-full" style={{ width: `${((membership - 500) / 7500) * 100}%` }}></div>
+                      <div className="absolute top-0 left-0 h-full bg-[#4EA02B] rounded-full" style={{ width: `${((membership - 500) / 7500) * 100}%` }}></div>
                       <input
                         type="range"
                         min="500"
@@ -337,7 +347,7 @@ export default function LandingPage() {
                         value={membership}
                         onChange={(e) => setMembership(Number(e.target.value))}
                       />
-                      <div className="absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white border-2 border-[#4ADE80] rounded-full shadow-sm pointer-events-none" style={{ left: `calc(${((membership - 500) / 7500) * 100}% - 10px)` }}></div>
+                      <div className="absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white border-2 border-[#4EA02B] rounded-full shadow-sm pointer-events-none" style={{ left: `calc(${((membership - 500) / 7500) * 100}% - 10px)` }}></div>
                     </div>
                   </div>
 
@@ -347,7 +357,7 @@ export default function LandingPage() {
                       <span className="text-3xl font-medium text-black tracking-tight">{visits} days</span>
                     </div>
                     <div className="relative h-2 bg-gray-100 rounded-full">
-                      <div className="absolute top-0 left-0 h-full bg-[#4ADE80] rounded-full" style={{ width: `${(visits / 30) * 100}%` }}></div>
+                      <div className="absolute top-0 left-0 h-full bg-[#4EA02B] rounded-full" style={{ width: `${(visits / 30) * 100}%` }}></div>
                       <input
                         type="range"
                         min="0"
@@ -357,7 +367,7 @@ export default function LandingPage() {
                         value={visits}
                         onChange={(e) => setVisits(Number(e.target.value))}
                       />
-                      <div className="absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white border-2 border-[#4ADE80] rounded-full shadow-sm pointer-events-none" style={{ left: `calc(${(visits / 30) * 100}% - 10px)` }}></div>
+                      <div className="absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white border-2 border-[#4EA02B] rounded-full shadow-sm pointer-events-none" style={{ left: `calc(${(visits / 30) * 100}% - 10px)` }}></div>
                     </div>
                   </div>
                 </div>
@@ -393,8 +403,8 @@ export default function LandingPage() {
                 </div>
 
                 <div className="mt-8">
-                  <h3 className="text-xs font-bold text-[#4ADE80] uppercase tracking-widest mb-2">Potential Unused Value</h3>
-                  <div className="text-5xl font-bold tracking-tight text-[#4ADE80] mb-2">
+                  <h3 className="text-xs font-bold text-[#4EA02B] uppercase tracking-widest mb-2">Potential Unused Value</h3>
+                  <div className="text-5xl font-bold tracking-tight text-[#4EA02B] mb-2">
                     ₹{estimatedUnused.toLocaleString()}
                   </div>
                   <p className="text-sm font-medium text-gray-500 mb-8">
@@ -420,7 +430,7 @@ export default function LandingPage() {
             <div className="flex flex-col md:flex-row gap-6">
               {/* Left Large Card */}
               <div className="flex-1 bg-white rounded-[24px] p-8 md:p-12 border border-gray-200 shadow-sm flex flex-col items-center justify-center text-center">
-                <div className="w-24 h-24 rounded-full bg-[#3FA836] text-white flex items-center justify-center mb-6 shadow-lg shadow-[#3FA836]/20">
+                <div className="w-24 h-24 rounded-full bg-[#4EA02B] text-white flex items-center justify-center mb-6 shadow-lg shadow-[#4EA02B]/20">
                   <span className="text-3xl font-medium">₹</span>
                 </div>
                 <h3 className="text-lg font-bold text-black mb-3">ZonoFit Credits</h3>
@@ -432,7 +442,7 @@ export default function LandingPage() {
               {/* Right Grid */}
               <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="bg-white rounded-[20px] p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                  <div className="text-[#3FA836] mb-4">
+                  <div className="text-[#4EA02B] mb-4">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
                   </div>
                   <h4 className="text-sm font-bold text-black mb-2">Other Partnered Gyms</h4>
@@ -442,7 +452,7 @@ export default function LandingPage() {
                 </div>
 
                 <div className="bg-white rounded-[20px] p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                  <div className="text-[#3FA836] mb-4">
+                  <div className="text-[#4EA02B] mb-4">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
                   </div>
                   <h4 className="text-sm font-bold text-black mb-2">Sports</h4>
@@ -452,7 +462,7 @@ export default function LandingPage() {
                 </div>
 
                 <div className="bg-white rounded-[20px] p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                  <div className="text-[#3FA836] mb-4">
+                  <div className="text-[#4EA02B] mb-4">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>
                   </div>
                   <h4 className="text-sm font-bold text-black mb-2">Wellness</h4>
@@ -462,7 +472,7 @@ export default function LandingPage() {
                 </div>
 
                 <div className="bg-white rounded-[20px] p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                  <div className="text-[#3FA836] mb-4">
+                  <div className="text-[#4EA02B] mb-4">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>
                   </div>
                   <h4 className="text-sm font-bold text-black mb-2">Supplements / Products</h4>
@@ -472,7 +482,7 @@ export default function LandingPage() {
                 </div>
 
                 <div className="bg-white rounded-[20px] p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                  <div className="text-[#3FA836] mb-4">
+                  <div className="text-[#4EA02B] mb-4">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
                   </div>
                   <h4 className="text-sm font-bold text-black mb-2">More</h4>
@@ -510,28 +520,28 @@ export default function LandingPage() {
 
               {/* ZonoFit */}
               <div className="bg-white rounded-[24px] p-8 border border-gray-200 shadow-[0_2px_20px_rgba(0,0,0,0.04)] reveal">
-                <h3 className="text-xs font-bold text-[#3FA836] uppercase tracking-widest mb-8">ZonoFit</h3>
+                <h3 className="text-xs font-bold text-[#4EA02B] uppercase tracking-widest mb-8">ZonoFit</h3>
                 <ul className="space-y-6 text-sm font-medium text-black">
                   <li className="flex items-center gap-4">
-                    <span className="text-[10px] text-[#3FA836] font-bold w-4">01</span> Pay
+                    <span className="text-[10px] text-[#4EA02B] font-bold w-4">01</span> Pay
                   </li>
                   <li className="flex items-center gap-4">
-                    <span className="text-[10px] text-[#3FA836] font-bold w-4">02</span> Choose your primary gym
+                    <span className="text-[10px] text-[#4EA02B] font-bold w-4">02</span> Choose your primary gym
                   </li>
                   <li className="flex items-center gap-4">
-                    <span className="text-[10px] text-[#3FA836] font-bold w-4">03</span> Commit
+                    <span className="text-[10px] text-[#4EA02B] font-bold w-4">03</span> Commit
                   </li>
                   <li className="flex items-center gap-4">
-                    <span className="text-[10px] text-[#3FA836] font-bold w-4">04</span> Visit
+                    <span className="text-[10px] text-[#4EA02B] font-bold w-4">04</span> Visit
                   </li>
                   <li className="flex items-center gap-4">
-                    <span className="text-[10px] text-[#3FA836] font-bold w-4">05</span> Build consistency
+                    <span className="text-[10px] text-[#4EA02B] font-bold w-4">05</span> Build consistency
                   </li>
                   <li className="flex items-center gap-4">
-                    <span className="text-[10px] text-[#3FA836] font-bold w-4">06</span> Unused value can become credits
+                    <span className="text-[10px] text-[#4EA02B] font-bold w-4">06</span> Unused value can become credits
                   </li>
                   <li className="flex items-center gap-4">
-                    <span className="text-[10px] text-[#3FA836] font-bold w-4">07</span> Use within the ZonoFit ecosystem
+                    <span className="text-[10px] text-[#4EA02B] font-bold w-4">07</span> Use within the ZonoFit ecosystem
                   </li>
                 </ul>
               </div>
@@ -539,130 +549,100 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* SECTION 2: Your membership. Your starting point. */}
-        <section id="membership" className="bg-white py-24 md:py-32 px-5">
+        {/* SECTION 2: The Only Plan - Interactive */}
+        <section id="membership" className="bg-[#fcfcfc] py-24 md:py-32 px-5 border-t border-gray-100">
           <div className="max-w-5xl mx-auto">
-            <h2 className="text-4xl md:text-6xl font-semibold tracking-tight text-black leading-tight mb-4 reveal">
-              Your membership.<br />Your starting point.
-            </h2>
-            <p className="text-sm md:text-base font-medium text-gray-500 max-w-lg leading-relaxed mb-16">
-              Plans, pricing and credit structure are managed centrally and may vary by city and partner gym.
-            </p>
+            <div className="mb-16">
+              <p className="text-[10px] font-bold text-gray-500 tracking-widest uppercase mb-4">One Plan</p>
+              <h2 className="text-4xl md:text-6xl font-semibold tracking-tight text-black leading-tight mb-4 reveal">
+                There&apos;s no plan to pick.<br />Your gym is the plan.
+              </h2>
+              <p className="text-sm md:text-base font-medium text-gray-500 max-w-lg leading-relaxed">
+                Whatever your chosen gym charges each month is exactly what ZonoFit costs. No tiers, no lock-ins, no upgrade path — just your membership, made flexible.
+              </p>
+            </div>
             
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch pt-4">
-              {/* Starter */}
-              <div className="bg-white rounded-[24px] p-8 border border-gray-200 shadow-sm flex flex-col reveal transition-all duration-500 hover:-translate-y-3 hover:shadow-2xl hover:border-gray-300 group cursor-pointer">
-                <div className="mb-8">
-                  <h3 className="text-sm font-bold text-black mb-4">Starter</h3>
-                  <div className="text-4xl font-bold tracking-tight text-black mb-1">₹1,499</div>
-                  <div className="text-xs font-medium text-gray-500">per month</div>
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-stretch reveal">
+              {/* Left Column: Gym Selection */}
+              <div className="md:col-span-5 bg-white rounded-[24px] p-6 md:p-8 border border-gray-200 shadow-sm flex flex-col">
+                <p className="text-[10px] font-bold text-gray-500 tracking-widest uppercase mb-4">Step One</p>
+                <h3 className="text-lg font-bold text-black mb-1">Choose your gym.</h3>
+                <p className="text-xs font-medium text-gray-500 mb-8">
+                  That gym&apos;s monthly price becomes your ZonoFit price. Nothing added on top.
+                </p>
                 
-                <div className="space-y-6 flex-1 mb-10">
-                  <div>
-                    <h4 className="text-xs font-medium text-gray-500 mb-1">Primary gym</h4>
-                    <p className="text-sm font-semibold text-black">1 selected at signup</p>
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-medium text-gray-500 mb-1">Visit commitment</h4>
-                    <p className="text-sm font-semibold text-black">10 visits / month</p>
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-medium text-gray-500 mb-1">Credit structure</h4>
-                    <p className="text-sm font-semibold text-black leading-relaxed">Eligible unused value converts to credits monthly</p>
-                  </div>
+                <div className="space-y-3 flex-1 mb-8">
+                  {GYMS.map(gym => {
+                    const isSelected = selectedGymId === gym.id;
+                    return (
+                      <div 
+                        key={gym.id}
+                        onClick={() => setSelectedGymId(gym.id)}
+                        className={`p-4 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${isSelected ? 'border-[#4EA02B] bg-[#f2faf1]' : 'border-gray-200 hover:border-gray-300'}`}
+                      >
+                        <div>
+                          <h4 className="text-sm font-bold text-black mb-1">{gym.name}</h4>
+                          <div className="flex items-center gap-2 text-[10px] text-gray-500 font-medium">
+                            <span className="flex items-center gap-1 text-[#4EA02B]"><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg> {gym.rating}</span>
+                            <span>{gym.distance} km away</span>
+                          </div>
+                        </div>
+                        <div className="text-sm font-bold text-black">
+                          ₹{gym.price.toLocaleString()}/mo
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-
-                <ul className="space-y-4 mb-8 text-sm font-medium text-black">
-                  <li className="flex gap-3 items-center"><svg className="text-[#3FA836] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 1 Primary Gym</li>
-                  <li className="flex gap-3 items-center"><svg className="text-[#3FA836] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Digital check in</li>
-                  <li className="flex gap-3 items-center"><svg className="text-[#3FA836] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Credit wallet</li>
-                  <li className="flex gap-3 items-center"><svg className="text-[#3FA836] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Partner network access</li>
-                </ul>
-
-                <Link href="/auth/signup" className="block w-full py-4 text-center rounded-full border border-gray-200 text-sm font-semibold text-black hover:bg-gray-50 transition-colors mt-auto">
-                  Join ZonoFit
-                </Link>
+                <p className="text-[9px] text-gray-400 font-medium text-center">
+                  Representative pricing. Live gym rates depend on partners in your city.
+                </p>
               </div>
 
-              {/* Momentum */}
-              <div className="bg-white rounded-[24px] p-8 border-2 border-[#3FA836] shadow-md relative flex flex-col transform lg:-translate-y-4 reveal transition-all duration-500 hover:-translate-y-3 lg:hover:-translate-y-7 hover:shadow-2xl group cursor-pointer">
-                <div className="absolute -top-3 left-8 bg-[#E6F7E5] text-[#3FA836] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest">
-                  Most chosen
-                </div>
-                <div className="mb-8 mt-2">
-                  <h3 className="text-sm font-bold text-black mb-4">Momentum</h3>
-                  <div className="text-4xl font-bold tracking-tight text-black mb-1">₹3,999</div>
-                  <div className="text-xs font-medium text-gray-500">3 months</div>
+              {/* Right Column: Pricing Logic */}
+              <div className="md:col-span-7 bg-white rounded-[24px] p-6 md:p-8 border-2 border-[#4EA02B] shadow-md relative flex flex-col">
+                <div className="absolute -top-3 left-8 bg-[#E6F7E5] text-[#4EA02B] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest">
+                  The only plan
                 </div>
                 
-                <div className="space-y-6 flex-1 mb-10">
-                  <div>
-                    <h4 className="text-xs font-medium text-gray-500 mb-1">Primary gym</h4>
-                    <p className="text-sm font-semibold text-black">1 selected at signup</p>
+                <div className="flex flex-col sm:flex-row items-center gap-4 mb-8 mt-2">
+                  <div className="flex-1 w-full bg-gray-50 border border-gray-100 rounded-xl p-4 text-center">
+                    <p className="text-[10px] font-bold text-gray-400 tracking-widest uppercase mb-2 truncate">{selectedGym.name}</p>
+                    <div className="text-2xl font-bold tracking-tight text-gray-400 mb-1">₹{selectedGym.price.toLocaleString()}</div>
+                    <div className="text-[10px] font-medium text-gray-400">per month</div>
                   </div>
-                  <div>
-                    <h4 className="text-xs font-medium text-gray-500 mb-1">Visit commitment</h4>
-                    <p className="text-sm font-semibold text-black">10 visits / month</p>
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-medium text-gray-500 mb-1">Credit structure</h4>
-                    <p className="text-sm font-semibold text-black leading-relaxed">Credits carry forward within the plan period</p>
+                  
+                  <div className="text-gray-300 font-bold text-xl">=</div>
+                  
+                  <div className="flex-1 w-full bg-[#f2faf1] border border-[#4EA02B]/30 rounded-xl p-4 text-center">
+                    <p className="text-[10px] font-bold text-[#4EA02B] tracking-widest uppercase mb-2">ZONOFIT</p>
+                    <div className="text-2xl font-bold tracking-tight text-black mb-1">₹{selectedGym.price.toLocaleString()}</div>
+                    <div className="text-[10px] font-medium text-gray-500">per month</div>
                   </div>
                 </div>
 
-                <ul className="space-y-4 mb-8 text-sm font-medium text-black">
-                  <li className="flex gap-3 items-center"><svg className="text-[#3FA836] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 1 Primary Gym</li>
-                  <li className="flex gap-3 items-center"><svg className="text-[#3FA836] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Digital check in</li>
-                  <li className="flex gap-3 items-center"><svg className="text-[#3FA836] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Credit wallet</li>
-                  <li className="flex gap-3 items-center"><svg className="text-[#3FA836] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Sports & wellness partners</li>
-                  <li className="flex gap-3 items-center"><svg className="text-[#3FA836] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Priority support</li>
+                <p className="text-sm font-medium text-gray-600 mb-8 leading-relaxed">
+                  Same price. Same gym. <span className="text-[#4EA02B] font-bold">Everything you don&apos;t use keeps its value.</span>
+                </p>
+
+                <ul className="space-y-3 mb-10 text-[13px] font-medium text-black flex-1">
+                  <li className="flex gap-3 items-center"><svg className="text-[#4EA02B] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Your chosen gym as Primary Gym</li>
+                  <li className="flex gap-3 items-center"><svg className="text-[#4EA02B] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Monthly visit commitment</li>
+                  <li className="flex gap-3 items-center"><svg className="text-[#4EA02B] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Eligible unused value becomes ZonoFit credits</li>
+                  <li className="flex gap-3 items-center"><svg className="text-[#4EA02B] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Access to the partner gym, sports & wellness ecosystem</li>
+                  <li className="flex gap-3 items-center"><svg className="text-[#4EA02B] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Digital check-in and credit wallet</li>
                 </ul>
 
-                <Link href="/auth/signup" className="block w-full py-4 text-center rounded-full bg-[#3FA836] text-white text-sm font-semibold hover:bg-[#35902d] transition-colors mt-auto">
-                  Join ZonoFit
+                <Link href="/auth/signup" className="block w-full py-4 text-center rounded-full bg-[#4EA02B] text-white text-sm font-bold hover:bg-[#3d8120] transition-colors mb-3">
+                  Join ZonoFit at ₹{selectedGym.price.toLocaleString()}/month
                 </Link>
-              </div>
-
-              {/* Journey */}
-              <div className="bg-white rounded-[24px] p-8 border border-gray-200 shadow-sm flex flex-col reveal transition-all duration-500 hover:-translate-y-3 hover:shadow-2xl hover:border-gray-300 group cursor-pointer">
-                <div className="mb-8">
-                  <h3 className="text-sm font-bold text-black mb-4">Journey</h3>
-                  <div className="text-4xl font-bold tracking-tight text-black mb-1">₹13,999</div>
-                  <div className="text-xs font-medium text-gray-500">12 months</div>
-                </div>
-                
-                <div className="space-y-6 flex-1 mb-10">
-                  <div>
-                    <h4 className="text-xs font-medium text-gray-500 mb-1">Primary gym</h4>
-                    <p className="text-sm font-semibold text-black">1 selected at signup</p>
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-medium text-gray-500 mb-1">Visit commitment</h4>
-                    <p className="text-sm font-semibold text-black">10 visits (M1-4), 15 visits (M5-12)</p>
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-medium text-gray-500 mb-1">Credit structure</h4>
-                    <p className="text-sm font-semibold text-black leading-relaxed">Highest credit eligibility across the ecosystem</p>
-                  </div>
-                </div>
-
-                <ul className="space-y-4 mb-8 text-sm font-medium text-black">
-                  <li className="flex gap-3 items-center"><svg className="text-[#3FA836] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 1 Primary Gym</li>
-                  <li className="flex gap-3 items-center"><svg className="text-[#3FA836] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Digital check in</li>
-                  <li className="flex gap-3 items-center"><svg className="text-[#3FA836] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Credit wallet</li>
-                  <li className="flex gap-3 items-center"><svg className="text-[#3FA836] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Full partner ecosystem</li>
-                  <li className="flex gap-3 items-center"><svg className="text-[#3FA836] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Product & supplement credits</li>
-                </ul>
-
-                <Link href="/auth/signup" className="block w-full py-4 text-center rounded-full border border-gray-200 text-sm font-semibold text-black hover:bg-gray-50 transition-colors mt-auto">
-                  Join ZonoFit
-                </Link>
+                <p className="text-[9px] text-gray-400 font-medium text-center">
+                  No 3-month or 12-month tiers. One monthly membership, priced by your gym.
+                </p>
               </div>
             </div>
           </div>
         </section>
-
 
         {/* Flexibility section */}
         <section className="bg-white py-24 md:py-32 px-5 border-t border-gray-100">
@@ -690,7 +670,7 @@ export default function LandingPage() {
                       <span className="text-[10px] text-gray-400 w-4 font-medium">M{m}</span>
                       <div className="flex gap-1.5">
                         {[...Array(10)].map((_, i) => (
-                          <div key={i} className="w-2 h-2 rounded-full bg-[#3FA836]"></div>
+                          <div key={i} className="w-2 h-2 rounded-full bg-[#4EA02B]"></div>
                         ))}
                       </div>
                     </div>
@@ -699,10 +679,10 @@ export default function LandingPage() {
               </div>
 
               <div className="bg-white rounded-[24px] p-8 border border-gray-200 shadow-[0_2px_20px_rgba(0,0,0,0.04)] reveal">
-                <p className="text-[10px] font-bold text-[#3FA836] tracking-widest uppercase mb-4">Months 5-12</p>
+                <p className="text-[10px] font-bold text-[#4EA02B] tracking-widest uppercase mb-4">Months 5-12</p>
                 <div className="flex items-baseline gap-2 mb-1">
-                  <span className="text-4xl font-bold text-[#3FA836] tracking-tight">15</span>
-                  <span className="text-2xl font-semibold text-[#3FA836] tracking-tight">Visits</span>
+                  <span className="text-4xl font-bold text-[#4EA02B] tracking-tight">15</span>
+                  <span className="text-2xl font-semibold text-[#4EA02B] tracking-tight">Visits</span>
                 </div>
                 <p className="text-[10px] text-gray-500 mb-8 font-medium">per month · Build the momentum</p>
                 
@@ -712,7 +692,7 @@ export default function LandingPage() {
                       <span className="text-[10px] text-gray-400 w-4 font-medium">M{m}</span>
                       <div className="flex gap-1.5">
                         {[...Array(15)].map((_, i) => (
-                          <div key={i} className="w-2 h-2 rounded-full bg-[#3FA836]"></div>
+                          <div key={i} className="w-2 h-2 rounded-full bg-[#4EA02B]"></div>
                         ))}
                       </div>
                     </div>
@@ -731,7 +711,7 @@ export default function LandingPage() {
             <h2 className="text-4xl md:text-6xl font-semibold tracking-tight text-black leading-tight mb-4 reveal">
               Because flexibility<br />without consistency<br />is just another excuse.
             </h2>
-            <p className="text-sm font-medium text-[#3FA836] mb-12">Consistency &gt; Perfection</p>
+            <p className="text-sm font-medium text-[#4EA02B] mb-12">Consistency &gt; Perfection</p>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-16">
               <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-sm reveal">
@@ -761,7 +741,7 @@ export default function LandingPage() {
                 {[true, true, false, true, true, false, true, true, true].map((attended, i) => (
                   <div key={i} className={`w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center ${attended ? 'bg-[#E6F7E5]' : 'bg-gray-100'}`}>
                     {attended ? (
-                      <svg className="w-3 h-3 md:w-4 md:h-4 text-[#3FA836]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                      <svg className="w-3 h-3 md:w-4 md:h-4 text-[#4EA02B]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
                     ) : (
                       <svg className="w-3 h-3 md:w-4 md:h-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
                     )}
@@ -788,42 +768,42 @@ export default function LandingPage() {
             
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm flex flex-col h-full reveal">
-                <svg className="w-5 h-5 text-[#3FA836] mb-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                <svg className="w-5 h-5 text-[#4EA02B] mb-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                 <div className="mt-auto">
                   <h3 className="text-xs font-bold text-black mb-1">Primary Gym Access</h3>
                   <p className="text-[10px] font-medium text-gray-500 leading-relaxed">Your regular fitness base.</p>
                 </div>
               </div>
               <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm flex flex-col h-full reveal">
-                <svg className="w-5 h-5 text-[#3FA836] mb-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                <svg className="w-5 h-5 text-[#4EA02B] mb-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                 <div className="mt-auto">
                   <h3 className="text-xs font-bold text-black mb-1">Structured Commitment</h3>
                   <p className="text-[10px] font-medium text-gray-500 leading-relaxed">A system designed to help you show up.</p>
                 </div>
               </div>
               <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm flex flex-col h-full reveal">
-                <svg className="w-5 h-5 text-[#3FA836] mb-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+                <svg className="w-5 h-5 text-[#4EA02B] mb-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
                 <div className="mt-auto">
                   <h3 className="text-xs font-bold text-black mb-1">ZonoFit Credits</h3>
                   <p className="text-[10px] font-medium text-gray-500 leading-relaxed">Eligible unused membership value can become credits according to plan rules.</p>
                 </div>
               </div>
               <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm flex flex-col h-full reveal">
-                <svg className="w-5 h-5 text-[#3FA836] mb-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                <svg className="w-5 h-5 text-[#4EA02B] mb-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
                 <div className="mt-auto">
                   <h3 className="text-xs font-bold text-black mb-1">Fitness Ecosystem</h3>
                   <p className="text-[10px] font-medium text-gray-500 leading-relaxed">Partnered gyms, sports, wellness and eligible products.</p>
                 </div>
               </div>
               <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm flex flex-col h-full reveal">
-                <svg className="w-5 h-5 text-[#3FA836] mb-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
+                <svg className="w-5 h-5 text-[#4EA02B] mb-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
                 <div className="mt-auto">
                   <h3 className="text-xs font-bold text-black mb-1">Digital Check-In</h3>
                   <p className="text-[10px] font-medium text-gray-500 leading-relaxed">Simple and trackable.</p>
                 </div>
               </div>
               <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm flex flex-col h-full reveal">
-                <svg className="w-5 h-5 text-[#3FA836] mb-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"></path></svg>
+                <svg className="w-5 h-5 text-[#4EA02B] mb-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"></path></svg>
                 <div className="mt-auto">
                   <h3 className="text-xs font-bold text-black mb-1">One Membership</h3>
                   <p className="text-[10px] font-medium text-gray-500 leading-relaxed">One platform connecting multiple fitness experiences.</p>
@@ -848,7 +828,7 @@ export default function LandingPage() {
             <h2 className="text-4xl md:text-5xl font-semibold tracking-tight text-black leading-tight text-center reveal">
               What if the value you didn&apos;t use<br />could still help you stay active?
             </h2>
-            <h2 className="text-5xl md:text-7xl font-bold tracking-tight text-[#3FA836] pt-10 text-center reveal">
+            <h2 className="text-5xl md:text-7xl font-bold tracking-tight text-[#4EA02B] pt-10 text-center reveal">
               That&apos;s ZonoFit.
             </h2>
           </div>
@@ -881,7 +861,7 @@ export default function LandingPage() {
             </div>
 
             <div className="flex flex-wrap gap-4">
-              <Link href="#" className="bg-[#3FA836] text-white text-[11px] font-bold px-6 py-2.5 rounded-full hover:bg-[#35902d] transition-colors">
+              <Link href="#" className="bg-[#4EA02B] text-white text-[11px] font-bold px-6 py-2.5 rounded-full hover:bg-[#3d8120] transition-colors">
                 Become a ZonoFit Partner
               </Link>
               <Link href="#" className="bg-transparent text-white border border-white/20 text-[11px] font-bold px-6 py-2.5 rounded-full hover:bg-white/5 transition-colors">
@@ -905,7 +885,7 @@ export default function LandingPage() {
                   onClick={() => setFaqCategory(cat)}
                   className={`text-[10px] font-medium px-4 py-1.5 rounded-full border transition-colors ${
                     faqCategory === cat 
-                      ? 'bg-[#3FA836] text-white border-[#3FA836]' 
+                      ? 'bg-[#4EA02B] text-white border-[#4EA02B]' 
                       : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
                   }`}
                 >
@@ -916,20 +896,32 @@ export default function LandingPage() {
 
             <div className="space-y-0">
               {[
-                { category: 'Commitment', q: 'Wait... what happens if I miss a day?' },
-                { category: 'Gyms', q: 'Can I visit another gym?' },
-                { category: 'Credits', q: 'Where can I use my credits?' },
-                { category: 'Credits', q: 'How is my credit amount calculated?' },
-                { category: 'Membership', q: 'Do I have to choose one gym?' },
-                { category: 'Membership', q: 'Can I cancel?' },
-                { category: 'Membership', q: 'How does check-in work?' },
-                { category: 'Partners', q: 'Can my gym join ZonoFit?' }
+                { category: 'Commitment', q: 'Wait... what happens if I miss a day?', a: "Your unused visit value is converted into ZonoFit credits. You don't lose your money just because life got busy. These credits can be used anywhere in the ecosystem." },
+                { category: 'Gyms', q: 'Can I visit another gym?', a: "Yes! While you select a Primary Gym for regular visits, you can use your credits to book visits at any other partner gym in the ZonoFit network." },
+                { category: 'Credits', q: 'Where can I use my credits?', a: "Credits can be used to book visits at other partner gyms, access premium facilities, or even be redeemed for sports and wellness products in the ZonoFit ecosystem." },
+                { category: 'Credits', q: 'How is my credit amount calculated?', a: "For every unused visit from your monthly commitment, the equivalent value is converted into credits. For example, 1 Credit equals ₹10 towards fitness access." },
+                { category: 'Membership', q: 'Do I have to choose one gym?', a: "You select a Primary Gym as your home base for your monthly visit commitment. However, your membership gives you the flexibility to explore the entire partner network using your credits." },
+                { category: 'Membership', q: 'Can I cancel?', a: "We offer maximum flexibility. You can cancel your membership at the end of your billing cycle. Unused credits remain active until 15 days after your membership expiration." },
+                { category: 'Membership', q: 'How does check-in work?', a: "It's fully digital. Simply open the ZonoFit app, generate your secure digital pass or QR code, and show it at the partner gym's front desk for a seamless entry." },
+                { category: 'Partners', q: 'Can my gym join ZonoFit?', a: "Absolutely. We are constantly expanding our network. Gym owners can apply through our Partner Dashboard to monetize unused capacity and reach new members." }
               ]
                 .filter(item => faqCategory === 'All' || item.category === faqCategory)
                 .map((item, i) => (
-                <div key={i} className="border-t border-gray-200 py-6 flex justify-between items-center group cursor-pointer hover:bg-gray-50 transition-colors -mx-5 px-5 md:mx-0 md:px-0">
-                  <h3 className="text-[13px] font-bold text-black">{item.q}</h3>
-                  <svg className="w-5 h-5 text-[#3FA836]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                <div key={i} className="border-t border-gray-200">
+                  <div 
+                    onClick={() => setExpandedFaq(expandedFaq === item.q ? null : item.q)}
+                    className="py-6 flex justify-between items-center group cursor-pointer hover:bg-gray-50 transition-colors -mx-5 px-5 md:mx-0 md:px-0"
+                  >
+                    <h3 className="text-[13px] font-bold text-black">{item.q}</h3>
+                    <svg className="w-5 h-5 text-[#4EA02B]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={expandedFaq === item.q ? "M18 12H6" : "M12 6v6m0 0v6m0-6h6m-6 0H6"}></path>
+                    </svg>
+                  </div>
+                  {expandedFaq === item.q && (
+                    <div className="pb-6 -mt-2 -mx-5 px-5 md:mx-0 md:px-0 text-[13px] text-gray-500 font-medium leading-relaxed animate-fade-up">
+                      {item.a}
+                    </div>
+                  )}
                 </div>
               ))}
               <div className="border-t border-gray-200"></div>
@@ -949,13 +941,13 @@ export default function LandingPage() {
             
             <div className="flex flex-col items-center gap-2 mb-12">
               <div className="flex items-center gap-1">
-                <span className="text-2xl font-semibold text-black tracking-tight">Zono<span className="text-[#3FA836]">Fit</span></span>
+                <span className="text-2xl font-semibold text-black tracking-tight">Zono<span className="text-[#4EA02B]">Fit</span></span>
               </div>
               <p className="text-[9px] text-gray-500 font-medium">Fitness That Fits Life.</p>
             </div>
 
             <div className="flex justify-center gap-4">
-              <Link href="/auth/signup" className="bg-[#3FA836] text-white text-xs font-bold px-8 py-3 rounded-full hover:bg-[#35902d] transition-colors">
+              <Link href="/auth/signup" className="bg-[#4EA02B] text-white text-xs font-bold px-8 py-3 rounded-full hover:bg-[#3d8120] transition-colors">
                 Join ZonoFit
               </Link>
               <Link href="#" className="bg-white border border-gray-200 text-gray-600 text-xs font-bold px-8 py-3 rounded-full hover:bg-gray-50 transition-colors">
@@ -970,7 +962,7 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-8">
             <div className="md:col-span-4">
               <div className="flex items-center gap-2 mb-4">
-                <img src="/logo.jpeg" alt="ZonoFit" className="w-6 h-6 rounded-md" />
+                <img src="/Zonofit_final_logo.jpeg" alt="ZonoFit" className="w-6 h-6 rounded-md" />
                 <span className="font-bold text-[13px] text-gray-900 tracking-tight">ZonoFit</span>
               </div>
               <p className="text-[11px] text-gray-500 font-medium mb-6 leading-relaxed max-w-[220px]">
