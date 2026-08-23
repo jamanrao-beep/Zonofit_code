@@ -58,6 +58,7 @@ export default function LandingPage() {
   const valueUsed = Math.round((membership / 30) * visits);
   const estimatedUnused = membership - valueUsed;
   const [selectedGymId, setSelectedGymId] = useState('being-fitness');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const GYMS = [
     { id: 'being-fitness', name: 'Being Fitness', price: 1800, rating: 4.5, distance: 1.2 },
@@ -249,69 +250,91 @@ export default function LandingPage() {
             ><button
               className="md:hidden flex flex-col gap-1.5 p-2"
               aria-label="Open menu"
+              onClick={() => setIsMobileMenuOpen(true)}
             >
-              <span className="w-5 h-0.5 bg-foreground rounded-full block"></span
-              ><span className="w-5 h-0.5 bg-foreground rounded-full block"></span
-              ><span className="w-4 h-0.5 bg-foreground rounded-full block"></span>
+              <span className="w-5 h-0.5 bg-black rounded-full block"></span
+              ><span className="w-5 h-0.5 bg-black rounded-full block"></span
+              ><span className="w-4 h-0.5 bg-black rounded-full block"></span>
             </button>
           </div>
         </div>
       </header>
+      
+      {/* Mobile Menu Overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/40 z-[50] backdrop-blur-sm md:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+      
       <div
-        className="fixed inset-0 z-[60] bg-white flex flex-col transition-transform duration-500 translate-x-full"
+        className={`fixed top-0 right-0 bottom-0 w-[85%] max-w-sm z-[60] bg-white flex flex-col transition-transform duration-300 ease-out shadow-2xl ${isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}
       >
         <div
-          className="flex items-center justify-between px-5 h-16 border-b border-border"
+          className="flex items-center justify-between px-6 h-20 border-b border-gray-100"
         >
-          <a className="flex items-center gap-2.5" href="/"
+          <a className="flex items-center gap-2.5" href="/" onClick={() => setIsMobileMenuOpen(false)}
             ><img
               alt="ZonoFit logo"
               loading="lazy"
               width="32"
               height="32"
               decoding="async"
-              className="h-8 w-8 object-cover rounded-md"
+              className="h-8 w-8 object-cover rounded-full shadow-sm"
               src="/Zonofit_final_logo.jpeg"
-            /><span className="font-extrabold text-lg tracking-tight"
+            /><span className="font-extrabold text-xl tracking-tight text-black"
               >ZonoFit</span
             ></a
-          ><button className="p-2 text-foreground" aria-label="Close menu">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path
-                d="M15 5L5 15M5 5l10 10"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              ></path>
+          ><button className="p-2 text-gray-500 hover:text-black transition-colors rounded-full hover:bg-gray-100" aria-label="Close menu" onClick={() => setIsMobileMenuOpen(false)}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
             </svg>
           </button>
         </div>
-        <nav className="flex flex-col px-5 pt-8 gap-6">
+        <nav className="flex flex-col px-6 pt-10 pb-6 gap-8 overflow-y-auto h-full">
           <a
             href="#how-it-works"
-            className="text-2xl font-bold text-foreground hover:text-primary transition-colors"
-            style={{ transitionDelay: '0ms' }}
-            >How It Works</a
-          ><a
+            className="text-2xl font-bold text-gray-800 hover:text-[#4EA02B] transition-colors flex items-center justify-between group"
+            onClick={() => setIsMobileMenuOpen(false)}
+            >
+              How It Works
+              <svg className="w-5 h-5 text-gray-300 group-hover:text-[#4EA02B] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"></path></svg>
+          </a>
+          <a
             href="#membership"
-            className="text-2xl font-bold text-foreground hover:text-primary transition-colors"
-            style={{ transitionDelay: '60ms' }}
-            >Membership</a
-          ><a
+            className="text-2xl font-bold text-gray-800 hover:text-[#4EA02B] transition-colors flex items-center justify-between group"
+            onClick={() => setIsMobileMenuOpen(false)}
+            >
+              Membership
+              <svg className="w-5 h-5 text-gray-300 group-hover:text-[#4EA02B] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"></path></svg>
+          </a>
+          <a
             href="#app"
-            className="text-2xl font-bold text-foreground hover:text-primary transition-colors"
-            style={{ transitionDelay: '120ms' }}
-            >App</a
-          ><a
+            className="text-2xl font-bold text-gray-800 hover:text-[#4EA02B] transition-colors flex items-center justify-between group"
+            onClick={() => setIsMobileMenuOpen(false)}
+            >
+              App
+              <svg className="w-5 h-5 text-gray-300 group-hover:text-[#4EA02B] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"></path></svg>
+          </a>
+          <a
             href="#faq"
-            className="text-2xl font-bold text-foreground hover:text-primary transition-colors"
-            style={{ transitionDelay: '180ms' }}
-            >FAQ</a
-          ><a
-            href="/auth/signup"
-            className="mt-4 inline-flex items-center justify-center bg-primary text-primary-foreground font-bold text-base px-6 py-4 rounded-full"
-            >Start Your Journey</a
-          >
+            className="text-2xl font-bold text-gray-800 hover:text-[#4EA02B] transition-colors flex items-center justify-between group"
+            onClick={() => setIsMobileMenuOpen(false)}
+            >
+              FAQ
+              <svg className="w-5 h-5 text-gray-300 group-hover:text-[#4EA02B] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"></path></svg>
+          </a>
+          
+          <div className="mt-auto pt-8">
+            <a
+              href="/auth/signup"
+              className="flex items-center justify-center bg-[#4EA02B] text-white font-bold text-lg px-6 py-4 rounded-full shadow-lg shadow-[#4EA02B]/30 active:scale-95 transition-all"
+              onClick={() => setIsMobileMenuOpen(false)}
+              >Start Your Journey</a
+            >
+          </div>
         </nav>
       </div>
       <main>
