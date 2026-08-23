@@ -93,7 +93,7 @@ export default function PartnerGymsScreen() {
                 </View>
               </View>
               <Image 
-                source={require('@/assets/images/Zonofit logo.jpeg')} 
+                source={require('@/assets/Zonofit_final_logo.jpeg')} 
                 style={{width: 48, height: 48, borderRadius: 24, backgroundColor: 'white'}}
               />
             </View>
