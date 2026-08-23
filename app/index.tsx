@@ -195,7 +195,7 @@ export default function SplashAnimationScreen() {
             <Animated.View style={[styles.logoCard, logoStyle]}>
               <Image
                 /* eslint-disable-next-line @typescript-eslint/no-require-imports */
-                source={require("@/assets/images/Zonofit logo.jpeg")}
+                source={require("@/assets/Zonofit_final_logo.jpeg")}
                 style={styles.logoImage}
                 resizeMode="contain"
               />

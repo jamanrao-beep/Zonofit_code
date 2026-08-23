@@ -24,7 +24,7 @@ export default function CreateAccountScreen() {
         <View style={styles.header}>
           <Image
             /* eslint-disable-next-line @typescript-eslint/no-require-imports */
-            source={require("@/assets/images/Zonofit logo.jpeg")}
+            source={require("@/assets/Zonofit_final_logo.jpeg")}
             style={styles.logo}
             resizeMode="contain"
           />
