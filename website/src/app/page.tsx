@@ -143,10 +143,10 @@ export default function LandingPage() {
             <a href="#app" onClick={() => setShowSplash(false)} className="hover:text-gray-900 transition-colors">App</a>
             <a href="#faq" onClick={() => setShowSplash(false)} className="hover:text-gray-900 transition-colors">FAQ</a>
           </nav>
-          <div className="flex items-center gap-6">
-            <Link href="/auth/login" className="text-gray-500 text-sm font-medium hover:text-gray-900 transition-colors">Login</Link>
-            <Link href="/auth/signup" className="bg-[#4EA02B] text-white px-6 py-2.5 rounded-full text-sm font-bold hover:bg-[#3d8120] transition-colors shadow-sm">
-              Join ZonoFit
+          <div className="flex items-center gap-3 md:gap-6">
+            <Link href="/auth/login" className="hidden sm:inline-block text-gray-500 text-sm font-medium hover:text-gray-900 transition-colors">Login</Link>
+            <Link href="/auth/signup" className="bg-[#4EA02B] text-white px-4 py-2 md:px-6 md:py-2.5 rounded-full text-xs md:text-sm font-bold hover:bg-[#3d8120] transition-colors shadow-sm">
+              Join
             </Link>
           </div>
         </div>
@@ -341,7 +341,7 @@ export default function LandingPage() {
         <section id="how-it-works" className="bg-white py-24 md:py-32 px-5 border-t border-gray-100">
           <div className="max-w-5xl mx-auto">
             <div className="mb-12">
-              <h2 className="text-4xl md:text-6xl font-semibold tracking-tight text-black leading-tight reveal">
+              <h2 className="text-3xl md:text-5xl lg:text-6xl font-semibold tracking-tight text-black leading-tight reveal">
                 Let&apos;s make this personal.
               </h2>
               <p className="mt-4 text-base md:text-lg text-gray-500 font-medium max-w-2xl leading-relaxed">
@@ -446,7 +446,7 @@ export default function LandingPage() {
 
         <section className="bg-[#fcfcfc] py-24 md:py-32 px-5 border-t border-gray-100">
           <div className="max-w-5xl mx-auto">
-            <h2 className="text-4xl md:text-6xl font-semibold tracking-tight text-black leading-tight mb-16 reveal">
+            <h2 className="text-3xl md:text-5xl lg:text-6xl font-semibold tracking-tight text-black leading-tight mb-12 md:mb-16 reveal">
               Your unused value doesn&apos;t<br />have to stop there.
             </h2>
             
@@ -525,7 +525,7 @@ export default function LandingPage() {
         {/* SECTION 1: This is where ZonoFit changes the equation */}
         <section className="bg-white py-24 md:py-32 px-5">
           <div className="max-w-5xl mx-auto">
-            <h2 className="text-4xl md:text-6xl font-semibold tracking-tight text-black leading-tight mb-16 reveal">
+            <h2 className="text-3xl md:text-5xl lg:text-6xl font-semibold tracking-tight text-black leading-tight mb-12 md:mb-16 reveal">
               This is where ZonoFit<br />changes the equation.
             </h2>
             
@@ -577,7 +577,7 @@ export default function LandingPage() {
           <div className="max-w-5xl mx-auto">
             <div className="mb-16">
               <p className="text-[10px] font-bold text-gray-500 tracking-widest uppercase mb-4">One Plan</p>
-              <h2 className="text-4xl md:text-6xl font-semibold tracking-tight text-black leading-tight mb-4 reveal">
+              <h2 className="text-3xl md:text-5xl lg:text-6xl font-semibold tracking-tight text-black leading-tight mb-4 reveal">
                 There&apos;s no plan to pick.<br />Your gym is the plan.
               </h2>
               <p className="text-sm md:text-base font-medium text-gray-500 max-w-lg leading-relaxed">
@@ -670,7 +670,7 @@ export default function LandingPage() {
         {/* Flexibility section */}
         <section className="bg-white py-24 md:py-32 px-5 border-t border-gray-100">
           <div className="max-w-5xl mx-auto text-center">
-            <h2 className="text-4xl md:text-6xl font-semibold tracking-tight text-black leading-tight mb-4 md:text-left reveal">
+            <h2 className="text-3xl md:text-5xl lg:text-6xl font-semibold tracking-tight text-black leading-tight mb-4 md:text-left reveal">
               Flexibility doesn&apos;t mean<br />zero commitment.
             </h2>
             <p className="text-xs text-gray-400 mb-16 md:text-left">
@@ -731,7 +731,7 @@ export default function LandingPage() {
             <p className="text-[11px] font-medium text-gray-400 mb-6">
               "Wait. If ZonoFit is flexible, why do I have to commit to visits?"
             </p>
-            <h2 className="text-4xl md:text-6xl font-semibold tracking-tight text-black leading-tight mb-4 reveal">
+            <h2 className="text-3xl md:text-5xl lg:text-6xl font-semibold tracking-tight text-black leading-tight mb-4 reveal">
               Because flexibility<br />without consistency<br />is just another excuse.
             </h2>
             <p className="text-sm font-medium text-[#4EA02B] mb-12">Consistency &gt; Perfection</p>
@@ -785,7 +785,7 @@ export default function LandingPage() {
         {/* What you get with Zonofit */}
         <section id="app" className="bg-white py-24 md:py-32 px-5">
           <div className="max-w-5xl mx-auto">
-            <h2 className="text-4xl md:text-6xl font-semibold tracking-tight text-black leading-tight mb-16 reveal">
+            <h2 className="text-3xl md:text-5xl lg:text-6xl font-semibold tracking-tight text-black leading-tight mb-12 md:mb-16 reveal">
               What you get<br />with ZonoFit.
             </h2>
             
@@ -839,19 +839,19 @@ export default function LandingPage() {
         {/* The Rhetorical Questions */}
         <section className="bg-[#fcfcfc] py-24 md:py-32 px-5 border-t border-gray-100">
           <div className="max-w-5xl mx-auto space-y-20 md:space-y-32">
-            <h2 className="text-4xl md:text-5xl font-semibold tracking-tight text-black leading-tight text-center reveal">
+            <h2 className="text-3xl md:text-5xl font-semibold tracking-tight text-black leading-tight text-center reveal">
               What if missing a day didn&apos;t<br />mean the journey ended?
             </h2>
-            <h2 className="text-4xl md:text-5xl font-semibold tracking-tight text-black leading-tight text-center reveal">
+            <h2 className="text-3xl md:text-5xl font-semibold tracking-tight text-black leading-tight text-center reveal">
               What if your membership<br />could move with you?
             </h2>
-            <h2 className="text-4xl md:text-5xl font-semibold tracking-tight text-black leading-tight text-center reveal">
+            <h2 className="text-3xl md:text-5xl font-semibold tracking-tight text-black leading-tight text-center reveal">
               What if fitness<br />wasn&apos;t just one gym?
             </h2>
-            <h2 className="text-4xl md:text-5xl font-semibold tracking-tight text-black leading-tight text-center reveal">
+            <h2 className="text-3xl md:text-5xl font-semibold tracking-tight text-black leading-tight text-center reveal">
               What if the value you didn&apos;t use<br />could still help you stay active?
             </h2>
-            <h2 className="text-5xl md:text-7xl font-bold tracking-tight text-[#4EA02B] pt-10 text-center reveal">
+            <h2 className="text-4xl md:text-7xl font-bold tracking-tight text-[#4EA02B] pt-10 text-center reveal">
               That&apos;s ZonoFit.
             </h2>
           </div>
@@ -897,7 +897,7 @@ export default function LandingPage() {
         {/* FAQ Section */}
         <section id="faq" className="bg-white py-24 md:py-32 px-5">
           <div className="max-w-5xl mx-auto">
-            <h2 className="text-4xl md:text-6xl font-semibold tracking-tight text-black mb-10 reveal">
+            <h2 className="text-3xl md:text-5xl lg:text-6xl font-semibold tracking-tight text-black mb-10 reveal">
               You probably have questions.
             </h2>
             
@@ -955,10 +955,10 @@ export default function LandingPage() {
         {/* Final CTA */}
         <section className="bg-[#fcfcfc] py-32 px-5 text-center border-t border-gray-100">
           <div className="max-w-5xl mx-auto">
-            <h2 className="text-4xl md:text-6xl font-semibold tracking-tight text-black mb-2 reveal">
+            <h2 className="text-3xl md:text-5xl lg:text-6xl font-semibold tracking-tight text-black mb-2 reveal">
               Don&apos;t waste the membership<br />you already paid for.
             </h2>
-            <h3 className="text-4xl md:text-6xl font-semibold tracking-tight text-gray-400 mb-16">
+            <h3 className="text-3xl md:text-5xl lg:text-6xl font-semibold tracking-tight text-gray-400 mb-12 md:mb-16">
               Make it part of your<br />journey.
             </h3>
             
