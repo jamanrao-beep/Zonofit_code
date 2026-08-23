@@ -36,7 +36,7 @@ const SPLASH_SCREENS = [
     <div key="4" className="flex flex-col items-center justify-center space-y-8 px-4 text-center h-full">
       <h1 className="text-6xl md:text-8xl font-bold tracking-tight text-black flex flex-col items-center gap-6">
         <span>Zono<span className="text-[#4EA02B]">Fit</span></span>
-        <img src="/Zonofit_final_logo.jpeg" alt="ZonoFit Logo" className="w-24 h-24 md:w-32 md:h-32 rounded-full shadow-md object-cover" />
+        <img src="/Zonofit_final_logo.jpeg" alt="ZonoFit Logo" className="w-16 h-16 md:w-20 md:h-20 rounded-full shadow-md object-cover" />
       </h1>
       <p className="text-xl md:text-3xl text-gray-500 font-medium mt-4">
         Fitness That Fits Life.
