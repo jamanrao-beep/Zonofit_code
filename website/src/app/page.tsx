@@ -7,27 +7,27 @@ import Link from 'next/link';
 const SPLASH_SCREENS = [
   (
     <div key="1" className="flex flex-col items-center justify-center space-y-4 px-4 text-center h-full">
-      <h1 className="text-3xl md:text-5xl font-medium tracking-tight text-gray-500">
+      <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-black">
         Have you ever bought<br />a gym membership...
       </h1>
     </div>
   ),
   (
     <div key="2" className="flex flex-col items-center justify-center space-y-4 px-4 text-center h-full">
-      <h1 className="text-3xl md:text-5xl font-medium tracking-tight text-gray-500">
+      <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-black">
         ...and stopped going?
       </h1>
     </div>
   ),
   (
     <div key="3" className="flex flex-col items-center justify-center space-y-4 px-4 text-center h-full">
-      <p className="text-xs md:text-sm font-semibold tracking-[0.2em] text-gray-400 uppercase mb-2">
+      <p className="text-xs md:text-sm font-bold tracking-[0.2em] text-black uppercase mb-2">
         The average Indian membership
       </p>
-      <h1 className="text-7xl md:text-8xl font-semibold text-gray-700 tracking-tighter mb-2">
+      <h1 className="text-7xl md:text-8xl font-bold text-black tracking-tighter mb-2">
         ₹3,000
       </h1>
-      <p className="text-2xl md:text-3xl font-medium text-gray-500">
+      <p className="text-2xl md:text-3xl font-bold text-black">
         Gone.
       </p>
     </div>
@@ -38,7 +38,7 @@ const SPLASH_SCREENS = [
         <span>Zono<span className="text-[#4EA02B]">Fit</span></span>
         <img src="/Zonofit_final_logo.jpeg" alt="ZonoFit Logo" className="w-16 h-16 md:w-20 md:h-20 rounded-full shadow-md object-cover" />
       </h1>
-      <p className="text-xl md:text-3xl text-gray-500 font-medium mt-4">
+      <p className="text-xl md:text-3xl text-black font-bold mt-4">
         Fitness That Fits Life.
       </p>
     </div>
