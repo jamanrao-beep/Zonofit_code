@@ -3,6 +3,7 @@ import { View, Text, ScrollView, Image, Pressable, Dimensions, StatusBar, StyleS
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useAuthStore } from '@/store/useAuthStore';
 
 const { width } = Dimensions.get('window');
 
@@ -33,6 +34,7 @@ const GYM_DATA = {
 
 export default function GymDetailScreen() {
   const router = useRouter();
+  const isFromOnboarding = useAuthStore(state => state.isViewingOnboardingGym);
   const insets = useSafeAreaInsets();
   const [activeImage, setActiveImage] = useState(0);
 
@@ -247,20 +249,33 @@ export default function GymDetailScreen() {
       </ScrollView>
 
       {/* Bottom Fixed Action Bar */}
-      <View style={{ position: 'absolute', bottom: Math.max(insets.bottom, 16), left: 16, right: 16, backgroundColor: '#4C9A2A', borderRadius: 12, flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, shadowColor: '#4C9A2A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-          <MaterialCommunityIcons name="ticket-outline" size={24} color="white" />
-          <View style={{ marginLeft: 12 }}>
-            <Text style={{ color: 'white', fontSize: 13, fontWeight: '600' }}>{GYM_DATA.visitsAvailable} Visit Available</Text>
-            <Text style={{ color: 'white', fontSize: 12, opacity: 0.9 }}>{GYM_DATA.credits} Credits</Text>
-          </View>
-        </View>
-        <View style={{ width: 1, height: 32, backgroundColor: 'rgba(255,255,255,0.3)', marginHorizontal: 16 }} />
-        <Pressable style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Text style={{ color: 'white', fontSize: 14, fontWeight: '700', marginRight: 8, letterSpacing: 0.5 }}>BOOK VISIT</Text>
-          <Ionicons name="arrow-forward" size={16} color="white" />
+      {isFromOnboarding ? (
+        <Pressable 
+          style={{ position: 'absolute', bottom: Math.max(insets.bottom, 16), left: 16, right: 16, backgroundColor: '#1F7A3E', borderRadius: 12, flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 16, justifyContent: 'center', shadowColor: '#1F7A3E', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 }}
+          onPress={() => {
+            useAuthStore.getState().setIsViewingOnboardingGym(false);
+            router.push('/onboarding/order-summary' as any);
+          }}
+        >
+          <Text style={{ color: 'white', fontSize: 16, fontWeight: '700', marginRight: 8 }}>Next</Text>
+          <Ionicons name="arrow-forward" size={18} color="white" />
         </Pressable>
-      </View>
+      ) : (
+        <View style={{ position: 'absolute', bottom: Math.max(insets.bottom, 16), left: 16, right: 16, backgroundColor: '#4C9A2A', borderRadius: 12, flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, shadowColor: '#4C9A2A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+            <MaterialCommunityIcons name="ticket-outline" size={24} color="white" />
+            <View style={{ marginLeft: 12 }}>
+              <Text style={{ color: 'white', fontSize: 13, fontWeight: '600' }}>{GYM_DATA.visitsAvailable} Visit Available</Text>
+              <Text style={{ color: 'white', fontSize: 12, opacity: 0.9 }}>{GYM_DATA.credits} Credits</Text>
+            </View>
+          </View>
+          <View style={{ width: 1, height: 32, backgroundColor: 'rgba(255,255,255,0.3)', marginHorizontal: 16 }} />
+          <Pressable style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={{ color: 'white', fontSize: 14, fontWeight: '700', marginRight: 8, letterSpacing: 0.5 }}>BOOK VISIT</Text>
+            <Ionicons name="arrow-forward" size={16} color="white" />
+          </Pressable>
+        </View>
+      )}
     </View>
   );
 }

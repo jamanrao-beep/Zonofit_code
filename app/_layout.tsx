@@ -32,12 +32,14 @@ function AuthGate() {
     // segments is empty ([]) when we are on the root index screen (our splash)
     const isOnRoot = (segments as string[]).length === 0;
 
+    const isViewingOnboardingGym = useAuthStore.getState().isViewingOnboardingGym;
+
     // Don't redirect away from the animated splash screen or the onboarding screen.
     // index.tsx handles its own navigation after the animation finishes.
-    if (isOnRoot || inOnboarding) return;
+    if (isOnRoot || inOnboarding || isViewingOnboardingGym) return;
 
     if (!isSignedIn && !inAuthGroup) {
-      router.replace("/sign-in" as any);
+      router.replace("/create-account" as any);
     } else if (isSignedIn && inAuthGroup) {
       router.replace("/");
     }

@@ -28,6 +28,7 @@ interface AuthState {
   verificationPhone: string;
   hasVerifiedOTP: boolean;
   isOnboarded: boolean;
+  isViewingOnboardingGym: boolean;
 
   // Actions
   initialize: () => Promise<void>;
@@ -39,6 +40,7 @@ interface AuthState {
   signOut: () => Promise<void>;
   setError: (msg: string | null) => void;
   setVerificationPhone: (phone: string) => void;
+  setIsViewingOnboardingGym: (val: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -52,9 +54,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   verificationPhone: "",
   hasVerifiedOTP: false,
   isOnboarded: false,
+  isViewingOnboardingGym: false,
 
   setError: (msg) => set({ error: msg }),
   setVerificationPhone: (phone) => set({ verificationPhone: phone }),
+  setIsViewingOnboardingGym: (val) => set({ isViewingOnboardingGym: val }),
 
   initialize: async () => {
     try {

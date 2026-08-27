@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Pressable, TextInput, ScrollView, Image, Status
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useAuthStore } from "@/store/useAuthStore";
 
 const GYMS = [
   {
@@ -36,9 +37,9 @@ export default function ChooseGymScreen() {
   const [search, setSearch] = useState("");
 
   const handleSelectGym = (gymId: string) => {
-    // In a real app, we would store this selection in the auth store or pass as params
-    // Then navigate to order summary (skipping plan selection as per mockup)
-    router.push("/onboarding/order-summary");
+    // Navigate to gym details page in onboarding mode
+    useAuthStore.getState().setIsViewingOnboardingGym(true);
+    router.push(`/gym/${gymId}` as any);
   };
 
   return (
