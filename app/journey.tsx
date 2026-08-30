@@ -49,28 +49,19 @@ export default function JourneyScreen() {
           
           {/* Hero Card */}
           <View style={{ backgroundColor: '#F9FCF8', borderRadius: 24, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#F0F5EE' }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 13, fontWeight: '700', color: '#4C9A2A', marginBottom: 8 }}>Month {DATA.month} of {DATA.totalMonths}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'baseline', marginBottom: 4 }}>
-                  <Text style={{ fontSize: 36, fontWeight: '800', color: '#111827' }}>{DATA.visitsCompleted}</Text>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827' }}> / {DATA.visitsGoal}</Text>
-                </View>
-                <Text style={{ fontSize: 12, color: '#4B5563', marginBottom: 16 }}>Visits completed</Text>
-                
-                <View style={{ flexDirection: 'row', gap: 4, flexWrap: 'wrap' }}>
-                  {[...Array(10)].map((_, i) => (
-                    <View key={i} style={{ width: 14, height: 10, borderRadius: 3, backgroundColor: i < DATA.visitsCompleted ? '#4C9A2A' : '#E5E7EB' }} />
-                  ))}
-                </View>
+            <View style={{ alignItems: 'center', paddingVertical: 10 }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: '#4C9A2A', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Month {DATA.month} of {DATA.totalMonths}</Text>
+              
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', marginBottom: 2 }}>
+                <Text style={{ fontSize: 48, fontWeight: '900', color: '#111827' }}>{DATA.visitsCompleted}</Text>
+                <Text style={{ fontSize: 20, fontWeight: '700', color: '#9CA3AF' }}> / {DATA.visitsGoal}</Text>
               </View>
-
-              <View style={{ width: 100, height: 100, justifyContent: 'center', alignItems: 'center', borderRadius: 50, borderWidth: 6, borderColor: '#4C9A2A' }}>
-                <View style={{ alignItems: 'center' }}>
-                  <Text style={{ fontSize: 26, fontWeight: '800', color: '#111827' }}>{DATA.score}</Text>
-                  <Text style={{ fontSize: 8, color: '#6B7280', marginTop: -2 }}>ZonoFit Score</Text>
-                  <Text style={{ fontSize: 10, fontWeight: '700', color: '#4C9A2A', marginTop: 2 }}>Good</Text>
-                </View>
+              <Text style={{ fontSize: 14, color: '#4B5563', marginBottom: 24, fontWeight: '500' }}>Visits completed</Text>
+              
+              <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
+                {[...Array(10)].map((_, i) => (
+                  <View key={i} style={{ width: 22, height: 12, borderRadius: 6, backgroundColor: i < DATA.visitsCompleted ? '#4C9A2A' : '#E5E7EB' }} />
+                ))}
               </View>
             </View>
 
@@ -107,6 +98,47 @@ export default function JourneyScreen() {
 
           {/* ZonoFit Score Expanded Card */}
           <View style={{ backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#F3F4F6', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 }}>
+            {/* Lock Overlay */}
+            <View style={{ 
+              position: 'absolute', 
+              top: 0, left: 0, right: 0, bottom: 0, 
+              backgroundColor: 'rgba(255, 255, 255, 0.75)', 
+              zIndex: 10,
+              justifyContent: 'center',
+              alignItems: 'center',
+              borderRadius: 20
+            }}>
+              <View style={{ 
+                backgroundColor: 'rgba(255, 255, 255, 0.95)', 
+                paddingHorizontal: 24, 
+                paddingVertical: 16, 
+                borderRadius: 24,
+                alignItems: 'center',
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 8 },
+                shadowOpacity: 0.08,
+                shadowRadius: 16,
+                elevation: 4,
+                borderWidth: 1,
+                borderColor: 'rgba(255, 255, 255, 0.8)',
+                width: '85%',
+                marginTop: 10
+              }}>
+                <View style={{ 
+                  width: 44, height: 44, borderRadius: 22, 
+                  backgroundColor: '#FFFFFF', 
+                  justifyContent: 'center', alignItems: 'center',
+                  position: 'absolute', top: -22,
+                  shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
+                  borderWidth: 1, borderColor: '#F3F4F6'
+                }}>
+                  <Ionicons name="lock-closed-outline" size={20} color="#111827" />
+                </View>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#111827', marginTop: 12, marginBottom: 4 }}>Detailed Score Insights</Text>
+                <Text style={{ fontSize: 11, color: '#6B7280', textAlign: 'center' }}>Unlock deeper analytics in a future update</Text>
+              </View>
+            </View>
+
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>ZonoFit Score</Text>
               <Pressable style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -178,10 +210,6 @@ export default function JourneyScreen() {
           <View style={{ backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#F3F4F6', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
               <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>Your Journey Path</Text>
-              <Pressable style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={{ fontSize: 12, fontWeight: '600', color: '#4C9A2A', marginRight: 2 }}>View journey</Text>
-                <Ionicons name="chevron-forward" size={12} color="#4C9A2A" />
-              </Pressable>
             </View>
             
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative' }}>
@@ -263,10 +291,6 @@ export default function JourneyScreen() {
           <View style={{ backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#F3F4F6', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>Recent Activity</Text>
-              <Pressable style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={{ fontSize: 12, fontWeight: '600', color: '#4C9A2A', marginRight: 2 }}>View activity</Text>
-                <Ionicons name="chevron-forward" size={12} color="#4C9A2A" />
-              </Pressable>
             </View>
             
             <View>

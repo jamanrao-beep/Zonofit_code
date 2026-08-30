@@ -33,12 +33,6 @@ export default function PartnerGymsScreen() {
           <Text className="text-[11px] text-[#6B7280]">ZonoFit Credits.</Text>
         </View>
         <View className="w-16 flex-row justify-end items-center gap-x-3">
-          <Pressable>
-            <Ionicons name="search-outline" size={22} color="#000000" />
-          </Pressable>
-          <Pressable>
-            <Ionicons name="options-outline" size={22} color="#000000" />
-          </Pressable>
         </View>
       </View>
 
@@ -112,7 +106,6 @@ export default function PartnerGymsScreen() {
                   <Text className="text-[#A7F3D0] text-[9px] mb-0.5">Primary Zone</Text>
                   <Text className="text-white text-[11px] font-semibold">3 km Radius</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={16} color="white" />
               </View>
             </View>
           </View>

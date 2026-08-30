@@ -253,8 +253,7 @@ export default function CreditsScreen() {
               </View>
             </View>
 
-            {/* Bottom white capsule box */}
-            <View className="bg-white rounded-[16px] h-9 w-full shadow-sm" />
+
           </View>
         </View>
 
@@ -373,9 +372,6 @@ export default function CreditsScreen() {
           <View className="bg-white rounded-[24px] p-5 border border-black/5" style={styles.cardShadow}>
             <View className="flex-row justify-between items-center mb-4">
               <Text className="text-black font-bold text-[15px]">You Saved with ZonoFit</Text>
-              <Pressable onPress={() => setInfoModalVisible(true)} className="active:opacity-70">
-                <Text className="text-[#1F7A3E] font-bold text-xs">View Details</Text>
-              </Pressable>
             </View>
             <View className="flex-row justify-between items-center pt-2 border-t border-gray-100">
               <View className="flex-1">
