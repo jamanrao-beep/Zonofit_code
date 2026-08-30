@@ -252,28 +252,6 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Trophy / Bonus Credits Card */}
-        <Pressable 
-          onPress={() => router.push("/credits")}
-          className="bg-[#EDF7EC] rounded-[24px] p-6 mb-6 flex-row justify-between overflow-hidden relative border border-black/5 active:opacity-95" 
-          style={styles.cardShadow}
-        >
-          <View className="w-[58%] z-10 py-1">
-            <Text className="text-[#0B6E4F] text-sm font-bold mb-2.5">Keep Going! 💚</Text>
-            <Text className="text-[#0B6E4F] text-[18px] font-black leading-snug">Only 2 visits left</Text>
-            <Text className="text-[#0B6E4F] text-[18px] font-black leading-snug">to earn your</Text>
-            <Text className="text-[#0B6E4F] text-[18px] font-black leading-snug">₹200 bonus credits!</Text>
-          </View>
-
-          {/* Extracted 3D Trophy Image */}
-          <View className="absolute right-1 bottom-1 w-[165px] h-[165px] justify-center items-center pointer-events-none z-10">
-            <Image 
-              source={require("../../assets/images/trophy.png")} 
-              style={{ width: "100%", height: "100%" }} 
-              resizeMode="contain" 
-            />
-          </View>
-        </Pressable>
 
         {/* Motivation Quote Card */}
         <Pressable 
