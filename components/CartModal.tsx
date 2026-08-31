@@ -4,6 +4,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useCartStore } from "@/store/useCartStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useAddressStore } from "@/store/useAddressStore";
+import DeliveryAddressModal from "@/components/DeliveryAddressModal";
 import { apiFetch } from "@/lib/api";
 
 interface CartModalProps {
@@ -15,6 +17,10 @@ export default function CartModal({ visible, onClose }: CartModalProps) {
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [couponInput, setCouponInput] = useState("");
   const [couponLoading, setCouponLoading] = useState(false);
+  const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+
+  const { getSelectedAddress } = useAddressStore();
+  const selectedAddress = getSelectedAddress();
   
   const { 
     cartItems, 
@@ -31,6 +37,18 @@ export default function CartModal({ visible, onClose }: CartModalProps) {
   const handleCheckout = async () => {
     if (cartItems.length === 0) return;
 
+    if (!selectedAddress) {
+      Alert.alert(
+        "Delivery Address Required",
+        "Please specify a delivery address for your physical items.",
+        [
+          { text: "Add Address", onPress: () => setIsAddressModalOpen(true) },
+          { text: "Cancel", style: "cancel" }
+        ]
+      );
+      return;
+    }
+
     setIsCheckingOut(true);
     const discountedPriceInr = getDiscountedPrice();
     
@@ -42,7 +60,7 @@ export default function CartModal({ visible, onClose }: CartModalProps) {
     const result = await checkoutCart(checkoutItems, discountedPriceInr, appliedCoupon?.code);
     
     if (result.success) {
-      Alert.alert("Success!", "Items purchased successfully.");
+      Alert.alert("Success!", `Items will be delivered to ${selectedAddress.flatHouse}, ${selectedAddress.city}.`);
       clearCart();
       onClose();
     } else {
@@ -163,6 +181,32 @@ export default function CartModal({ visible, onClose }: CartModalProps) {
                 )}
               </View>
 
+              {/* Delivery Address Row */}
+              <View className="mb-4 bg-gray-50 p-3.5 rounded-2xl border border-gray-200">
+                <View className="flex-row justify-between items-center mb-1.5">
+                  <View className="flex-row items-center">
+                    <Ionicons name="location-sharp" size={16} color="#059669" />
+                    <Text className="text-xs font-bold text-[#1F2520] ml-1">Delivery Address</Text>
+                  </View>
+                  <Pressable onPress={() => setIsAddressModalOpen(true)}>
+                    <Text className="text-xs font-bold text-emerald-600">{selectedAddress ? "Change" : "+ Add"}</Text>
+                  </Pressable>
+                </View>
+
+                {selectedAddress ? (
+                  <View>
+                    <Text className="text-xs font-semibold text-[#1F2520]">{selectedAddress.fullName} • +91 {selectedAddress.phoneNumber}</Text>
+                    <Text className="text-[11px] text-[#6B756E] mt-0.5" numberOfLines={1}>
+                      {selectedAddress.flatHouse}, {selectedAddress.areaStreet}, {selectedAddress.city} - {selectedAddress.pincode}
+                    </Text>
+                  </View>
+                ) : (
+                  <Pressable onPress={() => setIsAddressModalOpen(true)}>
+                    <Text className="text-xs text-amber-700 font-medium">⚠️ No delivery address selected. Tap to add.</Text>
+                  </Pressable>
+                )}
+              </View>
+
               <View className="pt-4 border-t border-black/5">
                 <View className="flex-row justify-between mb-2">
                   <Text className="text-sm text-[#6B756E]">Total Items:</Text>
@@ -207,6 +251,12 @@ export default function CartModal({ visible, onClose }: CartModalProps) {
           )}
         </View>
       </View>
+
+      <DeliveryAddressModal
+        visible={isAddressModalOpen}
+        onClose={() => setIsAddressModalOpen(false)}
+        initialAddress={selectedAddress}
+      />
     </Modal>
   );
 }

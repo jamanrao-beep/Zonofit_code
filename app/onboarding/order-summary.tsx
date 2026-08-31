@@ -1,18 +1,35 @@
-import React from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView, StatusBar } from "react-native";
+import React, { useState } from "react";
+import { View, Text, StyleSheet, Pressable, ScrollView, StatusBar, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useAddressStore } from "@/store/useAddressStore";
+import DeliveryAddressModal from "@/components/DeliveryAddressModal";
 
 export default function OrderSummaryScreen() {
   const router = useRouter();
   const { completeOnboarding, loading } = useAuthStore();
+  const { getSelectedAddress } = useAddressStore();
+  const selectedAddress = getSelectedAddress();
+
+  const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
 
   const handleProceed = async () => {
-    // Skipping actual payment step as per plan, just complete onboarding
-    await completeOnboarding("Bangalore", "g1", "Quarterly");
-    router.replace("/onboarding/welcome");
+    if (!selectedAddress) {
+      Alert.alert(
+        "Delivery Address Required",
+        "Please provide a delivery address to complete your order.",
+        [
+          { text: "Add Address", onPress: () => setIsAddressModalOpen(true) },
+          { text: "Cancel", style: "cancel" }
+        ]
+      );
+      return;
+    }
+
+    // Navigate to the 3-step Eligibility Verification flow before payment
+    router.push("/onboarding/eligibility");
   };
 
   return (
@@ -54,6 +71,59 @@ export default function OrderSummaryScreen() {
               <Text style={styles.editText}>Edit</Text>
             </Pressable>
           </View>
+        </View>
+
+        {/* Delivery Address Section */}
+        <View style={styles.card}>
+          <View style={styles.row}>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Ionicons name="location-sharp" size={18} color="#1F7A3E" style={{ marginRight: 6 }} />
+              <Text style={styles.sectionHeaderTitle}>Delivery & Billing Address</Text>
+            </View>
+            <Pressable onPress={() => setIsAddressModalOpen(true)}>
+              <Text style={styles.editText}>{selectedAddress ? "Change" : "+ Add"}</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.divider} />
+
+          {selectedAddress ? (
+            <View>
+              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
+                <Text style={styles.addressName}>{selectedAddress.fullName}</Text>
+                <View style={styles.defaultBadge}>
+                  <Text style={styles.defaultBadgeText}>Default</Text>
+                </View>
+              </View>
+              <Text style={styles.addressPhone}>+91 {selectedAddress.phoneNumber}</Text>
+              <Text style={styles.addressText}>
+                {selectedAddress.flatHouse}, {selectedAddress.areaStreet}
+              </Text>
+              {selectedAddress.landmark ? (
+                <Text style={styles.addressLandmark}>Landmark: {selectedAddress.landmark}</Text>
+              ) : null}
+              <Text style={styles.addressLocation}>
+                {selectedAddress.city}, {selectedAddress.state} - {selectedAddress.pincode}
+              </Text>
+
+              {selectedAddress.deliveryInstructions?.instructionsText ? (
+                <View style={styles.instructionsBadge}>
+                  <Ionicons name="information-circle-outline" size={14} color="#065F46" />
+                  <Text style={styles.instructionsBadgeText} numberOfLines={1}>
+                    {selectedAddress.deliveryInstructions.instructionsText}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          ) : (
+            <Pressable
+              style={styles.addAddressPrompt}
+              onPress={() => setIsAddressModalOpen(true)}
+            >
+              <Ionicons name="add-circle-outline" size={24} color="#1F7A3E" />
+              <Text style={styles.addAddressPromptText}>Add your delivery address</Text>
+            </Pressable>
+          )}
         </View>
 
         {/* Pricing */}
@@ -107,6 +177,13 @@ export default function OrderSummaryScreen() {
           <Text style={styles.primaryButtonText}>{loading ? "Processing..." : "Proceed to Payment"}</Text>
         </Pressable>
       </View>
+
+      {/* Delivery Address Modal */}
+      <DeliveryAddressModal
+        visible={isAddressModalOpen}
+        onClose={() => setIsAddressModalOpen(false)}
+        initialAddress={selectedAddress}
+      />
     </SafeAreaView>
   );
 }
@@ -225,6 +302,88 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     fontWeight: "500",
   },
+  sectionHeaderTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  addressName: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#111827",
+    marginRight: 8,
+  },
+  defaultBadge: {
+    backgroundColor: "#F0FDF4",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: "#DCFCE7",
+  },
+  defaultBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#16A34A",
+  },
+  addressPhone: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#4B5563",
+    marginTop: 2,
+    marginBottom: 4,
+  },
+  addressText: {
+    fontSize: 14,
+    color: "#374151",
+    lineHeight: 20,
+  },
+  addressLandmark: {
+    fontSize: 13,
+    color: "#6B7280",
+    marginTop: 2,
+  },
+  addressLocation: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#1F2937",
+    marginTop: 4,
+  },
+  instructionsBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F0FDF4",
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: "#BBF7D0",
+  },
+  instructionsBadgeText: {
+    fontSize: 12,
+    color: "#166534",
+    fontWeight: "500",
+    marginLeft: 6,
+    flex: 1,
+  },
+  addAddressPrompt: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    borderStyle: "dashed",
+    borderRadius: 12,
+    backgroundColor: "#F9FAFB",
+  },
+  addAddressPromptText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#1F7A3E",
+    marginLeft: 8,
+  },
   footer: {
     padding: 24,
     backgroundColor: "#FFFFFF",
@@ -247,3 +406,4 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
 });
+
