@@ -18,6 +18,7 @@ import { useBookingStore } from "@/store/useBookingStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
 import { apiFetch } from "@/lib/api";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useGuestStore } from "@/store/useGuestStore";
 import { colors } from "@/constants/colors";
 import Animated, { FadeInDown, SlideInRight } from "react-native-reanimated";
 import { Animated3DCard } from "@/components/Animated3DCard";
@@ -60,6 +61,7 @@ export default function ExploreScreen() {
   const router = useRouter();
   const { bookVisit, bookingStatus } = useBookingStore();
   const { credits, cashBalance, bookVisitWithCash } = useCreditsStore();
+  const { isGuest, selectGym } = useGuestStore();
 
   const { token } = useAuthStore();
   const [gyms, setGyms] = useState<Gym[]>([]);
@@ -72,10 +74,9 @@ export default function ExploreScreen() {
   
   React.useEffect(() => {
     async function loadGyms() {
-      if (!token) return;
       setIsLoading(true);
       try {
-        const data = await apiFetch("/api/gyms", { token });
+        const data = await apiFetch("/api/gyms", token ? { token } : undefined);
         const gymsData = data.gyms || [];
         const formattedGyms = gymsData.map((g: any) => ({
           id: g.id,
@@ -174,6 +175,22 @@ export default function ExploreScreen() {
   const nearPrimaryGyms = gyms.filter((g) => g.isNearPrimary);
 
   const handleOpenBooking = (gym: Gym) => {
+    if (isGuest) {
+      selectGym(gym.id, gym.name);
+      Alert.alert(
+        "Account Required", 
+        "Create an account and activate a membership to book gym visits.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { 
+            text: "Create Account", 
+            onPress: () => router.push("/(auth)/create-account") 
+          }
+        ]
+      );
+      return;
+    }
+
     if (bookingStatus !== "Not Booked") {
       Alert.alert(
         "Active Booking Exists", 

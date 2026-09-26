@@ -13,12 +13,206 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useUserStore } from "@/store/useUserStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
+import { useGuestStore } from "@/store/useGuestStore";
 
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuthStore();
   const { avatarUrl } = useUserStore();
   const { credits } = useCreditsStore();
+  const { isGuest, hoursRemaining, checkExpiry } = useGuestStore();
+
+  React.useEffect(() => {
+    if (isGuest && checkExpiry()) {
+      router.replace("/guest-expired" as any);
+    }
+  }, [isGuest]);
+
+  if (isGuest) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB" }} edges={["top"]}>
+        {/* Guest Header */}
+        <View className="flex-row justify-between items-center px-5 pt-4 pb-3 bg-white border-b border-gray-100">
+          <View>
+            <View className="flex-row items-center">
+              <Text className="text-[24px] font-black text-[#111827] tracking-tight">ZonoFit</Text>
+              <View className="bg-[#E8F5E9] px-2.5 py-0.5 rounded-full ml-2">
+                <Text className="text-[10px] font-extrabold text-[#1F7A3E] uppercase tracking-wider">Guest Mode</Text>
+              </View>
+            </View>
+            <Text className="text-xs font-medium text-gray-500 mt-0.5">Explore gyms & find your fitness home</Text>
+          </View>
+          <Pressable 
+            onPress={() => router.push("/(auth)/create-account")}
+            className="bg-[#1F7A3E] px-3.5 py-2 rounded-full active:opacity-90 shadow-sm"
+          >
+            <Text className="text-white font-bold text-xs">Create Account</Text>
+          </Pressable>
+        </View>
+
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100, paddingTop: 16 }}
+        >
+          {/* Guest Expiry Countdown Banner */}
+          <View className="bg-amber-50 border border-amber-200 rounded-[20px] p-4 mb-5 flex-row items-center justify-between shadow-sm">
+            <View className="flex-row items-center flex-1 mr-3">
+              <Ionicons name="time-outline" size={20} color="#D97706" />
+              <View className="ml-2.5 flex-1">
+                <Text className="text-xs font-bold text-amber-900">Guest Access Active</Text>
+                <Text className="text-[11px] text-amber-700">Expires in {hoursRemaining} hours</Text>
+              </View>
+            </View>
+            <Pressable 
+              onPress={() => router.push("/(auth)/create-account")}
+              className="bg-white border border-amber-300 px-3 py-1.5 rounded-xl shadow-xs active:bg-amber-100"
+            >
+              <Text className="text-xs font-bold text-amber-900">Sign Up</Text>
+            </Pressable>
+          </View>
+
+          {/* PRD Section 8.2 & 8.3: Hero Action Card */}
+          <View className="bg-[#1F7A3E] rounded-[30px] p-6 mb-6 shadow-md relative overflow-hidden">
+            <View style={{ position: "absolute", top: -20, right: -20, width: 140, height: 140, borderRadius: 70, backgroundColor: "rgba(255,255,255,0.08)" }} />
+            
+            <View className="bg-white/15 px-3 py-1 rounded-full self-start mb-4">
+              <Text className="text-white text-[10px] font-bold tracking-widest uppercase">FITNESS ACCESS NETWORK</Text>
+            </View>
+
+            <Text className="text-white text-2xl font-black tracking-tight leading-8 mb-2">
+              Make Fitness Fit Into Your Real Life
+            </Text>
+
+            <Text className="text-white/85 text-xs font-medium leading-relaxed mb-6">
+              Choose a partner gym, activate your membership, and use flexible access based on your plan across our city network.
+            </Text>
+
+            {/* Primary CTA: Choose Your Primary Gym */}
+            <Pressable 
+              onPress={() => router.push("/explore")}
+              className="bg-white rounded-2xl py-4 px-5 flex-row items-center justify-center shadow-sm active:bg-gray-100"
+            >
+              <Ionicons name="compass" size={20} color="#1F7A3E" style={{ marginRight: 8 }} />
+              <Text className="text-[#1F7A3E] font-black text-sm tracking-wide">
+                Choose Your Primary Gym
+              </Text>
+            </Pressable>
+          </View>
+
+          {/* PRD Section 8.4: Locked Member Sections (No fake 0 values!) */}
+          <View className="bg-white rounded-[26px] p-5 mb-6 border border-gray-200 shadow-sm">
+            <View className="flex-row items-center justify-between mb-3">
+              <View className="flex-row items-center">
+                <Ionicons name="lock-closed" size={16} color="#4B5563" />
+                <Text className="text-sm font-bold text-[#111827] ml-2">Member Dashboard</Text>
+              </View>
+              <View className="bg-gray-100 px-2 py-0.5 rounded-full">
+                <Text className="text-[10px] font-bold text-gray-500 uppercase">Members Only</Text>
+              </View>
+            </View>
+
+            <Text className="text-xs text-gray-500 leading-relaxed mb-4">
+              Your membership dashboard is waiting. Activate your membership to see your visits, credits and booking access.
+            </Text>
+
+            <View className="flex-row gap-x-2.5 mb-4">
+              <View className="flex-1 bg-gray-50 rounded-2xl p-3 items-center border border-gray-100">
+                <Ionicons name="calendar-outline" size={20} color="#9CA3AF" />
+                <Text className="text-xs font-bold text-gray-700 mt-1">Visits</Text>
+                <Text className="text-[10px] text-gray-400 mt-0.5">🔒 Locked</Text>
+              </View>
+              <View className="flex-1 bg-gray-50 rounded-2xl p-3 items-center border border-gray-100">
+                <Ionicons name="flash-outline" size={20} color="#9CA3AF" />
+                <Text className="text-xs font-bold text-gray-700 mt-1">Credits</Text>
+                <Text className="text-[10px] text-gray-400 mt-0.5">🔒 Locked</Text>
+              </View>
+              <View className="flex-1 bg-gray-50 rounded-2xl p-3 items-center border border-gray-100">
+                <Ionicons name="wallet-outline" size={20} color="#9CA3AF" />
+                <Text className="text-xs font-bold text-gray-700 mt-1">Wallet</Text>
+                <Text className="text-[10px] text-gray-400 mt-0.5">🔒 Locked</Text>
+              </View>
+            </View>
+
+            <Pressable 
+              onPress={() => router.push("/explore")}
+              className="bg-[#1F7A3E] rounded-xl py-3 items-center justify-center active:bg-[#165a2d]"
+            >
+              <Text className="text-white font-bold text-xs">Activate Membership</Text>
+            </Pressable>
+          </View>
+
+          {/* PRD Section 8.1: How ZonoFit Works */}
+          <View className="bg-white rounded-[26px] p-5 mb-6 border border-gray-200 shadow-sm">
+            <Text className="text-base font-black text-[#111827] mb-4">How ZonoFit Works</Text>
+            
+            <View className="gap-y-4">
+              <View className="flex-row items-start">
+                <View className="w-8 h-8 rounded-full bg-[#E8F5E9] items-center justify-center mr-3 mt-0.5">
+                  <Text className="text-xs font-bold text-[#1F7A3E]">1</Text>
+                </View>
+                <View className="flex-1">
+                  <Text className="text-sm font-bold text-[#111827]">Choose Your Primary Gym</Text>
+                  <Text className="text-xs text-gray-500 mt-0.5 leading-relaxed">
+                    Pick your home fitness center near work or residence from 100+ verified partner gyms.
+                  </Text>
+                </View>
+              </View>
+
+              <View className="flex-row items-start">
+                <View className="w-8 h-8 rounded-full bg-[#E8F5E9] items-center justify-center mr-3 mt-0.5">
+                  <Text className="text-xs font-bold text-[#1F7A3E]">2</Text>
+                </View>
+                <View className="flex-1">
+                  <Text className="text-sm font-bold text-[#111827]">30-Day Flexible Cycle</Text>
+                  <Text className="text-xs text-gray-500 mt-0.5 leading-relaxed">
+                    Get mandatory visits for your home gym plus flexible credits in every 30-day membership cycle.
+                  </Text>
+                </View>
+              </View>
+
+              <View className="flex-row items-start">
+                <View className="w-8 h-8 rounded-full bg-[#E8F5E9] items-center justify-center mr-3 mt-0.5">
+                  <Text className="text-xs font-bold text-[#1F7A3E]">3</Text>
+                </View>
+                <View className="flex-1">
+                  <Text className="text-sm font-bold text-[#111827]">Workout Across the Network</Text>
+                  <Text className="text-xs text-gray-500 mt-0.5 leading-relaxed">
+                    Travel or explore other gyms anytime using your available ZonoFit credits.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* Quick FAQ Section */}
+          <View className="bg-white rounded-[26px] p-5 mb-8 border border-gray-200 shadow-sm">
+            <Text className="text-base font-black text-[#111827] mb-3">Frequently Asked Questions</Text>
+            
+            <View className="py-2.5 border-b border-gray-100">
+              <Text className="text-xs font-bold text-gray-800">Can I explore without payment?</Text>
+              <Text className="text-[11px] text-gray-500 mt-1 leading-relaxed">
+                Yes! As a guest you can explore all partner gyms, facilities, and plan prices with zero commitment.
+              </Text>
+            </View>
+
+            <View className="py-2.5 border-b border-gray-100">
+              <Text className="text-xs font-bold text-gray-800">Can I try multiple gyms?</Text>
+              <Text className="text-[11px] text-gray-500 mt-1 leading-relaxed">
+                Yes. While you commit mandatory visits to your Primary Gym, your credits unlock visits at any partner gym in the network.
+              </Text>
+            </View>
+
+            <View className="pt-2.5">
+              <Text className="text-xs font-bold text-gray-800">What happens to unused credits?</Text>
+              <Text className="text-[11px] text-gray-500 mt-1 leading-relaxed">
+                Unused credits automatically convert into an INR wallet upon 30-day expiry, valid for 15 days.
+              </Text>
+            </View>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB" }} edges={["top"]}>
@@ -252,7 +446,6 @@ export default function HomeScreen() {
           </View>
         </View>
 
-
         {/* Motivation Quote Card */}
         <Pressable 
           onPress={() => router.push("/challenges")}
@@ -278,7 +471,7 @@ export default function HomeScreen() {
           </View>
 
           {/* 4 Locked Feature Grid Cards */}
-          <View className="flex-row gap-x-2.5 mb-5">
+          <View className="flex-row gap-x-2.5">
             {/* Nutrition */}
             <Pressable 
               onPress={() => router.push("/future/nutrition" as any)}
@@ -327,15 +520,6 @@ export default function HomeScreen() {
               <Text className="text-[11px] font-semibold text-[#1F2520] mt-1 text-center">Community</Text>
             </Pressable>
           </View>
-
-          {/* See All Upcoming Features Button */}
-          <Pressable 
-            onPress={() => router.push("/future" as any)}
-            className="w-full bg-white py-3.5 rounded-2xl flex-row items-center justify-center border border-[#0B6E4F] active:bg-green-50 shadow-sm"
-          >
-            <Text className="text-[#0B6E4F] font-bold text-sm tracking-wide mr-1.5">See All Upcoming Features</Text>
-            <Ionicons name="chevron-forward" size={14} color="#0B6E4F" />
-          </Pressable>
         </View>
 
       </ScrollView>

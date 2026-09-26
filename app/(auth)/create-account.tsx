@@ -4,15 +4,22 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useGuestStore } from "@/store/useGuestStore";
 
 export default function CreateAccountScreen() {
   const router = useRouter();
   const googleSignIn = useAuthStore(state => state.googleSignIn);
   const loading = useAuthStore(state => state.loading);
+  const startGuestSession = useGuestStore(state => state.startGuestSession);
 
   const handleGoogleSignIn = async () => {
     await googleSignIn();
     // Use auth store listener or effect for navigation, or just navigate
+    router.replace("/(tabs)");
+  };
+
+  const handleContinueAsGuest = async () => {
+    await startGuestSession();
     router.replace("/(tabs)");
   };
 
@@ -52,6 +59,24 @@ export default function CreateAccountScreen() {
             onPress={() => router.push("/(auth)/verify-number" as any)}
           >
             <Text style={styles.mobileButtonText}>Continue with Mobile Number</Text>
+          </Pressable>
+
+          {/* PRD Section 7: Guest Login Option */}
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerLabel}>OR</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <Pressable 
+            style={styles.guestButton}
+            onPress={handleContinueAsGuest}
+          >
+            <Ionicons name="compass-outline" size={20} color="#1F7A3E" style={styles.btnIcon} />
+            <View style={{ alignItems: "center" }}>
+              <Text style={styles.guestButtonText}>Continue as Guest</Text>
+              <Text style={styles.guestSubtext}>Explore gyms & understand ZonoFit first</Text>
+            </View>
           </Pressable>
         </View>
 
@@ -143,6 +168,44 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: "#1F7A3E",
+  },
+  dividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 4,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#E5E7EB",
+  },
+  dividerLabel: {
+    paddingHorizontal: 12,
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#9CA3AF",
+  },
+  guestButton: {
+    flexDirection: "row",
+    height: 58,
+    backgroundColor: "#F0FDF4",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#BBF7D0",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+  },
+  guestButtonText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#1F7A3E",
+  },
+  guestSubtext: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: "#166534",
+    marginTop: 1,
   },
   footer: {
     alignItems: "center",
