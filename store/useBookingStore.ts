@@ -70,12 +70,12 @@ export const useBookingStore = create<BookingState>((set, get) => ({
     const timeSinceBookingHours = (now.getTime() - new Date(bookedCreatedAt).getTime()) / (1000 * 60 * 60);
 
     let refundPercentage = 0;
-    if (timeUntilWorkoutHours <= 6) {
-      refundPercentage = 0;
-    } else if (timeSinceBookingHours <= 1) {
-      refundPercentage = 100;
+    if (timeUntilWorkoutHours > 6) {
+      // PRD Section 4 & 5: Early cancellation before 6 hours -> 80% credits refunded
+      refundPercentage = 80;
     } else {
-      refundPercentage = 75;
+      // PRD Section 4 & 6: Late cancellation within 6 hours -> 0% credits refunded
+      refundPercentage = 0;
     }
 
     return {
