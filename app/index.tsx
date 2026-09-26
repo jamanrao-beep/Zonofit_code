@@ -1,4 +1,5 @@
 import { useAuthStore } from "@/store/useAuthStore";
+import { useGuestStore } from "@/store/useGuestStore";
 import { Canvas, Circle, RadialGradient, vec } from "@shopify/react-native-skia";
 import { useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -118,10 +119,23 @@ export default function SplashAnimationScreen() {
     const elapsed = Date.now() - mountTime.current;
     const delay = Math.max(0, MIN_SPLASH_MS - elapsed);
 
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
       const { isOnboarded } = useAuthStore.getState();
       if (isSignedInRef.current && isOnboarded) {
         router.replace("/(tabs)");
+        return;
+      }
+
+      // Check guest session status per PRD Section 6
+      const { initializeGuest } = useGuestStore.getState();
+      const guestStatus = await initializeGuest();
+
+      if (guestStatus.isGuest) {
+        if (guestStatus.isExpired) {
+          router.replace("/guest-expired" as any);
+        } else {
+          router.replace("/(tabs)");
+        }
       } else {
         router.replace("/(auth)/create-account");
       }
