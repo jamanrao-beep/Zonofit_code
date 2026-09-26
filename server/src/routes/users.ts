@@ -95,11 +95,11 @@ router.get(
             membership: user.membership
                 ? {
                     status: user.membership.status,
-                    tier: user.membership.plan.tier,
-                    planName: user.membership.plan.name,
+                    tier: user.membership.plan?.tier || "STANDARD",
+                    planName: user.membership.plan?.name || "Standard",
                     startDate: user.membership.startDate,
                     endDate: user.membership.endDate,
-                    monthlyCredits: user.membership.plan.monthlyCredits,
+                    monthlyCredits: user.membership.plan?.monthlyCredits || 0,
                 }
                 : null,
             stats: {
