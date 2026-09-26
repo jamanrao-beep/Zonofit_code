@@ -376,7 +376,7 @@ export default function ExploreScreen() {
           <Text className="text-sm font-medium text-[#6B7280] mt-1">Find experiences, products & more</Text>
         </View>
         <Pressable 
-          onPress={() => router.push("/booking-history" as any)}
+          onPress={() => router.push("/notifications" as any)}
           className="w-10 h-10 rounded-full border border-gray-200 items-center justify-center relative bg-white active:bg-gray-100 shadow-sm"
         >
           <Ionicons name="notifications-outline" size={20} color="#111827" />

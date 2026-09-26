@@ -224,7 +224,7 @@ export default function HomeScreen() {
         </View>
         <View className="flex-row items-center gap-x-3">
           <Pressable 
-            onPress={() => router.push("/booking-history")}
+            onPress={() => router.push("/notifications" as any)}
             className="w-10 h-10 rounded-full border border-gray-200 items-center justify-center relative bg-white active:bg-gray-100"
           >
             <Ionicons name="notifications-outline" size={20} color="#111827" />
