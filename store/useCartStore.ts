@@ -3,12 +3,15 @@ import { create } from "zustand";
 export interface ShopItem {
   id: string;
   name: string;
-  brand: string;
+  brand?: string;
   price: number;
   originalPrice?: number;
   image: string;
   weight?: string;
   flavor?: string;
+  selectedSize?: string;
+  selectedColor?: string;
+  variant?: string;
 }
 
 export interface CartItem {

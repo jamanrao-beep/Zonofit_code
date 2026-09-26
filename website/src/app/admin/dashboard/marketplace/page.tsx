@@ -16,7 +16,9 @@ export default function AdminMarketplacePage() {
     pricePaise: "",
     imageUrl: "",
     inStock: true,
-    storeCategory: "ZONOFIT_COMMON"
+    storeCategory: "ZONOFIT_COMMON",
+    sizes: "",
+    colors: ""
   });
   const [saving, setSaving] = useState(false);
 
@@ -51,13 +53,19 @@ export default function AdminMarketplacePage() {
       const url = editItemId ? `/api/admin/marketplace/${editItemId}` : "/api/admin/marketplace";
       const method = editItemId ? "PUT" : "POST";
 
+      const payload = {
+        ...formData,
+        sizes: formData.sizes ? formData.sizes.split(",").map(s => s.trim()).filter(Boolean) : [],
+        colors: formData.colors ? formData.colors.split(",").map(c => c.trim()).filter(Boolean) : []
+      };
+
       const res = await fetch(url, {
         method,
         headers: { 
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json"
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload)
       });
       
       if (!res.ok) {
@@ -70,7 +78,7 @@ export default function AdminMarketplacePage() {
       alert(editItemId ? "Marketplace item updated successfully!" : "Marketplace item added successfully!");
       setShowForm(false);
       setEditItemId(null);
-      setFormData({ title: "", description: "", pricePaise: "", imageUrl: "", inStock: true, storeCategory: "ZONOFIT_COMMON" });
+      setFormData({ title: "", description: "", pricePaise: "", imageUrl: "", inStock: true, storeCategory: "ZONOFIT_COMMON", sizes: "", colors: "" });
       fetchItems();
     } catch (err) {
       console.error(err);
@@ -109,7 +117,9 @@ export default function AdminMarketplacePage() {
       pricePaise: item.pricePaise.toString(),
       imageUrl: item.imageUrl,
       inStock: item.inStock,
-      storeCategory: item.storeCategory || "ZONOFIT_COMMON"
+      storeCategory: item.storeCategory || "ZONOFIT_COMMON",
+      sizes: Array.isArray(item.sizes) ? item.sizes.join(", ") : (item.sizes || ""),
+      colors: Array.isArray(item.colors) ? item.colors.join(", ") : (item.colors || "")
     });
     setEditItemId(item.id);
     setShowForm(true);
@@ -129,7 +139,7 @@ export default function AdminMarketplacePage() {
           onClick={() => {
             if (!showForm) {
               setEditItemId(null);
-              setFormData({ title: "", description: "", pricePaise: "", imageUrl: "", inStock: true, storeCategory: "ZONOFIT_COMMON" });
+              setFormData({ title: "", description: "", pricePaise: "", imageUrl: "", inStock: true, storeCategory: "ZONOFIT_COMMON", sizes: "", colors: "" });
             }
             setShowForm(!showForm);
           }}
@@ -193,6 +203,33 @@ export default function AdminMarketplacePage() {
                 <p className="text-xs text-gray-400 mt-1">Paste the full public AWS S3 link here.</p>
               </div>
             </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-bold text-black mb-2">Available Sizes</label>
+                <input 
+                  type="text" 
+                  name="sizes"
+                  value={formData.sizes}
+                  onChange={handleInputChange}
+                  placeholder="e.g. S, M, L, XL, 2XL"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+                />
+                <p className="text-xs text-gray-400 mt-1">Comma separated (e.g. S, M, L, XL, 2XL or 1kg, 2kg)</p>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-black mb-2">Available Colors</label>
+                <input 
+                  type="text" 
+                  name="colors"
+                  value={formData.colors}
+                  onChange={handleInputChange}
+                  placeholder="e.g. Onion, Grey, Black"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+                />
+                <p className="text-xs text-gray-400 mt-1">Comma separated (e.g. Onion, Grey, Black)</p>
+              </div>
+            </div>
             
             <div>
               <label className="block text-sm font-bold text-black mb-2">Store Category</label>
@@ -249,6 +286,32 @@ export default function AdminMarketplacePage() {
                 </span>
               </div>
               <p className="text-sm text-gray-500 flex-1">{item.description}</p>
+
+              {/* Sizes & Colors preview */}
+              {((item.sizes && item.sizes.length > 0) || (item.colors && item.colors.length > 0)) && (
+                <div className="mt-3 pt-3 border-t border-gray-100 space-y-1.5">
+                  {item.colors && item.colors.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 items-center">
+                      <span className="text-[10px] font-bold text-gray-400 uppercase mr-1">Colors:</span>
+                      {item.colors.map((c: string) => (
+                        <span key={c} className="text-[11px] bg-purple-50 text-purple-700 px-2 py-0.5 rounded-md font-semibold border border-purple-100">
+                          {c}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {item.sizes && item.sizes.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 items-center">
+                      <span className="text-[10px] font-bold text-gray-400 uppercase mr-1">Sizes:</span>
+                      {item.sizes.map((s: string) => (
+                        <span key={s} className="text-[11px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md font-semibold border border-blue-100">
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               
               <div className="mt-4 pt-4 border-t border-gray-50 flex items-center justify-between">
                 <span className={`text-xs font-bold px-2 py-1 rounded-md ${item.inStock ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>

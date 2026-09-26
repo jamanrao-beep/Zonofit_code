@@ -12,9 +12,37 @@ export interface Transaction {
   date: string;
 }
 
+export interface INRWalletInfo {
+  balanceINR: number;
+  daysRemaining: number;
+  isValid: boolean;
+  expiryDate?: string | null;
+}
+
+export interface MembershipLifecycleInfo {
+  status: string;
+  isExpired: boolean;
+  tier: string;
+  planName: string;
+  gymName: string;
+  endDate: string;
+  daysRemaining: number;
+  cycleNumber: number;
+  maxCycles: number;
+  cyclesRemaining: number;
+  mandatoryVisits: number;
+  completedVisits: number;
+  mandatoryVisitsRemaining: number;
+  canRepurchase: boolean;
+  canBuyAdditionalCredits: boolean;
+  creditExpiryDate?: string;
+}
+
 interface CreditsState {
   credits: number;
   cashBalance: number;
+  inrWallet: INRWalletInfo | null;
+  membershipInfo: MembershipLifecycleInfo | null;
   transactions: Transaction[];
   loading: boolean;
   
@@ -36,6 +64,8 @@ interface CreditsState {
 export const useCreditsStore = create<CreditsState>((set, get) => ({
   credits: 0,
   cashBalance: 0,
+  inrWallet: null,
+  membershipInfo: null,
   transactions: [],
   loading: false,
 
@@ -46,6 +76,8 @@ export const useCreditsStore = create<CreditsState>((set, get) => ({
       set({
         credits: data.balance || 0,
         cashBalance: (data.convertibleCashBalanceINR || 0) + (data.nonConvertibleCashBalanceINR || 0),
+        inrWallet: data.inrWallet || null,
+        membershipInfo: data.membership || null,
         loading: false,
       });
       // Optionally fetch the first page of transactions automatically
