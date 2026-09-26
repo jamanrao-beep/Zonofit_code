@@ -58,7 +58,7 @@ interface CreditsState {
   convertCashToCredits: (creditsToBuy: number) => Promise<{ success: boolean; message?: string }>;
   deductCredits: (creditsAmount: number, description: string) => Promise<{ success: boolean; message?: string }>;
   addTransaction: (type: "debit" | "credit", amount: number, currency: "credits" | "cash", description: string) => void;
-  checkoutCart: (items: { itemId: string; quantity: number }[], totalCostInr: number, couponCode?: string) => Promise<{ success: boolean; message?: string }>;
+  checkoutCart: (items: { itemId: string; quantity: number }[], totalCostInr: number, couponCode?: string, creditsToUse?: number) => Promise<{ success: boolean; message?: string; breakdown?: any }>;
 }
 
 export const useCreditsStore = create<CreditsState>((set, get) => ({
@@ -436,23 +436,26 @@ export const useCreditsStore = create<CreditsState>((set, get) => ({
     }
   },
 
-  checkoutCart: async (items, totalCostInr, couponCode) => {
-    const { cashBalance } = get();
-
-    if (cashBalance < totalCostInr) {
-      return { success: false, message: "Insufficient Converted Cash Balance." };
-    }
-    
+  checkoutCart: async (items, totalCostInr, couponCode, creditsToUse = 0) => {
     try {
       const token = useAuthStore.getState().token;
-      await apiFetch("/api/marketplace/checkout", {
+      const data = await apiFetch("/api/marketplace/checkout", {
         method: "POST",
         token,
-        body: JSON.stringify({ items, couponCode }),
+        body: JSON.stringify({ items, couponCode, creditsToUse }),
       });
       
-      set((state) => ({ cashBalance: state.cashBalance - totalCostInr }));
-      return { success: true };
+      if (data.breakdown) {
+        const inrUsed = (data.breakdown.inrPaiseUsed || 0) / 100;
+        const creditsUsed = data.breakdown.creditsUsed || 0;
+        set((state) => ({ 
+          cashBalance: Math.max(0, state.cashBalance - inrUsed),
+          credits: Math.max(0, state.credits - creditsUsed),
+        }));
+      } else {
+        set((state) => ({ cashBalance: Math.max(0, state.cashBalance - totalCostInr) }));
+      }
+      return { success: true, breakdown: data.breakdown };
     } catch (err: any) {
       return { success: false, message: err.message || "Failed to process checkout." };
     }
@@ -506,7 +509,7 @@ export const useCreditsStore = create<CreditsState>((set, get) => ({
     }
   },
 
-  deductCredits: async (creditsAmount, description) => {
+  deductCredits: async (creditsAmount: number, description: string) => {
     try {
       const token = useAuthStore.getState().token;
       const data = await apiFetch("/api/credits/deduct", {

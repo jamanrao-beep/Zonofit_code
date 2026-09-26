@@ -144,7 +144,11 @@ router.post(
       return;
     }
 
-    const { items, couponCode } = req.body as { items: { itemId: string; quantity: number }[]; couponCode?: string };
+    const { items, couponCode, creditsToUse = 0 } = req.body as { 
+      items: { itemId: string; quantity: number }[]; 
+      couponCode?: string;
+      creditsToUse?: number;
+    };
 
     try {
       const result = await prisma.$transaction(async (tx) => {
@@ -203,33 +207,38 @@ router.post(
         }
 
         const totalAvailableCash = wallet.convertibleCashBalanceInPaise + wallet.nonConvertibleCashBalanceInPaise;
+        
+        // 1. STEP 1: Auto-apply INR Balance
+        const inrPaiseUsed = Math.min(totalAvailableCash, totalPaise);
+        const remainderAfterInrPaise = totalPaise - inrPaiseUsed;
 
-        if (totalAvailableCash < totalPaise) {
-          throw createError(
-            `Insufficient cash balance. You need ₹${totalPaise / 100}, but you have ₹${
-              totalAvailableCash / 100
-            }. Convert credits or top up cash first.`,
-            400,
-            "InsufficientCash"
-          );
-        }
+        // 2. STEP 2: User-controlled credits (1 Credit = 1000 paise / ₹10)
+        const creditValuePaise = 1000;
+        const maxUsableCredits = Math.floor(remainderAfterInrPaise / creditValuePaise);
+        const actualCreditsToUse = Math.min(Math.max(0, Number(creditsToUse) || 0), wallet.balance, maxUsableCredits);
+        const creditsPaiseUsed = actualCreditsToUse * creditValuePaise;
 
-        let remainingToDeduct = totalPaise;
+        // 3. STEP 3: Remaining amount for payment gateway
+        const onlinePaidPaise = remainderAfterInrPaise - creditsPaiseUsed;
+
+        // Deduct INR balance (nonConvertible first, then convertible)
+        let remainingInrToDeduct = inrPaiseUsed;
         let deductNonConvertible = 0;
         let deductConvertible = 0;
 
-        if (wallet.nonConvertibleCashBalanceInPaise >= remainingToDeduct) {
-          deductNonConvertible = remainingToDeduct;
+        if (wallet.nonConvertibleCashBalanceInPaise >= remainingInrToDeduct) {
+          deductNonConvertible = remainingInrToDeduct;
         } else {
           deductNonConvertible = wallet.nonConvertibleCashBalanceInPaise;
-          deductConvertible = remainingToDeduct - deductNonConvertible;
+          deductConvertible = remainingInrToDeduct - deductNonConvertible;
         }
 
         await tx.creditWallet.update({
           where: { id: wallet.id },
           data: { 
             nonConvertibleCashBalanceInPaise: { decrement: deductNonConvertible },
-            convertibleCashBalanceInPaise: { decrement: deductConvertible }
+            convertibleCashBalanceInPaise: { decrement: deductConvertible },
+            balance: { decrement: actualCreditsToUse },
           },
         });
 
@@ -247,12 +256,22 @@ router.post(
           )
         );
 
-        return orders;
+        return {
+          orders,
+          paymentBreakdown: {
+            totalPaise,
+            inrPaiseUsed,
+            creditsUsed: actualCreditsToUse,
+            creditsPaiseUsed,
+            onlinePaidPaise,
+          },
+        };
       });
 
       res.status(201).json({
         success: true,
-        orders: result,
+        orders: result.orders,
+        breakdown: result.paymentBreakdown,
         message: `Successfully checked out ${items.length} items.`,
       });
     } catch (err: any) {

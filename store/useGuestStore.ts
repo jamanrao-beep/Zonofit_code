@@ -28,7 +28,9 @@ interface GuestState {
   selectGym: (gymId: string, gymName?: string) => Promise<void>;
   convertGuest: () => Promise<void>;
   clearGuestSession: () => Promise<void>;
+  endGuestSession: () => Promise<void>;
   checkExpiry: () => boolean;
+  getHoursRemaining: () => number;
 }
 
 export const useGuestStore = create<GuestState>((set, get) => ({
@@ -147,6 +149,27 @@ export const useGuestStore = create<GuestState>((set, get) => ({
       selectedGymId: null,
       selectedGymName: null,
     });
+  },
+
+  endGuestSession: async () => {
+    await SecureStore.deleteItemAsync(GUEST_STORAGE_KEY);
+    set({
+      isGuest: false,
+      session: null,
+      isExpired: false,
+      hoursRemaining: 0,
+      selectedGymId: null,
+      selectedGymName: null,
+    });
+  },
+
+  getHoursRemaining: () => {
+    const { session } = get();
+    if (!session) return 0;
+    const now = Date.now();
+    if (now >= session.expiryTime) return 0;
+    const diffMs = session.expiryTime - now;
+    return Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60)));
   },
 
   checkExpiry: () => {
