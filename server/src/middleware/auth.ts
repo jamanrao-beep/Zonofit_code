@@ -74,3 +74,28 @@ export async function requireAuth(
     });
   }
 }
+
+/**
+ * optionalAuth — Express middleware
+ * Extracts token if provided, but does not block guests if omitted or invalid.
+ */
+export async function optionalAuth(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.split(" ")[1];
+      const payload = verifyToken(token);
+      if (payload && payload.dbUserId) {
+        req.dbUserId = payload.dbUserId;
+      }
+    }
+  } catch (err) {
+    // Guest or expired token — proceed without dbUserId
+  }
+  next();
+}
+
