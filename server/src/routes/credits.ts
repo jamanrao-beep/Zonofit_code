@@ -38,7 +38,10 @@ router.get(
         user: {
           include: {
             membership: {
-              include: { plan: true },
+              include: { 
+                plan: true,
+                primaryGym: { select: { id: true, name: true, city: true, address: true } }
+              },
             },
           },
         },
@@ -50,20 +53,57 @@ router.get(
       return;
     }
 
+    const now = new Date();
+    const convertibleCashINR = wallet.convertibleCashBalanceInPaise / 100;
+    const isCashValid = !!(wallet.cashExpiryDate && wallet.cashExpiryDate > now && convertibleCashINR > 0);
+    const inrWalletDaysRemaining = isCashValid
+      ? Math.ceil((wallet.cashExpiryDate!.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      : 0;
+
     const membership = wallet.user.membership;
+    const isExpired = membership ? (membership.endDate < now || membership.status === "EXPIRED") : true;
+    const daysRemaining = membership && !isExpired
+      ? Math.ceil((membership.endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      : 0;
+
+    const cycleNumber = membership?.cycleNumber || 1;
+    const maxCycles = 12;
+    const cyclesRemaining = Math.max(0, maxCycles - cycleNumber);
+    const mandatoryVisits = membership?.mandatoryVisits || 10;
+    const completedVisits = membership?.completedVisits || 0;
+    const mandatoryVisitsRemaining = Math.max(0, mandatoryVisits - completedVisits);
+
+    const canRepurchase = !!membership && isExpired && cycleNumber < maxCycles;
+    const canBuyAdditionalCredits = !!membership && !isExpired;
 
     res.json({
       balance: wallet.balance,
       displayValueINR: creditsToDisplayINR(wallet.balance),
-      convertibleCashBalanceINR: wallet.convertibleCashBalanceInPaise / 100,
+      convertibleCashBalanceINR: convertibleCashINR,
       nonConvertibleCashBalanceINR: wallet.nonConvertibleCashBalanceInPaise / 100,
+      inrWallet: {
+        balanceINR: convertibleCashINR,
+        daysRemaining: inrWalletDaysRemaining,
+        isValid: isCashValid,
+        expiryDate: wallet.cashExpiryDate,
+      },
       membership: membership
         ? {
-            status: membership.status,
-            tier: membership.plan.tier,
-            planName: membership.plan.name,
+            status: isExpired ? "EXPIRED" : membership.status,
+            isExpired,
+            tier: membership.plan ? membership.plan.tier : "STANDARD",
+            planName: membership.plan ? membership.plan.name : "Plan",
+            gymName: membership.primaryGym?.name || "ZonoFit Partner Gym",
             endDate: membership.endDate,
-            // Credits expire 15 days after membership end
+            daysRemaining,
+            cycleNumber,
+            maxCycles,
+            cyclesRemaining,
+            mandatoryVisits,
+            completedVisits,
+            mandatoryVisitsRemaining,
+            canRepurchase,
+            canBuyAdditionalCredits,
             creditExpiryDate: new Date(
               membership.endDate.getTime() +
                 CREDIT_CONSTANTS.CREDITS_EXPIRE_DAYS_AFTER_MEMBERSHIP *
@@ -197,7 +237,9 @@ router.post(
   "/create-order",
   requireAuth,
   [
-    body("credits").isInt({ min: 1 }).withMessage("Credits must be a positive integer."),
+    body("credits")
+      .isInt({ min: 10 })
+      .withMessage("Minimum purchase is 10 credits and must be a whole number."),
   ],
   async (req: Request, res: Response): Promise<void> => {
     const errors = validationResult(req);
@@ -207,6 +249,24 @@ router.post(
     }
 
     const { credits } = req.body;
+
+    // Verify user has an active membership (PRD Rule #6, #7, #11)
+    const membership = await prisma.membership.findFirst({
+      where: {
+        userId: req.dbUserId!,
+        status: "ACTIVE",
+        endDate: { gt: new Date() },
+      },
+    });
+
+    if (!membership) {
+      res.status(400).json({
+        error: "ActiveMembershipRequired",
+        message: "Additional credits can only be purchased while your membership is active.",
+      });
+      return;
+    }
+
     const settings = await getSystemSettings();
     const amountINR = credits * settings.creditPurchasePrice;
     const amountPaise = amountINR * 100;

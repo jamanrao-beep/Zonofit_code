@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { query, validationResult } from "express-validator";
 import prisma from "../lib/prisma";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, optionalAuth } from "../middleware/auth";
 
 const router = Router();
 
@@ -15,10 +15,11 @@ const router = Router();
  *   - search (name/address text search)
  *
  * Returns gyms sorted by distance when lat/lng are provided.
+ * Supports guest exploration per PRD Section 4.3.
  */
 router.get(
   "/",
-  requireAuth,
+  optionalAuth,
   [
     query("lat").optional().isFloat({ min: -90, max: 90 }),
     query("lng").optional().isFloat({ min: -180, max: 180 }),
@@ -253,7 +254,7 @@ router.get(
  */
 router.get(
   "/:id",
-  requireAuth,
+  optionalAuth,
   async (req: Request, res: Response): Promise<void> => {
     const gymId = req.params.id as string;
     const gym = await prisma.gym.findUnique({

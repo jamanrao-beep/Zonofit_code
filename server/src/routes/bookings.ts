@@ -360,18 +360,16 @@ router.delete(
       const timeSinceBookingHours = timeSinceBookingMs / (1000 * 60 * 60);
 
       let refundPercentage = 0;
+      let cancellationType: "EARLY" | "LATE" = "LATE";
 
-      if (timeUntilWorkoutHours <= 6) {
-        // Booking is locked - 100% cancellation charge
-        refundPercentage = 0;
+      if (timeUntilWorkoutHours > 6) {
+        // PRD Section 4 & 5: Early cancellation before 6 hours -> 80% credits returned, 20% cancellation charge
+        refundPercentage = 80;
+        cancellationType = "EARLY";
       } else {
-        if (timeSinceBookingHours <= 1) {
-          // Free cancellation within 1 hour of booking
-          refundPercentage = 100;
-        } else {
-          // Partial cancellation fee (25% charge)
-          refundPercentage = 75;
-        }
+        // PRD Section 4 & 6: Late cancellation at or after 6 hours -> 0% credits returned
+        refundPercentage = 0;
+        cancellationType = "LATE";
       }
 
       await tx.booking.update({
@@ -381,6 +379,7 @@ router.delete(
 
       const refundedCredits = Math.floor(booking.creditsDeducted * (refundPercentage / 100));
       let newBalance = 0;
+      const gymName = booking.gym.name;
 
       if (refundedCredits > 0) {
         const wallet = await tx.creditWallet.update({
@@ -389,7 +388,6 @@ router.delete(
         });
         
         newBalance = wallet.balance;
-        const gymName = booking.gym.name;
 
         await tx.creditTransaction.create({
           data: {
@@ -398,7 +396,7 @@ router.delete(
             type: "REFUND",
             amount: refundedCredits,
             balanceAfter: wallet.balance,
-            description: `Booking cancelled at ${gymName} — ${refundedCredits} credits refunded`,
+            description: `Early cancellation at ${gymName} — 80% (${refundedCredits} credits) refunded. 20% cancellation fee.`,
             bookingId: booking.id,
           },
         });
@@ -409,11 +407,29 @@ router.delete(
         newBalance = walletRecord?.balance || 0;
       }
 
-      return { refundedCredits, newBalance };
+      return { refundedCredits, newBalance, cancellationType, gymName };
     });
 
+    // Send notification per Notifications PRD Section 4.4 & 4.5
+    if (result.cancellationType === "EARLY") {
+      sendPushNotification(
+        req.dbUserId!,
+        "Booking Cancelled ℹ️",
+        `Your visit at ${result.gymName} was cancelled. ${result.refundedCredits} credits (80%) have been returned to your wallet.`
+      ).catch(e => console.error(e));
+    } else {
+      sendPushNotification(
+        req.dbUserId!,
+        "Late Cancellation ⚠️",
+        `Your visit at ${result.gymName} was cancelled within 6 hours. As per policy, 0 credits are refunded.`
+      ).catch(e => console.error(e));
+    }
+
     res.json({
-      message: "Booking cancelled successfully.",
+      message: result.cancellationType === "EARLY" 
+        ? "Booking cancelled. 80% credits refunded." 
+        : "Late cancellation recorded. No credits refunded as cancellation was within 6 hours.",
+      cancellationType: result.cancellationType,
       refundedCredits: result.refundedCredits,
       newCreditBalance: result.newBalance,
     });
