@@ -1,9 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, ScrollView, Pressable, Modal, ActivityIndicator, TextInput, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useCartStore } from "@/store/useCartStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useGuestStore } from "@/store/useGuestStore";
 import { useAddressStore } from "@/store/useAddressStore";
 import DeliveryAddressModal from "@/components/DeliveryAddressModal";
 import { apiFetch } from "@/lib/api";
@@ -14,11 +16,15 @@ interface CartModalProps {
 }
 
 export default function CartModal({ visible, onClose }: CartModalProps) {
+  const router = useRouter();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [couponInput, setCouponInput] = useState("");
   const [couponLoading, setCouponLoading] = useState(false);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  const [creditsToUse, setCreditsToUse] = useState(0);
 
+  const { isGuest } = useGuestStore();
+  const { cashBalance, credits, checkoutCart } = useCreditsStore();
   const { getSelectedAddress } = useAddressStore();
   const selectedAddress = getSelectedAddress();
   
@@ -34,8 +40,45 @@ export default function CartModal({ visible, onClose }: CartModalProps) {
     clearCoupon 
   } = useCartStore();
 
+  const discountedPriceInr = getDiscountedPrice();
+  // Universal Checkout Step 1: Auto-applied INR Balance
+  const autoInrUsed = Math.min(cashBalance, discountedPriceInr);
+  const remainingAfterInr = discountedPriceInr - autoInrUsed;
+  
+  // Universal Checkout Step 2: User-controlled credits (1 Credit = ₹10)
+  const maxCreditsAllowed = Math.min(credits, Math.floor(remainingAfterInr / 10));
+
+  useEffect(() => {
+    // Keep creditsToUse bounded
+    if (creditsToUse > maxCreditsAllowed) {
+      setCreditsToUse(maxCreditsAllowed);
+    }
+  }, [maxCreditsAllowed, creditsToUse]);
+
+  const creditsValueUsed = creditsToUse * 10;
+  // Universal Checkout Step 3: Remaining amount to pay via gateway
+  const finalPayableOnline = Math.max(0, remainingAfterInr - creditsValueUsed);
+
   const handleCheckout = async () => {
     if (cartItems.length === 0) return;
+
+    if (isGuest) {
+      Alert.alert(
+        "Account Required",
+        "Please create a free ZonoFit account to complete your purchase.",
+        [
+          { 
+            text: "Create Account", 
+            onPress: () => {
+              onClose();
+              router.push("/(auth)/create-account");
+            } 
+          },
+          { text: "Cancel", style: "cancel" }
+        ]
+      );
+      return;
+    }
 
     if (!selectedAddress) {
       Alert.alert(
@@ -50,17 +93,18 @@ export default function CartModal({ visible, onClose }: CartModalProps) {
     }
 
     setIsCheckingOut(true);
-    const discountedPriceInr = getDiscountedPrice();
     
     // Map items to the format required by the backend
     const checkoutItems = cartItems.map(ci => ({ itemId: ci.item.id, quantity: ci.quantity }));
     
-    // Using checkoutCart from useCreditsStore which calls the backend checkout endpoint
-    const { checkoutCart } = useCreditsStore.getState();
-    const result = await checkoutCart(checkoutItems, discountedPriceInr, appliedCoupon?.code);
+    const result = await checkoutCart(checkoutItems, discountedPriceInr, appliedCoupon?.code, creditsToUse);
     
     if (result.success) {
-      Alert.alert("Success!", `Items will be delivered to ${selectedAddress.flatHouse}, ${selectedAddress.city}.`);
+      Alert.alert(
+        "Order Confirmed!", 
+        `Items will be delivered to ${selectedAddress.flatHouse}, ${selectedAddress.city}.` +
+        (finalPayableOnline > 0 ? `\nPaid Online: ₹${finalPayableOnline}` : "\nFully covered with INR & Credits!")
+      );
       clearCart();
       onClose();
     } else {
@@ -223,13 +267,71 @@ export default function CartModal({ visible, onClose }: CartModalProps) {
                 </View>
                 {appliedCoupon && (
                   <View className="flex-row justify-between mb-2">
-                    <Text className="text-sm text-emerald-600 font-bold">Discount:</Text>
+                    <Text className="text-sm text-emerald-600 font-bold">Discount ({appliedCoupon.code}):</Text>
                     <Text className="text-sm text-emerald-600 font-bold">-₹{(getTotalPrice() - getDiscountedPrice())}</Text>
                   </View>
                 )}
-                <View className="flex-row justify-between mb-6">
-                  <Text className="text-base font-bold text-[#1F2520]">Grand Total:</Text>
-                  <Text className="text-xl font-black text-emerald-600">₹{getDiscountedPrice()}</Text>
+
+                {/* Universal Checkout Step 1: Auto-Applied INR Balance */}
+                <View className="bg-emerald-50/70 p-3 rounded-xl border border-emerald-100 my-2">
+                  <View className="flex-row justify-between items-center">
+                    <View>
+                      <Text className="text-xs font-bold text-emerald-900">1. Auto-Applied INR Balance</Text>
+                      <Text className="text-[10px] text-emerald-700">₹{cashBalance} available in wallet</Text>
+                    </View>
+                    <Text className="text-sm font-extrabold text-emerald-700">
+                      {autoInrUsed > 0 ? `-₹${autoInrUsed}` : "₹0"}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Universal Checkout Step 2: User-Controlled Credits */}
+                {credits > 0 && remainingAfterInr > 0 && (
+                  <View className="bg-blue-50/70 p-3 rounded-xl border border-blue-100 mb-2">
+                    <View className="flex-row justify-between items-center mb-2">
+                      <View>
+                        <Text className="text-xs font-bold text-blue-900">2. Use ZonoFit Credits</Text>
+                        <Text className="text-[10px] text-blue-700">{credits} Credits available (1 Cr = ₹10)</Text>
+                      </View>
+                      <Pressable 
+                        onPress={() => setCreditsToUse(maxCreditsAllowed)}
+                        className="bg-blue-600 px-2.5 py-1 rounded-lg"
+                      >
+                        <Text className="text-[10px] font-bold text-white">Use Max</Text>
+                      </Pressable>
+                    </View>
+                    <View className="flex-row justify-between items-center">
+                      <View className="flex-row items-center bg-white rounded-lg px-2 py-0.5 border border-blue-200">
+                        <Pressable 
+                          onPress={() => setCreditsToUse(Math.max(0, creditsToUse - 1))}
+                          className="w-7 h-7 items-center justify-center"
+                        >
+                          <Ionicons name="remove" size={14} color="#1D4ED8" />
+                        </Pressable>
+                        <Text className="text-xs font-bold text-blue-900 px-2 min-w-[28px] text-center">{creditsToUse}</Text>
+                        <Pressable 
+                          onPress={() => setCreditsToUse(Math.min(maxCreditsAllowed, creditsToUse + 1))}
+                          className="w-7 h-7 items-center justify-center"
+                        >
+                          <Ionicons name="add" size={14} color="#1D4ED8" />
+                        </Pressable>
+                      </View>
+                      <Text className="text-xs font-bold text-blue-700">
+                        {creditsValueUsed > 0 ? `-₹${creditsValueUsed}` : "₹0"}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+
+                {/* Universal Checkout Step 3: Payable Online */}
+                <View className="flex-row justify-between items-center mt-2 mb-4 pt-2 border-t border-dashed border-gray-300">
+                  <View>
+                    <Text className="text-xs uppercase font-extrabold text-gray-500 tracking-wider">3. Payable Online</Text>
+                    <Text className="text-[11px] text-gray-500">
+                      {finalPayableOnline === 0 ? "Covered completely by balances" : "Payment gateway remainder"}
+                    </Text>
+                  </View>
+                  <Text className="text-2xl font-black text-[#1F2520]">₹{finalPayableOnline}</Text>
                 </View>
 
                 <Pressable 
@@ -240,9 +342,15 @@ export default function CartModal({ visible, onClose }: CartModalProps) {
                   {isCheckingOut ? (
                     <ActivityIndicator color="white" />
                   ) : (
-                    <Ionicons name="checkmark-circle-outline" size={20} color="white" />
+                    <Ionicons name="card-outline" size={20} color="white" />
                   )}
-                  <Text className="text-white font-bold text-lg">{isCheckingOut ? "Processing..." : "Checkout with Cash"}</Text>
+                  <Text className="text-white font-bold text-lg">
+                    {isCheckingOut 
+                      ? "Processing..." 
+                      : finalPayableOnline === 0 
+                        ? "Confirm Purchase (₹0 Online)" 
+                        : `Pay Online ₹${finalPayableOnline}`}
+                  </Text>
                 </Pressable>
                 
                 <Pressable 
