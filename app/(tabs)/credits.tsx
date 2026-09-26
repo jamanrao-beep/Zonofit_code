@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { 
   ScrollView, 
   Text, 
@@ -7,686 +7,668 @@ import {
   Modal, 
   TextInput, 
   Alert,
-  FlatList,
+  ActivityIndicator,
   StyleSheet
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useCreditsStore, Transaction } from "@/store/useCreditsStore";
+import { useCreditsStore } from "@/store/useCreditsStore";
 import { useUserStore } from "@/store/useUserStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { router } from "expo-router";
 import { apiFetch } from "@/lib/api";
-import { colors } from "@/constants/colors";
-import Animated, { FadeInDown } from "react-native-reanimated";
-import { Animated3DCard } from "@/components/Animated3DCard";
+
+const MIN_CREDITS = 10;
+const CREDIT_PRICE_INR = 10; // 1 Credit = ₹10
+const PRESET_AMOUNTS = [10, 25, 50, 100];
 
 export default function CreditsScreen() {
+  const scrollRef = useRef<ScrollView>(null);
+  const purchaseSectionRef = useRef<View>(null);
+
   const { 
     credits, 
-    cashBalance, 
+    inrWallet, 
+    membershipInfo, 
     transactions, 
-    buyCredits, 
-    topUpCash,
-    convertCreditsToCash,
-    convertCashToCredits,
-    addTransaction 
+    fetchWallet, 
+    buyCredits,
+    loading: creditsLoading 
   } = useCreditsStore();
 
   const { membershipStatus, membershipExpiry } = useUserStore();
+  const token = useAuthStore((s) => s.token);
 
-  // Modals visibility state
-  const [convertModalVisible, setConvertModalVisible] = useState(false);
-  const [infoModalVisible, setInfoModalVisible] = useState(false);
-  const [cashModalVisible, setCashModalVisible] = useState(false);
+  // Additional Credits state (PRD Section 7 & 22C)
+  const [purchaseQuantity, setPurchaseQuantity] = useState<number>(10);
+  const [isPurchasing, setIsPurchasing] = useState<boolean>(false);
+  const [isRepurchasing, setIsRepurchasing] = useState<boolean>(false);
 
-  // Form states
-  const [conversionType, setConversionType] = useState<"creditsToCash" | "cashToCredits">("creditsToCash");
-  const [creditsToConvert, setCreditsToConvert] = useState("");
-  const [cashToConvert, setCashToConvert] = useState("");
-  const [cashToTopUp, setCashToTopUp] = useState("");
-
-  const [sysSettings, setSysSettings] = useState({ creditPurchasePrice: 10, creditConversionValue: 8, cashExpiryDays: 15, initialVisitCut: 10 });
-
-  React.useEffect(() => {
-    async function fetchSettings() {
-      try {
-        const data = await apiFetch("/api/content/settings");
-        if (data.success && data.settings) {
-          setSysSettings(data.settings);
-        }
-      } catch (err) {
-        console.log("Failed to fetch settings", err);
-      }
+  useEffect(() => {
+    if (token) {
+      fetchWallet(token);
     }
-    fetchSettings();
-  }, []);
+  }, [token]);
 
-  const handleTopUpPress = () => {
-    if (!membershipStatus || !membershipStatus.toLowerCase().includes("active")) {
+  // Derived state from membershipInfo (or fallbacks)
+  const cycleNumber = membershipInfo?.cycleNumber ?? 4;
+  const maxCycles = membershipInfo?.maxCycles ?? 12;
+  const cyclesRemaining = membershipInfo?.cyclesRemaining ?? Math.max(0, maxCycles - cycleNumber);
+  const mandatoryVisits = membershipInfo?.mandatoryVisits ?? 10;
+  const completedVisits = membershipInfo?.completedVisits ?? 7;
+  const mandatoryVisitsRemaining = membershipInfo?.mandatoryVisitsRemaining ?? Math.max(0, mandatoryVisits - completedVisits);
+  
+  const isExpired = membershipInfo ? membershipInfo.isExpired : false;
+  const isMembershipActive = membershipInfo ? (!membershipInfo.isExpired && membershipInfo.status === "ACTIVE") : true;
+  const daysRemaining = membershipInfo?.daysRemaining ?? 12;
+  const gymName = membershipInfo?.gymName || "FitZone Pro";
+
+  // Repurchase eligibility rules (PRD Section 11, 18, 19, 23)
+  const canRepurchase = isExpired && cycleNumber < maxCycles;
+  const isPlanCompleted = cycleNumber >= maxCycles && isExpired;
+
+  // INR Wallet rules (PRD Section 13, 14, 15, 22D)
+  const hasInrWallet = !!(inrWallet && inrWallet.isValid && inrWallet.balanceINR > 0);
+
+  // Stepper handlers: step by 1, min 10, whole numbers only
+  const handleIncrement = () => {
+    setPurchaseQuantity((prev) => prev + 1);
+  };
+
+  const handleDecrement = () => {
+    setPurchaseQuantity((prev) => Math.max(MIN_CREDITS, prev - 1));
+  };
+
+  const handlePresetSelect = (amount: number) => {
+    setPurchaseQuantity(Math.max(MIN_CREDITS, Math.floor(amount)));
+  };
+
+  const handleDirectInput = (text: string) => {
+    const cleaned = text.replace(/[^0-9]/g, "");
+    if (!cleaned) {
+      setPurchaseQuantity(MIN_CREDITS);
+      return;
+    }
+    const val = parseInt(cleaned, 10);
+    if (!isNaN(val)) {
+      setPurchaseQuantity(Math.max(MIN_CREDITS, val));
+    }
+  };
+
+  const scrollToPurchase = () => {
+    scrollRef.current?.scrollTo({ y: 380, animated: true });
+  };
+
+  // Buy Additional Credits Handler
+  const handleBuyAdditionalCredits = async () => {
+    if (!isMembershipActive) {
       Alert.alert(
-        "Membership Required", 
-        "You must have an active gym membership to purchase additional credits. Let's get you a membership first!",
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Find a Gym", onPress: () => router.push("/buy-credits" as any) }
-        ]
+        "Active Membership Required",
+        "Additional credits can only be purchased while your current membership is active.",
+        [{ text: "OK" }]
       );
       return;
     }
-    router.push("/top-up-credits" as any);
-  };
 
-  const handleConvert = async () => {
-    if (conversionType === "creditsToCash") {
-      const amount = parseInt(creditsToConvert);
-      if (isNaN(amount) || amount <= 0) {
-        Alert.alert("Invalid Input", "Please enter a valid positive number of credits.");
-        return;
-      }
-
-      if (credits < amount) {
-        Alert.alert("Insufficient Credits", `You only have ${credits} credits available.`);
-        return;
-      }
-
-      const result = await convertCreditsToCash(amount);
-      if (result.success) {
-        const value = amount * sysSettings.creditConversionValue;
-        Alert.alert("Success", `Converted ${amount} Credits into ₹${value} Cash Balance!`);
-        setCreditsToConvert("");
-        setConvertModalVisible(false);
-        const token = useAuthStore.getState().token || "";
-        useCreditsStore.getState().fetchWallet(token);
-      } else {
-        Alert.alert("Error", result.message || "Conversion failed. Please try again.");
-      }
-    } else {
-      const amount = parseInt(cashToConvert); // This is credits to buy with cash
-      if (isNaN(amount) || amount <= 0) {
-        Alert.alert("Invalid Input", "Please enter a valid positive number of credits to buy.");
-        return;
-      }
-
-      const cashRequired = amount * sysSettings.creditPurchasePrice;
-      if (cashBalance < cashRequired) {
-        Alert.alert("Insufficient Cash", `You need ₹${cashRequired} cash to buy ${amount} credits.`);
-        return;
-      }
-
-      const result = await convertCashToCredits(amount);
-      if (result.success) {
-        Alert.alert("Success", `Converted ₹${cashRequired} Cash into ${amount} Credits!`);
-        setCashToConvert("");
-        setConvertModalVisible(false);
-        const token = useAuthStore.getState().token || "";
-        useCreditsStore.getState().fetchWallet(token);
-      } else {
-        Alert.alert("Error", result.message || "Conversion failed. Please try again.");
-      }
-    }
-  };
-
-  const handleTopUpCash = async () => {
-    const amount = parseFloat(cashToTopUp);
-    if (isNaN(amount) || amount <= 0) {
-      Alert.alert("Invalid Input", "Please enter a valid positive amount.");
+    if (purchaseQuantity < MIN_CREDITS || !Number.isInteger(purchaseQuantity)) {
+      Alert.alert("Invalid Amount", `Minimum purchase is ${MIN_CREDITS} whole credits.`);
       return;
     }
 
-    const result = await topUpCash(amount);
-    if (result.success) {
-      Alert.alert("Success", `Successfully added ₹${amount} to your cash balance!`);
-      setCashToTopUp("");
-      setCashModalVisible(false);
-    } else {
-      Alert.alert("Payment Failed", result.message || "Failed to add cash.");
+    const price = purchaseQuantity * CREDIT_PRICE_INR;
+
+    Alert.alert(
+      "Confirm Purchase",
+      `Buy ${purchaseQuantity} Additional Credits for ₹${price.toLocaleString("en-IN")}?\n\nNote: Additional credits do not extend membership duration or create a new cycle.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Confirm & Pay",
+          onPress: async () => {
+            setIsPurchasing(true);
+            const result = await buyCredits(purchaseQuantity, price);
+            setIsPurchasing(false);
+
+            if (result.success) {
+              Alert.alert("Success", `You successfully purchased ${purchaseQuantity} credits!`);
+              if (token) fetchWallet(token);
+            } else {
+              Alert.alert("Payment Failed", result.message || "Could not complete purchase.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Repurchase Membership Handler (PRD Section 11, 18, 19, 23)
+  const handleRepurchaseMembership = async () => {
+    if (!canRepurchase) {
+      if (isMembershipActive) {
+        Alert.alert(
+          "Repurchase Not Allowed",
+          "Your current membership is still active. Early repurchase is strictly disabled. If your credits are finished, please buy additional credits to continue.",
+          [{ text: "OK" }]
+        );
+      } else if (isPlanCompleted) {
+        Alert.alert(
+          "Plan Completed",
+          "You have completed all 12 membership cycles under this plan. No further repurchases are available.",
+          [{ text: "OK" }]
+        );
+      }
+      return;
     }
+
+    // Repurchase is allowed (membership expired and cycle < 12)
+    const inrWalletDiscount = hasInrWallet ? inrWallet!.balanceINR : 0;
+    const basePlanPrice = 3999;
+    const payableAmount = Math.max(0, basePlanPrice - inrWalletDiscount);
+
+    Alert.alert(
+      `Repurchase Membership ${cycleNumber + 1} of ${maxCycles}`,
+      `Your previous cycle has expired. Repurchase next 30-day cycle for ${gymName}.\n\n` +
+      `Base Price: ₹${basePlanPrice}\n` +
+      (inrWalletDiscount > 0 ? `INR Wallet Auto-Deduction: -₹${inrWalletDiscount}\n` : "") +
+      `Amount Payable: ₹${payableAmount}`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Confirm Repurchase",
+          onPress: async () => {
+            setIsRepurchasing(true);
+            try {
+              const res = await apiFetch("/api/membership/activate", {
+                method: "POST",
+                token: token || "",
+                body: JSON.stringify({
+                  referenceId: "repurchase_" + Date.now(),
+                  amountPaidPaise: payableAmount * 100,
+                }),
+              });
+              setIsRepurchasing(false);
+              Alert.alert("Membership Activated", `Membership Cycle ${cycleNumber + 1} of 12 is now active!`);
+              if (token) fetchWallet(token);
+            } catch (err: any) {
+              setIsRepurchasing(false);
+              Alert.alert("Repurchase Failed", err.message || "Failed to repurchase membership.");
+            }
+          },
+        },
+      ]
+    );
   };
 
   const renderTransactionRow = (item: any) => {
-    const isPositive = item.type === "credit" || item.amount > 0 || (typeof item.amount === 'string' && item.amount.toString().includes('+'));
-    const isCash = item.currency === "cash" || (typeof item.description === 'string' && (item.description.includes("INR") || item.description.includes("₹") || item.description.includes("Court") || item.description.includes("Nutrition")));
-    
-    let iconName: any = item.icon || "leaf-outline";
-    if (!item.icon) {
-      const desc = (item.description || "").toLowerCase();
-      if (desc.includes("gym") || desc.includes("visit")) iconName = "barbell-outline";
-      else if (desc.includes("order") || desc.includes("nutrition") || desc.includes("shop") || desc.includes("product")) iconName = "bag-handle-outline";
-      else if (desc.includes("purchase") || desc.includes("buy")) iconName = "add-circle-outline";
-      else if (desc.includes("top up") || desc.includes("inr") || desc.includes("wallet")) iconName = "wallet-outline";
-      else if (desc.includes("court") || desc.includes("badminton") || desc.includes("sports")) iconName = "trophy-outline";
-    }
-
-    const subtitle = item.subtitle || (
-      (item.description || "").includes("Visit") ? "Outside Primary Zone" :
-      (item.description || "").includes("Nutrition") ? "Order #ON12345" :
-      (item.description || "").includes("Purchase") ? "250 CR Package" :
-      (item.description || "").includes("Top Up") ? "Added to INR Wallet" :
-      (item.description || "").includes("Court") ? "Match Booking" :
-      item.date
-    );
-
+    const isPositive = item.type === "credit" || item.amount > 0;
     const amountNum = Math.abs(item.amount);
-    const amountStr = isCash ? `₹${amountNum.toLocaleString()}` : `${amountNum} CR`;
 
     return (
       <View key={item.id} className="flex-row justify-between items-center py-3.5 border-b border-gray-100 last:border-b-0">
         <View className="flex-row items-center flex-1 mr-2">
-          <View className="w-11 h-11 rounded-2xl bg-[#E8F5E9] items-center justify-center mr-3.5">
-            <Ionicons name={iconName} size={20} color="#1F7A3E" />
+          <View className="w-10 h-10 rounded-2xl bg-[#E8F5E9] items-center justify-center mr-3">
+            <Ionicons 
+              name={isPositive ? "arrow-down" : "arrow-up"} 
+              size={18} 
+              color="#1F7A3E" 
+            />
           </View>
           <View className="flex-1">
-            <Text className="text-[15px] font-bold text-black" numberOfLines={1}>{item.description}</Text>
-            <Text className="text-xs font-medium text-gray-400 mt-0.5" numberOfLines={1}>{subtitle}</Text>
+            <Text className="text-[14px] font-bold text-[#111827]" numberOfLines={1}>{item.description}</Text>
+            <Text className="text-xs font-medium text-gray-400 mt-0.5">{item.date}</Text>
           </View>
         </View>
         <View className="items-end">
-          <Text className={`text-[15px] font-bold ${isPositive ? "text-[#1F7A3E]" : "text-black"}`}>
-            {isPositive ? "+" : "-"}{amountStr}
+          <Text className={`text-[15px] font-bold ${isPositive ? "text-[#1F7A3E]" : "text-[#111827]"}`}>
+            {isPositive ? "+" : "-"}{amountNum} CR
           </Text>
-          <Text className="text-[11px] font-medium text-gray-400 mt-0.5">{item.date}</Text>
         </View>
       </View>
     );
   };
 
   const displayTransactions = transactions && transactions.length > 0 ? transactions : [
-    { id: "tx-1", type: "debit", currency: "credit", amount: 20, description: "Gold's Gym Visit", subtitle: "Outside Primary Zone", date: "Today, 8:30 AM", icon: "barbell-outline" },
-    { id: "tx-2", type: "debit", currency: "cash", amount: 1299, description: "Optimum Nutrition Wh...", subtitle: "Order #ON12345", date: "Yesterday, 5:45 PM", icon: "bag-handle-outline" },
-    { id: "tx-3", type: "credit", currency: "credit", amount: 250, description: "Credit Purchase", subtitle: "250 CR Package", date: "2 Jul, 11:20 AM", icon: "add-circle-outline" },
-    { id: "tx-4", type: "credit", currency: "cash", amount: 1000, description: "INR Top Up", subtitle: "Added to INR Wallet", date: "1 Jul, 9:10 PM", icon: "wallet-outline" },
-    { id: "tx-5", type: "debit", currency: "cash", amount: 600, description: "Badminton Court", subtitle: "Match Booking", date: "1 Jul, 6:30 PM", icon: "trophy-outline" },
+    { id: "tx-1", type: "debit", amount: 20, description: "Gym Visit Workout", date: "Today" },
+    { id: "tx-2", type: "credit", amount: 50, description: "Additional Credits Purchase", date: "Yesterday" },
+    { id: "tx-3", type: "debit", amount: 15, description: "Cardio Zone Session", date: "3 days ago" },
   ];
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB" }} edges={["top"]}>
-      {/* Standard Header */}
-      <View className="flex-row justify-between items-center px-5 pt-4 pb-4">
+      {/* Top App Bar */}
+      <View className="flex-row justify-between items-center px-5 pt-3 pb-3 bg-white border-b border-gray-100">
         <View>
-          <Text className="text-[28px] font-extrabold text-[#111827] tracking-tight">Wallet</Text>
-          <Text className="text-sm font-medium text-[#6B7280] mt-1">Manage your credits and INR balance</Text>
+          <Text className="text-[26px] font-black text-[#111827] tracking-tight">Credits & Wallet</Text>
+          <Text className="text-xs font-medium text-gray-500 mt-0.5">Membership access & spending balance</Text>
         </View>
-        <View className="flex-row items-center gap-x-3">
+        <View className="flex-row items-center gap-x-2.5">
           <Pressable 
             onPress={() => router.push("/booking-history" as any)}
-            className="w-10 h-10 rounded-full border border-gray-200 items-center justify-center relative bg-white active:bg-gray-100 shadow-sm"
+            className="w-10 h-10 rounded-full border border-gray-200 items-center justify-center bg-white active:bg-gray-50 shadow-sm"
           >
-            <Ionicons name="notifications-outline" size={20} color="#111827" />
-            <View className="absolute top-2 right-2.5 w-2 h-2 rounded-full bg-orange-500 border border-white" />
+            <Ionicons name="time-outline" size={20} color="#111827" />
           </Pressable>
           <Pressable 
             onPress={() => router.push("/profile" as any)}
-            className="w-10 h-10 rounded-full overflow-hidden border border-gray-200 shadow-sm active:opacity-80 bg-gray-100 items-center justify-center"
+            className="w-10 h-10 rounded-full border border-gray-200 bg-gray-100 items-center justify-center active:opacity-80"
           >
-            <Ionicons name="person" size={20} color="#6B7280" />
+            <Ionicons name="person" size={18} color="#4B5563" />
           </Pressable>
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} bounces={true} overScrollMode="never" contentContainerStyle={{ paddingBottom: 120 }}>
-        {/* Section 1: FITNESS WALLET Hero Card */}
-        <View className="px-5 mb-6">
-          <View className="bg-[#1F7A3E] rounded-[28px] p-6 relative overflow-hidden border border-black/5" style={styles.cardShadow}>
-            {/* Top row badge */}
-            <View className="flex-row items-center mb-4">
-              <Ionicons name="shield-checkmark-outline" size={14} color="rgba(255, 255, 255, 0.85)" />
-              <Text className="text-white/85 font-bold text-[11px] tracking-[1.5px] uppercase ml-1.5">FITNESS WALLET</Text>
+      <ScrollView 
+        ref={scrollRef}
+        showsVerticalScrollIndicator={false} 
+        contentContainerStyle={{ paddingBottom: 100 }}
+      >
+        {/* ======================================================== */}
+        {/* SECTION A: CURRENT MEMBERSHIP CARD (PRD Section 5 & 22A) */}
+        {/* ======================================================== */}
+        <View className="px-5 pt-5 mb-5">
+          <View className="bg-white rounded-[26px] p-5 border border-gray-200 shadow-sm">
+            {/* Header: Gym Name + Status Badge */}
+            <View className="flex-row justify-between items-start mb-3">
+              <View className="flex-1 mr-2">
+                <Text className="text-xs font-bold text-gray-400 uppercase tracking-wider">Current Gym</Text>
+                <Text className="text-xl font-black text-[#111827] mt-0.5" numberOfLines={1}>
+                  {gymName}
+                </Text>
+              </View>
+              <View className={`px-3 py-1 rounded-full flex-row items-center ${
+                isMembershipActive ? "bg-[#E8F5E9]" : "bg-red-50"
+              }`}>
+                <View className={`w-2 h-2 rounded-full mr-1.5 ${
+                  isMembershipActive ? "bg-[#1F7A3E]" : "bg-red-500"
+                }`} />
+                <Text className={`text-xs font-extrabold uppercase ${
+                  isMembershipActive ? "text-[#1F7A3E]" : "text-red-600"
+                }`}>
+                  {isMembershipActive ? "Active" : "Expired"}
+                </Text>
+              </View>
             </View>
 
-            {/* Split values row */}
-            <View className="flex-row justify-between items-start mb-5">
-              <View>
-                <Text className="text-white/80 font-medium text-[13px] mb-1">Available Credits</Text>
-                <View className="flex-row items-baseline">
-                  <Text className="text-white font-black text-4xl mr-1">{credits}</Text>
-                  <Text className="text-white font-bold text-lg">CR</Text>
-                </View>
-                <View className="flex-row items-center mt-1">
-                  <Ionicons name="information-circle-outline" size={13} color="rgba(255, 255, 255, 0.75)" />
-                  <Text className="text-white/75 text-xs font-medium ml-1">₹{credits * 10} Value</Text>
-                </View>
+            {/* Membership Counter Banner */}
+            <View className="bg-gray-50 rounded-2xl p-3 mb-4 flex-row items-center justify-between border border-gray-100">
+              <View className="flex-row items-center">
+                <Ionicons name="fitness-outline" size={18} color="#1F7A3E" />
+                <Text className="text-sm font-bold text-[#111827] ml-2">
+                  Membership {cycleNumber} of {maxCycles}
+                </Text>
               </View>
-              <View className="items-end">
-                <Text className="text-white/80 font-medium text-[13px] mb-1">INR Wallet</Text>
-                <Text className="text-white font-black text-4xl">₹{cashBalance}</Text>
-              </View>
+              <Text className="text-xs font-bold text-[#1F7A3E]">
+                {cycleNumber} Used · {cyclesRemaining} Remaining
+              </Text>
             </View>
 
+            {/* 2-Column Info Grid: Days Remaining + Mandatory Visits Remaining */}
+            <View className="flex-row gap-x-3">
+              <View className="flex-1 bg-[#F9FAFB] rounded-2xl p-3.5 border border-gray-100">
+                <View className="flex-row items-center mb-1">
+                  <Ionicons name="calendar-outline" size={15} color="#4B5563" />
+                  <Text className="text-xs font-semibold text-gray-500 ml-1.5">Duration</Text>
+                </View>
+                <Text className="text-lg font-black text-[#111827]">
+                  {isMembershipActive ? `${daysRemaining} Days` : "Cycle Ended"}
+                </Text>
+                <Text className="text-[11px] text-gray-400 mt-0.5">
+                  {isMembershipActive ? "Remaining in cycle" : "Needs repurchase"}
+                </Text>
+              </View>
 
+              <View className="flex-1 bg-[#F9FAFB] rounded-2xl p-3.5 border border-gray-100">
+                <View className="flex-row items-center mb-1">
+                  <Ionicons name="checkmark-done-circle-outline" size={15} color="#1F7A3E" />
+                  <Text className="text-xs font-semibold text-gray-500 ml-1.5">Mandatory Visits</Text>
+                </View>
+                <Text className="text-lg font-black text-[#1F7A3E]">
+                  {mandatoryVisitsRemaining} Remaining
+                </Text>
+                <Text className="text-[11px] text-gray-400 mt-0.5">
+                  {completedVisits} of {mandatoryVisits} completed
+                </Text>
+              </View>
+            </View>
           </View>
         </View>
 
-        {/* Section 2: Quick Actions Row (4 Buttons) */}
-        <View className="px-5 mb-8">
-          <View className="flex-row justify-between gap-x-2.5">
-            {/* Buy Credits */}
-            <Pressable 
-              onPress={handleTopUpPress}
-              className="flex-1 bg-white rounded-[20px] py-4 px-1 items-center border border-black/5 shadow-sm active:bg-gray-50"
-              style={styles.cardShadow}
-            >
-              <View className="w-11 h-11 rounded-2xl bg-[#E8F5E9] items-center justify-center mb-2">
-                <Ionicons name="add-circle-outline" size={24} color="#1F7A3E" />
-              </View>
-              <Text className="text-black font-bold text-xs text-center">Buy Credits</Text>
-            </Pressable>
+        {/* ======================================================== */}
+        {/* SECTION B: CREDIT BALANCE CARD (PRD Section 5, 6 & 22B) */}
+        {/* ======================================================== */}
+        <View className="px-5 mb-5">
+          <View className="bg-[#1F7A3E] rounded-[26px] p-6 shadow-md relative overflow-hidden">
+            {/* Subtle background decoration */}
+            <View style={{ position: "absolute", top: -30, right: -30, width: 140, height: 140, borderRadius: 70, backgroundColor: "rgba(255,255,255,0.08)" }} />
 
-            {/* Top Up INR */}
-            <Pressable 
-              onPress={() => router.push("/top-up-inr" as any)}
-              className="flex-1 bg-white rounded-[20px] py-4 px-1 items-center border border-black/5 shadow-sm active:bg-gray-50"
-              style={styles.cardShadow}
-            >
-              <View className="w-11 h-11 rounded-2xl bg-[#E8F5E9] items-center justify-center mb-2">
-                <Text className="text-[#1F7A3E] font-extrabold text-lg">₹</Text>
+            <View className="flex-row justify-between items-center mb-2">
+              <Text className="text-white/80 font-bold text-xs uppercase tracking-wider">
+                Available Credits
+              </Text>
+              <View className="bg-white/20 px-2.5 py-0.5 rounded-full">
+                <Text className="text-white text-[11px] font-bold">1 CR = ₹10</Text>
               </View>
-              <Text className="text-black font-bold text-xs text-center">Top Up INR</Text>
-            </Pressable>
+            </View>
 
-            {/* Convert */}
-            <Pressable 
-              onPress={() => router.push("/convert" as any)}
-              className="flex-1 bg-white rounded-[20px] py-4 px-1 items-center border border-black/5 shadow-sm active:bg-gray-50"
-              style={styles.cardShadow}
-            >
-              <View className="w-11 h-11 rounded-2xl bg-[#E8F5E9] items-center justify-center mb-2">
-                <Ionicons name="swap-horizontal-outline" size={22} color="#1F7A3E" />
-              </View>
-              <Text className="text-black font-bold text-xs text-center">Convert</Text>
-            </Pressable>
+            <View className="flex-row items-baseline mb-2">
+              <Text className="text-white font-black text-5xl mr-2">{credits}</Text>
+              <Text className="text-white/90 font-bold text-xl">Credits</Text>
+            </View>
 
-            {/* History */}
-            <Pressable 
-              onPress={() => router.push("/booking-history" as any)}
-              className="flex-1 bg-white rounded-[20px] py-4 px-1 items-center border border-black/5 shadow-sm active:bg-gray-50"
-              style={styles.cardShadow}
-            >
-              <View className="w-11 h-11 rounded-2xl bg-[#E8F5E9] items-center justify-center mb-2">
-                <Ionicons name="time-outline" size={22} color="#1F7A3E" />
+            <Text className="text-white/80 text-xs font-medium mb-5">
+              ≈ ₹{(credits * 10).toLocaleString("en-IN")} Fitness Value
+            </Text>
+
+            {/* PRD Section 6 Alert Banner if credits == 0 and membership active */}
+            {credits === 0 && isMembershipActive && (
+              <View className="bg-[#FFF3E0] rounded-xl p-3 mb-4 flex-row items-start border border-[#FFE0B2]">
+                <Ionicons name="alert-circle" size={18} color="#D84315" style={{ marginRight: 8, marginTop: 1 }} />
+                <Text className="text-xs font-bold text-[#BF360C] flex-1 leading-relaxed">
+                  Your membership is still active, but your credits are finished. Buy additional credits to continue.
+                </Text>
               </View>
-              <Text className="text-black font-bold text-xs text-center">History</Text>
+            )}
+
+            {/* Primary Action Button */}
+            <Pressable
+              onPress={scrollToPurchase}
+              className="bg-white rounded-2xl py-3.5 px-4 items-center justify-center flex-row shadow-sm active:bg-gray-100"
+            >
+              <Ionicons name="add-circle" size={20} color="#1F7A3E" style={{ marginRight: 8 }} />
+              <Text className="text-[#1F7A3E] font-black text-sm">Buy Additional Credits</Text>
             </Pressable>
           </View>
         </View>
 
-        {/* Section 3: Two Side-by-Side Cards (Use Credits For & Use INR For) */}
-        {/* Note: Convert Credits -> INR box is intentionally excluded per user instructions */}
-        <View className="px-5 mb-8">
-          <View className="flex-row gap-x-3">
-            {/* Use Credits For */}
-            <View 
-              className="flex-1 bg-[#EDF7EC] rounded-[24px] p-5 border border-[#1F7A3E]/15 flex-col justify-between min-h-[220px]"
-              style={styles.cardShadow}
-            >
-              <View>
-                <Text className="text-black font-bold text-[13px] mb-3">Use Credits For</Text>
-                <View className="w-10 h-10 rounded-2xl bg-[#1F7A3E] items-center justify-center mb-3 shadow-sm">
-                  <Ionicons name="barbell-outline" size={20} color="white" />
+        {/* ======================================================== */}
+        {/* SECTION D: INR WALLET (PRD Section 13, 14, 15 & 22D)      */}
+        {/* Only shown when an INR wallet exists (balance > 0)       */}
+        {/* ======================================================== */}
+        {hasInrWallet && (
+          <View className="px-5 mb-5">
+            <View className="bg-[#FFFBEB] rounded-[24px] p-5 border border-[#FDE68A] shadow-sm">
+              <View className="flex-row justify-between items-center mb-3">
+                <View className="flex-row items-center">
+                  <View className="w-8 h-8 rounded-full bg-[#F59E0B] items-center justify-center mr-2.5">
+                    <Ionicons name="wallet" size={16} color="#FFFFFF" />
+                  </View>
+                  <Text className="text-sm font-extrabold text-[#92400E]">INR Wallet</Text>
                 </View>
-                <Text className="text-[#1F7A3E] font-bold text-[15px] mb-1">Partner Gyms</Text>
-                <Text className="text-gray-600 text-[11px] leading-relaxed mb-4 pr-1">Use at partner gyms outside your primary zone</Text>
+                <View className="bg-[#FEF3C7] border border-[#FCD34D] px-2.5 py-0.5 rounded-full">
+                  <Text className="text-[10px] font-bold text-[#B45309]">Auto-Deducted</Text>
+                </View>
               </View>
-              <Pressable 
-                onPress={() => router.push("/explore" as any)}
-                className="bg-white border border-[#1F7A3E] px-4 py-2 rounded-full self-start shadow-sm active:bg-gray-50"
+
+              <View className="flex-row items-baseline mb-1">
+                <Text className="text-3xl font-black text-[#78350F]">
+                  ₹{inrWallet!.balanceINR.toLocaleString("en-IN")}
+                </Text>
+                <Text className="text-xs font-bold text-[#92400E] ml-2">available</Text>
+              </View>
+
+              <View className="flex-row items-center mb-3">
+                <Ionicons name="time-outline" size={13} color="#B45309" />
+                <Text className="text-xs font-semibold text-[#B45309] ml-1">
+                  Valid for {inrWallet!.daysRemaining} more days
+                </Text>
+              </View>
+
+              <View className="bg-white/80 rounded-xl p-3 border border-[#FDE68A]">
+                <Text className="text-[11px] text-[#92400E] leading-relaxed">
+                  Created from your unused credits upon membership expiry. Automatically deducted at checkout from your next eligible membership repurchase or marketplace order. <Text className="font-bold">No toggle required.</Text>
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* ======================================================== */}
+        {/* SECTION C: ADDITIONAL CREDIT PURCHASE (PRD Section 7 & 22C)*/}
+        {/* ======================================================== */}
+        <View ref={purchaseSectionRef} className="px-5 mb-5">
+          <View className="bg-white rounded-[26px] p-5 border border-gray-200 shadow-sm">
+            <View className="flex-row justify-between items-center mb-1">
+              <Text className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                Additional Credits
+              </Text>
+              <Text className="text-xs font-bold text-[#1F7A3E]">Whole numbers only</Text>
+            </View>
+            <Text className="text-lg font-black text-[#111827] mb-1">Buy Additional Credits</Text>
+            <Text className="text-xs text-gray-500 mb-4">
+              Minimum 10 credits · Step by 1 credit (10, 11, 12, 13...)
+            </Text>
+
+            {/* Stepper Control: "− 10 +" */}
+            <View className="flex-row items-center justify-between bg-gray-50 rounded-[20px] p-2.5 border border-gray-200 mb-4">
+              <Pressable
+                onPress={handleDecrement}
+                disabled={purchaseQuantity <= MIN_CREDITS || !isMembershipActive}
+                className={`w-12 h-12 rounded-xl items-center justify-center ${
+                  purchaseQuantity <= MIN_CREDITS || !isMembershipActive
+                    ? "bg-gray-200 opacity-50"
+                    : "bg-white border border-gray-200 active:bg-gray-100 shadow-sm"
+                }`}
               >
-                <Text className="text-[#1F7A3E] font-bold text-xs">View Gyms</Text>
+                <Ionicons name="remove" size={24} color={purchaseQuantity <= MIN_CREDITS ? "#9CA3AF" : "#111827"} />
+              </Pressable>
+
+              <View className="flex-1 items-center px-2">
+                <View className="flex-row items-baseline justify-center">
+                  <TextInput
+                    value={purchaseQuantity.toString()}
+                    onChangeText={handleDirectInput}
+                    editable={isMembershipActive}
+                    keyboardType="number-pad"
+                    className="text-3xl font-black text-[#111827] text-center"
+                    style={{ minWidth: 60 }}
+                    maxLength={4}
+                  />
+                  <Text className="text-base font-bold text-[#1F7A3E] ml-1">CR</Text>
+                </View>
+                <Text className="text-[10px] font-semibold text-gray-400">
+                  = ₹{(purchaseQuantity * CREDIT_PRICE_INR).toLocaleString("en-IN")}
+                </Text>
+              </View>
+
+              <Pressable
+                onPress={handleIncrement}
+                disabled={!isMembershipActive}
+                className={`w-12 h-12 rounded-xl items-center justify-center ${
+                  !isMembershipActive
+                    ? "bg-gray-200 opacity-50"
+                    : "bg-white border border-gray-200 active:bg-gray-100 shadow-sm"
+                }`}
+              >
+                <Ionicons name="add" size={24} color="#111827" />
               </Pressable>
             </View>
 
-            {/* Use INR For */}
-            <View 
-              className="flex-1 bg-[#FFF9F5] rounded-[24px] p-5 border border-[#F59E0B]/20 flex-col justify-between min-h-[220px]"
-              style={styles.cardShadow}
+            {/* Preset Buttons */}
+            <View className="flex-row gap-x-2 mb-4">
+              {PRESET_AMOUNTS.map((amt) => {
+                const isSelected = purchaseQuantity === amt;
+                return (
+                  <Pressable
+                    key={amt}
+                    onPress={() => handlePresetSelect(amt)}
+                    disabled={!isMembershipActive}
+                    className={`flex-1 py-2 rounded-xl items-center border ${
+                      isSelected
+                        ? "bg-[#1F7A3E] border-[#1F7A3E]"
+                        : "bg-gray-50 border-gray-200 active:bg-gray-100"
+                    }`}
+                  >
+                    <Text className={`text-xs font-bold ${isSelected ? "text-white" : "text-gray-700"}`}>
+                      {amt} CR
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {/* PRD Rule #9 & #24 Note */}
+            <View className="bg-gray-50 rounded-xl p-3 mb-4 border border-gray-100">
+              <Text className="text-[11px] text-gray-500 leading-relaxed">
+                ℹ️ Buying additional credits does <Text className="font-bold text-gray-700">not</Text> extend membership duration or create a new cycle. Only your spendable credit balance changes.
+              </Text>
+            </View>
+
+            {/* Purchase CTA */}
+            <Pressable
+              onPress={handleBuyAdditionalCredits}
+              disabled={isPurchasing || !isMembershipActive}
+              className={`h-12 rounded-xl items-center justify-center flex-row shadow-sm ${
+                !isMembershipActive
+                  ? "bg-gray-300"
+                  : isPurchasing
+                  ? "bg-[#1F7A3E]/80"
+                  : "bg-[#1F7A3E] active:bg-[#165a2d]"
+              }`}
             >
-              <View>
-                <Text className="text-black font-bold text-[13px] mb-3">Use INR For</Text>
-                <View className="flex-col gap-y-3.5 mb-6 mt-2">
-                  <View className="flex-row items-center">
-                    <Ionicons name="bag-handle" size={20} color="#F59E0B" />
-                    <Text className="text-gray-900 font-bold text-[15px] ml-2.5">Products</Text>
+              {isPurchasing ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text className="text-white font-bold text-sm">
+                  {isMembershipActive 
+                    ? `Buy ${purchaseQuantity} Credits (₹${(purchaseQuantity * CREDIT_PRICE_INR).toLocaleString("en-IN")})`
+                    : "Active Membership Required"}
+                </Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
+
+        {/* ======================================================== */}
+        {/* SECTION E: MEMBERSHIP PROGRESS & REPURCHASE (PRD 4, 11, 18, 19, 22E) */}
+        {/* ======================================================== */}
+        <View className="px-5 mb-5">
+          <View className="bg-white rounded-[26px] p-5 border border-gray-200 shadow-sm">
+            <View className="flex-row justify-between items-center mb-1">
+              <Text className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                12-Membership Plan
+              </Text>
+              <Text className="text-xs font-bold text-[#1F7A3E]">
+                {cycleNumber} / {maxCycles} Used
+              </Text>
+            </View>
+            <Text className="text-base font-black text-[#111827] mb-3">
+              Membership Progress: {cycleNumber} Used · {cyclesRemaining} Remaining
+            </Text>
+
+            {/* 12-segment Cycle Tracker Grid */}
+            <View className="flex-row justify-between mb-4">
+              {Array.from({ length: maxCycles }).map((_, index) => {
+                const cycleIdx = index + 1;
+                const isCompleted = cycleIdx < cycleNumber;
+                const isCurrent = cycleIdx === cycleNumber;
+
+                return (
+                  <View key={index} className="items-center flex-1 mx-0.5">
+                    <View className={`h-2.5 w-full rounded-full ${
+                      isCompleted
+                        ? "bg-[#1F7A3E]"
+                        : isCurrent
+                        ? isMembershipActive ? "bg-[#1F7A3E]" : "bg-red-400"
+                        : "bg-gray-200"
+                    }`} />
+                    <Text className={`text-[9px] mt-1 font-bold ${
+                      isCurrent ? "text-[#1F7A3E]" : "text-gray-400"
+                    }`}>
+                      {cycleIdx}
+                    </Text>
                   </View>
-                  <View className="flex-row items-center">
-                    <Ionicons name="trophy" size={20} color="#F59E0B" />
-                    <Text className="text-gray-900 font-bold text-[15px] ml-2.5">Sports</Text>
+                );
+              })}
+            </View>
+
+            {/* Repurchase Membership Button & Explanation (PRD Rule #11, #18, #19, #23) */}
+            <View className="pt-2 border-t border-gray-100">
+              {isMembershipActive ? (
+                // Situation: Active membership -> Repurchase STRICTLY DISABLED
+                <View>
+                  <View className="flex-row items-center mb-2">
+                    <Ionicons name="lock-closed" size={16} color="#6B7280" />
+                    <Text className="text-xs font-bold text-gray-700 ml-1.5">
+                      Repurchase Disabled (Active Membership)
+                    </Text>
                   </View>
-                  <View className="flex-row items-center">
-                    <Ionicons name="heart" size={20} color="#F59E0B" />
-                    <Text className="text-gray-900 font-bold text-[15px] ml-2.5">Services</Text>
-                  </View>
+                  <Text className="text-xs text-gray-500 leading-relaxed mb-3">
+                    Your current 30-day membership is active ({daysRemaining} days remaining). Early repurchase is strictly prohibited. If your credits are finished, please buy additional credits above.
+                  </Text>
+                  <Pressable
+                    disabled={true}
+                    className="h-11 rounded-xl bg-gray-100 border border-gray-200 items-center justify-center flex-row"
+                  >
+                    <Ionicons name="lock-closed-outline" size={16} color="#9CA3AF" style={{ marginRight: 6 }} />
+                    <Text className="text-gray-400 font-bold text-xs">
+                      Repurchase Available After Expiry
+                    </Text>
+                  </Pressable>
                 </View>
-              </View>
-              <Pressable 
-                onPress={() => router.push("/marketplace" as any)}
-                className="bg-[#F59E0B] px-5 py-2 rounded-full self-start shadow-sm active:opacity-90"
-              >
-                <Text className="text-white font-bold text-xs">Shop Now</Text>
-              </Pressable>
+              ) : isPlanCompleted ? (
+                // Situation: 12 Cycles Completed -> Plan completed
+                <View>
+                  <Text className="text-xs font-bold text-gray-700 mb-1">
+                    Plan Completed (12 of 12 Cycles)
+                  </Text>
+                  <Text className="text-xs text-gray-500 leading-relaxed">
+                    You have completed all 12 membership cycles under this plan. Thank you for your fitness commitment!
+                  </Text>
+                </View>
+              ) : (
+                // Situation: Expired + cycles remaining -> Repurchase ENABLED
+                <View>
+                  <View className="flex-row items-center mb-1">
+                    <Ionicons name="refresh-circle" size={18} color="#1F7A3E" />
+                    <Text className="text-xs font-bold text-[#1F7A3E] ml-1.5">
+                      Ready for Next Membership Cycle
+                    </Text>
+                  </View>
+                  <Text className="text-xs text-gray-500 leading-relaxed mb-3">
+                    Your previous cycle has expired. Repurchase Membership {cycleNumber + 1} of {maxCycles} for 30 days of access.
+                    {hasInrWallet ? ` Your ₹${inrWallet!.balanceINR} INR wallet will be auto-deducted.` : ""}
+                  </Text>
+                  <Pressable
+                    onPress={handleRepurchaseMembership}
+                    disabled={isRepurchasing}
+                    className="h-12 rounded-xl bg-[#1F7A3E] active:bg-[#165a2d] items-center justify-center flex-row shadow-sm"
+                  >
+                    {isRepurchasing ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <>
+                        <Ionicons name="repeat" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                        <Text className="text-white font-bold text-sm">
+                          Repurchase Membership (Cycle {cycleNumber + 1} of {maxCycles})
+                        </Text>
+                      </>
+                    )}
+                  </Pressable>
+                </View>
+              )}
             </View>
           </View>
         </View>
 
-        {/* Section 4: You Saved with ZonoFit Card */}
-        <View className="px-5 mb-8">
-          <View className="bg-white rounded-[24px] p-5 border border-black/5" style={styles.cardShadow}>
-            <View className="flex-row justify-between items-center mb-4">
-              <Text className="text-black font-bold text-[15px]">You Saved with ZonoFit</Text>
-            </View>
-            <View className="flex-row justify-between items-center pt-2 border-t border-gray-100">
-              <View className="flex-1">
-                <Text className="text-[#1F7A3E] font-bold text-xl mb-0.5">₹4,820</Text>
-                <Text className="text-gray-400 font-medium text-[11px]">Total savings</Text>
-              </View>
-              <View className="w-[1px] h-8 bg-gray-200 mx-2" />
-              <View className="flex-1 pl-2">
-                <Text className="text-black font-bold text-xl mb-0.5">38</Text>
-                <Text className="text-gray-400 font-medium text-[11px]">Gym Visits</Text>
-              </View>
-              <View className="w-[1px] h-8 bg-gray-200 mx-2" />
-              <View className="flex-1 pl-2">
-                <Text className="text-black font-bold text-xl mb-0.5">12</Text>
-                <Text className="text-gray-400 font-medium text-[11px]">Products</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Section 5: Recent Activity */}
+        {/* ======================================================== */}
+        {/* RECENT ACTIVITY & TRANSACTIONS                           */}
+        {/* ======================================================== */}
         <View className="px-5 mb-4">
-          <View className="flex-row justify-between items-end mb-3 px-1">
-            <Text className="text-black font-bold text-base">Recent Activity</Text>
-            <Pressable onPress={() => router.push("/booking-history" as any)} className="active:opacity-70">
+          <View className="flex-row justify-between items-center mb-3">
+            <Text className="text-[#111827] font-bold text-base">Recent Activity</Text>
+            <Pressable 
+              onPress={() => router.push("/booking-history" as any)} 
+              className="active:opacity-70"
+            >
               <Text className="text-[#1F7A3E] font-bold text-xs">View All</Text>
             </Pressable>
           </View>
-          <View className="bg-white rounded-[24px] px-4 py-1 border border-black/5 mb-6" style={styles.cardShadow}>
+
+          <View className="bg-white rounded-[24px] px-4 py-1 border border-gray-200 shadow-sm">
             {displayTransactions.map((tx) => renderTransactionRow(tx))}
           </View>
         </View>
       </ScrollView>
-
-      {/* MODAL: Convert Credits/Cash */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={convertModalVisible}
-        onRequestClose={() => setConvertModalVisible(false)}
-      >
-        <View className="flex-1 justify-end bg-black/80">
-          <View className="rounded-t-[36px] p-6" style={{ backgroundColor: colors.bg }}>
-            <View className="w-12 h-1.5 rounded-full mb-6 align-self-center mx-auto" style={{ backgroundColor: colors.secondary }} />
-            
-            <View className="flex-row rounded-2xl p-1 mb-6 border" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
-              <Pressable
-                onPress={() => setConversionType("creditsToCash")}
-                className={`flex-1 py-2 rounded-xl items-center ${conversionType === "creditsToCash" ? "border" : ""}`}
-                style={{
-                  backgroundColor: conversionType === "creditsToCash" ? colors.bg : 'transparent',
-                  borderColor: conversionType === "creditsToCash" ? colors.secondary : 'transparent'
-                }}
-              >
-                <Text className="text-xs font-bold" style={{ color: conversionType === "creditsToCash" ? colors.amber : colors.muted }}>Credits → Cash</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => setConversionType("cashToCredits")}
-                className={`flex-1 py-2 rounded-xl items-center ${conversionType === "cashToCredits" ? "border" : ""}`}
-                style={{
-                  backgroundColor: conversionType === "cashToCredits" ? colors.bg : 'transparent',
-                  borderColor: conversionType === "cashToCredits" ? colors.secondary : 'transparent'
-                }}
-              >
-                <Text className="text-xs font-bold" style={{ color: conversionType === "cashToCredits" ? colors.green : colors.muted }}>Cash → Credits</Text>
-              </Pressable>
-            </View>
-            
-            <Text className="text-xs font-bold uppercase tracking-wider" style={{ color: colors.amber }}>
-              {conversionType === "creditsToCash" ? "Cash Out" : "Buy Credits"}
-            </Text>
-            <Text className="text-2xl font-bold mt-1" style={{ color: colors.text }}>
-              {conversionType === "creditsToCash" ? "Convert Credits to Cash" : "Convert Cash to Credits"}
-            </Text>
-            <Text className="text-xs mt-0.5" style={{ color: colors.muted }}>
-              {conversionType === "creditsToCash" 
-                ? `Conversion rate: 1 Credit = ₹${sysSettings.creditConversionValue} cash balance`
-                : `Conversion rate: ₹${sysSettings.creditPurchasePrice} cash balance = 1 Credit`
-              }
-            </Text>
-
-            <View className="h-[1px] my-4" style={{ backgroundColor: colors.secondary }} />
-
-            <View className="rounded-2xl p-4 border mb-6" style={{ backgroundColor: 'rgba(255, 176, 32, 0.1)', borderColor: 'rgba(255, 176, 32, 0.2)' }}>
-              <View className="flex-row items-center">
-                <Ionicons name="information-circle" size={18} color={colors.amber} />
-                <Text className="font-bold text-xs ml-1.5" style={{ color: colors.amber }}>Conversion Asymmetry</Text>
-              </View>
-              <Text className="text-[10px] mt-1 leading-relaxed" style={{ color: colors.text }}>
-                Credits are worth ₹{sysSettings.creditPurchasePrice} when booking visits in-network, but convert to ₹{sysSettings.creditConversionValue} when cashed out. Cashing out reduces your overall fitness purchasing power.
-              </Text>
-            </View>
-
-            <View className="space-y-4 mb-6">
-              <View>
-                <Text className="text-xs font-semibold mb-1.5 ml-1" style={{ color: colors.text }}>
-                  {conversionType === "creditsToCash" 
-                    ? `Credits to Convert (Available: ${credits})` 
-                    : `Credits to Buy (Available Cash: ₹${cashBalance})`
-                  }
-                </Text>
-                <TextInput
-                  keyboardType="number-pad"
-                  placeholder={conversionType === "creditsToCash" ? "e.g. 50" : "e.g. 5"}
-                  placeholderTextColor={colors.muted}
-                  value={conversionType === "creditsToCash" ? creditsToConvert : cashToConvert}
-                  onChangeText={conversionType === "creditsToCash" ? setCreditsToConvert : setCashToConvert}
-                  style={styles.input}
-                />
-              </View>
-
-              {conversionType === "creditsToCash" && creditsToConvert ? (
-                <Text className="text-xs font-bold ml-1" style={{ color: colors.amber }}>
-                  You will receive: ₹{parseInt(creditsToConvert) * sysSettings.creditConversionValue || 0}
-                </Text>
-              ) : null}
-
-              {conversionType === "cashToCredits" && cashToConvert ? (
-                <Text className="text-xs font-bold ml-1" style={{ color: colors.green }}>
-                  Cash required: ₹{parseInt(cashToConvert) * sysSettings.creditPurchasePrice || 0}
-                </Text>
-              ) : null}
-            </View>
-
-            <View className="flex-row gap-x-4">
-              <Pressable
-                onPress={() => setConvertModalVisible(false)}
-                className="flex-1 h-12 rounded-2xl items-center justify-center border active:opacity-70"
-                style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}
-              >
-                <Text className="font-bold text-sm" style={{ color: colors.text }}>Cancel</Text>
-              </Pressable>
-
-              <Pressable
-                onPress={handleConvert}
-                className={`flex-1 h-12 rounded-2xl items-center justify-center active:opacity-80`}
-                style={[
-                  { backgroundColor: conversionType === "creditsToCash" ? colors.amber : colors.green },
-                  conversionType === "creditsToCash" ? styles.amberGlowSm : styles.emeraldGlowSm
-                ]}
-              >
-                <Text className="font-bold text-sm" style={{ color: conversionType === "creditsToCash" ? colors.surface : colors.surface }}>Convert</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* MODAL: Cash Top Up */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={cashModalVisible}
-        onRequestClose={() => setCashModalVisible(false)}
-      >
-        <View className="flex-1 justify-end bg-black/80">
-          <View className="rounded-t-[36px] p-6" style={{ backgroundColor: colors.bg }}>
-            <View className="w-12 h-1.5 rounded-full mb-6 align-self-center mx-auto" style={{ backgroundColor: colors.secondary }} />
-            
-            <Text className="text-xs font-bold uppercase tracking-wider" style={{ color: colors.green }}>Top Up Wallet</Text>
-            <Text className="text-2xl font-bold mt-1" style={{ color: colors.text }}>Add Cash Balance</Text>
-            <Text className="text-xs mt-0.5" style={{ color: colors.muted }}>Add test money to your wallet to buy credits packs.</Text>
-
-            <View className="h-[1px] my-4" style={{ backgroundColor: colors.secondary }} />
-
-            <View className="space-y-4 mb-6">
-              <View>
-                <Text className="text-xs font-semibold mb-1.5 ml-1" style={{ color: colors.text }}>Top-Up Amount (INR)</Text>
-                <TextInput
-                  keyboardType="number-pad"
-                  placeholder="e.g. 1000"
-                  placeholderTextColor={colors.muted}
-                  value={cashToTopUp}
-                  onChangeText={setCashToTopUp}
-                  style={styles.input}
-                />
-              </View>
-            </View>
-
-            <View className="flex-row gap-x-4">
-              <Pressable
-                onPress={() => setCashModalVisible(false)}
-                className="flex-1 h-12 rounded-2xl items-center justify-center border active:opacity-70"
-                style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}
-              >
-                <Text className="font-bold text-sm" style={{ color: colors.text }}>Cancel</Text>
-              </Pressable>
-
-              <Pressable
-                onPress={handleTopUpCash}
-                className="flex-1 h-12 rounded-2xl items-center justify-center active:opacity-80"
-                style={[{ backgroundColor: colors.green }, styles.emeraldGlowSm]}
-              >
-                <Text className="font-bold text-sm" style={{ color: colors.surface }}>Add Cash</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* MODAL: How Credits Work */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={infoModalVisible}
-        onRequestClose={() => setInfoModalVisible(false)}
-      >
-        <View className="flex-1 justify-end bg-black/80">
-          <View className="rounded-t-[36px] p-6 max-h-[80%]" style={{ backgroundColor: colors.bg }}>
-            <View className="w-12 h-1.5 rounded-full mb-6 align-self-center mx-auto" style={{ backgroundColor: colors.secondary }} />
-            
-            <Text className="text-xs font-bold uppercase tracking-wider" style={{ color: colors.green }}>Documentation</Text>
-            <Text className="text-2xl font-bold mt-1" style={{ color: colors.text }}>ZonoFit Credit Rules</Text>
-
-            <View className="h-[1px] my-4" style={{ backgroundColor: colors.secondary }} />
-
-            <ScrollView className="space-y-4 mb-6" showsVerticalScrollIndicator={false}>
-              <View className="flex-row gap-x-3 items-start">
-                <Ionicons name="fitness-outline" size={18} color={colors.green} className="mt-0.5" />
-                <View className="flex-1">
-                  <Text className="font-bold text-sm" style={{ color: colors.text }}>1 Credit = ₹10 Fitness Value</Text>
-                  <Text className="text-xs mt-0.5" style={{ color: colors.muted }}>When spent in-network to book partner gym visits, credits maximize your value.</Text>
-                </View>
-              </View>
-
-              <View className="flex-row gap-x-3 items-start">
-                <Ionicons name="cash-outline" size={18} color={colors.amber} className="mt-0.5" />
-                <View className="flex-1">
-                  <Text className="font-bold text-sm" style={{ color: colors.text }}>1 Credit = ₹8 Cash Value</Text>
-                  <Text className="text-xs mt-0.5" style={{ color: colors.muted }}>When cashing out or converting credits into spendable cash balance outside the gym network.</Text>
-                </View>
-              </View>
-
-              <View className="flex-row gap-x-3 items-start">
-                <Ionicons name="time-outline" size={18} color={colors.coral} className="mt-0.5" />
-                <View className="flex-1">
-                  <Text className="font-bold text-sm" style={{ color: colors.text }}>Credits Tied to Membership</Text>
-                  <Text className="text-xs mt-0.5" style={{ color: colors.muted }}>When your gym membership expires, unused credits automatically convert to cash (₹{sysSettings.creditConversionValue}/credit). This cash balance expires entirely after {sysSettings.cashExpiryDays} days.</Text>
-                </View>
-              </View>
-
-              <View className="flex-row gap-x-3 items-start">
-                <Ionicons name="shield-checkmark-outline" size={18} color="#059669" className="mt-0.5" />
-                <View className="flex-1">
-                  <Text className="font-bold text-sm" style={{ color: colors.text }}>Pricing Control</Text>
-                  <Text className="text-xs mt-0.5" style={{ color: colors.muted }}>Different partner gyms require different credit amounts based on category and equipment. ZonoFit retains final pricing control.</Text>
-                </View>
-              </View>
-            </ScrollView>
-
-            <Pressable
-              onPress={() => setInfoModalVisible(false)}
-              className="h-12 rounded-2xl items-center justify-center border active:opacity-70"
-              style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}
-            >
-              <Text className="font-bold text-sm" style={{ color: colors.text }}>Close Rules</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  input: {
-    height: 48,
-    paddingHorizontal: 16,
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    color: colors.text,
-    fontWeight: "500",
-    borderWidth: 1,
-    borderColor: colors.secondary,
-  },
-  cardShadow: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 16,
-    elevation: 3,
-  },
-  softShadow: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  emeraldGlow: {
-    shadowColor: colors.green,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.6,
-    shadowRadius: 30,
-    elevation: 15,
-  },
-  emeraldGlowSm: {
-    shadowColor: colors.green,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  neonGlowSm: {
-    shadowColor: colors.lime,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.8,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  amberGlowSm: {
-    shadowColor: colors.amber,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.8,
-    shadowRadius: 10,
-    elevation: 8,
-  }
-});
