@@ -15,6 +15,8 @@ export interface MarketplaceItem {
   pricePaise: number;
   imageUrl: string;
   storeCategory: string;
+  sizes?: string[];
+  colors?: string[];
 }
 
 const CATEGORIES = [
@@ -36,6 +38,8 @@ export default function MarketplaceScreen() {
   const [selectedItem, setSelectedItem] = useState<MarketplaceItem | null>(null);
   const [isCartModalOpen, setIsCartModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("ALL");
+  const [selectedColors, setSelectedColors] = useState<Record<string, string>>({});
+  const [selectedSizes, setSelectedSizes] = useState<Record<string, string>>({});
   const { addToCart, getTotalItems } = useCartStore();
 
   useEffect(() => {
@@ -56,6 +60,23 @@ export default function MarketplaceScreen() {
   const filteredItems = items.filter(
     (item) => selectedCategory === "ALL" || item.storeCategory === selectedCategory
   );
+
+  const handleAddToCart = (item: MarketplaceItem) => {
+    const chosenColor = selectedColors[item.id] || (item.colors && item.colors.length > 0 ? item.colors[0] : undefined);
+    const chosenSize = selectedSizes[item.id] || (item.sizes && item.sizes.length > 0 ? item.sizes[0] : undefined);
+
+    const variantText = [chosenColor, chosenSize].filter(Boolean).join(" • ");
+
+    addToCart({
+      id: `${item.id}${chosenColor ? `-${chosenColor}` : ''}${chosenSize ? `-${chosenSize}` : ''}`,
+      name: item.title,
+      price: item.pricePaise / 100,
+      image: item.imageUrl,
+      selectedColor: chosenColor,
+      selectedSize: chosenSize,
+      variant: variantText || undefined
+    } as any);
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-[#F5F7F4]">
@@ -134,12 +155,58 @@ export default function MarketplaceScreen() {
                 {item.storeCategory?.replace(/_/g, " ")}
               </Text>
               <Text className="text-lg font-bold text-[#1F2520]">{item.title}</Text>
-              <Text className="text-xs text-[#6B756E] mt-1 mb-4 leading-relaxed">{item.description}</Text>
+              <Text className="text-xs text-[#6B756E] mt-1 mb-3 leading-relaxed">{item.description}</Text>
               
-              <View className="flex-row justify-between items-center">
+              {/* Color Options */}
+              {item.colors && item.colors.length > 0 && (
+                <View className="mb-3">
+                  <Text className="text-[11px] font-bold text-[#6B756E] mb-1.5 uppercase tracking-wider">
+                    Color: <Text className="text-[#1F2520]">{selectedColors[item.id] || item.colors[0]}</Text>
+                  </Text>
+                  <View className="flex-row flex-wrap gap-2">
+                    {item.colors.map((color) => {
+                      const isSelected = (selectedColors[item.id] || (item.colors ? item.colors[0] : "")) === color;
+                      return (
+                        <Pressable
+                          key={color}
+                          onPress={() => setSelectedColors(prev => ({ ...prev, [item.id]: color }))}
+                          className={`px-3 py-1.5 rounded-xl border ${isSelected ? 'bg-emerald-50 border-emerald-600' : 'bg-[#F9FAFB] border-gray-200'} active:opacity-80`}
+                        >
+                          <Text className={`text-xs font-bold ${isSelected ? 'text-emerald-700' : 'text-gray-700'}`}>{color}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
+
+              {/* Size Options */}
+              {item.sizes && item.sizes.length > 0 && (
+                <View className="mb-4">
+                  <Text className="text-[11px] font-bold text-[#6B756E] mb-1.5 uppercase tracking-wider">
+                    Size: <Text className="text-[#1F2520]">{selectedSizes[item.id] || item.sizes[0]}</Text>
+                  </Text>
+                  <View className="flex-row flex-wrap gap-2">
+                    {item.sizes.map((size) => {
+                      const isSelected = (selectedSizes[item.id] || (item.sizes ? item.sizes[0] : "")) === size;
+                      return (
+                        <Pressable
+                          key={size}
+                          onPress={() => setSelectedSizes(prev => ({ ...prev, [item.id]: size }))}
+                          className={`px-3.5 py-1.5 rounded-xl border ${isSelected ? 'bg-emerald-50 border-emerald-600' : 'bg-[#F9FAFB] border-gray-200'} active:opacity-80`}
+                        >
+                          <Text className={`text-xs font-bold ${isSelected ? 'text-emerald-700' : 'text-gray-700'}`}>{size}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
+
+              <View className="flex-row justify-between items-center pt-2 border-t border-black/5">
                 <Text className="text-xl font-black text-[#1F2520]">₹{item.pricePaise / 100}</Text>
                 <Pressable 
-                  onPress={() => addToCart(item)}
+                  onPress={() => handleAddToCart(item)}
                   className="bg-emerald-600 px-5 py-2.5 rounded-xl active:bg-emerald-700 flex-row items-center gap-x-2"
                 >
                   <Ionicons name="add" size={16} color="white" />
