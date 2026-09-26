@@ -40,11 +40,14 @@ export default function ProductDetailScreen() {
 
   const handleAddToCart = () => {
     addToCart({
-      id: product.id,
+      id: `${product.id}-${selectedFlavour}-${selectedSize}`,
       name: product.name,
       brand: product.brand,
       price: product.price,
       image: product.image,
+      selectedSize,
+      selectedColor: selectedFlavour,
+      variant: `${selectedFlavour} • ${selectedSize}`
     });
     router.back();
   };

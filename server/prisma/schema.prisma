@@ -215,6 +215,10 @@ model Membership {
   primaryGym       Gym?         @relation("PrimaryGym", fields: [primaryGymId], references: [id])
   gymPayments      GymPayment[]
 
+  cycleNumber      Int          @default(1) // 1 to 12 cycles per plan
+  mandatoryVisits  Int          @default(10) // Applicable mandatory visits for this cycle
+  completedVisits  Int          @default(0) // Completed visits in this cycle
+
   @@map("memberships")
 }
 
@@ -306,6 +310,9 @@ model Gym {
   branchesCount   Int?
   contactPhone    String?
   contactEmail    String?
+  openingTime     String      @default("06:00")
+  closingTime     String      @default("22:00")
+  totalSlots      Int         @default(20)
 
   ownerId String?
   owner   User?   @relation("GymOwner", fields: [ownerId], references: [id])
@@ -467,6 +474,8 @@ model MarketplaceItem {
   imageUrl      String
   inStock       Boolean       @default(true)
   storeCategory StoreCategory @default(ZONOFIT_COMMON)
+  sizes         String[]      @default([])
+  colors        String[]      @default([])
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
@@ -476,16 +485,18 @@ model MarketplaceItem {
 }
 
 model MarketplaceOrder {
-  id         String   @id @default(uuid())
-  userId     String
-  itemId     String
-  quantity   Int      @default(1)
-  totalPaise Int
-  status     String   @default("COMPLETED")
-  createdAt  DateTime @default(now())
+  id            String   @id @default(uuid())
+  userId        String
+  itemId        String
+  quantity      Int      @default(1)
+  totalPaise    Int
+  status        String   @default("COMPLETED")
+  selectedSize  String?
+  selectedColor String?
+  createdAt     DateTime @default(now())
 
   user User            @relation(fields: [userId], references: [id])
-  item MarketplaceItem @relation(fields: [itemId], references: [id])
+  item MarketplaceItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
   @@map("marketplace_orders")
 }

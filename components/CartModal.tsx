@@ -132,6 +132,11 @@ export default function CartModal({ visible, onClose }: CartModalProps) {
                   <View key={ci.item.id} className="flex-row items-center justify-between border-b border-black/5 py-4">
                     <View className="flex-1 mr-4">
                       <Text className="text-sm font-bold text-[#1F2520]" numberOfLines={1}>{ci.item.name || (ci.item as any).title}</Text>
+                      {(ci.item.variant || ci.item.selectedColor || ci.item.selectedSize) && (
+                        <Text className="text-[11px] font-semibold text-emerald-700 mt-0.5">
+                          {ci.item.variant || [ci.item.selectedColor, ci.item.selectedSize].filter(Boolean).join(" • ")}
+                        </Text>
+                      )}
                       <Text className="text-xs text-[#6B756E] mt-1">₹{ci.item.price !== undefined ? ci.item.price : (ci.item as any).pricePaise / 100} each</Text>
                     </View>
                     
