@@ -38,7 +38,7 @@ export default function JourneyScreen() {
           <Text style={{ fontSize: 28, fontWeight: '800', color: '#111827', letterSpacing: -0.5 }}>My Journey</Text>
           <Text style={{ fontSize: 13, fontWeight: '500', color: '#6B7280', marginTop: 4 }}>Your commitment. Your consistency. Your progress.</Text>
         </View>
-        <Pressable onPress={() => router.push("/booking-history" as any)} style={{ width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-end', position: 'relative' }}>
+        <Pressable onPress={() => router.push("/notifications" as any)} style={{ width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-end', position: 'relative' }}>
           <Ionicons name="notifications-outline" size={24} color="#111827" />
           <View style={{ position: 'absolute', top: 6, right: 2, width: 8, height: 8, borderRadius: 4, backgroundColor: '#EF4444', borderWidth: 1.5, borderColor: '#FFFFFF' }} />
         </Pressable>
