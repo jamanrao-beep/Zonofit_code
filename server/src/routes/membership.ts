@@ -36,7 +36,10 @@ router.get(
   async (req: Request, res: Response): Promise<void> => {
     const membership = await prisma.membership.findUnique({
       where: { userId: req.dbUserId! },
-      include: { plan: true },
+      include: { 
+        plan: true,
+        primaryGym: { select: { id: true, name: true, city: true, address: true } }
+      },
     });
 
     if (!membership) {
@@ -45,21 +48,44 @@ router.get(
     }
 
     const now = new Date();
-    const isExpired = membership.endDate < now;
+    const isExpired = membership.endDate < now || membership.status === "EXPIRED";
+    const daysRemaining = isExpired
+      ? 0
+      : Math.ceil(
+          (membership.endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+        );
+
+    const cycleNumber = membership.cycleNumber || 1;
+    const maxCycles = 12;
+    const cyclesRemaining = Math.max(0, maxCycles - cycleNumber);
+    const mandatoryVisits = membership.mandatoryVisits || 10;
+    const completedVisits = membership.completedVisits || 0;
+    const mandatoryVisitsRemaining = Math.max(0, mandatoryVisits - completedVisits);
+
+    // PRD Rules:
+    // 1. Repurchase allowed ONLY when membership is expired AND cycleNumber < 12
+    // 2. Buy additional credits allowed ONLY when membership is active
+    const canRepurchase = isExpired && cycleNumber < maxCycles;
+    const canBuyAdditionalCredits = !isExpired;
 
     res.json({
       membership: {
         ...membership,
-        plan: {
+        gymName: membership.primaryGym?.name || "ZonoFit Partner Gym",
+        plan: membership.plan ? {
           ...membership.plan,
           priceINR: membership.plan.priceInPaise / 100,
-        },
+        } : null,
         isExpired,
-        daysRemaining: isExpired
-          ? 0
-          : Math.ceil(
-              (membership.endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
-            ),
+        daysRemaining,
+        cycleNumber,
+        maxCycles,
+        cyclesRemaining,
+        mandatoryVisits,
+        completedVisits,
+        mandatoryVisitsRemaining,
+        canRepurchase,
+        canBuyAdditionalCredits,
       },
     });
   }
@@ -67,13 +93,13 @@ router.get(
 
 // ─── POST /api/membership/activate ───────────────────────────────────────────
 /**
- * Activate a membership after payment confirmation.
- * Called after Razorpay payment webhook confirms success.
+ * Activate or Repurchase a membership after payment confirmation.
+ * Called after payment confirmation.
  *
- * On activation:
- * 1. Creates/updates the Membership row
- * 2. Grants the plan's monthly credits to the wallet
- * 3. Logs the credit grant transaction
+ * PRD Constraints:
+ * 1. Active membership CANNOT be repurchased early.
+ * 2. Maximum 12 membership cycles allowed.
+ * 3. INR wallet is automatically deducted up to the total purchase amount.
  */
 router.post(
   "/activate",
@@ -101,12 +127,40 @@ router.post(
 
     try {
       const result = await prisma.$transaction(async (tx) => {
-        let plan;
-        let gymPlan;
-        let gym;
-        let initialVisits = 0;
-        let remainingCreditsToAdd = 0;
+        // Check existing membership to enforce PRD rules
+        const existingMembership = await tx.membership.findUnique({
+          where: { userId: req.dbUserId! },
+          include: { plan: true }
+        });
+
         const now = new Date();
+
+        // PRD Rule #11: Repurchase while active is STRICTLY PREVENTED
+        if (existingMembership && existingMembership.status === "ACTIVE" && existingMembership.endDate > now) {
+          throw createError(
+            "Active membership cannot be repurchased early. If credits finish before your membership expires, please buy additional credits.",
+            400,
+            "ActiveMembershipCannotRepurchase"
+          );
+        }
+
+        // PRD Rule #19: Maximum 12 Membership Cycles
+        const currentCycle = existingMembership?.cycleNumber || 0;
+        if (currentCycle >= 12) {
+          throw createError(
+            "Plan limit reached. You have completed all 12 membership cycles under this plan.",
+            400,
+            "MembershipPlanLimitReached"
+          );
+        }
+
+        const nextCycleNumber = currentCycle + 1;
+
+        let plan: any;
+        let gymPlan: any;
+        let gym: any;
+        let initialVisits = 10;
+        let remainingCreditsToAdd = 0;
         let endDate = new Date();
 
         if (gymPlanId) {
@@ -114,9 +168,8 @@ router.post(
           if (!gymPlan) throw createError("Gym Plan not found.", 404, "PlanNotFound");
           gym = gymPlan.gym;
           
-          // GymPlan Logic: 30 days - cut days * cost
           const cutDays = gymPlan.initialCutoffDays;
-          initialVisits = cutDays; // We record cut days as initial visits
+          initialVisits = cutDays;
           const netCreditDays = 30 - cutDays;
           remainingCreditsToAdd = netCreditDays * gym.creditCost;
           
@@ -126,12 +179,14 @@ router.post(
           plan = await tx.membershipPlan.findUnique({ where: { id: planId, isActive: true } });
           if (!plan) throw createError("Plan not found.", 404, "PlanNotFound");
 
-          if (!primaryGymId) throw createError("primaryGymId required for global plans.", 400, "GymRequired");
-          gym = await tx.gym.findUnique({ where: { id: primaryGymId, isActive: true } });
+          const targetGymId = primaryGymId || existingMembership?.primaryGymId;
+          if (!targetGymId) throw createError("Primary Gym selection required.", 400, "GymRequired");
+
+          gym = await tx.gym.findUnique({ where: { id: targetGymId, isActive: true } });
           if (!gym) throw createError("Primary Gym not found or inactive.", 404, "GymNotFound");
 
           const settings = await getSystemSettings();
-          initialVisits = settings.initialVisitCut; // e.g. 10
+          initialVisits = settings.initialVisitCut || 10;
           const initialCreditsCost = gym.creditCost * initialVisits;
 
           if (initialCreditsCost > plan.monthlyCredits) {
@@ -143,10 +198,44 @@ router.post(
           }
 
           remainingCreditsToAdd = plan.monthlyCredits - initialCreditsCost;
-          endDate = new Date(now.getTime() + plan.durationDays * 24 * 60 * 60 * 1000);
+          endDate = new Date(now.getTime() + (plan.durationDays || 30) * 24 * 60 * 60 * 1000);
         }
 
-        // Upsert membership
+        // PRD Rule #15, #16, #17: Auto-deduct valid INR Wallet from checkout
+        const wallet = await tx.creditWallet.findUnique({
+          where: { userId: req.dbUserId! }
+        });
+
+        if (!wallet) throw createError("Wallet not found.", 404, "WalletNotFound");
+
+        let inrWalletDeductedPaise = 0;
+        if (wallet.convertibleCashBalanceInPaise > 0 && wallet.cashExpiryDate && wallet.cashExpiryDate > now) {
+          // Automatic deduction up to purchase price
+          const pricePaise = plan ? plan.priceInPaise : (gymPlan ? gymPlan.priceInPaise : 0);
+          inrWalletDeductedPaise = Math.min(pricePaise, wallet.convertibleCashBalanceInPaise);
+
+          if (inrWalletDeductedPaise > 0) {
+            await tx.creditWallet.update({
+              where: { id: wallet.id },
+              data: {
+                convertibleCashBalanceInPaise: { decrement: inrWalletDeductedPaise }
+              }
+            });
+
+            await tx.creditTransaction.create({
+              data: {
+                userId: req.dbUserId!,
+                walletId: wallet.id,
+                type: "CONVERSION",
+                amount: 0,
+                balanceAfter: wallet.balance,
+                description: `INR Wallet auto-applied: -₹${inrWalletDeductedPaise / 100} for Membership Cycle ${nextCycleNumber}.`
+              }
+            });
+          }
+        }
+
+        // Upsert membership for the new 30-day cycle
         const membership = await tx.membership.upsert({
           where: { userId: req.dbUserId! },
           create: {
@@ -158,6 +247,9 @@ router.post(
             endDate,
             primaryGymId: gym.id,
             primaryGymVisits: initialVisits,
+            cycleNumber: nextCycleNumber,
+            mandatoryVisits: initialVisits,
+            completedVisits: 0
           },
           update: {
             planId: planId || null,
@@ -167,12 +259,15 @@ router.post(
             endDate,
             primaryGymId: gym.id,
             primaryGymVisits: initialVisits,
+            cycleNumber: nextCycleNumber,
+            mandatoryVisits: initialVisits,
+            completedVisits: 0
           },
-          include: { plan: true, gymPlan: true },
+          include: { plan: true, gymPlan: true, primaryGym: true },
         });
 
         // Grant remaining credits
-        const wallet = await tx.creditWallet.update({
+        const updatedWallet = await tx.creditWallet.update({
           where: { userId: req.dbUserId! },
           data: { balance: { increment: remainingCreditsToAdd } },
         });
@@ -183,28 +278,39 @@ router.post(
             walletId: wallet.id,
             type: "MEMBERSHIP_GRANT",
             amount: remainingCreditsToAdd,
-            balanceAfter: wallet.balance,
-            description: `${plan.name} activated — ${initialVisits} visits locked to ${gym.name}, ${remainingCreditsToAdd} credits added.`,
+            balanceAfter: updatedWallet.balance,
+            description: `Membership ${nextCycleNumber} of 12 activated — ${initialVisits} visits at ${gym.name}, ${remainingCreditsToAdd} credits added.`,
           },
         });
 
-        return { membership, wallet, remainingCreditsToAdd, initialVisits, gym };
+        return { 
+          membership, 
+          wallet: updatedWallet, 
+          remainingCreditsToAdd, 
+          initialVisits, 
+          gym, 
+          nextCycleNumber,
+          inrWalletDeductedPaise 
+        };
       });
 
       res.status(201).json({
         membership: {
           ...result.membership,
-          plan: {
+          plan: result.membership.plan ? {
             ...result.membership.plan,
             priceINR: result.membership.plan.priceInPaise / 100,
-          },
+          } : null,
+          cycleNumber: result.nextCycleNumber,
+          maxCycles: 12,
         },
         newCreditBalance: result.wallet.balance,
-        message: `${result.membership.plan.name} activated. ${result.initialVisits} visits available at ${result.gym.name}.`,
+        inrWalletDeductedINR: result.inrWalletDeductedPaise / 100,
+        message: `Membership ${result.nextCycleNumber} of 12 activated. ${result.initialVisits} mandatory visits available at ${result.gym.name}.`,
       });
     } catch (err: any) {
-      if (err.status) {
-        res.status(err.status).json({ error: err.code, message: err.message });
+      if (err.statusCode || err.status) {
+        res.status(err.statusCode || err.status).json({ error: err.code || "Error", message: err.message });
       } else {
         res.status(500).json({ error: "ServerError", message: err.message });
       }

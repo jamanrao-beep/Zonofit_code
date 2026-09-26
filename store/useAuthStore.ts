@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import * as SecureStore from "expo-secure-store";
 import { apiFetch } from "@/lib/api";
+import { useGuestStore } from "./useGuestStore";
 
 const TOKEN_KEY = "zonofit_auth_token";
 const SESSION_KEY = "zonofit_user_session";
@@ -170,6 +171,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isSignedIn: true,
         isOnboarded: true 
       });
+
+      // Convert guest session if active per PRD Section 14
+      useGuestStore.getState().convertGuest();
     } catch (err: any) {
       set({ loading: false, error: err.message });
     }

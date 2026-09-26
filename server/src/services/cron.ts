@@ -242,6 +242,7 @@ async function processGymPlanMonthlyCredits() {
       const diffMonths = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 30));
       
       const gymPlan = membership.gymPlan;
+      if (!gymPlan || !gymPlan.gym) continue;
       const gym = gymPlan.gym;
       
       const cutDays = diffMonths <= gymPlan.initialPeriodMonths ? gymPlan.initialCutoffDays : gymPlan.subsequentCutoffDays;
