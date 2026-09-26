@@ -1,19 +1,34 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, Pressable, ScrollView, StatusBar, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useAddressStore } from "@/store/useAddressStore";
+import { useCreditsStore } from "@/store/useCreditsStore";
 import DeliveryAddressModal from "@/components/DeliveryAddressModal";
 
 export default function OrderSummaryScreen() {
   const router = useRouter();
-  const { completeOnboarding, loading } = useAuthStore();
+  const { completeOnboarding, loading, token } = useAuthStore();
+  const { inrWallet, fetchWallet } = useCreditsStore();
   const { getSelectedAddress } = useAddressStore();
   const selectedAddress = getSelectedAddress();
 
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (token) {
+      fetchWallet(token);
+    }
+  }, [token]);
+
+  const basePrice = 3999;
+  const gst = 420;
+  const subtotalWithGst = basePrice + gst;
+  const hasInrWallet = !!(inrWallet && inrWallet.isValid && inrWallet.balanceINR > 0);
+  const walletDeduction = hasInrWallet ? Math.min(inrWallet!.balanceINR, subtotalWithGst) : 0;
+  const payableAmount = Math.max(0, subtotalWithGst - walletDeduction);
 
   const handleProceed = async () => {
     if (!selectedAddress) {
@@ -29,7 +44,7 @@ export default function OrderSummaryScreen() {
     }
 
     // Navigate to the 3-step Eligibility Verification flow before payment
-    router.push("/onboarding/eligibility");
+    router.push("/onboarding/eligibility" as any);
   };
 
   return (
@@ -130,19 +145,40 @@ export default function OrderSummaryScreen() {
         <View style={styles.card}>
           <View style={styles.priceRow}>
             <Text style={styles.priceLabel}>Subtotal</Text>
-            <Text style={styles.priceValue}>₹3,999</Text>
+            <Text style={styles.priceValue}>₹{basePrice.toLocaleString("en-IN")}</Text>
           </View>
           <View style={styles.priceRow}>
             <Text style={styles.priceLabel}>GST (18%)</Text>
-            <Text style={styles.priceValue}>₹420</Text>
+            <Text style={styles.priceValue}>₹{gst.toLocaleString("en-IN")}</Text>
           </View>
+
+          {hasInrWallet && walletDeduction > 0 && (
+            <View style={styles.priceRow}>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Ionicons name="wallet-outline" size={15} color="#1F7A3E" style={{ marginRight: 6 }} />
+                <Text style={[styles.priceLabel, { color: "#1F7A3E", fontWeight: "600" }]}>INR Wallet Auto-Deduction</Text>
+              </View>
+              <Text style={[styles.priceValue, { color: "#1F7A3E", fontWeight: "700" }]}>
+                -₹{walletDeduction.toLocaleString("en-IN")}
+              </Text>
+            </View>
+          )}
           
           <View style={styles.divider} />
           
           <View style={styles.priceRow}>
-            <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalValue}>₹4,419</Text>
+            <Text style={styles.totalLabel}>Amount Payable</Text>
+            <Text style={styles.totalValue}>₹{payableAmount.toLocaleString("en-IN")}</Text>
           </View>
+
+          {hasInrWallet && walletDeduction > 0 && (
+            <View style={{ marginTop: 10, padding: 8, backgroundColor: "#E8F5E9", borderRadius: 8, flexDirection: "row", alignItems: "center" }}>
+              <Ionicons name="sparkles" size={14} color="#1F7A3E" />
+              <Text style={{ fontSize: 11, color: "#1F7A3E", fontWeight: "600", marginLeft: 6, flex: 1 }}>
+                ₹{walletDeduction} automatically applied from your temporary INR wallet (no toggle needed).
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Included benefits */}

@@ -222,12 +222,12 @@ export default function ProfileScreen() {
                     <NavRow
                         icon="accessibility-new"
                         label="Become a Trainer"
-                        onPress={() => router.push("/role-application?type=trainer")}
+                        onPress={() => router.push("/role-application?type=trainer" as any)}
                     />
                     <NavRow
                         icon="people-outline"
                         label="Become a Gym Buddy"
-                        onPress={() => router.push("/role-application?type=buddy")}
+                        onPress={() => router.push("/role-application?type=buddy" as any)}
                     />
                 </View>
 

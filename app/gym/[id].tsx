@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Image, Pressable, Dimensions, StatusBar, StyleSheet, Platform } from 'react-native';
+import { View, Text, ScrollView, Image, Pressable, Dimensions, StatusBar, StyleSheet, Platform, Alert } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useGuestStore } from '@/store/useGuestStore';
 
 const { width } = Dimensions.get('window');
 
@@ -34,7 +35,9 @@ const GYM_DATA = {
 
 export default function GymDetailScreen() {
   const router = useRouter();
+  const { id } = useLocalSearchParams<{ id: string }>();
   const isFromOnboarding = useAuthStore(state => state.isViewingOnboardingGym);
+  const { isGuest, selectGym } = useGuestStore();
   const insets = useSafeAreaInsets();
   const [activeImage, setActiveImage] = useState(0);
 
@@ -249,7 +252,28 @@ export default function GymDetailScreen() {
       </ScrollView>
 
       {/* Bottom Fixed Action Bar */}
-      {isFromOnboarding ? (
+      {isGuest ? (
+        <Pressable 
+          style={{ position: 'absolute', bottom: Math.max(insets.bottom, 16), left: 16, right: 16, backgroundColor: '#1F7A3E', borderRadius: 14, flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 16, justifyContent: 'center', shadowColor: '#1F7A3E', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 4 }}
+          onPress={() => {
+            selectGym((id as string) || "gym_1", GYM_DATA.name);
+            Alert.alert(
+              "Activate Membership",
+              `Create an account to continue with activating your membership at ${GYM_DATA.name}.`,
+              [
+                { text: "Cancel", style: "cancel" },
+                { 
+                  text: "Create Account", 
+                  onPress: () => router.push("/(auth)/create-account") 
+                }
+              ]
+            );
+          }}
+        >
+          <Text style={{ color: 'white', fontSize: 16, fontWeight: '700', marginRight: 8 }}>Activate Membership</Text>
+          <Ionicons name="arrow-forward" size={18} color="white" />
+        </Pressable>
+      ) : isFromOnboarding ? (
         <Pressable 
           style={{ position: 'absolute', bottom: Math.max(insets.bottom, 16), left: 16, right: 16, backgroundColor: '#1F7A3E', borderRadius: 12, flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 16, justifyContent: 'center', shadowColor: '#1F7A3E', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 }}
           onPress={() => {
