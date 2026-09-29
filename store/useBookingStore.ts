@@ -133,8 +133,8 @@ export const useBookingStore = create<BookingState>((set, get) => ({
           loading: false
         });
       }
-    } catch (err) {
-      console.error("Failed to fetch bookings:", err);
+    } catch (err: any) {
+      console.warn("Failed to fetch bookings:", err?.message || err);
       set({ loading: false });
     }
   },

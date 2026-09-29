@@ -20,6 +20,7 @@ import { apiFetch } from "@/lib/api";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useGuestStore } from "@/store/useGuestStore";
 import { colors } from "@/constants/colors";
+import { FALLBACK_NETWORK_GYMS } from "@/constants/fallbackGyms";
 import Animated, { FadeInDown, SlideInRight } from "react-native-reanimated";
 import { Animated3DCard } from "@/components/Animated3DCard";
 
@@ -77,26 +78,31 @@ export default function ExploreScreen() {
       setIsLoading(true);
       try {
         const data = await apiFetch("/api/gyms", token ? { token } : undefined);
-        const gymsData = data.gyms || [];
-        const formattedGyms = gymsData.map((g: any) => ({
-          id: g.id,
-          name: g.name,
-          address: g.address || g.city,
-          rating: g.rating || 4.5,
-          distance: g.distanceKm || 2.1,
-          cost: g.creditCost || 8,
-          slots: g.totalSlots || 20,
-          image: g.imageUrls?.[0] || "https://images.unsplash.com/photo-1534438327276-14e5300c3a48",
-          tags: g.facilities || ["Strength", "Cardio"],
-          type: g.facilities?.includes("Turf") ? "turf" : g.facilities?.includes("Swimming") || g.facilities?.includes("Basketball") ? "sports" : "gym",
-          isPremium: g.category === "PREMIUM",
-          isBeginnerFriendly: true,
-          isBestValue: g.creditCost <= 6,
-          isNearPrimary: false,
-        }));
-        setGyms(formattedGyms);
-      } catch (e) {
-        console.error("Failed to load gyms", e);
+        const gymsData = data?.gyms || [];
+        if (gymsData.length > 0) {
+          const formattedGyms = gymsData.map((g: any) => ({
+            id: g.id,
+            name: g.name,
+            address: g.address || g.city,
+            rating: g.rating || 4.5,
+            distance: g.distanceKm || 2.1,
+            cost: g.creditCost || 8,
+            slots: g.totalSlots || 20,
+            image: g.imageUrls?.[0] || "https://images.unsplash.com/photo-1534438327276-14e5300c3a48",
+            tags: g.facilities || ["Strength", "Cardio"],
+            type: g.facilities?.includes("Turf") ? "turf" : g.facilities?.includes("Swimming") || g.facilities?.includes("Basketball") ? "sports" : "gym",
+            isPremium: g.category === "PREMIUM",
+            isBeginnerFriendly: true,
+            isBestValue: g.creditCost <= 6,
+            isNearPrimary: false,
+          }));
+          setGyms(formattedGyms);
+        } else {
+          setGyms(FALLBACK_NETWORK_GYMS);
+        }
+      } catch (e: any) {
+        console.warn("Could not load gyms from API, showing network partner gyms:", e?.message || e);
+        setGyms(FALLBACK_NETWORK_GYMS);
       }
     }
 
@@ -105,8 +111,8 @@ export default function ExploreScreen() {
       try {
         const data = await apiFetch("/api/trial-gyms", { token });
         setTrialGyms(data.trialGyms || []);
-      } catch (e) {
-        console.error("Failed to load trial gyms", e);
+      } catch (e: any) {
+        console.warn("Failed to load trial gyms", e?.message || e);
       }
     }
 

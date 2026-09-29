@@ -175,8 +175,13 @@ export default function TopUpCreditsScreen() {
                   value={quantity.toString()}
                   onChangeText={handleDirectInput}
                   keyboardType="number-pad"
-                  className="text-4xl font-black text-[#111827] text-center"
-                  style={{ minWidth: 60 }}
+                  style={{
+                    fontSize: 36,
+                    fontWeight: "900",
+                    color: "#111827",
+                    textAlign: "center",
+                    minWidth: 60,
+                  }}
                   maxLength={4}
                 />
                 <Text className="text-lg font-bold text-[#1F7A3E] ml-1.5">CR</Text>

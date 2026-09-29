@@ -59,11 +59,12 @@ export async function apiFetch(path: string, options: RequestOptions = {}) {
       
       if (response.status === 401 || errorMessage.toLowerCase().includes("invalid or expired session token")) {
         try {
-          if (options.token !== "mock_jwt_token_123") {
+          if (options.token && typeof options.token === "string" && options.token.length > 20 && !options.token.startsWith("mock_")) {
             const { useAuthStore } = require("@/store/useAuthStore");
-            useAuthStore.getState().signOut();
-          } else {
-            // console.warn("Using mock token, skipping global auto sign-out on 401."); // Muted to prevent annoying toasts
+            if (useAuthStore.getState().isSignedIn) {
+              console.warn("[API] Session token expired on protected request. Signing out.");
+              useAuthStore.getState().signOut();
+            }
           }
         } catch (e) {
           console.warn("Failed to auto sign-out on 401:", e);

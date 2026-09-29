@@ -15,16 +15,22 @@ import { Ionicons } from "@expo/vector-icons";
 import { useCreditsStore } from "@/store/useCreditsStore";
 import { useUserStore } from "@/store/useUserStore";
 import { useAuthStore } from "@/store/useAuthStore";
-import { router } from "expo-router";
+import { useGuestStore } from "@/store/useGuestStore";
+import { useRouter } from "expo-router";
 import { apiFetch } from "@/lib/api";
 
 const MIN_CREDITS = 10;
 const CREDIT_PRICE_INR = 10; // 1 Credit = ₹10
 const PRESET_AMOUNTS = [10, 25, 50, 100];
 
+const formatINR = (n: number | undefined | null) => {
+  const val = Math.round(n || 0);
+  return val.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+};
+
 export default function CreditsScreen() {
+  const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
-  const purchaseSectionRef = useRef<View>(null);
 
   const { 
     credits, 
@@ -38,6 +44,8 @@ export default function CreditsScreen() {
 
   const { membershipStatus, membershipExpiry } = useUserStore();
   const token = useAuthStore((s) => s.token);
+  const isGuest = useGuestStore((s) => s.isGuest);
+  const hoursRemaining = useGuestStore((s) => s.hoursRemaining);
 
   // Additional Credits state (PRD Section 7 & 22C)
   const [purchaseQuantity, setPurchaseQuantity] = useState<number>(10);
@@ -119,7 +127,7 @@ export default function CreditsScreen() {
 
     Alert.alert(
       "Confirm Purchase",
-      `Buy ${purchaseQuantity} Additional Credits for ₹${price.toLocaleString("en-IN")}?\n\nNote: Additional credits do not extend membership duration or create a new cycle.`,
+      `Buy ${purchaseQuantity} Additional Credits for ₹${formatINR(price)}?\n\nNote: Additional credits do not extend membership duration or create a new cycle.`,
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -232,6 +240,99 @@ export default function CreditsScreen() {
     { id: "tx-2", type: "credit", amount: 50, description: "Additional Credits Purchase", date: "Yesterday" },
     { id: "tx-3", type: "debit", amount: 15, description: "Cardio Zone Session", date: "3 days ago" },
   ];
+
+  if (isGuest) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB" }} edges={["top"]}>
+        {/* Top App Bar */}
+        <View className="flex-row justify-between items-center px-5 pt-3 pb-3 bg-white border-b border-gray-100">
+          <View>
+            <Text className="text-[26px] font-black text-[#111827] tracking-tight">Credits & Wallet</Text>
+            <Text className="text-xs font-medium text-gray-500 mt-0.5">Membership access & spending balance</Text>
+          </View>
+          <View className="bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-full flex-row items-center">
+            <Ionicons name="time-outline" size={13} color="#D97706" />
+            <Text className="text-xs font-bold text-amber-700 ml-1">{hoursRemaining}h Guest</Text>
+          </View>
+        </View>
+
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20, paddingBottom: 100 }}>
+          {/* Guest Locked Hero Card */}
+          <View className="bg-[#1F7A3E] rounded-[26px] p-6 shadow-md mb-6 relative overflow-hidden">
+            <View style={{ position: "absolute", top: -30, right: -30, width: 140, height: 140, borderRadius: 70, backgroundColor: "rgba(255,255,255,0.08)" }} />
+            
+            <View className="flex-row items-center mb-3">
+              <View className="w-10 h-10 rounded-2xl bg-white/20 items-center justify-center mr-3">
+                <Ionicons name="lock-closed" size={20} color="#FFFFFF" />
+              </View>
+              <View>
+                <Text className="text-xs font-bold text-white/80 uppercase tracking-wider">Members Only Feature</Text>
+                <Text className="text-xl font-black text-white">Credit Wallet</Text>
+              </View>
+            </View>
+
+            <Text className="text-white/90 text-sm leading-relaxed mb-5">
+              Guest users can explore partner gyms and pricing. Activate your ZonoFit membership or create an account to unlock credits and book workouts at any gym.
+            </Text>
+
+            <Pressable
+              onPress={() => router.push("/(auth)/create-account" as any)}
+              className="bg-white rounded-2xl py-3.5 px-4 items-center justify-center flex-row shadow-sm active:bg-gray-100 mb-3"
+            >
+              <Ionicons name="person-add" size={18} color="#1F7A3E" style={{ marginRight: 8 }} />
+              <Text className="text-[#1F7A3E] font-black text-sm">Create Account to Unlock Wallet</Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => router.push("/(tabs)/explore" as any)}
+              className="bg-white/10 border border-white/30 rounded-2xl py-3 px-4 items-center justify-center flex-row active:bg-white/20"
+            >
+              <Ionicons name="compass-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+              <Text className="text-white font-bold text-xs">Explore Partner Gyms</Text>
+            </Pressable>
+          </View>
+
+          {/* How Credits Work Educational Section (PRD Section 3 & 4) */}
+          <View className="bg-white rounded-[24px] p-5 border border-gray-200 shadow-sm mb-6">
+            <Text className="text-base font-black text-[#111827] mb-1">How ZonoFit Credits Work</Text>
+            <Text className="text-xs text-gray-500 mb-4">The flexible currency for all your workouts</Text>
+
+            <View className="space-y-4">
+              <View className="flex-row items-start">
+                <View className="w-8 h-8 rounded-xl bg-emerald-50 items-center justify-center mr-3 mt-0.5">
+                  <Text className="text-sm font-black text-[#1F7A3E]">₹</Text>
+                </View>
+                <View className="flex-1">
+                  <Text className="text-sm font-bold text-[#111827]">1 Credit = ₹10 Gym Value</Text>
+                  <Text className="text-xs text-gray-500 mt-0.5">Guaranteed transparent pricing pegged directly to INR value.</Text>
+                </View>
+              </View>
+
+              <View className="flex-row items-start mt-3">
+                <View className="w-8 h-8 rounded-xl bg-emerald-50 items-center justify-center mr-3 mt-0.5">
+                  <Ionicons name="fitness" size={16} color="#1F7A3E" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-sm font-bold text-[#111827]">Universal Network Access</Text>
+                  <Text className="text-xs text-gray-500 mt-0.5">Spend credits across 100+ partner gyms without separate memberships.</Text>
+                </View>
+              </View>
+
+              <View className="flex-row items-start mt-3">
+                <View className="w-8 h-8 rounded-xl bg-emerald-50 items-center justify-center mr-3 mt-0.5">
+                  <Ionicons name="shield-checkmark" size={16} color="#1F7A3E" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-sm font-bold text-[#111827]">Anti-Wastage Protection</Text>
+                  <Text className="text-xs text-gray-500 mt-0.5">Unused credits convert into an INR Wallet at cycle end for repurchase discounts.</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB" }} edges={["top"]}>
@@ -356,7 +457,7 @@ export default function CreditsScreen() {
             </View>
 
             <Text className="text-white/80 text-xs font-medium mb-5">
-              ≈ ₹{(credits * 10).toLocaleString("en-IN")} Fitness Value
+              ≈ ₹{formatINR(credits * 10)} Fitness Value
             </Text>
 
             {/* PRD Section 6 Alert Banner if credits == 0 and membership active */}
@@ -401,7 +502,7 @@ export default function CreditsScreen() {
 
               <View className="flex-row items-baseline mb-1">
                 <Text className="text-3xl font-black text-[#78350F]">
-                  ₹{inrWallet!.balanceINR.toLocaleString("en-IN")}
+                  ₹{formatINR(inrWallet?.balanceINR)}
                 </Text>
                 <Text className="text-xs font-bold text-[#92400E] ml-2">available</Text>
               </View>
@@ -425,7 +526,7 @@ export default function CreditsScreen() {
         {/* ======================================================== */}
         {/* SECTION C: ADDITIONAL CREDIT PURCHASE (PRD Section 7 & 22C)*/}
         {/* ======================================================== */}
-        <View ref={purchaseSectionRef} className="px-5 mb-5">
+        <View className="px-5 mb-5">
           <View className="bg-white rounded-[26px] p-5 border border-gray-200 shadow-sm">
             <View className="flex-row justify-between items-center mb-1">
               <Text className="text-xs font-bold text-gray-400 uppercase tracking-wider">
@@ -459,14 +560,19 @@ export default function CreditsScreen() {
                     onChangeText={handleDirectInput}
                     editable={isMembershipActive}
                     keyboardType="number-pad"
-                    className="text-3xl font-black text-[#111827] text-center"
-                    style={{ minWidth: 60 }}
+                    style={{
+                      fontSize: 30,
+                      fontWeight: "900",
+                      color: "#111827",
+                      textAlign: "center",
+                      minWidth: 60,
+                    }}
                     maxLength={4}
                   />
                   <Text className="text-base font-bold text-[#1F7A3E] ml-1">CR</Text>
                 </View>
                 <Text className="text-[10px] font-semibold text-gray-400">
-                  = ₹{(purchaseQuantity * CREDIT_PRICE_INR).toLocaleString("en-IN")}
+                  = ₹{formatINR(purchaseQuantity * CREDIT_PRICE_INR)}
                 </Text>
               </View>
 
@@ -530,7 +636,7 @@ export default function CreditsScreen() {
               ) : (
                 <Text className="text-white font-bold text-sm">
                   {isMembershipActive 
-                    ? `Buy ${purchaseQuantity} Credits (₹${(purchaseQuantity * CREDIT_PRICE_INR).toLocaleString("en-IN")})`
+                    ? `Buy ${purchaseQuantity} Credits (₹${formatINR(purchaseQuantity * CREDIT_PRICE_INR)})`
                     : "Active Membership Required"}
                 </Text>
               )}
@@ -626,7 +732,7 @@ export default function CreditsScreen() {
                   </View>
                   <Text className="text-xs text-gray-500 leading-relaxed mb-3">
                     Your previous cycle has expired. Repurchase Membership {cycleNumber + 1} of {maxCycles} for 30 days of access.
-                    {hasInrWallet ? ` Your ₹${inrWallet!.balanceINR} INR wallet will be auto-deducted.` : ""}
+                    {hasInrWallet ? ` Your ₹${formatINR(inrWallet?.balanceINR)} INR wallet will be auto-deducted.` : ""}
                   </Text>
                   <Pressable
                     onPress={handleRepurchaseMembership}
