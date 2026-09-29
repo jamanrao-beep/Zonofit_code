@@ -90,8 +90,8 @@ export const useJourneyStore = create<JourneyState>((set) => ({
         userChallenges: data.userChallenges,
         loading: false,
       });
-    } catch (err) {
-      console.error("Failed to fetch journey data:", err);
+    } catch (err: any) {
+      console.warn("Failed to fetch journey data:", err?.message || err);
       set({ loading: false });
     }
   },

@@ -85,8 +85,8 @@ export const useUserStore = create<UserState>((set) => ({
           : (data.createdAt ? new Date(data.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : "Recently"),
         loading: false
       });
-    } catch (err) {
-      console.error("Failed to fetch user profile:", err);
+    } catch (err: any) {
+      console.warn("Failed to fetch user profile:", err?.message || err);
       set({ loading: false });
     }
   },

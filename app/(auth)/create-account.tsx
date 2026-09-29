@@ -12,6 +12,8 @@ export default function CreateAccountScreen() {
   const loading = useAuthStore(state => state.loading);
   const startGuestSession = useGuestStore(state => state.startGuestSession);
 
+  const [guestLoading, setGuestLoading] = React.useState(false);
+
   const handleGoogleSignIn = async () => {
     await googleSignIn();
     // Use auth store listener or effect for navigation, or just navigate
@@ -19,8 +21,15 @@ export default function CreateAccountScreen() {
   };
 
   const handleContinueAsGuest = async () => {
-    await startGuestSession();
-    router.replace("/(tabs)");
+    try {
+      setGuestLoading(true);
+      await startGuestSession();
+      router.replace("/(tabs)");
+    } catch (e) {
+      console.warn("Error starting guest session:", e);
+    } finally {
+      setGuestLoading(false);
+    }
   };
 
   return (
@@ -69,12 +78,19 @@ export default function CreateAccountScreen() {
           </View>
 
           <Pressable 
-            style={styles.guestButton}
+            style={({ pressed }) => [
+              styles.guestButton,
+              pressed && { opacity: 0.75, transform: [{ scale: 0.98 }] },
+              guestLoading && { opacity: 0.6 }
+            ]}
             onPress={handleContinueAsGuest}
+            disabled={guestLoading || loading}
           >
             <Ionicons name="compass-outline" size={20} color="#1F7A3E" style={styles.btnIcon} />
             <View style={{ alignItems: "center" }}>
-              <Text style={styles.guestButtonText}>Continue as Guest</Text>
+              <Text style={styles.guestButtonText}>
+                {guestLoading ? "Entering Guest Mode..." : "Continue as Guest"}
+              </Text>
               <Text style={styles.guestSubtext}>Explore gyms & understand ZonoFit first</Text>
             </View>
           </Pressable>
