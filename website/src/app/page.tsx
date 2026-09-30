@@ -1,1042 +1,815 @@
-/* eslint-disable @next/next/no-html-link-for-pages, @next/next/no-img-element */
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-
-const SPLASH_SCREENS = [
-  (
-    <div key="1" className="flex flex-col items-center justify-center space-y-4 px-4 text-center h-full">
-      <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-black">
-        Have you ever bought<br />a gym membership...
-      </h1>
-    </div>
-  ),
-  (
-    <div key="2" className="flex flex-col items-center justify-center space-y-4 px-4 text-center h-full">
-      <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-black">
-        ...and stopped going?
-      </h1>
-    </div>
-  ),
-  (
-    <div key="3" className="flex flex-col items-center justify-center space-y-4 px-4 text-center h-full">
-      <p className="text-xs md:text-sm font-bold tracking-[0.2em] text-black uppercase mb-2">
-        The average Indian membership
-      </p>
-      <h1 className="text-7xl md:text-8xl font-bold text-black tracking-tighter mb-2">
-        ₹3,000
-      </h1>
-      <p className="text-2xl md:text-3xl font-bold text-black">
-        Gone.
-      </p>
-    </div>
-  ),
-  (
-    <div key="4" className="flex flex-col items-center justify-center space-y-8 px-4 text-center h-full">
-      <h1 className="text-6xl md:text-8xl font-bold tracking-tight text-black flex flex-col items-center gap-6">
-        <span>Zono<span className="text-[#4EA02B]">Fit</span></span>
-        <img src="/Zonofit_final_logo.jpeg" alt="ZonoFit Logo" className="w-16 h-16 md:w-20 md:h-20 rounded-full shadow-md object-cover" />
-      </h1>
-      <p className="text-xl md:text-3xl text-black font-bold mt-4">
-        Fitness That Fits Life.
-      </p>
-    </div>
-  )
-];
+import { useState } from "react";
+import Link from "next/link";
+import Header from "@/components/Header";
+import {
+  ArrowRight,
+  Dumbbell,
+  Trophy,
+  HeartPulse,
+  Package,
+  Building2,
+  Check,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 
 export default function LandingPage() {
-  const [splashStep, setSplashStep] = useState(0);
-  const [showSplash, setShowSplash] = useState(true);
-  const touchStartY = React.useRef(0);
+  // FAQ accordion state: initialize with all open as displayed in the screenshots
+  const [openFaqs, setOpenFaqs] = useState<Record<number, boolean>>({
+    0: true,
+    1: true,
+    2: true,
+    3: true,
+  });
 
-  const [activeScreen, setActiveScreen] = useState(0);
-  const [membership, setMembership] = useState(3000);
-  const [visits, setVisits] = useState(15);
-  const [faqCategory, setFaqCategory] = useState("All");
-  const [expandedFaq, setExpandedFaq] = useState<string | null>(null);
-  const valueUsed = Math.round((membership / 30) * visits);
-  const estimatedUnused = membership - valueUsed;
-  const [selectedGymId, setSelectedGymId] = useState('being-fitness');
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const toggleFaq = (index: number) => {
+    setOpenFaqs((prev) => ({
+      ...prev,
+      [index]: !prev[index],
+    }));
+  };
 
-  const GYMS = [
-    { id: 'being-fitness', name: 'Being Fitness', price: 1800, rating: 4.5, distance: 1.2 },
-    { id: 'iron-yard', name: 'Iron Yard Studio', price: 2400, rating: 4.3, distance: 2.6 },
-    { id: 'pulse', name: 'Pulse Strength Club', price: 3200, rating: 4.6, distance: 3.4 }
+  const FAQS = [
+    {
+      question: "What happens if I miss a day?",
+      answer:
+        "One missed day does not end the journey. Your monthly commitment keeps the focus on returning and building consistency.",
+    },
+    {
+      question: "Where can I use ZonoFit credits?",
+      answer:
+        "Credits can be used with eligible participating gyms, sports, wellness, and product partners, subject to plan terms.",
+    },
+    {
+      question: "Do I have to choose one gym?",
+      answer:
+        "Yes. Your chosen primary gym is your regular fitness base and its monthly price sets your ZonoFit membership price.",
+    },
+    {
+      question: "Can my gym join ZonoFit?",
+      answer:
+        "Yes. Gym owners can register interest to reach new members and improve capacity through the ZonoFit partner system.",
+    },
   ];
-  const selectedGym = GYMS.find(g => g.id === selectedGymId) || GYMS[0];
-
-  // Autoplay carousel for the app preview
-  useEffect(() => {
-    if (showSplash) return;
-    const interval = setInterval(() => {
-      setActiveScreen(prev => (prev + 1) % 6);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [showSplash]);
-
-
-  // Scroll reveal animation
-  useEffect(() => {
-    if (showSplash) return; // Wait until splash is done
-    
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('active');
-          }
-        });
-      },
-      { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
-    );
-
-    const revealElements = document.querySelectorAll('.reveal');
-    revealElements.forEach((el) => observer.observe(el));
-
-    return () => observer.disconnect();
-  }, [showSplash]);
-
-
-  useEffect(() => {
-    if (!showSplash) return;
-    const interval = setInterval(() => {
-      setSplashStep((prev) => {
-        if (prev >= SPLASH_SCREENS.length - 1) {
-          clearInterval(interval);
-          return prev;
-        }
-        return prev + 1;
-      });
-    }, 3500);
-    return () => clearInterval(interval);
-  }, [showSplash]);
 
   return (
-    <div className="relative min-h-screen bg-background">
-      {/* Splash Screen */}
-      <div 
-        className={`fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center px-6 transition-all duration-[1200ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${showSplash ? 'translate-y-0' : '-translate-y-full pointer-events-none shadow-2xl'}`}
-        onWheel={(e) => {
-          if (splashStep === SPLASH_SCREENS.length - 1 && e.deltaY > 0) {
-            setShowSplash(false);
-          }
-        }}
-        onTouchStart={(e) => {
-          touchStartY.current = e.touches[0].clientY;
-        }}
-        onTouchMove={(e) => {
-          if (splashStep === SPLASH_SCREENS.length - 1 && touchStartY.current - e.touches[0].clientY > 50) {
-            setShowSplash(false);
-          }
-        }}
-      >
-        <div className="absolute top-0 left-0 right-0 p-4 md:p-6 flex justify-between items-center z-50 max-w-7xl mx-auto w-full">
-          <div className="flex items-center gap-2">
-            <img src="/Zonofit_final_logo.jpeg" alt="ZonoFit logo" className="w-8 h-8 rounded-full" />
-            <span className="font-bold text-xl tracking-tight text-gray-900">ZonoFit</span>
-          </div>
-          <nav className="hidden md:flex gap-8 items-center text-sm font-medium text-gray-500">
-            <a href="#how-it-works" onClick={() => setShowSplash(false)} className="hover:text-gray-900 transition-colors">How It Works</a>
-            <a href="#membership" onClick={() => setShowSplash(false)} className="hover:text-gray-900 transition-colors">Membership</a>
-            <a href="#app" onClick={() => setShowSplash(false)} className="hover:text-gray-900 transition-colors">App</a>
-            <a href="#faq" onClick={() => setShowSplash(false)} className="hover:text-gray-900 transition-colors">FAQ</a>
-          </nav>
-          <div className="flex items-center gap-3 md:gap-6">
-            <Link href="/auth/login" className="hidden sm:inline-block text-gray-500 text-sm font-medium hover:text-gray-900 transition-colors">Login</Link>
-            <Link href="/auth/signup" className="bg-[#4EA02B] text-white px-4 py-2 md:px-6 md:py-2.5 rounded-full text-xs md:text-sm font-bold hover:bg-[#3d8120] transition-colors shadow-sm">
-              Join
-            </Link>
-          </div>
-        </div>
-        <div 
-          className="w-full max-w-5xl text-center cursor-pointer group flex-1 flex flex-col justify-center mt-16 md:mt-0"
-          onClick={() => {
-            if (splashStep >= SPLASH_SCREENS.length - 1) {
-              setShowSplash(false);
-            } else {
-              setSplashStep(s => s + 1);
-            }
-          }}
-        >
-          <div className="overflow-hidden py-10 flex items-center justify-center min-h-[40vh]">
-            <div 
-              key={splashStep}
-              className="animate-fade-up w-full"
-            >
-              {SPLASH_SCREENS[splashStep]}
-            </div>
-          </div>
-          {splashStep === SPLASH_SCREENS.length - 1 ? (
-            <div className="mt-12 flex flex-col items-center gap-4 animate-fade-up">
-              <p className="text-sm md:text-base font-medium tracking-wide text-gray-500">
-                Scroll to see what you're actually losing
-              </p>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-bounce text-[#4EA02B]"><path d="m6 9 6 6 6-6"/></svg>
-            </div>
-          ) : (
-            <p className="mt-6 text-sm font-bold tracking-widest uppercase text-[#4EA02B] opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-              Tap to continue
-            </p>
-          )}
-        </div>
-        {splashStep < SPLASH_SCREENS.length - 1 && (
-          <div className="absolute bottom-8 md:bottom-12 left-1/2 -translate-x-1/2 w-full max-w-md px-6 flex flex-col items-center gap-6 z-50">
-            <div className="flex gap-2 w-full z-50">
-              {SPLASH_SCREENS.map((_, i) => (
-                <div 
-                  key={i} 
-                  onClick={(e) => { e.stopPropagation(); setSplashStep(i); }}
-                  className={`h-1.5 rounded-full cursor-pointer transition-all duration-700 flex-1 ${
-                    i === splashStep 
-                      ? 'bg-[#4EA02B]' 
-                      : i < splashStep 
-                        ? 'bg-[#4EA02B]/40 hover:bg-[#4EA02B]/60' 
-                        : 'bg-gray-200 hover:bg-gray-300'
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+    <div className="min-h-screen bg-[#f3f8f2] text-gray-900 selection:bg-[#9ecc3b]/30">
+      {/* 1. Header / Navbar */}
+      <Header />
 
-      {/* Main Content */}
-      <div className={`transition-all duration-[1200ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${showSplash ? 'opacity-0 translate-y-32 h-screen overflow-hidden pointer-events-none' : 'opacity-100 translate-y-0'}`}>
-<header
-        className="fixed top-0 left-0 right-0 z-50 transition-all duration-500 bg-white shadow-sm"
-      >
-        <div
-          className="max-w-5xl mx-auto px-5 h-16 flex items-center justify-between"
-        >
-          <a className="flex items-center gap-2.5" href="/"
-            ><img
-              alt="ZonoFit logo"
-              width="32"
-              height="32"
-              decoding="async"
-              className="h-8 w-8 object-cover rounded-md"
-              src="/Zonofit_final_logo.jpeg"
-            /><span
-              className="font-extrabold text-lg tracking-tight text-foreground"
-              >ZonoFit</span
-            ></a
-          >
-          <nav className="hidden md:flex items-center gap-8">
-            <a
-              href="#how-it-works"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >How It Works</a
-            ><a
-              href="#membership"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >Membership</a
-            ><a
-              href="#app"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >App</a
-            ><a
-              href="#faq"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >FAQ</a
-            >
-          </nav>
-          <div className="flex items-center gap-3">
-            <a
-              href="/auth/signup"
-              className="hidden md:inline-flex items-center gap-2 bg-primary text-primary-foreground font-bold text-sm px-5 py-2.5 rounded-full hover:opacity-90 transition-opacity pulse-green"
-              >Start</a
-            ><button
-              className="md:hidden flex flex-col gap-1.5 p-2"
-              aria-label="Open menu"
-              onClick={() => setIsMobileMenuOpen(true)}
-            >
-              <span className="w-5 h-0.5 bg-black rounded-full block"></span
-              ><span className="w-5 h-0.5 bg-black rounded-full block"></span
-              ><span className="w-4 h-0.5 bg-black rounded-full block"></span>
-            </button>
-          </div>
-        </div>
-      </header>
-      
-      {/* Mobile Menu Overlay */}
-      {isMobileMenuOpen && (
-        <div 
-          className="fixed inset-0 bg-black/40 z-[50] backdrop-blur-sm md:hidden"
-          onClick={() => setIsMobileMenuOpen(false)}
-        />
-      )}
-      
-      <div
-        className={`fixed top-0 right-0 bottom-0 w-[85%] max-w-sm z-[60] bg-white flex flex-col transition-transform duration-300 ease-out shadow-2xl ${isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}
-      >
-        <div
-          className="flex items-center justify-between px-6 h-20 border-b border-gray-100"
-        >
-          <a className="flex items-center gap-2.5" href="/" onClick={() => setIsMobileMenuOpen(false)}
-            ><img
-              alt="ZonoFit logo"
-              loading="lazy"
-              width="32"
-              height="32"
-              decoding="async"
-              className="h-8 w-8 object-cover rounded-full shadow-sm"
-              src="/Zonofit_final_logo.jpeg"
-            /><span className="font-extrabold text-xl tracking-tight text-black"
-              >ZonoFit</span
-            ></a
-          ><button className="p-2 text-gray-500 hover:text-black transition-colors rounded-full hover:bg-gray-100" aria-label="Close menu" onClick={() => setIsMobileMenuOpen(false)}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-          </button>
-        </div>
-        <nav className="flex flex-col px-6 pt-10 pb-6 gap-8 overflow-y-auto h-full">
-          <a
-            href="#how-it-works"
-            className="text-2xl font-bold text-gray-800 hover:text-[#4EA02B] transition-colors flex items-center justify-between group"
-            onClick={() => setIsMobileMenuOpen(false)}
-            >
-              How It Works
-              <svg className="w-5 h-5 text-gray-300 group-hover:text-[#4EA02B] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"></path></svg>
-          </a>
-          <a
-            href="#membership"
-            className="text-2xl font-bold text-gray-800 hover:text-[#4EA02B] transition-colors flex items-center justify-between group"
-            onClick={() => setIsMobileMenuOpen(false)}
-            >
-              Membership
-              <svg className="w-5 h-5 text-gray-300 group-hover:text-[#4EA02B] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"></path></svg>
-          </a>
-          <a
-            href="#app"
-            className="text-2xl font-bold text-gray-800 hover:text-[#4EA02B] transition-colors flex items-center justify-between group"
-            onClick={() => setIsMobileMenuOpen(false)}
-            >
-              App
-              <svg className="w-5 h-5 text-gray-300 group-hover:text-[#4EA02B] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"></path></svg>
-          </a>
-          <a
-            href="#faq"
-            className="text-2xl font-bold text-gray-800 hover:text-[#4EA02B] transition-colors flex items-center justify-between group"
-            onClick={() => setIsMobileMenuOpen(false)}
-            >
-              FAQ
-              <svg className="w-5 h-5 text-gray-300 group-hover:text-[#4EA02B] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"></path></svg>
-          </a>
-          
-          <div className="mt-auto pt-8">
-            <a
-              href="/auth/signup"
-              className="flex items-center justify-center bg-[#4EA02B] text-white font-bold text-lg px-6 py-4 rounded-full shadow-lg shadow-[#4EA02B]/30 active:scale-95 transition-all"
-              onClick={() => setIsMobileMenuOpen(false)}
-              >Start Your Journey</a
-            >
-          </div>
-        </nav>
-      </div>
       <main>
-        <section id="how-it-works" className="bg-white py-24 md:py-32 px-5 border-t border-gray-100">
-          <div className="max-w-5xl mx-auto">
-            <div className="mb-12">
-              <h2 className="text-3xl md:text-5xl lg:text-6xl font-semibold tracking-tight text-black leading-tight reveal">
-                Let&apos;s make this personal.
-              </h2>
-              <p className="mt-4 text-base md:text-lg text-gray-500 font-medium max-w-2xl leading-relaxed">
-                How much did your last gym membership cost? And be honest — how many days did you really go?
-              </p>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+        {/* ========================================================= */}
+        {/* SECTION 1: HERO SECTION (Screenshots 1 & 2)              */}
+        {/* ========================================================= */}
+        <section className="relative pt-8 sm:pt-12 lg:pt-16 pb-16 lg:pb-24 overflow-hidden">
+          <div className="max-w-7xl mx-auto px-6 lg:px-12">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-14 items-center">
               
-              {/* LEFT SIDE */}
-              <div className="bg-white rounded-[24px] p-8 border border-gray-200 shadow-sm flex flex-col justify-between reveal">
-                <div className="space-y-12">
-                  <div>
-                    <div className="flex justify-between items-baseline mb-4">
-                      <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Membership Price / Month</label>
-                      <span className="text-3xl font-medium text-black tracking-tight">₹{membership.toLocaleString()}</span>
-                    </div>
-                    <div className="relative h-2 bg-gray-100 rounded-full">
-                      <div className="absolute top-0 left-0 h-full bg-[#4EA02B] rounded-full" style={{ width: `${((membership - 500) / 7500) * 100}%` }}></div>
-                      <input
-                        type="range"
-                        min="500"
-                        max="8000"
-                        step="100"
-                        className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
-                        value={membership}
-                        onChange={(e) => setMembership(Number(e.target.value))}
-                      />
-                      <div className="absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white border-2 border-[#4EA02B] rounded-full shadow-sm pointer-events-none" style={{ left: `calc(${((membership - 500) / 7500) * 100}% - 10px)` }}></div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between items-baseline mb-4">
-                      <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Days You Visited</label>
-                      <span className="text-3xl font-medium text-black tracking-tight">{visits} days</span>
-                    </div>
-                    <div className="relative h-2 bg-gray-100 rounded-full">
-                      <div className="absolute top-0 left-0 h-full bg-[#4EA02B] rounded-full" style={{ width: `${(visits / 30) * 100}%` }}></div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="30"
-                        step="1"
-                        className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
-                        value={visits}
-                        onChange={(e) => setVisits(Number(e.target.value))}
-                      />
-                      <div className="absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white border-2 border-[#4EA02B] rounded-full shadow-sm pointer-events-none" style={{ left: `calc(${(visits / 30) * 100}% - 10px)` }}></div>
-                    </div>
-                  </div>
+              {/* Left Column: Hero Copy */}
+              <div className="lg:col-span-6 flex flex-col items-start">
+                {/* Tag Pill */}
+                <div className="inline-flex items-center px-4 py-1.5 rounded-full bg-[#cde8af] text-[#204712] text-xs sm:text-sm font-bold tracking-tight mb-6">
+                  Fitness that fits real life
                 </div>
 
-                <div className="mt-12 pt-6 border-t border-gray-100 text-sm font-medium text-gray-500">
-                  ₹{membership.toLocaleString()} ÷ 30 = ₹{Math.round(membership/30).toLocaleString()}/day · {30 - visits} unused days × ₹{Math.round(membership/30).toLocaleString()}
-                </div>
-              </div>
+                {/* Main Heading */}
+                <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold text-gray-950 tracking-tight leading-[1.05] mb-6">
+                  One plan.<br />
+                  More ways to<br />
+                  keep moving.
+                </h1>
 
-              {/* RIGHT SIDE */}
-              <div className="bg-white rounded-[24px] p-8 border border-gray-200 shadow-sm flex flex-col justify-between reveal">
-                <div>
-                  <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-6">Your Membership</h3>
-                  
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center text-sm font-medium text-gray-600 pb-4 border-b border-gray-100 border-dashed">
-                      <span>Paid</span>
-                      <span className="text-black font-semibold">₹{membership.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm font-medium text-gray-600 pb-4 border-b border-gray-100 border-dashed">
-                      <span>Days available</span>
-                      <span className="text-black font-semibold">30</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm font-medium text-gray-600 pb-4 border-b border-gray-100 border-dashed">
-                      <span>Days used</span>
-                      <span className="text-black font-semibold">{visits}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm font-medium text-gray-600 pb-4 border-b border-gray-100 border-dashed">
-                      <span>Unused days</span>
-                      <span className="text-black font-semibold">{30 - visits}</span>
-                    </div>
-                  </div>
-                </div>
+                {/* Subtitle Description */}
+                <p className="text-lg sm:text-xl text-gray-600 leading-relaxed max-w-lg mb-8 font-normal">
+                  Choose your primary gym at its monthly price. Build consistency, then use eligible unused value across the growing ZonoFit ecosystem.
+                </p>
 
-                <div className="mt-8">
-                  <h3 className="text-xs font-bold text-[#4EA02B] uppercase tracking-widest mb-2">Potential Unused Value</h3>
-                  <div className="text-5xl font-bold tracking-tight text-[#4EA02B] mb-2">
-                    ₹{estimatedUnused.toLocaleString()}
-                  </div>
-                  <p className="text-sm font-medium text-gray-500 mb-8">
-                    Potential membership value left unused.
-                  </p>
-                  
-                  <Link href="/auth/signup" className="block w-full py-4 px-6 bg-black text-white text-center rounded-2xl text-sm font-semibold hover:bg-gray-800 transition-colors">
-                    What if that value could keep you moving?
+                {/* CTA Buttons */}
+                <div className="flex flex-wrap items-center gap-4">
+                  <Link
+                    href="/auth/signup"
+                    className="inline-flex items-center gap-2 bg-[#94ca3d] hover:bg-[#86ba33] text-[#112406] font-extrabold text-base px-7 py-4 rounded-full shadow-sm hover:shadow-md transition-all group"
+                  >
+                    <span>Start your membership</span>
+                    <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                  </Link>
+
+                  <Link
+                    href="#how-it-works"
+                    className="inline-flex items-center bg-white/90 hover:bg-white text-gray-900 font-bold text-base px-7 py-4 rounded-full border border-gray-200/90 shadow-sm hover:shadow transition-all"
+                  >
+                    See how it works
                   </Link>
                 </div>
-              </div>
 
-            </div>
-          </div>
-        </section>
-
-        <section className="bg-[#fcfcfc] py-24 md:py-32 px-5 border-t border-gray-100">
-          <div className="max-w-5xl mx-auto">
-            <h2 className="text-3xl md:text-5xl lg:text-6xl font-semibold tracking-tight text-black leading-tight mb-12 md:mb-16 reveal">
-              Your unused value doesn&apos;t<br />have to stop there.
-            </h2>
-            
-            <div className="flex flex-col md:flex-row gap-6">
-              {/* Left Large Card */}
-              <div className="flex-1 bg-white rounded-[24px] p-8 md:p-12 border border-gray-200 shadow-sm flex flex-col items-center justify-center text-center">
-                <div className="w-24 h-24 rounded-full bg-[#4EA02B] text-white flex items-center justify-center mb-6 shadow-lg shadow-[#4EA02B]/20">
-                  <span className="text-3xl font-medium">₹</span>
-                </div>
-                <h3 className="text-lg font-bold text-black mb-3">ZonoFit Credits</h3>
-                <p className="text-sm font-medium text-gray-500 max-w-xs">
-                  Value keeps moving instead of quietly disappearing.
+                {/* Subtext below buttons */}
+                <p className="text-xs text-gray-500 font-medium mt-4">
+                  One monthly membership, priced by your chosen gym.
                 </p>
               </div>
 
-              {/* Right Grid */}
-              <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="bg-white rounded-[20px] p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                  <div className="text-[#4EA02B] mb-4">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              {/* Right Column: Hero Card */}
+              <div className="lg:col-span-6">
+                <div className="bg-white rounded-[32px] p-6 sm:p-7 shadow-[0_12px_40px_rgba(0,0,0,0.06)] border border-gray-100/90 relative">
+                  
+                  {/* Top Bar of the Card */}
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] font-black tracking-wider text-[#2e6d1a] uppercase">
+                      ZONOFIT CREDITS
+                    </span>
+                    <span className="bg-[#d2edb6] text-[#245014] text-[11px] font-bold px-3 py-1 rounded-full">
+                      Example
+                    </span>
                   </div>
-                  <h4 className="text-sm font-bold text-black mb-2">Other Partnered Gyms</h4>
-                  <p className="text-xs font-medium text-gray-500 leading-relaxed">
-                    Explore other participating fitness locations according to ZonoFit rules.
-                  </p>
-                </div>
 
-                <div className="bg-white rounded-[20px] p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                  <div className="text-[#4EA02B] mb-4">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
-                  </div>
-                  <h4 className="text-sm font-bold text-black mb-2">Sports</h4>
-                  <p className="text-xs font-medium text-gray-500 leading-relaxed">
-                    Use credits toward eligible sports experiences.
-                  </p>
-                </div>
+                  {/* Card Title */}
+                  <h3 className="text-2xl font-black text-gray-900 mb-5 tracking-tight">
+                    Your value keeps moving
+                  </h3>
 
-                <div className="bg-white rounded-[20px] p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                  <div className="text-[#4EA02B] mb-4">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>
-                  </div>
-                  <h4 className="text-sm font-bold text-black mb-2">Wellness</h4>
-                  <p className="text-xs font-medium text-gray-500 leading-relaxed">
-                    Access participating wellness experiences.
-                  </p>
-                </div>
+                  {/* Dual Cards Row */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mb-3.5">
+                    {/* Dark Card: Monthly Membership */}
+                    <div className="bg-[#162319] text-white rounded-2xl p-5 flex flex-col justify-between shadow-sm">
+                      <span className="text-xs text-gray-400 font-medium">
+                        Monthly membership
+                      </span>
+                      
+                      <div className="text-4xl font-extrabold text-white my-3 tracking-tight">
+                        ₹3,000
+                      </div>
 
-                <div className="bg-white rounded-[20px] p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                  <div className="text-[#4EA02B] mb-4">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>
-                  </div>
-                  <h4 className="text-sm font-bold text-black mb-2">Supplements / Products</h4>
-                  <p className="text-xs font-medium text-gray-500 leading-relaxed">
-                    Use credits on eligible fitness products.
-                  </p>
-                </div>
+                      {/* Dual Progress Bar */}
+                      <div>
+                        <div className="h-2 rounded-full overflow-hidden bg-gray-700/60 flex w-full">
+                          <div className="w-1/2 bg-[#96cf38] rounded-full" />
+                          <div className="w-1/2 bg-[#2d3a2e]" />
+                        </div>
+                        <div className="flex justify-between items-center mt-2 text-[11px] text-gray-400 font-medium">
+                          <span>15 days used</span>
+                          <span>15 unused</span>
+                        </div>
+                      </div>
+                    </div>
 
-                <div className="bg-white rounded-[20px] p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                  <div className="text-[#4EA02B] mb-4">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
+                    {/* Lime Green Card: Potential Unused Value */}
+                    <div className="bg-[#9ecc3b] text-gray-950 rounded-2xl p-5 flex flex-col justify-between shadow-sm">
+                      {/* Top Inbox Icon matching screenshot */}
+                      <div className="w-8 h-8 flex items-center justify-start text-gray-950">
+                        <svg
+                          className="w-6 h-6"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <rect x="2" y="4" width="20" height="16" rx="3" />
+                          <path d="M2 10h20" />
+                          <path d="M9 14h6" />
+                        </svg>
+                      </div>
+
+                      <div>
+                        <div className="text-[10px] font-black tracking-wider text-gray-900/80 uppercase">
+                          POTENTIAL UNUSED VALUE
+                        </div>
+                        <div className="text-4xl font-black text-gray-950 tracking-tight mt-1">
+                          ₹1,500
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <h4 className="text-sm font-bold text-black mb-2">More</h4>
-                  <p className="text-xs font-medium text-gray-500 leading-relaxed">
-                    The ecosystem keeps expanding with new partners.
+
+                  {/* 4 Ecosystem Mini Cards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
+                    <div className="bg-[#edf5eb] hover:bg-[#e4efe2] transition-colors rounded-xl p-3 flex flex-col gap-2.5">
+                      <Dumbbell className="w-4 h-4 text-[#2e6d1a]" />
+                      <span className="text-xs font-bold text-gray-800">
+                        Partner gyms
+                      </span>
+                    </div>
+
+                    <div className="bg-[#edf5eb] hover:bg-[#e4efe2] transition-colors rounded-xl p-3 flex flex-col gap-2.5">
+                      <Trophy className="w-4 h-4 text-[#2e6d1a]" />
+                      <span className="text-xs font-bold text-gray-800">
+                        Sports
+                      </span>
+                    </div>
+
+                    <div className="bg-[#edf5eb] hover:bg-[#e4efe2] transition-colors rounded-xl p-3 flex flex-col gap-2.5">
+                      <HeartPulse className="w-4 h-4 text-[#2e6d1a]" />
+                      <span className="text-xs font-bold text-gray-800">
+                        Wellness
+                      </span>
+                    </div>
+
+                    <div className="bg-[#edf5eb] hover:bg-[#e4efe2] transition-colors rounded-xl p-3 flex flex-col gap-2.5">
+                      <Package className="w-4 h-4 text-[#2e6d1a]" />
+                      <span className="text-xs font-bold text-gray-800">
+                        Products
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Footnote */}
+                  <p className="text-[11px] text-gray-500 leading-snug">
+                    Illustrative calculation. Credits are available through participating partners and subject to ZonoFit plan terms.
                   </p>
                 </div>
               </div>
-            </div>
 
-            <p className="mt-8 text-[10px] font-medium text-gray-400 max-w-xl">
-              Available through participating partners and subject to ZonoFit plan terms.
-            </p>
+            </div>
           </div>
         </section>
 
-        {/* SECTION 1: This is where ZonoFit changes the equation */}
-        <section className="bg-white py-24 md:py-32 px-5">
-          <div className="max-w-5xl mx-auto">
-            <h2 className="text-3xl md:text-5xl lg:text-6xl font-semibold tracking-tight text-black leading-tight mb-12 md:mb-16 reveal">
-              This is where ZonoFit<br />changes the equation.
-            </h2>
+        {/* ========================================================= */}
+        {/* SECTION 2: HOW ZONOFIT WORKS (Screenshots 2 & 3)         */}
+        {/* ========================================================= */}
+        <section id="how-it-works" className="py-16 lg:py-24">
+          <div className="max-w-7xl mx-auto px-6 lg:px-12">
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Traditional Membership */}
-              <div className="bg-[#fcfcfc] rounded-[24px] p-8 border border-gray-200">
-                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-8">Traditional Membership</h3>
-                <ul className="space-y-6 text-sm font-medium text-gray-500">
-                  <li>Pay</li>
-                  <li>Go</li>
-                  <li>Miss</li>
-                  <li>Value disappears</li>
-                </ul>
+            {/* Header Row */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-12">
+              <div>
+                <span className="text-xs font-black uppercase tracking-wider text-[#2e6d1a] mb-2 block">
+                  SIMPLE BY DESIGN
+                </span>
+                <h2 className="text-4xl lg:text-5xl font-extrabold text-gray-950 tracking-tight">
+                  How ZonoFit works
+                </h2>
               </div>
-
-              {/* ZonoFit */}
-              <div className="bg-white rounded-[24px] p-8 border border-gray-200 shadow-[0_2px_20px_rgba(0,0,0,0.04)] reveal">
-                <h3 className="text-xs font-bold text-[#4EA02B] uppercase tracking-widest mb-8">ZonoFit</h3>
-                <ul className="space-y-6 text-sm font-medium text-black">
-                  <li className="flex items-center gap-4">
-                    <span className="text-[10px] text-[#4EA02B] font-bold w-4">01</span> Pay
-                  </li>
-                  <li className="flex items-center gap-4">
-                    <span className="text-[10px] text-[#4EA02B] font-bold w-4">02</span> Choose your primary gym
-                  </li>
-                  <li className="flex items-center gap-4">
-                    <span className="text-[10px] text-[#4EA02B] font-bold w-4">03</span> Commit
-                  </li>
-                  <li className="flex items-center gap-4">
-                    <span className="text-[10px] text-[#4EA02B] font-bold w-4">04</span> Visit
-                  </li>
-                  <li className="flex items-center gap-4">
-                    <span className="text-[10px] text-[#4EA02B] font-bold w-4">05</span> Build consistency
-                  </li>
-                  <li className="flex items-center gap-4">
-                    <span className="text-[10px] text-[#4EA02B] font-bold w-4">06</span> Unused value can become credits
-                  </li>
-                  <li className="flex items-center gap-4">
-                    <span className="text-[10px] text-[#4EA02B] font-bold w-4">07</span> Use within the ZonoFit ecosystem
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* SECTION 2: The Only Plan - Interactive */}
-        <section id="membership" className="bg-[#fcfcfc] py-24 md:py-32 px-5 border-t border-gray-100">
-          <div className="max-w-5xl mx-auto">
-            <div className="mb-16">
-              <p className="text-[10px] font-bold text-gray-500 tracking-widest uppercase mb-4">One Plan</p>
-              <h2 className="text-3xl md:text-5xl lg:text-6xl font-semibold tracking-tight text-black leading-tight mb-4 reveal">
-                There&apos;s no plan to pick.<br />Your gym is the plan.
-              </h2>
-              <p className="text-sm md:text-base font-medium text-gray-500 max-w-lg leading-relaxed">
-                Whatever your chosen gym charges each month is exactly what ZonoFit costs. No tiers, no lock-ins, no upgrade path — just your membership, made flexible.
+              <p className="text-sm lg:text-base font-medium text-gray-600 md:pb-1">
+                Three steps. One membership.
               </p>
             </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-stretch reveal">
-              {/* Left Column: Gym Selection */}
-              <div className="md:col-span-5 bg-white rounded-[24px] p-6 md:p-8 border border-gray-200 shadow-sm flex flex-col">
-                <p className="text-[10px] font-bold text-gray-500 tracking-widest uppercase mb-4">Step One</p>
-                <h3 className="text-lg font-bold text-black mb-1">Choose your gym.</h3>
-                <p className="text-xs font-medium text-gray-500 mb-8">
-                  That gym&apos;s monthly price becomes your ZonoFit price. Nothing added on top.
-                </p>
-                
-                <div className="space-y-3 flex-1 mb-8">
-                  {GYMS.map(gym => {
-                    const isSelected = selectedGymId === gym.id;
-                    return (
-                      <div 
-                        key={gym.id}
-                        onClick={() => setSelectedGymId(gym.id)}
-                        className={`p-4 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${isSelected ? 'border-[#4EA02B] bg-[#f2faf1]' : 'border-gray-200 hover:border-gray-300'}`}
-                      >
-                        <div>
-                          <h4 className="text-sm font-bold text-black mb-1">{gym.name}</h4>
-                          <div className="flex items-center gap-2 text-[10px] text-gray-500 font-medium">
-                            <span className="flex items-center gap-1 text-[#4EA02B]"><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg> {gym.rating}</span>
-                            <span>{gym.distance} km away</span>
-                          </div>
-                        </div>
-                        <div className="text-sm font-bold text-black">
-                          ₹{gym.price.toLocaleString()}/mo
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <p className="text-[9px] text-gray-400 font-medium text-center">
-                  Representative pricing. Live gym rates depend on partners in your city.
+
+            {/* 3 Step Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              
+              {/* Card 01 */}
+              <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 flex flex-col justify-start">
+                <span className="text-sm font-black text-[#2e6d1a] mb-5">
+                  01
+                </span>
+                <h3 className="text-xl font-bold text-gray-950 mb-3">
+                  Choose your primary gym
+                </h3>
+                <p className="text-sm text-gray-600 leading-relaxed font-normal">
+                  Your gym&apos;s monthly price becomes your ZonoFit price. Nothing is added on top.
                 </p>
               </div>
 
-              {/* Right Column: Pricing Logic */}
-              <div className="md:col-span-7 bg-white rounded-[24px] p-6 md:p-8 border-2 border-[#4EA02B] shadow-md relative flex flex-col">
-                <div className="absolute -top-3 left-8 bg-[#E6F7E5] text-[#4EA02B] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest">
-                  The only plan
-                </div>
-                
-                <div className="flex flex-col sm:flex-row items-center gap-4 mb-8 mt-2">
-                  <div className="flex-1 w-full bg-gray-50 border border-gray-100 rounded-xl p-4 text-center">
-                    <p className="text-[10px] font-bold text-gray-400 tracking-widest uppercase mb-2 truncate">{selectedGym.name}</p>
-                    <div className="text-2xl font-bold tracking-tight text-gray-400 mb-1">₹{selectedGym.price.toLocaleString()}</div>
-                    <div className="text-[10px] font-medium text-gray-400">per month</div>
-                  </div>
-                  
-                  <div className="text-gray-300 font-bold text-xl">=</div>
-                  
-                  <div className="flex-1 w-full bg-[#f2faf1] border border-[#4EA02B]/30 rounded-xl p-4 text-center">
-                    <p className="text-[10px] font-bold text-[#4EA02B] tracking-widest uppercase mb-2">ZONOFIT</p>
-                    <div className="text-2xl font-bold tracking-tight text-black mb-1">₹{selectedGym.price.toLocaleString()}</div>
-                    <div className="text-[10px] font-medium text-gray-500">per month</div>
-                  </div>
-                </div>
-
-                <p className="text-sm font-medium text-gray-600 mb-8 leading-relaxed">
-                  Same price. Same gym. <span className="text-[#4EA02B] font-bold">Everything you don&apos;t use keeps its value.</span>
-                </p>
-
-                <ul className="space-y-3 mb-10 text-[13px] font-medium text-black flex-1">
-                  <li className="flex gap-3 items-center"><svg className="text-[#4EA02B] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Your chosen gym as Primary Gym</li>
-                  <li className="flex gap-3 items-center"><svg className="text-[#4EA02B] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Monthly visit commitment</li>
-                  <li className="flex gap-3 items-center"><svg className="text-[#4EA02B] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Eligible unused value becomes ZonoFit credits</li>
-                  <li className="flex gap-3 items-center"><svg className="text-[#4EA02B] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Access to the partner gym, sports & wellness ecosystem</li>
-                  <li className="flex gap-3 items-center"><svg className="text-[#4EA02B] w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Digital check-in and credit wallet</li>
-                </ul>
-
-                <Link href="/auth/signup" className="block w-full py-4 text-center rounded-full bg-[#4EA02B] text-white text-sm font-bold hover:bg-[#3d8120] transition-colors mb-3">
-                  Join ZonoFit at ₹{selectedGym.price.toLocaleString()}/month
-                </Link>
-                <p className="text-[9px] text-gray-400 font-medium text-center">
-                  No 3-month or 12-month tiers. One monthly membership, priced by your gym.
+              {/* Card 02 */}
+              <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 flex flex-col justify-start">
+                <span className="text-sm font-black text-[#2e6d1a] mb-5">
+                  02
+                </span>
+                <h3 className="text-xl font-bold text-gray-950 mb-3">
+                  Commit to your visits
+                </h3>
+                <p className="text-sm text-gray-600 leading-relaxed font-normal">
+                  A clear monthly target helps you build the habit and keep your momentum.
                 </p>
               </div>
+
+              {/* Card 03 */}
+              <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 flex flex-col justify-start">
+                <span className="text-sm font-black text-[#2e6d1a] mb-5">
+                  03
+                </span>
+                <h3 className="text-xl font-bold text-gray-950 mb-3">
+                  Keep unused value moving
+                </h3>
+                <p className="text-sm text-gray-600 leading-relaxed font-normal">
+                  Eligible unused value can become credits for participating fitness experiences.
+                </p>
+              </div>
+
             </div>
           </div>
         </section>
 
-        {/* Flexibility section */}
-        <section className="bg-white py-24 md:py-32 px-5 border-t border-gray-100">
-          <div className="max-w-5xl mx-auto text-center">
-            <h2 className="text-3xl md:text-5xl lg:text-6xl font-semibold tracking-tight text-black leading-tight mb-4 md:text-left reveal">
-              Flexibility doesn&apos;t mean<br />zero commitment.
-            </h2>
-            <p className="text-xs text-gray-400 mb-16 md:text-left">
-              We believe consistency is built through showing up — not chasing<br className="hidden md:block" /> perfection.
-            </p>
+        {/* ========================================================= */}
+        {/* SECTION 3: A BROADER FITNESS ECOSYSTEM (Screenshots 3 & 4)*/}
+        {/* ========================================================= */}
+        <section id="credits" className="pb-16 lg:pb-24">
+          <div className="max-w-7xl mx-auto px-6 lg:px-12">
             
-            {/* The two cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12 text-left">
-              <div className="bg-white rounded-[24px] p-8 border border-gray-200 shadow-sm reveal">
-                <p className="text-[10px] font-bold text-gray-400 tracking-widest uppercase mb-4">Months 1-4</p>
-                <div className="flex items-baseline gap-2 mb-1">
-                  <span className="text-4xl font-bold text-black tracking-tight">10</span>
-                  <span className="text-2xl font-semibold text-black tracking-tight">Visits</span>
-                </div>
-                <p className="text-[10px] text-gray-500 mb-8 font-medium">per month · Build the habit</p>
+            {/* Dark Forest Green Card */}
+            <div className="bg-[#142217] rounded-[36px] p-8 md:p-12 lg:p-16 text-white shadow-xl relative overflow-hidden">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
                 
-                <div className="space-y-3">
-                  {[1, 2, 3, 4].map(m => (
-                    <div key={m} className="flex items-center gap-3">
-                      <span className="text-[10px] text-gray-400 w-4 font-medium">M{m}</span>
-                      <div className="flex gap-1.5">
-                        {[...Array(10)].map((_, i) => (
-                          <div key={i} className="w-2 h-2 rounded-full bg-[#4EA02B]"></div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+                {/* Left Column */}
+                <div className="lg:col-span-6 flex flex-col items-start">
+                  <span className="text-xs font-black tracking-widest text-[#a3dc43] uppercase mb-4 block">
+                    A BROADER FITNESS ECOSYSTEM
+                  </span>
 
-              <div className="bg-white rounded-[24px] p-8 border border-gray-200 shadow-[0_2px_20px_rgba(0,0,0,0.04)] reveal">
-                <p className="text-[10px] font-bold text-[#4EA02B] tracking-widest uppercase mb-4">Months 5-12</p>
-                <div className="flex items-baseline gap-2 mb-1">
-                  <span className="text-4xl font-bold text-[#4EA02B] tracking-tight">15</span>
-                  <span className="text-2xl font-semibold text-[#4EA02B] tracking-tight">Visits</span>
+                  <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-[1.12] mb-5">
+                    Unused value, ready<br className="hidden sm:inline" /> for your next move.
+                  </h2>
+
+                  <p className="text-sm sm:text-base text-gray-300 leading-relaxed mb-8 max-w-md">
+                    Eligible credits can help you explore participating fitness experiences beyond your primary gym—from a different workout to recovery and products.
+                  </p>
+
+                  <Link
+                    href="#credits"
+                    className="inline-flex items-center gap-2 bg-[#94ca3d] hover:bg-[#86ba33] text-gray-950 font-extrabold text-sm px-6 py-3.5 rounded-full transition-all shadow-sm group"
+                  >
+                    <span>Understand credits</span>
+                    <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                  </Link>
                 </div>
-                <p className="text-[10px] text-gray-500 mb-8 font-medium">per month · Build the momentum</p>
-                
-                <div className="space-y-3">
-                  {[5, 6, 7, 8].map(m => (
-                    <div key={m} className="flex items-center gap-3">
-                      <span className="text-[10px] text-gray-400 w-4 font-medium">M{m}</span>
-                      <div className="flex gap-1.5">
-                        {[...Array(15)].map((_, i) => (
-                          <div key={i} className="w-2 h-2 rounded-full bg-[#4EA02B]"></div>
-                        ))}
-                      </div>
+
+                {/* Right Column: 2x2 Grid */}
+                <div className="lg:col-span-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    
+                    {/* 1. Sports */}
+                    <div className="bg-[#1e2d21] rounded-2xl p-6 border border-white/5 flex flex-col justify-start">
+                      <Trophy className="w-6 h-6 text-[#a3dc43] mb-4" />
+                      <h4 className="text-lg font-bold text-white mb-1">
+                        Sports
+                      </h4>
+                      <p className="text-xs text-gray-400 font-medium">
+                        Eligible sports experiences
+                      </p>
                     </div>
-                  ))}
+
+                    {/* 2. Wellness */}
+                    <div className="bg-[#1e2d21] rounded-2xl p-6 border border-white/5 flex flex-col justify-start">
+                      <HeartPulse className="w-6 h-6 text-[#a3dc43] mb-4" />
+                      <h4 className="text-lg font-bold text-white mb-1">
+                        Wellness
+                      </h4>
+                      <p className="text-xs text-gray-400 font-medium">
+                        Movement and recovery
+                      </p>
+                    </div>
+
+                    {/* 3. Other gyms */}
+                    <div className="bg-[#1e2d21] rounded-2xl p-6 border border-white/5 flex flex-col justify-start">
+                      <Building2 className="w-6 h-6 text-[#a3dc43] mb-4" />
+                      <h4 className="text-lg font-bold text-white mb-1">
+                        Other gyms
+                      </h4>
+                      <p className="text-xs text-gray-400 font-medium">
+                        Participating locations
+                      </p>
+                    </div>
+
+                    {/* 4. Products */}
+                    <div className="bg-[#1e2d21] rounded-2xl p-6 border border-white/5 flex flex-col justify-start">
+                      <Package className="w-6 h-6 text-[#a3dc43] mb-4" />
+                      <h4 className="text-lg font-bold text-white mb-1">
+                        Products
+                      </h4>
+                      <p className="text-xs text-gray-400 font-medium">
+                        Eligible fitness products
+                      </p>
+                    </div>
+
+                  </div>
                 </div>
+
               </div>
             </div>
 
-            <p className="text-lg md:text-xl font-semibold text-black mb-32">
-              First build the habit. Then build the momentum.
-            </p>
+          </div>
+        </section>
 
-            <p className="text-[11px] font-medium text-gray-400 mb-6">
-              "Wait. If ZonoFit is flexible, why do I have to commit to visits?"
-            </p>
-            <h2 className="text-3xl md:text-5xl lg:text-6xl font-semibold tracking-tight text-black leading-tight mb-4 reveal">
-              Because flexibility<br />without consistency<br />is just another excuse.
-            </h2>
-            <p className="text-sm font-medium text-[#4EA02B] mb-12">Consistency &gt; Perfection</p>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-16">
-              <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-sm reveal">
-                <p className="text-[10px] text-gray-500 mb-1 font-medium">Missed one day?</p>
-                <p className="text-sm font-bold text-black">Come back.</p>
-              </div>
-              <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-sm reveal">
-                <p className="text-[10px] text-gray-500 mb-1 font-medium">Bad week?</p>
-                <p className="text-sm font-bold text-black">Start again.</p>
-              </div>
-              <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-sm reveal">
-                <p className="text-[10px] text-gray-500 mb-1 font-medium">Busy month?</p>
-                <p className="text-sm font-bold text-black">Keep moving.</p>
-              </div>
+        {/* ========================================================= */}
+        {/* SECTION 4: CONSISTENCY, NOT PERFECTION (Screenshots 4 & 5)*/}
+        {/* ========================================================= */}
+        <section id="membership" className="py-12 lg:py-20">
+          <div className="max-w-7xl mx-auto px-6 lg:px-12">
+            
+            {/* Section Header */}
+            <div className="mb-12">
+              <span className="text-xs font-black uppercase tracking-wider text-[#2e6d1a] mb-3 block">
+                CONSISTENCY, NOT PERFECTION
+              </span>
+              <h2 className="text-4xl lg:text-5xl font-extrabold text-gray-950 tracking-tight mb-4">
+                A commitment that grows with you.
+              </h2>
+              <p className="text-base text-gray-600 leading-relaxed max-w-2xl font-normal">
+                ZonoFit is designed to reward the journey—not punish a missed day. First build the habit. Then build the momentum.
+              </p>
             </div>
 
-            <p className="text-xl md:text-2xl font-semibold text-black leading-snug mb-24">
-              The goal isn&apos;t to never miss.<br />The goal is to keep coming back.
-            </p>
-
-            {/* Real 10 days card */}
-            <div className="bg-white rounded-[24px] p-8 md:p-12 border border-gray-200 shadow-[0_2px_20px_rgba(0,0,0,0.03)] max-w-2xl mx-auto reveal">
-              <p className="text-[10px] font-bold text-gray-500 tracking-widest uppercase mb-10">A Real Ten Days</p>
+            {/* 2-Column Content Layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
               
-              <div className="flex justify-center gap-2 md:gap-3 mb-10">
-                {/* 10 days array: check, check, x, check, check, x, check, check, check */}
-                {[true, true, false, true, true, false, true, true, true].map((attended, i) => (
-                  <div key={i} className={`w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center ${attended ? 'bg-[#E6F7E5]' : 'bg-gray-100'}`}>
-                    {attended ? (
-                      <svg className="w-3 h-3 md:w-4 md:h-4 text-[#4EA02B]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
-                    ) : (
-                      <svg className="w-3 h-3 md:w-4 md:h-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+              {/* Left Column: Months 1-4 and Months 5-12 Cards */}
+              <div className="lg:col-span-5 flex flex-col sm:flex-row gap-4">
+                
+                {/* Card 1 */}
+                <div className="bg-white rounded-3xl p-7 shadow-sm border border-gray-100 flex-1">
+                  <span className="text-xs font-medium text-gray-500 mb-2 block">
+                    Months 1–4
+                  </span>
+                  <div className="text-3xl lg:text-4xl font-extrabold text-gray-950 mb-2 tracking-tight">
+                    10 visits
+                  </div>
+                  <span className="text-xs font-bold text-[#2e6d1a]">
+                    Build the habit
+                  </span>
+                </div>
+
+                {/* Card 2 */}
+                <div className="bg-white rounded-3xl p-7 shadow-sm border border-gray-100 flex-1">
+                  <span className="text-xs font-medium text-gray-500 mb-2 block">
+                    Months 5–12
+                  </span>
+                  <div className="text-3xl lg:text-4xl font-extrabold text-gray-950 mb-2 tracking-tight">
+                    15 visits
+                  </div>
+                  <span className="text-xs font-bold text-[#2e6d1a]">
+                    Build momentum
+                  </span>
+                </div>
+
+              </div>
+
+              {/* Right Column: Your Membership Includes Card */}
+              <div className="lg:col-span-7">
+                <div className="bg-white rounded-3xl p-7 sm:p-9 shadow-sm border border-gray-100">
+                  <span className="text-xs font-black tracking-wider text-[#2e6d1a] uppercase mb-8 block">
+                    YOUR MEMBERSHIP INCLUDES
+                  </span>
+
+                  {/* Checklist Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-8">
+                    
+                    {/* Item 1 */}
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-6 h-6 rounded-full bg-[#a1d942] flex items-center justify-center shrink-0">
+                        <Check className="w-3.5 h-3.5 text-[#122409] stroke-[3]" />
+                      </div>
+                      <span className="text-sm font-bold text-gray-900">
+                        Primary gym access
+                      </span>
+                    </div>
+
+                    {/* Item 2 */}
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-6 h-6 rounded-full bg-[#a1d942] flex items-center justify-center shrink-0">
+                        <Check className="w-3.5 h-3.5 text-[#122409] stroke-[3]" />
+                      </div>
+                      <span className="text-sm font-bold text-gray-900">
+                        Structured commitment
+                      </span>
+                    </div>
+
+                    {/* Item 3 */}
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-6 h-6 rounded-full bg-[#a1d942] flex items-center justify-center shrink-0">
+                        <Check className="w-3.5 h-3.5 text-[#122409] stroke-[3]" />
+                      </div>
+                      <span className="text-sm font-bold text-gray-900">
+                        Eligible ZonoFit credits
+                      </span>
+                    </div>
+
+                    {/* Item 4 */}
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-6 h-6 rounded-full bg-[#a1d942] flex items-center justify-center shrink-0">
+                        <Check className="w-3.5 h-3.5 text-[#122409] stroke-[3]" />
+                      </div>
+                      <span className="text-sm font-bold text-gray-900">
+                        Fitness ecosystem
+                      </span>
+                    </div>
+
+                    {/* Item 5 */}
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-6 h-6 rounded-full bg-[#a1d942] flex items-center justify-center shrink-0">
+                        <Check className="w-3.5 h-3.5 text-[#122409] stroke-[3]" />
+                      </div>
+                      <span className="text-sm font-bold text-gray-900">
+                        Digital check-in
+                      </span>
+                    </div>
+
+                    {/* Item 6 */}
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-6 h-6 rounded-full bg-[#a1d942] flex items-center justify-center shrink-0">
+                        <Check className="w-3.5 h-3.5 text-[#122409] stroke-[3]" />
+                      </div>
+                      <span className="text-sm font-bold text-gray-900">
+                        One connected membership
+                      </span>
+                    </div>
+
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        </section>
+
+        {/* ========================================================= */}
+        {/* SECTION 5: "WHAT IF..." CONTINUATION SERIES (Images 1 & 2)*/}
+        {/* ========================================================= */}
+        <section className="pt-16 pb-20 overflow-hidden">
+          <div className="max-w-7xl mx-auto px-6 lg:px-12">
+            
+            {/* Question 1: Centered / Top */}
+            <div className="text-center mb-24 sm:mb-32">
+              <span className="text-xs font-black uppercase tracking-wider text-[#2e6d1a] mb-5 block">
+                IMAGINE A MORE FLEXIBLE MEMBERSHIP
+              </span>
+              <h2 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.12]">
+                <span className="text-gray-950">What if your membership</span><br />
+                <span className="text-[#1b6c23]">could move with you?</span>
+              </h2>
+            </div>
+
+            {/* Question 2: Right-aligned (Image 1) */}
+            <div className="flex justify-end mb-24 sm:mb-32">
+              <div className="text-right max-w-3xl">
+                <h2 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.12]">
+                  <span className="text-gray-950">What if fitness</span><br />
+                  <span className="text-gray-950">wasn&apos;t </span>
+                  <span className="text-[#1b6c23]">just one gym?</span>
+                </h2>
+              </div>
+            </div>
+
+            {/* Question 3: Left / Centered (Image 1) */}
+            <div className="mb-24 sm:mb-28 max-w-4xl">
+              <h2 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.12]">
+                <span className="text-gray-950">What if unused value could</span><br />
+                <span className="text-gray-950">still help you </span>
+                <span className="text-[#1b6c23]">stay active?</span>
+              </h2>
+            </div>
+
+            {/* That's ZonoFit. Divider (Image 2) */}
+            <div className="py-16 sm:py-24 flex items-center justify-center gap-6 sm:gap-10">
+              <div className="h-[1.5px] bg-[#d2e4ce] flex-1 max-w-xs" />
+              <h3 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-gray-950 tracking-tight text-center whitespace-nowrap">
+                That&apos;s ZonoFit.
+              </h3>
+              <div className="h-[1.5px] bg-[#d2e4ce] flex-1 max-w-xs" />
+            </div>
+
+            {/* Subtle Divider Line */}
+            <div className="border-t border-[#d2e4ce]/60 my-6" />
+
+            {/* FOR GYM OWNERS Section (Image 2) */}
+            <div id="for-gyms" className="py-14 sm:py-18">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-start">
+                
+                {/* Left Column */}
+                <div className="lg:col-span-6">
+                  <span className="text-xs font-black uppercase tracking-wider text-[#2e6d1a] mb-3 block">
+                    FOR GYM OWNERS
+                  </span>
+                  <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-gray-950 tracking-tight leading-tight">
+                    Make quiet capacity work harder.
+                  </h2>
+                </div>
+
+                {/* Right Column */}
+                <div className="lg:col-span-6 lg:pt-6">
+                  <p className="text-base sm:text-lg text-gray-600 leading-relaxed mb-6 font-normal">
+                    Reach people looking for flexible fitness, create another member-acquisition channel, and manage ZonoFit visits digitally.
+                  </p>
+                  <Link
+                    href="/partners"
+                    className="inline-flex items-center gap-2 text-[#2e6d1a] font-bold text-base hover:text-[#235314] transition-colors group"
+                  >
+                    <span>Become a ZonoFit partner</span>
+                    <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                  </Link>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        {/* ========================================================= */}
+        {/* SECTION 6: FAQ SECTION (Images 3 & 4)                     */}
+        {/* ========================================================= */}
+        <section id="faq" className="py-16 lg:py-24 border-t border-[#d2e4ce]/50">
+          <div className="max-w-4xl mx-auto px-6 lg:px-12">
+            
+            {/* Header */}
+            <div className="text-center mb-14">
+              <span className="text-xs font-black uppercase tracking-wider text-[#2e6d1a] mb-3 block">
+                CLEAR ANSWERS
+              </span>
+              <h2 className="text-4xl sm:text-5xl font-extrabold text-gray-950 tracking-tight">
+                You probably have questions.
+              </h2>
+            </div>
+
+            {/* Accordion List */}
+            <div className="divide-y divide-[#d2e4ce]/60 border-t border-b border-[#d2e4ce]/60">
+              {FAQS.map((faq, index) => {
+                const isOpen = !!openFaqs[index];
+                return (
+                  <div key={index} className="py-6 sm:py-7">
+                    <button
+                      onClick={() => toggleFaq(index)}
+                      className="w-full flex items-center justify-between text-left group"
+                      aria-expanded={isOpen}
+                    >
+                      <span className="text-lg sm:text-xl font-bold text-gray-950 group-hover:text-[#2e6d1a] transition-colors pr-6">
+                        {faq.question}
+                      </span>
+                      <span className="text-gray-900 shrink-0">
+                        {isOpen ? (
+                          <ChevronUp className="w-5 h-5 text-gray-900" />
+                        ) : (
+                          <ChevronDown className="w-5 h-5 text-gray-900" />
+                        )}
+                      </span>
+                    </button>
+
+                    {isOpen && (
+                      <p className="text-sm sm:text-base text-gray-600 leading-relaxed mt-3.5 pr-8 font-normal">
+                        {faq.answer}
+                      </p>
                     )}
                   </div>
-                ))}
-              </div>
-
-              <p className="text-sm font-bold text-black mb-2">
-                Real life isn&apos;t perfect. Your fitness journey doesn&apos;t need to be either.
-              </p>
-              <p className="text-[10px] font-medium text-gray-500">
-                ZonoFit is designed to reward the journey — not punish the missed day.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* What you get with Zonofit */}
-        <section id="app" className="bg-white py-24 md:py-32 px-5">
-          <div className="max-w-5xl mx-auto">
-            <h2 className="text-3xl md:text-5xl lg:text-6xl font-semibold tracking-tight text-black leading-tight mb-12 md:mb-16 reveal">
-              What you get<br />with ZonoFit.
-            </h2>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm flex flex-col h-full reveal">
-                <svg className="w-5 h-5 text-[#4EA02B] mb-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                <div className="mt-auto">
-                  <h3 className="text-xs font-bold text-black mb-1">Primary Gym Access</h3>
-                  <p className="text-[10px] font-medium text-gray-500 leading-relaxed">Your regular fitness base.</p>
-                </div>
-              </div>
-              <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm flex flex-col h-full reveal">
-                <svg className="w-5 h-5 text-[#4EA02B] mb-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                <div className="mt-auto">
-                  <h3 className="text-xs font-bold text-black mb-1">Structured Commitment</h3>
-                  <p className="text-[10px] font-medium text-gray-500 leading-relaxed">A system designed to help you show up.</p>
-                </div>
-              </div>
-              <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm flex flex-col h-full reveal">
-                <svg className="w-5 h-5 text-[#4EA02B] mb-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
-                <div className="mt-auto">
-                  <h3 className="text-xs font-bold text-black mb-1">ZonoFit Credits</h3>
-                  <p className="text-[10px] font-medium text-gray-500 leading-relaxed">Eligible unused membership value can become credits according to plan rules.</p>
-                </div>
-              </div>
-              <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm flex flex-col h-full reveal">
-                <svg className="w-5 h-5 text-[#4EA02B] mb-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
-                <div className="mt-auto">
-                  <h3 className="text-xs font-bold text-black mb-1">Fitness Ecosystem</h3>
-                  <p className="text-[10px] font-medium text-gray-500 leading-relaxed">Partnered gyms, sports, wellness and eligible products.</p>
-                </div>
-              </div>
-              <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm flex flex-col h-full reveal">
-                <svg className="w-5 h-5 text-[#4EA02B] mb-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
-                <div className="mt-auto">
-                  <h3 className="text-xs font-bold text-black mb-1">Digital Check-In</h3>
-                  <p className="text-[10px] font-medium text-gray-500 leading-relaxed">Simple and trackable.</p>
-                </div>
-              </div>
-              <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm flex flex-col h-full reveal">
-                <svg className="w-5 h-5 text-[#4EA02B] mb-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"></path></svg>
-                <div className="mt-auto">
-                  <h3 className="text-xs font-bold text-black mb-1">One Membership</h3>
-                  <p className="text-[10px] font-medium text-gray-500 leading-relaxed">One platform connecting multiple fitness experiences.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* The Rhetorical Questions */}
-        <section className="bg-[#fcfcfc] py-24 md:py-32 px-5 border-t border-gray-100">
-          <div className="max-w-5xl mx-auto space-y-20 md:space-y-32">
-            <h2 className="text-3xl md:text-5xl font-semibold tracking-tight text-black leading-tight text-center reveal">
-              What if missing a day didn&apos;t<br />mean the journey ended?
-            </h2>
-            <h2 className="text-3xl md:text-5xl font-semibold tracking-tight text-black leading-tight text-center reveal">
-              What if your membership<br />could move with you?
-            </h2>
-            <h2 className="text-3xl md:text-5xl font-semibold tracking-tight text-black leading-tight text-center reveal">
-              What if fitness<br />wasn&apos;t just one gym?
-            </h2>
-            <h2 className="text-3xl md:text-5xl font-semibold tracking-tight text-black leading-tight text-center reveal">
-              What if the value you didn&apos;t use<br />could still help you stay active?
-            </h2>
-            <h2 className="text-4xl md:text-7xl font-bold tracking-tight text-[#4EA02B] pt-10 text-center reveal">
-              That&apos;s ZonoFit.
-            </h2>
-          </div>
-        </section>
-
-        {/* For Gyms Dark Section */}
-        <section className="bg-[#111111] py-24 px-5">
-          <div className="max-w-5xl mx-auto">
-            <h2 className="text-3xl md:text-5xl font-semibold tracking-tight text-white leading-tight mb-12 reveal">
-              For gyms, ZonoFit is a new<br />way to fill unused capacity.
-            </h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-sm reveal">
-                <h3 className="text-xs font-bold text-white mb-2">Bring in new members</h3>
-                <p className="text-[10px] text-gray-400 font-medium">Reach people looking for flexible fitness options.</p>
-              </div>
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-sm reveal">
-                <h3 className="text-xs font-bold text-white mb-2">Improve utilization</h3>
-                <p className="text-[10px] text-gray-400 font-medium">Turn quieter periods into additional visits.</p>
-              </div>
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-sm reveal">
-                <h3 className="text-xs font-bold text-white mb-2">Grow revenue</h3>
-                <p className="text-[10px] text-gray-400 font-medium">Create another channel for member acquisition.</p>
-              </div>
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-sm reveal">
-                <h3 className="text-xs font-bold text-white mb-2">Simple digital management</h3>
-                <p className="text-[10px] text-gray-400 font-medium">Track ZonoFit users and visits through the partner system.</p>
-              </div>
+                );
+              })}
             </div>
 
-            <div className="flex flex-wrap gap-4">
-              <Link href="#" className="bg-[#4EA02B] text-white text-[11px] font-bold px-6 py-2.5 rounded-full hover:bg-[#3d8120] transition-colors">
-                Become a ZonoFit Partner
-              </Link>
-              <Link href="#" className="bg-transparent text-white border border-white/20 text-[11px] font-bold px-6 py-2.5 rounded-full hover:bg-white/5 transition-colors">
-                Gym Partner Login
-              </Link>
-            </div>
-          </div>
-        </section>
-
-        {/* FAQ Section */}
-        <section id="faq" className="bg-white py-24 md:py-32 px-5">
-          <div className="max-w-5xl mx-auto">
-            <h2 className="text-3xl md:text-5xl lg:text-6xl font-semibold tracking-tight text-black mb-10 reveal">
-              You probably have questions.
-            </h2>
-            
-            <div className="flex flex-wrap gap-2 mb-12">
-              {['All', 'Membership', 'Credits', 'Gyms', 'Commitment', 'Payments', 'Partners'].map(cat => (
-                <button 
-                  key={cat}
-                  onClick={() => setFaqCategory(cat)}
-                  className={`text-[10px] font-medium px-4 py-1.5 rounded-full border transition-colors ${
-                    faqCategory === cat 
-                      ? 'bg-[#4EA02B] text-white border-[#4EA02B]' 
-                      : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-
-            <div className="space-y-0">
-              {[
-                { category: 'Commitment', q: 'Wait... what happens if I miss a day?', a: "Your unused visit value is converted into ZonoFit credits. You don't lose your money just because life got busy. These credits can be used anywhere in the ecosystem." },
-                { category: 'Gyms', q: 'Can I visit another gym?', a: "Yes! While you select a Primary Gym for regular visits, you can use your credits to book visits at any other partner gym in the ZonoFit network." },
-                { category: 'Credits', q: 'Where can I use my credits?', a: "Credits can be used to book visits at other partner gyms, access premium facilities, or even be redeemed for sports and wellness products in the ZonoFit ecosystem." },
-                { category: 'Credits', q: 'How is my credit amount calculated?', a: "For every unused visit from your monthly commitment, the equivalent value is converted into credits. For example, 1 Credit equals ₹10 towards fitness access." },
-                { category: 'Membership', q: 'Do I have to choose one gym?', a: "You select a Primary Gym as your home base for your monthly visit commitment. However, your membership gives you the flexibility to explore the entire partner network using your credits." },
-                { category: 'Membership', q: 'Can I cancel?', a: "We offer maximum flexibility. You can cancel your membership at the end of your billing cycle. Unused credits remain active until 15 days after your membership expiration." },
-                { category: 'Membership', q: 'How does check-in work?', a: "It's fully digital. Simply open the ZonoFit app, generate your secure digital pass or QR code, and show it at the partner gym's front desk for a seamless entry." },
-                { category: 'Partners', q: 'Can my gym join ZonoFit?', a: "Absolutely. We are constantly expanding our network. Gym owners can apply through our Partner Dashboard to monetize unused capacity and reach new members." }
-              ]
-                .filter(item => faqCategory === 'All' || item.category === faqCategory)
-                .map((item, i) => (
-                <div key={i} className="border-t border-gray-200">
-                  <div 
-                    onClick={() => setExpandedFaq(expandedFaq === item.q ? null : item.q)}
-                    className="py-6 flex justify-between items-center group cursor-pointer hover:bg-gray-50 transition-colors -mx-5 px-5 md:mx-0 md:px-0"
-                  >
-                    <h3 className="text-[13px] font-bold text-black">{item.q}</h3>
-                    <svg className="w-5 h-5 text-[#4EA02B]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={expandedFaq === item.q ? "M18 12H6" : "M12 6v6m0 0v6m0-6h6m-6 0H6"}></path>
-                    </svg>
+            {/* ======================================================= */}
+            {/* SECTION 7: FINAL CTA BANNER (Image 4)                   */}
+            {/* ======================================================= */}
+            <div className="mt-16 sm:mt-24">
+              <div className="bg-gradient-to-r from-[#81bf37] via-[#65a82e] to-[#458f23] rounded-[32px] sm:rounded-[36px] p-8 sm:p-12 lg:p-14 text-gray-950 shadow-xl relative overflow-hidden">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
+                  
+                  {/* Left Column */}
+                  <div className="max-w-xl">
+                    <span className="text-[11px] sm:text-xs font-black tracking-widest text-[#152e08]/80 uppercase mb-2.5 block">
+                      READY WHEN YOU ARE
+                    </span>
+                    <h3 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#111827] tracking-tight leading-[1.1]">
+                      Make your membership part of the journey.
+                    </h3>
                   </div>
-                  {expandedFaq === item.q && (
-                    <div className="pb-6 -mt-2 -mx-5 px-5 md:mx-0 md:px-0 text-[13px] text-gray-500 font-medium leading-relaxed animate-fade-up">
-                      {item.a}
-                    </div>
-                  )}
+
+                  {/* Right CTA Button */}
+                  <Link
+                    href="/auth/signup"
+                    className="inline-flex items-center gap-2 bg-[#111827] hover:bg-black text-white font-extrabold text-sm sm:text-base px-8 py-4 rounded-full shadow-lg transition-all shrink-0 group self-start md:self-auto"
+                  >
+                    <span>Join ZonoFit</span>
+                    <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                  </Link>
+
                 </div>
-              ))}
-              <div className="border-t border-gray-200"></div>
-            </div>
-          </div>
-        </section>
-
-        {/* Final CTA */}
-        <section className="bg-[#fcfcfc] py-32 px-5 text-center border-t border-gray-100">
-          <div className="max-w-5xl mx-auto">
-            <h2 className="text-3xl md:text-5xl lg:text-6xl font-semibold tracking-tight text-black mb-2 reveal">
-              Don&apos;t waste the membership<br />you already paid for.
-            </h2>
-            <h3 className="text-3xl md:text-5xl lg:text-6xl font-semibold tracking-tight text-gray-400 mb-12 md:mb-16">
-              Make it part of your<br />journey.
-            </h3>
-            
-            <div className="flex flex-col items-center gap-2 mb-12">
-              <div className="flex items-center gap-1">
-                <span className="text-2xl font-semibold text-black tracking-tight">Zono<span className="text-[#4EA02B]">Fit</span></span>
               </div>
-              <p className="text-[9px] text-gray-500 font-medium">Fitness That Fits Life.</p>
             </div>
 
-            <div className="flex justify-center gap-4">
-              <Link href="/auth/signup" className="bg-[#4EA02B] text-white text-xs font-bold px-8 py-3 rounded-full hover:bg-[#3d8120] transition-colors">
-                Join ZonoFit
-              </Link>
-              <Link href="#" className="bg-white border border-gray-200 text-gray-600 text-xs font-bold px-8 py-3 rounded-full hover:bg-gray-50 transition-colors">
-                Explore How It Works
-              </Link>
-            </div>
           </div>
         </section>
+
       </main>
-      <footer className="bg-[#fcfcfc] pt-16 border-t border-gray-100">
-        <div className="max-w-5xl mx-auto px-5 mb-16">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-8">
-            <div className="md:col-span-4">
-              <div className="flex items-center gap-2 mb-4">
-                <img src="/Zonofit_final_logo.jpeg" alt="ZonoFit" className="w-6 h-6 rounded-md" />
-                <span className="font-bold text-[13px] text-gray-900 tracking-tight">ZonoFit</span>
-              </div>
-              <p className="text-[11px] text-gray-500 font-medium mb-6 leading-relaxed max-w-[220px]">
-                Fitness That Fits Life. Don&apos;t waste the membership you already paid for.
-              </p>
-              <p className="text-[9px] text-gray-400 font-medium">
-                Social handles are added once officially confirmed.
-              </p>
-            </div>
-            
-            <div className="md:col-span-2 md:col-start-6">
-              <h4 className="text-[9px] font-bold text-gray-400 tracking-widest uppercase mb-4">Explore</h4>
-              <ul className="space-y-3">
-                <li><Link href="#" className="text-[11px] font-medium text-gray-600 hover:text-gray-900 transition-colors">How It Works</Link></li>
-                <li><Link href="#" className="text-[11px] font-medium text-gray-600 hover:text-gray-900 transition-colors">Membership</Link></li>
-                <li><Link href="#" className="text-[11px] font-medium text-gray-600 hover:text-gray-900 transition-colors">Credits</Link></li>
-                <li><Link href="#" className="text-[11px] font-medium text-gray-600 hover:text-gray-900 transition-colors">Partner Gyms</Link></li>
-                <li><Link href="#" className="text-[11px] font-medium text-gray-600 hover:text-gray-900 transition-colors">FAQ</Link></li>
-              </ul>
-            </div>
-            
-            <div className="md:col-span-2">
-              <h4 className="text-[9px] font-bold text-gray-400 tracking-widest uppercase mb-4">Business</h4>
-              <ul className="space-y-3">
-                <li><Link href="#" className="text-[11px] font-medium text-gray-600 hover:text-gray-900 transition-colors">Partner With Us</Link></li>
-                <li><Link href="#" className="text-[11px] font-medium text-gray-600 hover:text-gray-900 transition-colors">Gym Login</Link></li>
-                <li><Link href="#" className="text-[11px] font-medium text-gray-600 hover:text-gray-900 transition-colors">Partner Dashboard</Link></li>
-              </ul>
-            </div>
-            
-            <div className="md:col-span-2">
-              <h4 className="text-[9px] font-bold text-gray-400 tracking-widest uppercase mb-4">Company</h4>
-              <ul className="space-y-3">
-                <li><Link href="#" className="text-[11px] font-medium text-gray-600 hover:text-gray-900 transition-colors">Contact</Link></li>
-                <li><Link href="#" className="text-[11px] font-medium text-gray-600 hover:text-gray-900 transition-colors">Terms &amp; Conditions</Link></li>
-                <li><Link href="#" className="text-[11px] font-medium text-gray-600 hover:text-gray-900 transition-colors">Privacy Policy</Link></li>
-                <li><Link href="#" className="text-[11px] font-medium text-gray-600 hover:text-gray-900 transition-colors">Refund / Cancellation</Link></li>
-              </ul>
-            </div>
-          </div>
-        </div>
 
-        <div className="border-t border-gray-200 py-6 px-5">
-          <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-[9px] text-gray-500 font-medium">© 2026 ZonoFit. All rights reserved.</p>
-            <p className="text-[9px] text-gray-500 font-medium">Credits, partner access and benefits are subject to ZonoFit plan terms.</p>
+      {/* ========================================================= */}
+      {/* SECTION 8: FOOTER (Image 5)                               */}
+      {/* ========================================================= */}
+      <footer className="border-t border-[#d2e4ce]/60 pt-16 pb-12">
+        <div className="max-w-7xl mx-auto px-6 lg:px-12">
+          
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-10 lg:gap-14 pb-14">
+            
+            {/* Brand Column */}
+            <div className="md:col-span-4 lg:col-span-5">
+              <Link href="/" className="flex items-center gap-3 mb-4 group inline-flex">
+                <div className="w-9 h-9 rounded-xl overflow-hidden shadow-sm flex items-center justify-center bg-[#4ea02b]">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/Zonofit_final_logo.jpeg"
+                    alt="ZonoFit Logo"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                </div>
+                <span className="text-2xl font-black tracking-tight text-gray-900">
+                  ZonoFit
+                </span>
+              </Link>
+
+              <p className="text-sm text-gray-600 leading-relaxed max-w-sm font-normal">
+                One membership connecting your primary gym, active experiences, and eligible unused value.
+              </p>
+            </div>
+
+            {/* Links Columns */}
+            <div className="md:col-span-8 lg:col-span-7 grid grid-cols-2 sm:grid-cols-3 gap-8">
+              
+              {/* Column 1: Explore */}
+              <div>
+                <h4 className="text-base font-extrabold text-gray-950 mb-4 tracking-tight">
+                  Explore
+                </h4>
+                <ul className="space-y-3 text-sm font-medium text-gray-600">
+                  <li>
+                    <Link href="#how-it-works" className="hover:text-gray-950 transition-colors">
+                      How it works
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="#credits" className="hover:text-gray-950 transition-colors">
+                      ZonoFit credits
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="#membership" className="hover:text-gray-950 transition-colors">
+                      Membership
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="#for-gyms" className="hover:text-gray-950 transition-colors">
+                      For gyms
+                    </Link>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Column 2: Account */}
+              <div>
+                <h4 className="text-base font-extrabold text-gray-950 mb-4 tracking-tight">
+                  Account
+                </h4>
+                <ul className="space-y-3 text-sm font-medium text-gray-600">
+                  <li>
+                    <Link href="/auth/signup" className="hover:text-gray-950 transition-colors">
+                      Join ZonoFit
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/auth/login" className="hover:text-gray-950 transition-colors">
+                      Member login
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="#faq" className="hover:text-gray-950 transition-colors">
+                      FAQs
+                    </Link>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Column 3: Legal */}
+              <div>
+                <h4 className="text-base font-extrabold text-gray-950 mb-4 tracking-tight">
+                  Legal
+                </h4>
+                <ul className="space-y-3 text-sm font-medium text-gray-600">
+                  <li>
+                    <Link href="/privacy-policy" className="hover:text-gray-950 transition-colors">
+                      Privacy Policy
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/terms-and-conditions" className="hover:text-gray-950 transition-colors">
+                      Terms &amp; Conditions
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/refund-policy" className="hover:text-gray-950 transition-colors">
+                      Refund &amp; Cancellation
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/support" className="hover:text-gray-950 transition-colors">
+                      Contact
+                    </Link>
+                  </li>
+                </ul>
+              </div>
+
+            </div>
+
           </div>
+
+          {/* Bottom Copyright */}
+          <div className="pt-8 border-t border-[#d2e4ce]/40 flex flex-col sm:flex-row items-center justify-between text-xs text-gray-500 font-normal gap-4">
+            <p>© 2026 ZonoFit. All rights reserved.</p>
+          </div>
+
         </div>
-        <div className="h-4 w-full bg-[#1e1e1e]"></div>
       </footer>
-      </div>
     </div>
   );
 }
