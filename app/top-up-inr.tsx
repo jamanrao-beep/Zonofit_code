@@ -95,16 +95,7 @@ export default function TopUpInrScreen() {
     );
   };
 
-  const dummyTransactions = [
-    { id: 1, title: "Gold's Gym Visit", description: "Outside Primary Zone", amount: -20, currency: "credits", type: "debit", date: "Today, 8:30 AM" },
-    { id: 2, title: "Optimum Nutrition Whey", description: "Order #ON12345", amount: -1299, currency: "cash", type: "debit", date: "Yesterday, 5:45 PM" },
-    { id: 3, title: "Credit Purchase", description: "250 CR Package", amount: 250, currency: "credits", type: "credit", date: "2 Jul, 11:20 AM" },
-    { id: 4, title: "INR Top Up", description: "Added to INR Wallet", amount: 1000, currency: "cash", type: "credit", date: "1 Jul, 9:10 PM" },
-    { id: 5, title: "Badminton Court", description: "Match Booking", amount: -600, currency: "cash", type: "debit", date: "1 Jul, 6:30 PM" },
-    { id: 6, title: "Credits Converted", description: "200 CR to INR", amount: 1600, currency: "cash", type: "credit", date: "28 Jun, 7:20 PM" },
-  ];
-
-  const displayTransactions = transactions?.length > 0 ? transactions : dummyTransactions;
+  const displayTransactions = transactions || [];
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }} edges={["top", "bottom"]}>
@@ -208,14 +199,25 @@ export default function TopUpInrScreen() {
                 );
               })}
             </View>
-            <Pressable className="bg-gray-100 p-2.5 rounded-[12px]">
+            <Pressable 
+              onPress={() => setActiveTab(prev => prev === 'All' ? 'INR' : prev === 'INR' ? 'Credits' : 'All')} 
+              className="bg-gray-100 p-2.5 rounded-[12px] active:bg-gray-200"
+            >
               <Ionicons name="filter" size={18} color="#000" />
             </Pressable>
           </View>
 
           {/* List */}
           <View className="pb-8">
-            {displayTransactions.map((item, index) => renderTransactionRow(item, index))}
+            {displayTransactions.length > 0 ? (
+              displayTransactions.map((item, index) => renderTransactionRow(item, index))
+            ) : (
+              <View className="py-8 items-center">
+                <Ionicons name="receipt-outline" size={32} color="#D1D5DB" />
+                <Text className="text-gray-400 text-sm font-semibold mt-2">No transactions yet</Text>
+                <Text className="text-gray-400 text-xs mt-0.5">Your wallet activity will appear here.</Text>
+              </View>
+            )}
           </View>
         </View>
       </ScrollView>

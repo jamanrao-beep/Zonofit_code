@@ -22,13 +22,14 @@ export default function TransactionsScreen() {
 
   const loadInitial = async () => {
     setLoading(true);
-    setPage(1);
-    await fetchTransactions(token!, 1);
+    if (token) {
+      await fetchTransactions(token, 1);
+    }
     setLoading(false);
   };
 
   const loadMore = async () => {
-    if (loadingMore || !hasMore || loading) return;
+    if (loadingMore || !hasMore || loading || !token) return;
     
     setLoadingMore(true);
     const nextPage = page + 1;
@@ -36,7 +37,7 @@ export default function TransactionsScreen() {
     // but the store appends them blindly right now. 
     // If the length of transactions doesn't increase after fetch, it means no more.
     const currentLength = useCreditsStore.getState().transactions.length;
-    await fetchTransactions(token!, nextPage);
+    await fetchTransactions(token, nextPage);
     const newLength = useCreditsStore.getState().transactions.length;
     
     if (newLength === currentLength) {
