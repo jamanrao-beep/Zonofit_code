@@ -108,7 +108,7 @@ export default function BookingHistoryScreen() {
         ) : (
           <View className="px-5 gap-y-3">
             {allBookings.map((booking) => {
-              const config = statusConfig[booking.status as keyof typeof statusConfig];
+              const config = statusConfig[booking.status as keyof typeof statusConfig] || statusConfig.booked;
               return (
                 <View
                   key={booking.id}

@@ -152,10 +152,13 @@ export default function SplashAnimationScreen() {
     transform: [{ scale: ring1Scale.value }],
   }));
 
-  const spinStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${spinRotation.value}deg` }],
-    opacity: ring1Opacity.value,
-  }));
+  const spinStyle = useAnimatedStyle(() => {
+    const rot = Number.isFinite(spinRotation.value) ? spinRotation.value : 0;
+    return {
+      transform: [{ rotate: `${rot}deg` }],
+      opacity: ring1Opacity.value,
+    };
+  });
 
   const logoStyle = useAnimatedStyle(() => ({
     opacity: logoOpacity.value,
