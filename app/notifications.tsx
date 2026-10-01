@@ -141,7 +141,14 @@ export default function NotificationsScreen() {
     setNotifications(prev => prev.map(n => n.id === item.id ? { ...n, isRead: true } : n));
 
     if (item.ctaRoute) {
-      router.push(item.ctaRoute as any);
+      try {
+        let targetRoute = item.ctaRoute;
+        if (targetRoute === "/sign-in") targetRoute = "/(auth)/create-account";
+        if (targetRoute.startsWith("/role-application")) targetRoute = "/trainers/register";
+        router.push(targetRoute as any);
+      } catch (err) {
+        console.warn("Could not navigate to notification route:", item.ctaRoute);
+      }
     }
   };
 
