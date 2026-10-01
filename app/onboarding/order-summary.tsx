@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useGuestStore } from "@/store/useGuestStore";
 import { useAddressStore } from "@/store/useAddressStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
 import DeliveryAddressModal from "@/components/DeliveryAddressModal";
@@ -11,6 +12,7 @@ import DeliveryAddressModal from "@/components/DeliveryAddressModal";
 export default function OrderSummaryScreen() {
   const router = useRouter();
   const { completeOnboarding, loading, token } = useAuthStore();
+  const { selectedGymName } = useGuestStore();
   const { inrWallet, fetchWallet } = useCreditsStore();
   const { getSelectedAddress } = useAddressStore();
   const selectedAddress = getSelectedAddress();
@@ -67,7 +69,7 @@ export default function OrderSummaryScreen() {
           <View style={styles.row}>
             <View>
               <Text style={styles.label}>Primary Gym</Text>
-              <Text style={styles.value}>FitZone Pro</Text>
+              <Text style={styles.value}>{selectedGymName || "Selected Primary Gym"}</Text>
             </View>
             <Pressable onPress={() => router.back()}>
               <Text style={styles.editText}>Edit</Text>
@@ -81,8 +83,7 @@ export default function OrderSummaryScreen() {
               <Text style={styles.label}>Plan</Text>
               <Text style={styles.value}>Quarterly - 3 Months</Text>
             </View>
-            {/* Disabled edit for plan since we skipped plan selection */}
-            <Pressable>
+            <Pressable onPress={() => Alert.alert("Membership Plan", "You are enrolled in the Quarterly 3-Month Plan with network gym access. You can modify your plan preferences in Settings after activation.")}>
               <Text style={styles.editText}>Edit</Text>
             </Pressable>
           </View>

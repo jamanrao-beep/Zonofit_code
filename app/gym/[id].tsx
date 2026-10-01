@@ -5,11 +5,15 @@ import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-ico
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useGuestStore } from '@/store/useGuestStore';
+import { useBookingStore } from '@/store/useBookingStore';
+import { useCreditsStore } from '@/store/useCreditsStore';
+import { FALLBACK_NETWORK_GYMS } from '@/constants/fallbackGyms';
 
 const { width } = Dimensions.get('window');
 
-// Mock Data
-const GYM_DATA = {
+// Default Fallback Data
+const DEFAULT_GYM_DATA = {
+  id: "gym-default",
   name: "Being Fitness",
   rating: 4.7,
   reviews: 128,
@@ -29,7 +33,7 @@ const GYM_DATA = {
     "https://images.unsplash.com/photo-1540497077202-7c8a3999166f?q=80&w=400&auto=format&fit=crop",
     "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=400&auto=format&fit=crop"
   ],
-  credits: 10,
+  credits: 8,
   visitsAvailable: 1
 };
 
@@ -38,8 +42,89 @@ export default function GymDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const isFromOnboarding = useAuthStore(state => state.isViewingOnboardingGym);
   const { isGuest, selectGym } = useGuestStore();
+  const { bookVisit, bookingStatus } = useBookingStore();
+  const { credits } = useCreditsStore();
   const insets = useSafeAreaInsets();
   const [activeImage, setActiveImage] = useState(0);
+  const [isFavorite, setIsFavorite] = useState(false);
+
+  // Find gym in fallback dataset if available
+  const matchedGym = FALLBACK_NETWORK_GYMS.find(g => g.id === id);
+  const GYM_DATA = {
+    ...DEFAULT_GYM_DATA,
+    id: id || DEFAULT_GYM_DATA.id,
+    name: matchedGym?.name || DEFAULT_GYM_DATA.name,
+    rating: matchedGym?.rating || DEFAULT_GYM_DATA.rating,
+    distance: matchedGym ? `${matchedGym.distance} km away` : DEFAULT_GYM_DATA.distance,
+    credits: matchedGym?.cost || DEFAULT_GYM_DATA.credits,
+    images: matchedGym?.image ? [matchedGym.image, ...DEFAULT_GYM_DATA.images.slice(1)] : DEFAULT_GYM_DATA.images,
+  };
+
+  const handleBookVisit = async () => {
+    if (isGuest) {
+      selectGym(GYM_DATA.id, GYM_DATA.name);
+      Alert.alert(
+        "Account Required",
+        "Create an account and activate your membership to book gym visits.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Create Account", onPress: () => router.push("/(auth)/create-account") }
+        ]
+      );
+      return;
+    }
+
+    if (bookingStatus !== "Not Booked") {
+      Alert.alert(
+        "Active Booking Exists",
+        "You already have an active gym booking today. Please complete or cancel it before booking another."
+      );
+      return;
+    }
+
+    if (credits < GYM_DATA.credits) {
+      Alert.alert(
+        "Insufficient Credits",
+        `This booking requires ${GYM_DATA.credits} credits, but you currently have ${credits} credits. Please buy credits to continue.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Buy Credits", onPress: () => router.push("/credits") }
+        ]
+      );
+      return;
+    }
+
+    Alert.alert(
+      "Confirm Workout Booking",
+      `Book a workout session at ${GYM_DATA.name} for ${GYM_DATA.credits} Credits?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Confirm",
+          onPress: async () => {
+            const success = await bookVisit(
+              GYM_DATA.id,
+              GYM_DATA.name,
+              new Date().toISOString(),
+              "7:00 PM - 8:30 PM",
+              GYM_DATA.credits
+            );
+            if (success) {
+              Alert.alert(
+                "Workout Booked! 🎉",
+                `Your visit to ${GYM_DATA.name} has been booked. You can check in at the gym anytime today using the Scan tab.`,
+                [
+                  { text: "Go to Home", onPress: () => router.replace("/(tabs)") }
+                ]
+              );
+            } else {
+              Alert.alert("Booking Error", "Unable to confirm booking. Please try again.");
+            }
+          }
+        }
+      ]
+    );
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
@@ -69,8 +154,14 @@ export default function GymDetailScreen() {
             <Pressable onPress={() => router.back()} style={styles.iconButton}>
               <Ionicons name="arrow-back" size={20} color="#000" />
             </Pressable>
-            <Pressable style={styles.iconButton}>
-              <Ionicons name="heart-outline" size={20} color="#000" />
+            <Pressable 
+              onPress={() => {
+                setIsFavorite(prev => !prev);
+                Alert.alert(isFavorite ? "Removed from Favorites" : "Saved to Favorites", `${GYM_DATA.name} has been ${isFavorite ? "removed from" : "added to"} your saved gyms.`);
+              }} 
+              style={styles.iconButton}
+            >
+              <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={20} color={isFavorite ? "#EF4444" : "#000"} />
             </Pressable>
           </View>
 
@@ -277,6 +368,7 @@ export default function GymDetailScreen() {
         <Pressable 
           style={{ position: 'absolute', bottom: Math.max(insets.bottom, 16), left: 16, right: 16, backgroundColor: '#1F7A3E', borderRadius: 12, flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 16, justifyContent: 'center', shadowColor: '#1F7A3E', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 }}
           onPress={() => {
+            selectGym(GYM_DATA.id, GYM_DATA.name);
             useAuthStore.getState().setIsViewingOnboardingGym(false);
             router.push('/onboarding/order-summary' as any);
           }}
@@ -285,20 +377,40 @@ export default function GymDetailScreen() {
           <Ionicons name="arrow-forward" size={18} color="white" />
         </Pressable>
       ) : (
-        <View style={{ position: 'absolute', bottom: Math.max(insets.bottom, 16), left: 16, right: 16, backgroundColor: '#4C9A2A', borderRadius: 12, flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, shadowColor: '#4C9A2A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 }}>
+        <Pressable 
+          onPress={handleBookVisit}
+          style={({ pressed }) => [{
+            position: 'absolute', 
+            bottom: Math.max(insets.bottom, 16), 
+            left: 16, 
+            right: 16, 
+            backgroundColor: '#4C9A2A', 
+            borderRadius: 12, 
+            flexDirection: 'row', 
+            alignItems: 'center', 
+            paddingVertical: 14, 
+            paddingHorizontal: 16, 
+            shadowColor: '#4C9A2A', 
+            shadowOffset: { width: 0, height: 4 }, 
+            shadowOpacity: 0.2, 
+            shadowRadius: 8, 
+            elevation: 4,
+            opacity: pressed ? 0.9 : 1
+          }]}
+        >
           <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
             <MaterialCommunityIcons name="ticket-outline" size={24} color="white" />
             <View style={{ marginLeft: 12 }}>
-              <Text style={{ color: 'white', fontSize: 13, fontWeight: '600' }}>{GYM_DATA.visitsAvailable} Visit Available</Text>
+              <Text style={{ color: 'white', fontSize: 13, fontWeight: '600' }}>1 Visit Available</Text>
               <Text style={{ color: 'white', fontSize: 12, opacity: 0.9 }}>{GYM_DATA.credits} Credits</Text>
             </View>
           </View>
           <View style={{ width: 1, height: 32, backgroundColor: 'rgba(255,255,255,0.3)', marginHorizontal: 16 }} />
-          <Pressable style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Text style={{ color: 'white', fontSize: 14, fontWeight: '700', marginRight: 8, letterSpacing: 0.5 }}>BOOK VISIT</Text>
             <Ionicons name="arrow-forward" size={16} color="white" />
-          </Pressable>
-        </View>
+          </View>
+        </Pressable>
       )}
     </View>
   );
