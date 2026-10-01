@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useGuestStore } from "@/store/useGuestStore";
 
 const GYMS = [
   {
@@ -37,6 +38,8 @@ export default function ChooseGymScreen() {
   const [search, setSearch] = useState("");
 
   const handleSelectGym = (gymId: string) => {
+    const gym = GYMS.find(g => g.id === gymId);
+    useGuestStore.getState().selectGym(gymId, gym?.name);
     // Navigate to gym details page in onboarding mode
     useAuthStore.getState().setIsViewingOnboardingGym(true);
     router.push(`/gym/${gymId}` as any);

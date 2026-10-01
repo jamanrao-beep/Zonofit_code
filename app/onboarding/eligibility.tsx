@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useGuestStore } from "@/store/useGuestStore";
 import { useAddressStore } from "@/store/useAddressStore";
 
 interface OptionItem {
@@ -106,7 +107,8 @@ export default function EligibilityScreen() {
     }
 
     const city = selectedAddress?.city || "Bangalore";
-    await completeOnboarding(city, "g1", "Quarterly");
+    const selectedGymId = useGuestStore.getState().selectedGymId || "g1";
+    await completeOnboarding(city, selectedGymId, "Quarterly");
     router.replace("/onboarding/welcome");
   };
 
@@ -626,8 +628,8 @@ export default function EligibilityScreen() {
               <View style={styles.contactIconCircle}>
                 <Ionicons name="call" size={32} color="#16A34A" />
               </View>
-              <Text style={styles.contactGymModalTitle}>Gym A Desk</Text>
-              <Text style={styles.contactGymModalPhone}>+91 98765 43210</Text>
+              <Text style={styles.contactGymModalTitle}>{useGuestStore.getState().selectedGymName || "Partner Gym"} Desk</Text>
+              <Text style={styles.contactGymModalPhone}>Gym Front Desk Support</Text>
               <Text style={styles.contactGymModalNote}>
                 Operating Hours: 06:00 AM – 10:00 PM
               </Text>
@@ -636,7 +638,7 @@ export default function EligibilityScreen() {
             <Pressable
               style={styles.callNowButton}
               onPress={() => {
-                Linking.openURL("tel:+919876543210").catch(() => {});
+                Alert.alert("Gym Desk Support", `Connecting to ${useGuestStore.getState().selectedGymName || "Partner Gym"} front desk.`);
                 setIsContactGymModalOpen(false);
               }}
             >
