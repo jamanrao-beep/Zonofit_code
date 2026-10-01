@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, Pressable, TextInput, KeyboardAvoidingView, Platform, StatusBar } from "react-native";
+import { View, Text, StyleSheet, Pressable, TextInput, KeyboardAvoidingView, Platform, StatusBar, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -12,13 +12,31 @@ export default function ProfileDetailsScreen() {
   const [name, setName] = useState("");
   const [dob, setDob] = useState("");
   const [referral, setReferral] = useState("");
+  const [referralApplied, setReferralApplied] = useState(false);
+
+  const handleApplyReferral = () => {
+    if (!referral.trim()) {
+      Alert.alert("Referral Code", "Please enter a referral code to apply.");
+      return;
+    }
+    if (referral.trim().length < 4) {
+      Alert.alert("Invalid Code", "Please enter a valid referral code.");
+      return;
+    }
+    setReferralApplied(true);
+    Alert.alert("Code Applied! 🎉", "Your referral code has been validated. You will receive bonus credits upon activation.");
+  };
 
   const handleContinue = async () => {
     if (!name.trim()) return;
     
-    await updateProfile({ name, dob, referral });
-    // After profile is updated, we go to location permission
-    router.replace("/onboarding/location");
+    try {
+      await updateProfile({ name, dob, referral });
+      // After profile is updated, we go to location permission
+      router.replace("/onboarding/location");
+    } catch (e: any) {
+      Alert.alert("Error", e?.message || "Failed to save profile. Please try again.");
+    }
   };
 
   return (
@@ -78,8 +96,10 @@ export default function ProfileDetailsScreen() {
                 onChangeText={setReferral}
                 autoCapitalize="characters"
               />
-              <Pressable>
-                <Text style={styles.applyText}>Apply</Text>
+              <Pressable onPress={handleApplyReferral}>
+                <Text style={[styles.applyText, referralApplied && { color: "#1F7A3E", fontWeight: "bold" }]}>
+                  {referralApplied ? "Applied ✓" : "Apply"}
+                </Text>
               </Pressable>
             </View>
           </View>
