@@ -14,13 +14,23 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { useUserStore } from "@/store/useUserStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
 import { useGuestStore } from "@/store/useGuestStore";
+import { useBookingStore } from "@/store/useBookingStore";
+
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good Morning,";
+  if (hour < 17) return "Good Afternoon,";
+  return "Good Evening,";
+}
 
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuthStore();
-  const { avatarUrl } = useUserStore();
+  const { avatarUrl, visitsRemaining, planName, streak, totalWorkouts, trainingHours, currentMonth, totalMonths, identityStage, progressPercentage, nextMilestone } = useUserStore();
   const { credits } = useCreditsStore();
   const { isGuest, hoursRemaining, checkExpiry } = useGuestStore();
+  const { bookingStatus, bookedGymName, bookedTime } = useBookingStore();
+  const { membershipInfo } = useCreditsStore();
 
   React.useEffect(() => {
     if (isGuest && checkExpiry()) {
@@ -219,8 +229,8 @@ export default function HomeScreen() {
       {/* Standard Header */}
       <View className="flex-row justify-between items-center px-5 pt-4 pb-4">
         <View>
-          <Text className="text-[28px] font-extrabold text-[#111827] tracking-tight">{user?.username || "Saransh"}</Text>
-          <Text className="text-sm font-medium text-[#6B7280] mt-1">Good Morning,</Text>
+          <Text className="text-[28px] font-extrabold text-[#111827] tracking-tight">{user?.username || "ZonoFit Member"}</Text>
+          <Text className="text-sm font-medium text-[#6B7280] mt-1">{getGreeting()}</Text>
         </View>
         <View className="flex-row items-center gap-x-3">
           <Pressable 
@@ -258,7 +268,7 @@ export default function HomeScreen() {
             <View>
               <Text className="text-white/70 text-[10px] font-bold tracking-[1.5px] uppercase mb-1">PRIMARY GYM</Text>
               <View className="flex-row items-center">
-                <Text className="text-white text-[22px] font-bold tracking-tight">Gold's Gym</Text>
+                <Text className="text-white text-[22px] font-bold tracking-tight">{membershipInfo?.gymName || planName || "Select a Gym"}</Text>
                 <Ionicons name="chevron-forward" size={18} color="white" className="ml-1 mt-0.5" />
               </View>
             </View>
@@ -269,32 +279,39 @@ export default function HomeScreen() {
             <View>
               <Text className="text-white/70 text-xs mb-1">Completed Visits</Text>
               <Text className="text-white text-[32px] font-bold leading-9">
-                12 <Text className="text-white/70 text-lg font-normal">/ 18</Text>
+                {membershipInfo?.completedVisits ?? totalWorkouts} <Text className="text-white/70 text-lg font-normal">/ {membershipInfo?.mandatoryVisits ?? (visitsRemaining + totalWorkouts)}</Text>
               </Text>
             </View>
             <View className="items-end">
               <Text className="text-white/70 text-xs mb-1">Visits Left</Text>
-              <Text className="text-white text-[32px] font-bold leading-9">6</Text>
+              <Text className="text-white text-[32px] font-bold leading-9">{visitsRemaining}</Text>
             </View>
           </View>
 
-          {/* 18-Segment Progress Bar */}
-          <View className="flex-row gap-x-1.5 mb-6 w-full">
-            {[...Array(18)].map((_, i) => (
-              <View 
-                key={i} 
-                className={`flex-1 h-1.5 rounded-full ${i < 12 ? 'bg-[#28C76F]' : 'bg-white border border-white border-dashed bg-transparent opacity-60'}`} 
-                style={i >= 12 ? { backgroundColor: 'transparent', borderStyle: 'dashed' } : {}}
-              />
-            ))}
-          </View>
+          {/* Dynamic Progress Bar */}
+          {(() => {
+            const totalVisits = membershipInfo?.mandatoryVisits ?? (visitsRemaining + totalWorkouts);
+            const completed = membershipInfo?.completedVisits ?? totalWorkouts;
+            const segments = Math.max(totalVisits, 1);
+            return (
+              <View className="flex-row gap-x-1.5 mb-6 w-full">
+                {[...Array(segments)].map((_, i) => (
+                  <View 
+                    key={i} 
+                    className={`flex-1 h-1.5 rounded-full ${i < completed ? 'bg-[#28C76F]' : 'bg-white border border-white border-dashed bg-transparent opacity-60'}`} 
+                    style={i >= completed ? { backgroundColor: 'transparent', borderStyle: 'dashed' } : {}}
+                  />
+                ))}
+              </View>
+            );
+          })()}
 
           <View className="flex-row justify-between items-center mb-6">
             <View className="flex-row items-center">
               <View className="w-5 h-5 rounded-full bg-yellow-500/20 items-center justify-center mr-1.5">
                 <Text className="text-yellow-500 text-[10px] font-bold">🪙</Text>
               </View>
-              <Text className="text-white text-sm font-medium">Available Credits ₹{credits || "1,240"}</Text>
+              <Text className="text-white text-sm font-medium">Available Credits: {credits}</Text>
             </View>
             <Pressable onPress={() => router.push("/credits")}>
               <Text className="text-white/90 text-xs underline font-medium tracking-wide">View Wallet</Text>
@@ -308,6 +325,55 @@ export default function HomeScreen() {
             <Ionicons name="calendar-outline" size={18} color="#1F7A3E" className="mr-2" />
             <Text className="text-[#1F7A3E] font-bold text-sm tracking-wide">Book Visit</Text>
           </Pressable>
+        </View>
+
+        {/* Today Section — Dynamic based on booking status */}
+        <View className="bg-white rounded-[24px] p-5 mb-6 border border-gray-100 shadow-sm" style={styles.cardShadow}>
+          <Text className="text-gray-400 text-[10px] font-bold tracking-wider uppercase mb-3">TODAY</Text>
+          {bookingStatus === "Not Booked" ? (
+            <View className="flex-row items-center justify-between">
+              <View className="flex-row items-center">
+                <View className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center mr-3">
+                  <Ionicons name="calendar-outline" size={20} color="#9CA3AF" />
+                </View>
+                <Text className="text-sm text-gray-500 font-medium">No workout booked</Text>
+              </View>
+              <Pressable 
+                onPress={() => router.push("/explore")}
+                className="bg-[#1F7A3E] px-4 py-2 rounded-xl active:opacity-90"
+              >
+                <Text className="text-white font-bold text-xs">Book Visit</Text>
+              </Pressable>
+            </View>
+          ) : bookingStatus === "Booked" ? (
+            <View className="flex-row items-center justify-between">
+              <View className="flex-row items-center">
+                <View className="w-10 h-10 rounded-full bg-[#E8F5E9] items-center justify-center mr-3">
+                  <Ionicons name="checkmark-circle" size={20} color="#1F7A3E" />
+                </View>
+                <View>
+                  <Text className="text-sm font-bold text-[#111827]">Workout Booked</Text>
+                  <Text className="text-xs text-gray-500">{bookedGymName} • {bookedTime || "Today"}</Text>
+                </View>
+              </View>
+              <Pressable 
+                onPress={() => router.push("/scan-modal" as any)}
+                className="bg-[#1F7A3E] px-4 py-2 rounded-xl active:opacity-90"
+              >
+                <Text className="text-white font-bold text-xs">View Pass</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <View className="flex-row items-center">
+              <View className="w-10 h-10 rounded-full bg-[#FEF3C7] items-center justify-center mr-3">
+                <Text className="text-lg">🔥</Text>
+              </View>
+              <View>
+                <Text className="text-sm font-bold text-[#111827]">Checked In Successfully</Text>
+                <Text className="text-xs text-gray-500">Great Work! Keep the momentum going.</Text>
+              </View>
+            </View>
+          )}
         </View>
 
         {/* Your Journey Card */}
@@ -328,23 +394,23 @@ export default function HomeScreen() {
             <View>
               <Text className="text-gray-400 text-[10px] font-bold tracking-wider mb-1">Year Plan Progress</Text>
               <Text className="text-black font-bold text-[15px]">
-                Month 3 <Text className="text-gray-400 font-normal">/ 12</Text>
+                Month {membershipInfo?.cycleNumber ?? currentMonth} <Text className="text-gray-400 font-normal">/ {membershipInfo?.maxCycles ?? totalMonths}</Text>
               </Text>
             </View>
             <View className="items-end">
               <Text className="text-gray-400 text-[10px] font-bold tracking-wider mb-1">Current Phase</Text>
               <View className="bg-[#E8F5E9] px-3 py-1 rounded-full border border-green-500/10">
-                <Text className="text-[#1F7A3E] text-[10px] font-bold tracking-wide">Foundation</Text>
+                <Text className="text-[#1F7A3E] text-[10px] font-bold tracking-wide">{identityStage || "Foundation"}</Text>
               </View>
             </View>
           </View>
 
           {/* 12-Segment Progress Bar */}
           <View className="flex-row gap-x-1.5 mb-6 w-full">
-            {[...Array(12)].map((_, i) => (
+            {[...Array((membershipInfo?.maxCycles ?? totalMonths) || 12)].map((_, i) => (
               <View 
                 key={i} 
-                className={`flex-1 h-1.5 rounded-full ${i < 3 ? 'bg-[#1F7A3E]' : 'bg-gray-200'}`} 
+                className={`flex-1 h-1.5 rounded-full ${i < (membershipInfo?.cycleNumber ?? currentMonth) ? 'bg-[#1F7A3E]' : 'bg-gray-200'}`} 
               />
             ))}
           </View>
@@ -354,14 +420,14 @@ export default function HomeScreen() {
           <View className="flex-row justify-between items-center">
             <View className="flex-1">
               <Text className="text-gray-400 text-[10px] tracking-wide mb-1">Completed Visits</Text>
-              <Text className="text-black text-xl font-bold">26</Text>
+              <Text className="text-black text-xl font-bold">{totalWorkouts}</Text>
             </View>
 
             <View className="w-[1px] h-8 bg-gray-200 mx-2" />
 
             <View className="flex-1 pl-2">
               <Text className="text-gray-400 text-[10px] tracking-wide mb-1">Money Saved</Text>
-              <Text className="text-[#1F7A3E] text-xl font-bold">₹2,340</Text>
+              <Text className="text-[#1F7A3E] text-xl font-bold">₹{Math.round(totalWorkouts * 90).toLocaleString()}</Text>
             </View>
 
             <View className="w-10 h-10 rounded-full bg-[#E8F5E9] items-center justify-center">
@@ -456,7 +522,7 @@ export default function HomeScreen() {
             <View className="w-6 h-6 rounded-full bg-[#EDF7EC] items-center justify-center mr-2">
               <Text className="text-xs">⚡</Text>
             </View>
-            <Text className="text-[#0B6E4F] text-[11px] font-bold uppercase tracking-wider">Daily Motivation • Day 24</Text>
+            <Text className="text-[#0B6E4F] text-[11px] font-bold uppercase tracking-wider">Daily Motivation • Day {streak || 1}</Text>
           </View>
           <Text className="text-[#1F2520] text-[15px] font-bold italic leading-relaxed">
             "Consistency beats intensity. You've already outperformed the person who stayed home."
