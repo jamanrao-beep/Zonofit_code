@@ -1,34 +1,29 @@
 import React from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, Dimensions, Alert } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5, Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useUserStore } from '@/store/useUserStore';
+import { useCreditsStore } from '@/store/useCreditsStore';
+import { useBookingStore } from '@/store/useBookingStore';
 
 const { width } = Dimensions.get('window');
-
-// Mock Data
-const DATA = {
-  month: 4,
-  totalMonths: 12,
-  visitsCompleted: 7,
-  visitsGoal: 10,
-  score: 82,
-  commitment: { current: 36, total: 40 },
-  discipline: { current: 29, total: 35 },
-  activity: { current: 10, total: 15 },
-  nextVisit: { time: "Tomorrow, 7:00 PM", gym: "Being Fitness" },
-  recentActivity: [
-    { id: 1, date: "AUG 6", type: "Commitment Visit", gym: "Being Fitness", time: "7:00 PM", status: "completed" },
-    { id: 2, date: "AUG 4", type: "Commitment Visit", gym: "Fitness Zone", time: "6:30 PM", status: "completed" },
-    { id: 3, date: "AUG 2", type: "Credit Visit", gym: "Being Fitness", time: "8:00 PM", status: "completed" },
-  ]
-};
 
 export default function JourneyScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const progressPercentage = (DATA.score / 100) * 100;
+  const { totalWorkouts, currentMonth, totalMonths, streak } = useUserStore();
+  const { membershipInfo } = useCreditsStore();
+  const { bookingStatus, bookedGymName, bookedTime, pastBookings } = useBookingStore();
+
+  const cycleMonth = membershipInfo?.cycleNumber ?? currentMonth ?? 1;
+  const cycleTotalMonths = membershipInfo?.maxCycles ?? totalMonths ?? 12;
+  const visitsCompleted = membershipInfo?.completedVisits ?? totalWorkouts ?? 0;
+  const visitsGoal = membershipInfo?.mandatoryVisits ?? 10;
+  const visitsRemaining = Math.max(0, visitsGoal - visitsCompleted);
+
+  const monthName = new Date().toLocaleString('default', { month: 'long' });
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }} edges={['top']}>
@@ -50,17 +45,17 @@ export default function JourneyScreen() {
           {/* Hero Card */}
           <View style={{ backgroundColor: '#F9FCF8', borderRadius: 24, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#F0F5EE' }}>
             <View style={{ alignItems: 'center', paddingVertical: 10 }}>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: '#4C9A2A', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Month {DATA.month} of {DATA.totalMonths}</Text>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: '#4C9A2A', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Month {cycleMonth} of {cycleTotalMonths}</Text>
               
               <View style={{ flexDirection: 'row', alignItems: 'baseline', marginBottom: 2 }}>
-                <Text style={{ fontSize: 48, fontWeight: '900', color: '#111827' }}>{DATA.visitsCompleted}</Text>
-                <Text style={{ fontSize: 20, fontWeight: '700', color: '#9CA3AF' }}> / {DATA.visitsGoal}</Text>
+                <Text style={{ fontSize: 48, fontWeight: '900', color: '#111827' }}>{visitsCompleted}</Text>
+                <Text style={{ fontSize: 20, fontWeight: '700', color: '#9CA3AF' }}> / {visitsGoal}</Text>
               </View>
               <Text style={{ fontSize: 14, color: '#4B5563', marginBottom: 24, fontWeight: '500' }}>Visits completed</Text>
               
               <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
-                {[...Array(10)].map((_, i) => (
-                  <View key={i} style={{ width: 22, height: 12, borderRadius: 6, backgroundColor: i < DATA.visitsCompleted ? '#4C9A2A' : '#E5E7EB' }} />
+                {[...Array(Math.max(visitsGoal, 1))].map((_, i) => (
+                  <View key={i} style={{ width: 22, height: 12, borderRadius: 6, backgroundColor: i < visitsCompleted ? '#4C9A2A' : '#E5E7EB' }} />
                 ))}
               </View>
             </View>
@@ -72,7 +67,9 @@ export default function JourneyScreen() {
                 <Ionicons name="calendar-outline" size={14} color="#4C9A2A" />
               </View>
               <Text style={{ fontSize: 12, color: '#4B5563', flex: 1, lineHeight: 18 }}>
-                3 visits remaining to complete{'\n'}your August commitment
+                {visitsRemaining > 0 
+                  ? `${visitsRemaining} visits remaining to complete\nyour ${monthName} commitment` 
+                  : `Monthly commitment completed! Great work.`}
               </Text>
             </View>
           </View>
@@ -86,12 +83,23 @@ export default function JourneyScreen() {
               </View>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 2 }}>Next Visit</Text>
-              <Text style={{ fontSize: 12, color: '#4B5563', marginBottom: 2 }}>{DATA.nextVisit.time}</Text>
-              <Text style={{ fontSize: 11, color: '#9CA3AF' }}>{DATA.nextVisit.gym}</Text>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 2 }}>
+                {bookingStatus === "Booked" ? "Upcoming Workout" : "Next Visit"}
+              </Text>
+              <Text style={{ fontSize: 12, color: '#4B5563', marginBottom: 2 }}>
+                {bookingStatus === "Booked" ? (bookedTime || "Today") : "No active booking"}
+              </Text>
+              <Text style={{ fontSize: 11, color: '#9CA3AF' }}>
+                {bookingStatus === "Booked" ? (bookedGymName || "Partner Gym") : "Choose a gym to workout"}
+              </Text>
             </View>
-            <Pressable style={{ backgroundColor: '#4C9A2A', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={{ color: 'white', fontSize: 12, fontWeight: '700', marginRight: 4 }}>BOOK NEXT VISIT</Text>
+            <Pressable 
+              onPress={() => router.push("/explore")}
+              style={{ backgroundColor: '#4C9A2A', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}
+            >
+              <Text style={{ color: 'white', fontSize: 12, fontWeight: '700', marginRight: 4 }}>
+                {bookingStatus === "Booked" ? "VIEW PASS" : "BOOK VISIT"}
+              </Text>
               <Ionicons name="arrow-forward" size={14} color="white" />
             </Pressable>
           </View>
@@ -141,7 +149,10 @@ export default function JourneyScreen() {
 
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>ZonoFit Score</Text>
-              <Pressable style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Pressable 
+                onPress={() => Alert.alert("ZonoFit Score: 82/100", "• Commitment: 36/40\n• Discipline: 29/35\n• Activity: 10/15\n\nGreat consistency! Keep working out to unlock detailed score insights.")}
+                style={{ flexDirection: 'row', alignItems: 'center' }}
+              >
                 <Text style={{ fontSize: 12, fontWeight: '600', color: '#4C9A2A', marginRight: 2 }}>View score</Text>
                 <Ionicons name="chevron-forward" size={12} color="#4C9A2A" />
               </Pressable>
@@ -294,28 +305,35 @@ export default function JourneyScreen() {
             </View>
             
             <View>
-              {DATA.recentActivity.map((activity, index) => (
-                <View key={activity.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: index !== DATA.recentActivity.length - 1 ? 16 : 0 }}>
-                  <View style={{ width: 44, height: 50, borderRadius: 12, backgroundColor: '#F9FCF8', justifyContent: 'center', alignItems: 'center', marginRight: 12, borderWidth: 1, borderColor: '#F0F5EE' }}>
-                    <Text style={{ fontSize: 10, fontWeight: '700', color: '#4C9A2A' }}>{activity.date.split(' ')[0]}</Text>
-                    <Text style={{ fontSize: 14, fontWeight: '800', color: '#4C9A2A' }}>{activity.date.split(' ')[1]}</Text>
+              {pastBookings && pastBookings.length > 0 ? (
+                pastBookings.slice(0, 5).map((activity, index) => (
+                  <View key={activity.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: index !== Math.min(pastBookings.length, 5) - 1 ? 16 : 0 }}>
+                    <View style={{ width: 44, height: 50, borderRadius: 12, backgroundColor: '#F9FCF8', justifyContent: 'center', alignItems: 'center', marginRight: 12, borderWidth: 1, borderColor: '#F0F5EE' }}>
+                      <Text style={{ fontSize: 10, fontWeight: '700', color: '#4C9A2A' }}>VISIT</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '800', color: '#4C9A2A' }}>#{index + 1}</Text>
+                    </View>
+                    
+                    <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#F9FAFB', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+                      <MaterialCommunityIcons name="dumbbell" size={16} color="#4B5563" />
+                    </View>
+                    
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 2 }}>{activity.gymName}</Text>
+                      <Text style={{ fontSize: 11, color: '#6B7280' }}>{activity.time} · <Text style={{ color: '#4C9A2A', fontWeight: '600' }}>{activity.status}</Text></Text>
+                    </View>
+                    
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Ionicons name="checkmark-circle" size={20} color="#4C9A2A" style={{ marginRight: 8 }} />
+                      <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
+                    </View>
                   </View>
-                  
-                  <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#F9FAFB', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
-                    <MaterialCommunityIcons name="dumbbell" size={16} color="#4B5563" />
-                  </View>
-                  
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 2 }}>{activity.gym}</Text>
-                    <Text style={{ fontSize: 11, color: '#6B7280' }}>{activity.time} · {activity.type === 'Credit Visit' ? <Text style={{ color: '#F59E0B' }}>{activity.type}</Text> : activity.type}</Text>
-                  </View>
-                  
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Ionicons name="checkmark-circle" size={20} color="#4C9A2A" style={{ marginRight: 8 }} />
-                    <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
-                  </View>
+                ))
+              ) : (
+                <View style={{ alignItems: 'center', paddingVertical: 16 }}>
+                  <Text style={{ fontSize: 13, color: '#9CA3AF', marginBottom: 8 }}>No completed workouts yet.</Text>
+                  <Text style={{ fontSize: 11, color: '#6B7280', textAlign: 'center' }}>Your workout check-ins and gym visits will automatically appear here.</Text>
                 </View>
-              ))}
+              )}
             </View>
           </View>
 

@@ -3,10 +3,16 @@ import { View, Text, Pressable, ScrollView, Share, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useAuthStore } from "@/store/useAuthStore";
 
 export default function InviteScreen() {
   const router = useRouter();
-  const inviteCode = "ZONO-582X9";
+  const user = useAuthStore((state) => state.user);
+  
+  const rawId = (user?.username || user?.phone || "USER").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+  const inviteCode = user 
+    ? `ZONO-${rawId.slice(0, 4)}${user.id ? user.id.slice(-2).toUpperCase() : "77"}` 
+    : "ZONO-FIT77";
 
   const handleShare = async () => {
     try {
