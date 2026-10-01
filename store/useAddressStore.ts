@@ -39,30 +39,11 @@ interface AddressState {
   getDefaultAddress: () => Address | null;
 }
 
-const INITIAL_ADDRESSES: Address[] = [
-  {
-    id: "addr_default",
-    fullName: "Saransh Sharma",
-    phoneNumber: "9672856856",
-    flatHouse: "Flat 402, Sunshine Heights",
-    areaStreet: "27th Main, Sector 2, HSR Layout",
-    landmark: "Near Apollo Hospital",
-    pincode: "560102",
-    city: "Bangalore",
-    state: "Karnataka",
-    isDefault: true,
-    deliveryInstructions: {
-      type: "door",
-      instructionsText: "Please leave package at the doorstep if not answering.",
-      avoidCalling: false,
-      weekendDelivery: true,
-    },
-  },
-];
+const INITIAL_ADDRESSES: Address[] = [];
 
 export const useAddressStore = create<AddressState>((set, get) => ({
   addresses: INITIAL_ADDRESSES,
-  selectedAddressId: "addr_default",
+  selectedAddressId: null,
 
   addAddress: (newAddrData) => {
     const newId = "addr_" + Date.now();

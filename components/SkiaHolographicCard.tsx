@@ -86,14 +86,19 @@ export function SkiaHolographicCard({
       scale.value = withSpring(1, SPRING_CONFIG);
     });
 
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [
-      { perspective: PERSPECTIVE },
-      { rotateX: `${rotateX.value}deg` },
-      { rotateY: `${rotateY.value}deg` },
-      { scale: scale.value },
-    ],
-  }));
+  const animStyle = useAnimatedStyle(() => {
+    const rx = Number.isFinite(rotateX.value) ? rotateX.value : 0;
+    const ry = Number.isFinite(rotateY.value) ? rotateY.value : 0;
+    const s = Number.isFinite(scale.value) ? scale.value : 1;
+    return {
+      transform: [
+        { perspective: PERSPECTIVE },
+        { rotateX: `${rx}deg` },
+        { rotateY: `${ry}deg` },
+        { scale: s },
+      ],
+    };
+  });
 
   return (
     <GestureDetector gesture={pan}>
