@@ -9,27 +9,60 @@ import { useCreditsStore } from "@/store/useCreditsStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { apiFetch } from "@/lib/api";
 
-const uiPlans: { name: string; color: string; emoji: string; isPopular: boolean; networkAccess: string; features?: string[] }[] = [
+const uiPlans: { id: string; name: string; color: string; emoji: string; isPopular: boolean; priceINR: number; priceInPaise: number; monthlyCredits: number; monthlyVisits: number; networkAccess: string; features: string[] }[] = [
   {
+    id: "plan-starter",
     name: "Starter",
     color: "#6BCB77",
     emoji: "🌱",
     isPopular: false,
+    priceINR: 1999,
+    priceInPaise: 199900,
+    monthlyCredits: 160,
+    monthlyVisits: 10,
     networkAccess: "Standard Network Access",
+    features: [
+      "Access to standard partner gyms",
+      "10 visits per 30-day cycle",
+      "160 credits allocated monthly",
+      "Unused credits convert to INR wallet"
+    ]
   },
   {
+    id: "plan-premium",
     name: "Premium",
     color: "#3B82F6",
     emoji: "✨",
     isPopular: true,
+    priceINR: 3499,
+    priceInPaise: 349900,
+    monthlyCredits: 300,
+    monthlyVisits: 18,
     networkAccess: "Full Network Access",
+    features: [
+      "Access to all partner gyms & studios",
+      "18 visits per 30-day cycle",
+      "300 credits allocated monthly",
+      "Priority check-in access"
+    ]
   },
   {
+    id: "plan-elite",
     name: "Elite",
     color: "#8B5CF6",
     emoji: "👑",
     isPopular: false,
+    priceINR: 4999,
+    priceInPaise: 499900,
+    monthlyCredits: 450,
+    monthlyVisits: 25,
     networkAccess: "Full Network + Premium Facilities",
+    features: [
+      "Unlimited premium club access",
+      "25 visits per 30-day cycle",
+      "450 credits allocated monthly",
+      "Complimentary recovery zone access"
+    ]
   }
 ];
 
@@ -38,40 +71,44 @@ export default function MembershipScreen() {
   const { planName, membershipStatus, membershipExpiry, visitsRemaining, updatePlan } = useUserStore();
   const { credits } = useCreditsStore();
   const { token } = useAuthStore();
-  const [plans, setPlans] = useState<any[]>([]);
+  const [plans, setPlans] = useState<any[]>(uiPlans);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function fetchPlans() {
       try {
-        const data = await apiFetch("/api/membership/plans", { token });
-        
-        // Merge API data with UI embellishments from local uiPlans
-        const merged = data.plans.map((p: any) => {
-          const uiPlan = uiPlans.find((ui) => ui.name === p.name);
-          return {
-            ...p,
-            color: uiPlan?.color || "#6BCB77",
-            emoji: uiPlan?.emoji || "✨",
-            isPopular: uiPlan?.isPopular || false,
-            networkAccess: uiPlan?.networkAccess || "Access to network gyms",
-            features: p.features || uiPlan?.features || [],
-          };
-        });
-        
-        setPlans(merged);
+        const data = await apiFetch("/api/membership/plans", token ? { token } : undefined);
+        const fetchedPlans = data?.plans || [];
+        if (fetchedPlans.length > 0) {
+          const merged = fetchedPlans.map((p: any) => {
+            const uiPlan = uiPlans.find((ui) => ui.name === p.name);
+            return {
+              ...p,
+              color: uiPlan?.color || "#6BCB77",
+              emoji: uiPlan?.emoji || "✨",
+              isPopular: uiPlan?.isPopular || false,
+              networkAccess: uiPlan?.networkAccess || "Access to network gyms",
+              features: p.features || uiPlan?.features || [],
+            };
+          });
+          setPlans(merged);
+        } else {
+          setPlans(uiPlans);
+        }
       } catch (err) {
-        console.error("Failed to load plans:", err);
+        console.warn("Using fallback plans:", err);
+        setPlans(uiPlans);
       } finally {
         setIsLoading(false);
       }
     }
     fetchPlans();
-  }, []);
+  }, [token]);
 
   // Derive current plan based on planName
   const currentPlan = plans.find((p) => p.name === planName) || 
-                      uiPlans.find(p => p.name === planName);
+                      uiPlans.find(p => p.name === planName) ||
+                      uiPlans[0];
 
   const handleUpgrade = (plan: any) => {
     Alert.alert(
@@ -160,7 +197,7 @@ export default function MembershipScreen() {
         </View>
 
         {/* What's included */}
-        {currentPlan && (
+        {currentPlan && Array.isArray(currentPlan.features) && currentPlan.features.length > 0 && (
           <View className="mx-5 bg-white rounded-[24px] p-5 border border-black/5 shadow-sm mb-5">
             <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider mb-3">What's Included</Text>
             {currentPlan.features.map((feature: string, i: number) => (

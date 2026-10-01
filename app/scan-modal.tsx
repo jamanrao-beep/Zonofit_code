@@ -183,7 +183,7 @@ export default function ScanModal() {
                   Alert.alert(
                     "Check-In Successful! 🎉", 
                     verifyData.message || "You have successfully verified your location and QR code. Have a great workout!",
-                    [{ text: "Awesome!", onPress: () => { router.back(); router.push("/"); } }]
+                    [{ text: "Awesome!", onPress: () => router.replace("/(tabs)") }]
                   );
                 }
               } catch (e: any) {
@@ -222,7 +222,7 @@ export default function ScanModal() {
         Alert.alert(
           "Check-In Successful! 🎉", 
           verifyData.message || "You have successfully verified your location and QR code. Have a great workout!",
-          [{ text: "Awesome!", onPress: () => { router.back(); router.push("/"); } }]
+          [{ text: "Awesome!", onPress: () => router.replace("/(tabs)") }]
         );
       }
 
