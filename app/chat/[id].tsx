@@ -5,12 +5,14 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { apiFetch } from "@/lib/api";
 import { useAuthStore } from "@/store/useAuthStore";
+import { FALLBACK_NETWORK_GYMS } from "@/constants/fallbackGyms";
 
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { token } = useAuthStore();
-  const [gym, setGym] = useState<any>(null);
+  const fallback = FALLBACK_NETWORK_GYMS.find(g => g.id === id) || { id, name: "Partner Gym Support", rating: 4.8 };
+  const [gym, setGym] = useState<any>(fallback);
 
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<any[]>([]);
@@ -20,22 +22,24 @@ export default function ChatScreen() {
     async function fetchMessages() {
       if (!id) return;
       try {
-        const gymData = await apiFetch(`/api/gyms/${id}`, { token });
-        setGym(gymData);
+        const gymData = await apiFetch(`/api/gyms/${id}`, token ? { token } : undefined);
+        if (gymData && gymData.name) {
+          setGym(gymData);
+        }
 
-        const data = await apiFetch(`/api/chat/${id}`, { token });
-        const formatted = data.map((msg: any) => ({
+        const data = await apiFetch(`/api/chat/${id}`, token ? { token } : undefined);
+        const formatted = Array.isArray(data) ? data.map((msg: any) => ({
           id: msg.id,
           text: msg.text,
-          sender: msg.sender.toLowerCase(),
+          sender: msg.sender?.toLowerCase() || "gym",
           time: new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        }));
+        })) : [];
         
         // Add welcome message if empty
         if (formatted.length === 0) {
           formatted.push({
             id: "welcome",
-            text: `Hi there! Welcome to ${gymData?.name || "ZonoFit"}. How can we help you today?`,
+            text: `Hi there! Welcome to ${gymData?.name || fallback.name}. How can we help you with your workout today?`,
             sender: "gym",
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           });
@@ -43,19 +47,31 @@ export default function ChatScreen() {
         
         setMessages(formatted);
       } catch (err) {
-        console.error("Failed to fetch messages", err);
+        console.warn("Using offline chat state:", err);
+        setMessages([
+          {
+            id: "welcome",
+            text: `Hi there! Welcome to ${fallback.name}. How can we help you with your workout today?`,
+            sender: "gym",
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }
+        ]);
       } finally {
         setLoading(false);
       }
     }
     fetchMessages();
-  }, [id, gym?.name]);
+  }, [id]);
 
-  if (!gym) {
+  if (!gym && !loading) {
     return (
-      <View className="flex-1 bg-[#F5F7F4] items-center justify-center">
-        <Text className="font-bold text-[#1F2520]">Gym not found</Text>
-      </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F7F4", alignItems: "center", justifyContent: "center", padding: 20 }} edges={["top"]}>
+        <Ionicons name="chatbubble-ellipses-outline" size={48} color="#6B756E" />
+        <Text style={{ fontSize: 16, fontWeight: "bold", color: "#1F2520", marginTop: 12 }}>Conversation Not Found</Text>
+        <Pressable onPress={() => router.back()} style={{ marginTop: 16, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: "#1F7A3E", borderRadius: 16 }}>
+          <Text style={{ color: "white", fontWeight: "bold" }}>Go Back</Text>
+        </Pressable>
+      </SafeAreaView>
     );
   }
 

@@ -57,7 +57,7 @@ export default function ProfileScreen() {
         }
         try {
             await signOut();
-            router.replace("/sign-in" as any);
+            router.replace("/(auth)/create-account");
         } catch (err) {
             console.error("Sign out error", err);
         }
@@ -259,12 +259,12 @@ export default function ProfileScreen() {
                     <NavRow
                         icon="accessibility-new"
                         label="Become a Trainer"
-                        onPress={() => router.push("/role-application?type=trainer" as any)}
+                        onPress={() => router.push("/trainers/register?type=TRAINER" as any)}
                     />
                     <NavRow
                         icon="people-outline"
                         label="Become a Gym Buddy"
-                        onPress={() => router.push("/role-application?type=buddy" as any)}
+                        onPress={() => router.push("/trainers/register?type=BUDDY" as any)}
                     />
                 </View>
 
