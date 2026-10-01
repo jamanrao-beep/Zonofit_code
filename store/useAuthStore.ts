@@ -37,7 +37,7 @@ interface AuthState {
   verifyOTP: (code: string) => Promise<boolean>;
   updateProfile: (details: { name: string, dob?: string, referral?: string }) => Promise<void>;
   completeOnboarding: (city: string, gymId: string, plan: string) => Promise<void>;
-  googleSignIn: () => Promise<void>;
+  googleSignIn: (email?: string, name?: string) => Promise<void>;
   signOut: () => Promise<void>;
   setError: (msg: string | null) => void;
   setVerificationPhone: (phone: string) => void;
@@ -133,7 +133,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   verifyOTP: async (code) => {
     set({ loading: true, error: null });
-    const phone = get().verificationPhone || "9876543210";
+    const phone = get().verificationPhone?.trim();
+    if (!phone) {
+      set({ loading: false, error: "Please enter your mobile number first." });
+      return false;
+    }
     try {
       let authToken: string | null = null;
       let authUser: User | null = null;
@@ -288,26 +292,30 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  googleSignIn: async () => {
+  googleSignIn: async (customEmail?: string, customName?: string) => {
     set({ loading: true, error: null });
     try {
       let authToken: string | null = null;
       let authUser: User | null = null;
 
+      // Unique email per user/device — never share a static test email
+      const email = customEmail?.trim().toLowerCase() || `user_${Date.now()}_${Math.random().toString(36).substring(2, 8)}@zonofit.com`;
+      const name = customName?.trim() || (customEmail ? customEmail.split("@")[0] : "ZonoFit Member");
+
       try {
         const data = await apiFetch("/api/auth/google", {
           method: "POST",
           body: JSON.stringify({
-            email: "google_user_test@gmail.com",
-            name: "Google User",
+            email,
+            name,
           }),
         });
 
         if (data.token) {
           authToken = data.token;
           authUser = {
-            id: data.user?.id || "usr_google",
-            username: data.user?.username || "Google User",
+            id: data.user?.id || "usr_" + Date.now(),
+            username: data.user?.username || name,
             phone: data.user?.phone || "",
             authMethod: "google",
           };
@@ -319,8 +327,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (!authToken || !authUser) {
         authToken = "mock_jwt_google_" + Date.now();
         authUser = {
-          id: "usr_google",
-          username: "Google User",
+          id: "usr_" + Date.now(),
+          username: name,
           phone: "",
           authMethod: "google",
         };
@@ -342,6 +350,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await useGuestStore.getState().convertGuest();
     } catch (err: any) {
       set({ loading: false, error: err.message || "Google sign-in failed." });
+      throw err;
     }
   },
 
