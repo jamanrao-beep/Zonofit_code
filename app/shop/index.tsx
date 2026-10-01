@@ -6,7 +6,8 @@ import {
   TextInput, 
   Pressable, 
   Image, 
-  StatusBar
+  StatusBar,
+  Alert
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -88,7 +89,7 @@ export default function ShopHomeScreen() {
           <Text className="text-[13px] font-medium text-[#6B7280]">Fitness essentials for your journey</Text>
         </View>
         <View className="flex-row items-center pt-2">
-          <Pressable className="mr-5">
+          <Pressable onPress={() => Alert.alert("Saved Items", "Your saved wishlist items will appear here.")} className="mr-5">
             <Ionicons name="heart-outline" size={24} color="#111827" />
           </Pressable>
           <Pressable className="relative" onPress={() => setIsCartOpen(true)}>
@@ -172,13 +173,17 @@ export default function ShopHomeScreen() {
         <View className="px-5 mb-8">
           <View className="flex-row justify-between items-center mb-4">
             <Text className="text-[16px] font-bold text-[#111827]">Shop by Goal</Text>
-            <Pressable>
+            <Pressable onPress={() => router.push("/shop/category/supplements" as any)}>
               <Text className="text-[#1F7A3E] font-bold text-[12px]">View All</Text>
             </Pressable>
           </View>
           <View className="flex-row flex-wrap justify-between gap-y-3">
             {GOALS.map((goal) => (
-              <Pressable key={goal.id} className="w-[48%] flex-row items-center bg-white border border-gray-200 rounded-xl p-3 shadow-sm active:bg-gray-50">
+              <Pressable 
+                key={goal.id} 
+                onPress={() => router.push("/shop/category/supplements" as any)}
+                className="w-[48%] flex-row items-center bg-white border border-gray-200 rounded-xl p-3 shadow-sm active:bg-gray-50"
+              >
                 <Text className="text-[16px] mr-2">{goal.emoji}</Text>
                 <Text className="text-[12px] font-bold text-gray-800 flex-1">{goal.name}</Text>
               </Pressable>
@@ -190,7 +195,7 @@ export default function ShopHomeScreen() {
         <View className="mb-8">
           <View className="px-5 flex-row justify-between items-center mb-4">
             <Text className="text-[16px] font-bold text-[#111827]">Best Sellers</Text>
-            <Pressable>
+            <Pressable onPress={() => router.push("/shop/category/supplements" as any)}>
               <Text className="text-[#1F7A3E] font-bold text-[12px]">View All</Text>
             </Pressable>
           </View>
@@ -240,7 +245,7 @@ export default function ShopHomeScreen() {
         <View className="mb-8">
           <View className="px-5 flex-row justify-between items-center mb-4">
             <Text className="text-[16px] font-bold text-[#111827]">Top Brands</Text>
-            <Pressable>
+            <Pressable onPress={() => router.push("/shop/category/supplements" as any)}>
               <Text className="text-[#1F7A3E] font-bold text-[12px]">View All</Text>
             </Pressable>
           </View>
