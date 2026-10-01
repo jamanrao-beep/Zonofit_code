@@ -4,9 +4,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useGuestStore } from "@/store/useGuestStore";
 
 export default function WelcomeScreen() {
   const router = useRouter();
+  const { selectedGymName } = useGuestStore();
+  const gymName = selectedGymName || "Primary Gym";
   
   const handleGoHome = () => {
     router.replace("/(tabs)");
@@ -37,7 +40,7 @@ export default function WelcomeScreen() {
               </View>
               <View style={styles.cardTextContainer}>
                 <Text style={styles.cardTitle}>Primary Gym Ready</Text>
-                <Text style={styles.cardDetail}>FitZone Pro - Active</Text>
+                <Text style={styles.cardDetail}>{gymName} - Active</Text>
               </View>
             </View>
             

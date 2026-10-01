@@ -5,7 +5,8 @@ import {
   View, 
   Pressable, 
   Image, 
-  StatusBar
+  StatusBar,
+  Alert
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -62,7 +63,7 @@ export default function ProductDetailScreen() {
           <Ionicons name="chevron-back" size={24} color="#111827" />
         </Pressable>
         <View className="flex-row items-center w-16 justify-end">
-          <Pressable className="mr-4">
+          <Pressable onPress={() => Alert.alert("Saved", "Product added to your wishlist.")} className="mr-4">
             <Ionicons name="heart-outline" size={22} color="#111827" />
           </Pressable>
           <Pressable className="relative" onPress={() => setIsCartOpen(true)}>
@@ -222,6 +223,10 @@ export default function ProductDetailScreen() {
           </Pressable>
           
           <Pressable 
+            onPress={() => {
+              handleAddToCart();
+              setIsCartOpen(true);
+            }}
             className="flex-1 bg-white border border-[#1F7A3E] py-3 rounded-xl items-center justify-center active:bg-gray-50"
           >
             <Text className="text-[#1F7A3E] font-bold text-[13px]">Buy Now</Text>
