@@ -59,17 +59,17 @@ export default function CreditsScreen() {
   }, [token]);
 
   // Derived state from membershipInfo (or fallbacks)
-  const cycleNumber = membershipInfo?.cycleNumber ?? 4;
+  const cycleNumber = membershipInfo?.cycleNumber ?? 1;
   const maxCycles = membershipInfo?.maxCycles ?? 12;
   const cyclesRemaining = membershipInfo?.cyclesRemaining ?? Math.max(0, maxCycles - cycleNumber);
-  const mandatoryVisits = membershipInfo?.mandatoryVisits ?? 10;
-  const completedVisits = membershipInfo?.completedVisits ?? 7;
+  const mandatoryVisits = membershipInfo?.mandatoryVisits ?? 0;
+  const completedVisits = membershipInfo?.completedVisits ?? 0;
   const mandatoryVisitsRemaining = membershipInfo?.mandatoryVisitsRemaining ?? Math.max(0, mandatoryVisits - completedVisits);
   
   const isExpired = membershipInfo ? membershipInfo.isExpired : false;
-  const isMembershipActive = membershipInfo ? (!membershipInfo.isExpired && membershipInfo.status === "ACTIVE") : true;
-  const daysRemaining = membershipInfo?.daysRemaining ?? 12;
-  const gymName = membershipInfo?.gymName || "FitZone Pro";
+  const isMembershipActive = membershipInfo ? (!membershipInfo.isExpired && membershipInfo.status === "ACTIVE") : false;
+  const daysRemaining = membershipInfo?.daysRemaining ?? 0;
+  const gymName = membershipInfo?.gymName || "Primary Gym";
 
   // Repurchase eligibility rules (PRD Section 11, 18, 19, 23)
   const canRepurchase = isExpired && cycleNumber < maxCycles;

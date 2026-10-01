@@ -599,14 +599,17 @@ export default function ExploreScreen() {
                 {searchQuery ? `Found ${getFilteredGyms().length} matching venues` : "All Partner Venues"}
               </Text>
               {(searchQuery ? getFilteredGyms() : gyms).map((gym) => (
-                <View key={gym.id}>
-                  <Animated3DCard onPress={() => router.push(`/gym/${gym.id}` as any)} className="mb-4">
-                    <View 
-                      className="rounded-3xl overflow-hidden border shadow-sm bg-white"
-                      style={[{ borderColor: colors.secondary }, styles.softShadow]}
+                <View key={gym.id} className="mb-4">
+                  <View 
+                    className="rounded-3xl overflow-hidden border shadow-sm bg-white"
+                    style={[{ borderColor: colors.secondary }, styles.softShadow]}
+                  >
+                    <Pressable 
+                      onPress={() => router.push(`/gym/${gym.id}` as any)}
+                      className="active:opacity-95"
                     >
                       <Image source={{ uri: gym.image }} className="h-44 w-full" resizeMode="cover" />
-                      <View className="p-4">
+                      <View className="p-4 pb-2">
                         <View className="flex-row justify-between items-start">
                           <View className="flex-1 mr-2">
                             <Text className="text-lg font-bold text-black">{gym.name}</Text>
@@ -625,31 +628,33 @@ export default function ExploreScreen() {
                             </View>
                           ))}
                         </View>
+                      </View>
+                    </Pressable>
 
-                        <View className="h-[1px] my-3 bg-gray-100" />
+                    <View className="px-4 pb-4">
+                      <View className="h-[1px] my-3 bg-gray-100" />
 
-                        <View className="flex-row justify-between items-center">
-                          <View>
-                            <Text className="text-xs font-medium text-gray-500">{gym.distance} KM Away · {gym.slots} Slots left</Text>
-                          </View>
-                          <View className="flex-row items-center gap-x-2">
-                            {gym.type === 'turf' || gym.type === 'sports' ? (
-                              <Text className="font-bold text-sm text-[#1F7A3E]">₹{gym.cost * 8} Cash</Text>
-                            ) : (
-                              <Text className="font-bold text-sm text-[#1F7A3E]">⚡ {gym.cost} Credits</Text>
-                            )}
-                            <Pressable
-                              onPress={() => handleOpenBooking(gym)}
-                              className="px-4 py-2 rounded-xl bg-[#1F7A3E] active:opacity-90"
-                              style={styles.cardShadow}
-                            >
-                              <Text className="font-bold text-xs text-white">Book</Text>
-                            </Pressable>
-                          </View>
+                      <View className="flex-row justify-between items-center">
+                        <View>
+                          <Text className="text-xs font-medium text-gray-500">{gym.distance} KM Away · {gym.slots} Slots left</Text>
+                        </View>
+                        <View className="flex-row items-center gap-x-2">
+                          {gym.type === 'turf' || gym.type === 'sports' ? (
+                            <Text className="font-bold text-sm text-[#1F7A3E]">₹{gym.cost * 8} Cash</Text>
+                          ) : (
+                            <Text className="font-bold text-sm text-[#1F7A3E]">⚡ {gym.cost} Credits</Text>
+                          )}
+                          <Pressable
+                            onPress={() => handleOpenBooking(gym)}
+                            className="px-4 py-2 rounded-xl bg-[#1F7A3E] active:opacity-90"
+                            style={styles.cardShadow}
+                          >
+                            <Text className="font-bold text-xs text-white">Book</Text>
+                          </Pressable>
                         </View>
                       </View>
                     </View>
-                  </Animated3DCard>
+                  </View>
                 </View>
               ))}
             </View>
