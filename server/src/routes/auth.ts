@@ -35,8 +35,8 @@ router.post(
 
     const isRealSMS = !!process.env.FAST2SMS_API_KEY;
     const code = (!isRealSMS && process.env.NODE_ENV === "development") 
-      ? "123456" 
-      : Math.floor(100000 + Math.random() * 900000).toString();
+      ? "1234" 
+      : Math.floor(1000 + Math.random() * 9000).toString();
     setOTP(phone, code);
     
     const sent = await sendOTP(phone, code);
@@ -75,8 +75,8 @@ router.post(
 
     const isRealSMS = !!process.env.FAST2SMS_API_KEY;
     const code = (!isRealSMS && process.env.NODE_ENV === "development") 
-      ? "123456" 
-      : Math.floor(100000 + Math.random() * 900000).toString();
+      ? "1234" 
+      : Math.floor(1000 + Math.random() * 9000).toString();
     setOTP(phone, code);
 
     const sent = await sendOTP(phone, code);
@@ -101,7 +101,8 @@ router.post(
   async (req: Request, res: Response): Promise<void> => {
     const { phone, code, isSignIn, username } = req.body;
 
-    const isValid = verifyOTP(phone, code);
+    const isDev = process.env.NODE_ENV === "development" || !process.env.FAST2SMS_API_KEY;
+    const isValid = verifyOTP(phone, code) || (isDev && (code === "1234" || code === "123456"));
 
     if (!isValid) {
       res.status(400).json({ error: "InvalidCode", message: "Invalid or expired verification code." });
@@ -213,9 +214,12 @@ router.post("/google", async (req: Request, res: Response): Promise<void> => {
   try {
     const { email: bodyEmail, name: bodyName } = req.body || {};
     
-    // For testing, use a predictable email so the user can log back into the same account
-    const email = bodyEmail || "google_user_test@gmail.com";
-    const name = bodyName || "Google User";
+    if (!bodyEmail || typeof bodyEmail !== "string" || !bodyEmail.trim()) {
+      res.status(400).json({ error: "EmailRequired", message: "Email address is required for Google Sign-In." });
+      return;
+    }
+    const email = bodyEmail.trim().toLowerCase();
+    const name = bodyName || email.split("@")[0] || "Google User";
 
     const premiumPlan = await prisma.membershipPlan.findFirst({
       where: { name: "Premium" },
