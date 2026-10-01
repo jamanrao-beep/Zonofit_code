@@ -20,7 +20,8 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.Zonofit_code"
+      "package": "com.anonymous.Zonofit_code",
+      "allowBackup": false
     },
     "web": {
       "output": "static",
