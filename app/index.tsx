@@ -137,7 +137,7 @@ export default function SplashAnimationScreen() {
           router.replace("/(tabs)");
         }
       } else {
-        router.replace("/(auth)/create-account");
+        router.replace("/intro" as any);
       }
     }, delay);
 
