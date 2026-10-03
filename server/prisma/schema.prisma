@@ -143,6 +143,7 @@ model User {
   paymentOrders      PaymentOrder[]
   notifications      Notification[]
   gymsOwned          Gym[]               @relation("GymOwner")
+  savedGyms          SavedGym[]
 
   adminProfile    AdminProfile?
   auditLogs       AdminAuditLog[]
@@ -330,6 +331,7 @@ model Gym {
   offers             GymOffer[]
   applications       GymApplication[]
   supportTickets     SupportTicket[]
+  savedByUsers       SavedGym[]
 
   // Economy Overrides (fallback to global settings if null)
   creditPurchasePrice   Int?
@@ -344,6 +346,19 @@ model Gym {
   @@index([city])
   @@index([isActive])
   @@map("gyms")
+}
+
+model SavedGym {
+  id        String   @id @default(uuid())
+  userId    String
+  gymId     String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gym  Gym  @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, gymId])
+  @@map("saved_gyms")
 }
 
 model GymOperatingHour {

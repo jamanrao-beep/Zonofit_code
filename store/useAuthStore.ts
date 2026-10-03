@@ -357,8 +357,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signOut: async () => {
     try {
       await SecureStore.deleteItemAsync(TOKEN_KEY);
+    } catch {}
+    try {
       await SecureStore.deleteItemAsync(SESSION_KEY);
-    } catch (err) {}
+    } catch {}
+    try {
+      await SecureStore.deleteItemAsync("zonofit_guest_session");
+    } catch {}
+    try {
+      useGuestStore.getState().endGuestSession();
+    } catch {}
+    try {
+      // Lazy load to prevent circular dependencies
+      const { useUserStore } = require("./useUserStore");
+      useUserStore.getState().reset?.();
+    } catch {}
+    try {
+      const { useCreditsStore } = require("./useCreditsStore");
+      useCreditsStore.getState().reset?.();
+    } catch {}
     set({
       user: null,
       token: null,
@@ -366,6 +383,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isOnboarded: false,
       verificationPhone: "",
       hasVerifiedOTP: false,
+      error: null,
     });
   },
 }));
