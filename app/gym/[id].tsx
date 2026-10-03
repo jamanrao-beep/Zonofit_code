@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Image, Pressable, Dimensions, StatusBar, StyleSheet, Platform, Alert } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
@@ -8,6 +8,7 @@ import { useGuestStore } from '@/store/useGuestStore';
 import { useBookingStore } from '@/store/useBookingStore';
 import { useCreditsStore } from '@/store/useCreditsStore';
 import { FALLBACK_NETWORK_GYMS } from '@/constants/fallbackGyms';
+import { apiFetch } from '@/lib/api';
 
 const { width } = Dimensions.get('window');
 
@@ -41,12 +42,72 @@ export default function GymDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const isFromOnboarding = useAuthStore(state => state.isViewingOnboardingGym);
-  const { isGuest, selectGym } = useGuestStore();
+  const { isGuest, selectGym, endGuestSession } = useGuestStore();
   const { bookVisit, bookingStatus } = useBookingStore();
   const { credits } = useCreditsStore();
+  const { token } = useAuthStore();
   const insets = useSafeAreaInsets();
   const [activeImage, setActiveImage] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [favoritesCount, setFavoritesCount] = useState(0);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
+
+  // Fetch saved/favorite status from database on mount
+  useEffect(() => {
+    if (!token || isGuest || !id) return;
+    (async () => {
+      try {
+        const data = await apiFetch(`/api/gyms/${id}/favorite`, { token });
+        setIsFavorite(data.isSaved);
+        if (typeof data.favoritesCount === "number") {
+          setFavoritesCount(data.favoritesCount);
+        }
+      } catch (e) {
+        // Silently fail — default to not favorited
+      }
+    })();
+  }, [id, token, isGuest]);
+
+  const handleToggleFavorite = async () => {
+    if (isGuest) {
+      Alert.alert(
+        "Account Required",
+        "Create an account to save your favorite gyms.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { 
+            text: "Create Account", 
+            onPress: async () => {
+              await endGuestSession();
+              router.replace("/(auth)/create-account");
+            } 
+          }
+        ]
+      );
+      return;
+    }
+    if (!token || favoriteLoading) return;
+    setFavoriteLoading(true);
+    // Optimistic update
+    const wasFavorite = isFavorite;
+    const prevCount = favoritesCount;
+    setIsFavorite(!wasFavorite);
+    setFavoritesCount(wasFavorite ? Math.max(0, prevCount - 1) : prevCount + 1);
+    try {
+      const data = await apiFetch(`/api/gyms/${id}/favorite`, { method: "POST", token });
+      setIsFavorite(data.isSaved);
+      if (typeof data.favoritesCount === "number") {
+        setFavoritesCount(data.favoritesCount);
+      }
+    } catch (e) {
+      // Revert on failure
+      setIsFavorite(wasFavorite);
+      setFavoritesCount(prevCount);
+      Alert.alert("Error", "Could not update favorite status.");
+    } finally {
+      setFavoriteLoading(false);
+    }
+  };
 
   // Find gym in fallback dataset if available
   const matchedGym = FALLBACK_NETWORK_GYMS.find(g => g.id === id);
@@ -68,7 +129,13 @@ export default function GymDetailScreen() {
         "Create an account and activate your membership to book gym visits.",
         [
           { text: "Cancel", style: "cancel" },
-          { text: "Create Account", onPress: () => router.push("/(auth)/create-account") }
+          { 
+            text: "Create Account", 
+            onPress: async () => {
+              await endGuestSession();
+              router.replace("/(auth)/create-account");
+            } 
+          }
         ]
       );
       return;
@@ -155,13 +222,20 @@ export default function GymDetailScreen() {
               <Ionicons name="arrow-back" size={20} color="#000" />
             </Pressable>
             <Pressable 
-              onPress={() => {
-                setIsFavorite(prev => !prev);
-                Alert.alert(isFavorite ? "Removed from Favorites" : "Saved to Favorites", `${GYM_DATA.name} has been ${isFavorite ? "removed from" : "added to"} your saved gyms.`);
-              }} 
-              style={styles.iconButton}
+              onPress={handleToggleFavorite}
+              style={[
+                styles.iconButton, 
+                favoritesCount > 0 && { width: 'auto', minWidth: 44, paddingHorizontal: 10, flexDirection: 'row', gap: 4 },
+                favoriteLoading && { opacity: 0.5 }
+              ]}
+              disabled={favoriteLoading}
             >
               <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={20} color={isFavorite ? "#EF4444" : "#000"} />
+              {favoritesCount > 0 && (
+                <Text style={{ fontSize: 13, fontWeight: '700', color: isFavorite ? "#EF4444" : "#111827" }}>
+                  {favoritesCount}
+                </Text>
+              )}
             </Pressable>
           </View>
 
@@ -355,7 +429,10 @@ export default function GymDetailScreen() {
                 { text: "Cancel", style: "cancel" },
                 { 
                   text: "Create Account", 
-                  onPress: () => router.push("/(auth)/create-account") 
+                  onPress: async () => {
+                    await endGuestSession();
+                    router.replace("/(auth)/create-account");
+                  } 
                 }
               ]
             );

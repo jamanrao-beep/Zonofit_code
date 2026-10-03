@@ -40,8 +40,8 @@ export default function FutureOverviewScreen() {
           <Text className={`font-bold text-[9px] uppercase tracking-wider ${tagColor}`}>{tag}</Text>
         </View>
         <View className="flex-row items-center mb-4">
-          <Ionicons name="people" size={12} color="#4B5563" />
-          <Text className="text-black font-bold text-[12px] ml-1.5">{waitingStr} <Text className="font-normal text-gray-500">waiting</Text></Text>
+          <Ionicons name="sparkles" size={12} color={iconColor} />
+          <Text className="text-gray-500 font-semibold text-[11px] ml-1.5">Coming to Network</Text>
         </View>
         <View className="flex-row gap-x-2 mt-auto">
           {hasVoteAction && (
