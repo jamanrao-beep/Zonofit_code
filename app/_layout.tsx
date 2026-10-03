@@ -32,14 +32,15 @@ function AuthGate() {
     const inAuthGroup = firstSegment === "(auth)";
     const inOnboarding = firstSegment === "onboarding";
     const inGuestExpired = firstSegment === "guest-expired";
+    const inIntro = firstSegment === "intro";
     // segments is empty ([]) when we are on the root index screen (our splash)
     const isOnRoot = (segments as string[]).length === 0;
 
     const isViewingOnboardingGym = useAuthStore.getState().isViewingOnboardingGym;
 
-    // Don't redirect away from the animated splash screen or the onboarding screen.
+    // Don't redirect away from the animated splash screen, onboarding, or intro screens.
     // index.tsx handles its own navigation after the animation finishes.
-    if (isOnRoot || inOnboarding || isViewingOnboardingGym) return;
+    if (isOnRoot || inOnboarding || isViewingOnboardingGym || inIntro) return;
 
     if (isGuest && isGuestExpired) {
       if (!inGuestExpired) {
@@ -50,7 +51,9 @@ function AuthGate() {
 
     if (!isSignedIn && !isGuest && !inAuthGroup && !inGuestExpired) {
       router.replace("/(auth)/create-account" as any);
-    } else if ((isSignedIn || (isGuest && !isGuestExpired)) && inAuthGroup) {
+    } else if (isSignedIn && !isGuest && inAuthGroup) {
+      // Only redirect fully signed-in users away from auth pages.
+      // Guests navigating to auth (to create an account) should NOT be redirected back.
       router.replace("/(tabs)");
     }
   }, [isLoaded, isSignedIn, isGuest, isGuestExpired, segments]);
