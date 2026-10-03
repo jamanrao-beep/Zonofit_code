@@ -857,4 +857,98 @@ router.post("/applications", requireAuth, async (req: Request, res: Response): P
   }
 });
 
+// ─── POST /api/gyms/:id/favorite ────────────────────────────────────────────
+/**
+ * Toggle favorite/saved status for a gym.
+ * If already saved, removes it. If not saved, adds it.
+ * Returns { isSaved: boolean }
+ */
+router.post("/:id/favorite", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const gymId = req.params.id as string;
+    const userId = req.dbUserId!;
+
+    // Check if already saved
+    const existing = await prisma.savedGym.findUnique({
+      where: { userId_gymId: { userId, gymId } }
+    });
+
+    if (existing) {
+      // Unsave
+      await prisma.savedGym.delete({
+        where: { id: existing.id }
+      });
+      const count = await prisma.savedGym.count({ where: { gymId } });
+      res.json({ isSaved: false, favoritesCount: count });
+    } else {
+      // Save
+      await prisma.savedGym.create({
+        data: { userId, gymId }
+      });
+      const count = await prisma.savedGym.count({ where: { gymId } });
+      res.json({ isSaved: true, favoritesCount: count });
+    }
+  } catch (err: any) {
+    console.error("Failed to toggle gym favorite:", err);
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
+// ─── GET /api/gyms/favorites ────────────────────────────────────────────────
+/**
+ * Get all saved/favorite gyms for the authenticated user.
+ */
+router.get("/favorites", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.dbUserId!;
+
+    const savedGyms = await prisma.savedGym.findMany({
+      where: { userId },
+      include: {
+        gym: {
+          select: {
+            id: true,
+            name: true,
+            address: true,
+            city: true,
+            creditCost: true,
+            rating: true,
+            imageUrls: true,
+            facilities: true,
+            category: true,
+            isVerified: true,
+          }
+        }
+      },
+      orderBy: { createdAt: "desc" }
+    });
+
+    res.json({ savedGyms: savedGyms.map(sg => ({ ...sg.gym, savedAt: sg.createdAt })) });
+  } catch (err: any) {
+    console.error("Failed to fetch favorites:", err);
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
+// ─── GET /api/gyms/:id/favorite ─────────────────────────────────────────────
+/**
+ * Check if a specific gym is saved/favorited by the authenticated user.
+ */
+router.get("/:id/favorite", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const gymId = req.params.id as string;
+    const userId = req.dbUserId!;
+
+    const existing = await prisma.savedGym.findUnique({
+      where: { userId_gymId: { userId, gymId } }
+    });
+    const count = await prisma.savedGym.count({ where: { gymId } });
+
+    res.json({ isSaved: !!existing, favoritesCount: count });
+  } catch (err: any) {
+    console.error("Failed to check gym favorite:", err);
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
 export default router;
