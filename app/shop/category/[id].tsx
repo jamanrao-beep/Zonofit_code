@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useCartStore } from "@/store/useCartStore";
 import CartModal from "@/components/CartModal";
+import AddToCartConfirmModal, { AddedItemDetails } from "@/components/AddToCartConfirmModal";
 
 const FILTERS = ["All", "Protein", "Creatine", "Pre Workout", "BCAA"];
 
@@ -65,6 +66,7 @@ export default function CategoryScreen() {
   const cartCount = useCartStore((state) => state.getTotalItems());
   const addToCart = useCartStore((state) => state.addToCart);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [addedItem, setAddedItem] = useState<AddedItemDetails | null>(null);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }} edges={["top"]}>
@@ -195,13 +197,23 @@ export default function CategoryScreen() {
                 
                 <Pressable 
                   className="w-full py-2 rounded-lg border border-[#1F7A3E] items-center justify-center active:bg-[#F3FAF4]"
-                  onPress={() => addToCart({
-                    id: prod.id,
-                    name: prod.name,
-                    brand: prod.brand,
-                    price: prod.price,
-                    image: prod.image,
-                  })}
+                  onPress={() => {
+                    addToCart({
+                      id: prod.id,
+                      name: prod.name,
+                      brand: prod.brand,
+                      price: prod.price,
+                      image: prod.image,
+                    });
+                    setAddedItem({
+                      id: prod.id,
+                      name: prod.name,
+                      brand: prod.brand,
+                      price: prod.price,
+                      image: prod.image,
+                      variant: prod.variant,
+                    });
+                  }}
                 >
                   <Text className="text-[#1F7A3E] font-bold text-[11px]">Add to Cart</Text>
                 </Pressable>
@@ -212,6 +224,15 @@ export default function CategoryScreen() {
 
       </ScrollView>
       <CartModal visible={isCartOpen} onClose={() => setIsCartOpen(false)} />
+      <AddToCartConfirmModal
+        visible={!!addedItem}
+        item={addedItem}
+        onViewCart={() => {
+          setAddedItem(null);
+          setIsCartOpen(true);
+        }}
+        onContinueShopping={() => setAddedItem(null)}
+      />
     </SafeAreaView>
   );
 }

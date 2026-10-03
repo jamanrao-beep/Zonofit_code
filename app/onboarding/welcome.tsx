@@ -5,11 +5,17 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useGuestStore } from "@/store/useGuestStore";
+import { useCreditsStore } from "@/store/useCreditsStore";
+import { useUserStore } from "@/store/useUserStore";
 
 export default function WelcomeScreen() {
   const router = useRouter();
   const { selectedGymName } = useGuestStore();
+  const { credits } = useCreditsStore();
+  const { planName } = useUserStore();
   const gymName = selectedGymName || "Primary Gym";
+  const displayPlan = planName && planName !== "None" ? planName : "Active Plan";
+  const displayCredits = credits > 0 ? `${credits} Credits available` : "Credits will be added shortly";
   
   const handleGoHome = () => {
     router.replace("/(tabs)");
@@ -52,7 +58,7 @@ export default function WelcomeScreen() {
               </View>
               <View style={styles.cardTextContainer}>
                 <Text style={styles.cardTitle}>Membership Active</Text>
-                <Text style={styles.cardDetail}>Quarterly Plan - 90 Days</Text>
+                <Text style={styles.cardDetail}>{displayPlan}</Text>
               </View>
             </View>
             
@@ -64,7 +70,7 @@ export default function WelcomeScreen() {
               </View>
               <View style={styles.cardTextContainer}>
                 <Text style={styles.cardTitle}>Credits Available</Text>
-                <Text style={styles.cardDetail}>₹800 in wallet balance</Text>
+                <Text style={styles.cardDetail}>{displayCredits}</Text>
               </View>
             </View>
           </View>
