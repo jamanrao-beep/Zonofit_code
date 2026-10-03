@@ -275,10 +275,12 @@ export default function ScanModal() {
             </Pressable>
           )}
 
-          {/* Dev button since camera won't scan easily on emulator without setup */}
-          <Pressable onPress={handleMockScan} className="mt-6 bg-[#6BCB77] px-4 py-2 rounded-xl">
-            <Text className="text-white font-bold text-xs">Simulate Valid Scan (Dev)</Text>
-          </Pressable>
+          {/* Dev button for local development/emulator testing only */}
+          {__DEV__ && (
+            <Pressable onPress={handleMockScan} className="mt-6 bg-[#1F7A3E]/90 px-4 py-2 rounded-xl border border-white/20 active:opacity-80">
+              <Text className="text-white font-bold text-xs">Simulate Front-Desk Scan (Dev)</Text>
+            </Pressable>
+          )}
         </View>
       </View>
     </View>

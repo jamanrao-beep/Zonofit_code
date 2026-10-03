@@ -44,8 +44,7 @@ export default function CreditsScreen() {
 
   const { membershipStatus, membershipExpiry } = useUserStore();
   const token = useAuthStore((s) => s.token);
-  const isGuest = useGuestStore((s) => s.isGuest);
-  const hoursRemaining = useGuestStore((s) => s.hoursRemaining);
+  const { isGuest, hoursRemaining, endGuestSession } = useGuestStore();
 
   // Additional Credits state (PRD Section 7 & 22C)
   const [purchaseQuantity, setPurchaseQuantity] = useState<number>(10);
@@ -235,11 +234,7 @@ export default function CreditsScreen() {
     );
   };
 
-  const displayTransactions = transactions && transactions.length > 0 ? transactions : [
-    { id: "tx-1", type: "debit", amount: 20, description: "Gym Visit Workout", date: "Today" },
-    { id: "tx-2", type: "credit", amount: 50, description: "Additional Credits Purchase", date: "Yesterday" },
-    { id: "tx-3", type: "debit", amount: 15, description: "Cardio Zone Session", date: "3 days ago" },
-  ];
+  const displayTransactions = transactions || [];
 
   if (isGuest) {
     return (
@@ -276,7 +271,10 @@ export default function CreditsScreen() {
             </Text>
 
             <Pressable
-              onPress={() => router.push("/(auth)/create-account" as any)}
+              onPress={async () => {
+                await endGuestSession();
+                router.replace("/(auth)/create-account");
+              }}
               className="bg-white rounded-2xl py-3.5 px-4 items-center justify-center flex-row shadow-sm active:bg-gray-100 mb-3"
             >
               <Ionicons name="person-add" size={18} color="#1F7A3E" style={{ marginRight: 8 }} />
@@ -771,7 +769,15 @@ export default function CreditsScreen() {
           </View>
 
           <View className="bg-white rounded-[24px] px-4 py-1 border border-gray-200 shadow-sm">
-            {displayTransactions.map((tx) => renderTransactionRow(tx))}
+            {displayTransactions.length > 0 ? (
+              displayTransactions.map((tx) => renderTransactionRow(tx))
+            ) : (
+              <View className="py-8 items-center justify-center">
+                <Ionicons name="receipt-outline" size={28} color="#9CA3AF" />
+                <Text className="text-sm font-semibold text-gray-500 mt-2">No transactions yet</Text>
+                <Text className="text-xs text-gray-400 mt-0.5">Your credit history will appear here</Text>
+              </View>
+            )}
           </View>
         </View>
       </ScrollView>
