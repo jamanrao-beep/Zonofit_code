@@ -106,51 +106,20 @@ export default function JourneyScreen() {
 
           {/* ZonoFit Score Expanded Card */}
           <View style={{ backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#F3F4F6', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 }}>
-            {/* Lock Overlay */}
-            <View style={{ 
-              position: 'absolute', 
-              top: 0, left: 0, right: 0, bottom: 0, 
-              backgroundColor: 'rgba(255, 255, 255, 0.75)', 
-              zIndex: 10,
-              justifyContent: 'center',
-              alignItems: 'center',
-              borderRadius: 20
-            }}>
-              <View style={{ 
-                backgroundColor: 'rgba(255, 255, 255, 0.95)', 
-                paddingHorizontal: 24, 
-                paddingVertical: 16, 
-                borderRadius: 24,
-                alignItems: 'center',
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 8 },
-                shadowOpacity: 0.08,
-                shadowRadius: 16,
-                elevation: 4,
-                borderWidth: 1,
-                borderColor: 'rgba(255, 255, 255, 0.8)',
-                width: '85%',
-                marginTop: 10
-              }}>
-                <View style={{ 
-                  width: 44, height: 44, borderRadius: 22, 
-                  backgroundColor: '#FFFFFF', 
-                  justifyContent: 'center', alignItems: 'center',
-                  position: 'absolute', top: -22,
-                  shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
-                  borderWidth: 1, borderColor: '#F3F4F6'
-                }}>
-                  <Ionicons name="lock-closed-outline" size={20} color="#111827" />
-                </View>
-                <Text style={{ fontSize: 13, fontWeight: '700', color: '#111827', marginTop: 12, marginBottom: 4 }}>Detailed Score Insights</Text>
-                <Text style={{ fontSize: 11, color: '#6B7280', textAlign: 'center' }}>Unlock deeper analytics in a future update</Text>
-              </View>
-            </View>
 
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>ZonoFit Score</Text>
               <Pressable 
-                onPress={() => Alert.alert("ZonoFit Score: 82/100", "• Commitment: 36/40\n• Discipline: 29/35\n• Activity: 10/15\n\nGreat consistency! Keep working out to unlock detailed score insights.")}
+                onPress={() => {
+                  const cScore = visitsGoal > 0 ? Math.min(40, Math.round((visitsCompleted / visitsGoal) * 40)) : 0;
+                  const dScore = visitsGoal > 0 ? Math.min(35, Math.round((Math.min(streak, 15) / 15) * 35)) : 0;
+                  const aScore = visitsGoal > 0 ? Math.min(15, Math.round((Math.min(visitsCompleted, 5) / 5) * 15)) : 0;
+                  const tScore = cScore + dScore + aScore;
+                  Alert.alert(
+                    `ZonoFit Score: ${tScore}/100`, 
+                    `• Commitment: ${cScore}/40\n• Discipline: ${dScore}/35\n• Activity: ${aScore}/15\n\nConsistency builds habits. Keep working out to increase your score.`
+                  );
+                }}
                 style={{ flexDirection: 'row', alignItems: 'center' }}
               >
                 <Text style={{ fontSize: 12, fontWeight: '600', color: '#4C9A2A', marginRight: 2 }}>View score</Text>
@@ -158,45 +127,55 @@ export default function JourneyScreen() {
               </Pressable>
             </View>
             
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'baseline', marginBottom: 4 }}>
-                  <Text style={{ fontSize: 32, fontWeight: '800', color: '#111827' }}>82</Text>
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#6B7280' }}> / 100</Text>
-                </View>
-                <Text style={{ fontSize: 12, fontWeight: '600', color: '#4C9A2A' }}>Good consistency</Text>
-              </View>
-              
-              <View style={{ flexDirection: 'row', flex: 2, justifyContent: 'space-around' }}>
-                {/* Commitment */}
-                <View style={{ alignItems: 'center' }}>
-                  <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#F0FDF4', justifyContent: 'center', alignItems: 'center', marginBottom: 6 }}>
-                    <Feather name="target" size={12} color="#4C9A2A" />
+            {(() => {
+              const cScore = visitsGoal > 0 ? Math.min(40, Math.round((visitsCompleted / visitsGoal) * 40)) : 0;
+              const dScore = visitsGoal > 0 ? Math.min(35, Math.round((Math.min(streak, 15) / 15) * 35)) : 0;
+              const aScore = visitsGoal > 0 ? Math.min(15, Math.round((Math.min(visitsCompleted, 5) / 5) * 15)) : 0;
+              const tScore = cScore + dScore + aScore;
+              return (
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'baseline', marginBottom: 4 }}>
+                      <Text style={{ fontSize: 32, fontWeight: '800', color: '#111827' }}>{tScore}</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#6B7280' }}> / 100</Text>
+                    </View>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: tScore > 0 ? '#4C9A2A' : '#6B7280' }}>
+                      {tScore > 50 ? 'Great consistency' : tScore > 0 ? 'Building momentum' : 'Start your first workout'}
+                    </Text>
                   </View>
-                  <Text style={{ fontSize: 10, color: '#4B5563', marginBottom: 2 }}>Commitment</Text>
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#111827', marginBottom: 6 }}>36 / 40</Text>
-                  <View style={{ width: 30, height: 4, borderRadius: 2, backgroundColor: '#4C9A2A' }} />
-                </View>
-                {/* Discipline */}
-                <View style={{ alignItems: 'center' }}>
-                  <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center', marginBottom: 6 }}>
-                    <Ionicons name="calendar-outline" size={12} color="#3B82F6" />
+                  
+                  <View style={{ flexDirection: 'row', flex: 2, justifyContent: 'space-around' }}>
+                    {/* Commitment */}
+                    <View style={{ alignItems: 'center' }}>
+                      <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#F0FDF4', justifyContent: 'center', alignItems: 'center', marginBottom: 6 }}>
+                        <Feather name="target" size={12} color="#4C9A2A" />
+                      </View>
+                      <Text style={{ fontSize: 10, color: '#4B5563', marginBottom: 2 }}>Commitment</Text>
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: '#111827', marginBottom: 6 }}>{cScore} / 40</Text>
+                      <View style={{ width: 30, height: 4, borderRadius: 2, backgroundColor: '#4C9A2A' }} />
+                    </View>
+                    {/* Discipline */}
+                    <View style={{ alignItems: 'center' }}>
+                      <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center', marginBottom: 6 }}>
+                        <Ionicons name="calendar-outline" size={12} color="#3B82F6" />
+                      </View>
+                      <Text style={{ fontSize: 10, color: '#4B5563', marginBottom: 2 }}>Discipline</Text>
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: '#111827', marginBottom: 6 }}>{dScore} / 35</Text>
+                      <View style={{ width: 30, height: 4, borderRadius: 2, backgroundColor: '#3B82F6' }} />
+                    </View>
+                    {/* Activity */}
+                    <View style={{ alignItems: 'center' }}>
+                      <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#FFFBEB', justifyContent: 'center', alignItems: 'center', marginBottom: 6 }}>
+                        <Ionicons name="flash-outline" size={12} color="#F59E0B" />
+                      </View>
+                      <Text style={{ fontSize: 10, color: '#4B5563', marginBottom: 2 }}>Activity</Text>
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: '#111827', marginBottom: 6 }}>{aScore} / 15</Text>
+                      <View style={{ width: 30, height: 4, borderRadius: 2, backgroundColor: '#F59E0B' }} />
+                    </View>
                   </View>
-                  <Text style={{ fontSize: 10, color: '#4B5563', marginBottom: 2 }}>Discipline</Text>
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#111827', marginBottom: 6 }}>29 / 35</Text>
-                  <View style={{ width: 30, height: 4, borderRadius: 2, backgroundColor: '#3B82F6' }} />
                 </View>
-                {/* Activity */}
-                <View style={{ alignItems: 'center' }}>
-                  <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#FFFBEB', justifyContent: 'center', alignItems: 'center', marginBottom: 6 }}>
-                    <Ionicons name="flash-outline" size={12} color="#F59E0B" />
-                  </View>
-                  <Text style={{ fontSize: 10, color: '#4B5563', marginBottom: 2 }}>Activity</Text>
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#111827', marginBottom: 6 }}>10 / 15</Text>
-                  <View style={{ width: 30, height: 4, borderRadius: 2, backgroundColor: '#F59E0B' }} />
-                </View>
-              </View>
-            </View>
+              );
+            })()}
           </View>
 
           {/* Next Milestone Card */}
@@ -209,10 +188,14 @@ export default function JourneyScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 4 }}>Next Milestone</Text>
-              <Text style={{ fontSize: 12, color: '#4B5563' }}>3 visits to complete{'\n'}Month 4 commitment</Text>
+              <Text style={{ fontSize: 12, color: '#4B5563' }}>
+                {visitsRemaining > 0 
+                  ? `${visitsRemaining} visits to complete\nMonth ${cycleMonth} commitment`
+                  : `Month ${cycleMonth} commitment\ncompleted!`}
+              </Text>
             </View>
             <View style={{ width: 56, height: 56, borderRadius: 28, borderWidth: 1, borderColor: '#E5E7EB', justifyContent: 'center', alignItems: 'center' }}>
-              <Text style={{ fontSize: 18, fontWeight: '800', color: '#111827' }}>3</Text>
+              <Text style={{ fontSize: 18, fontWeight: '800', color: '#111827' }}>{visitsRemaining}</Text>
               <Text style={{ fontSize: 9, color: '#6B7280' }}>remaining</Text>
             </View>
           </View>
@@ -226,75 +209,49 @@ export default function JourneyScreen() {
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative' }}>
               {/* Connecting line */}
               <View style={{ position: 'absolute', top: 16, left: 16, right: 16, height: 2, backgroundColor: '#E5E7EB', zIndex: 0 }} />
-              <View style={{ position: 'absolute', top: 16, left: 16, width: '40%', height: 2, backgroundColor: '#4C9A2A', zIndex: 1 }} />
+              <View style={{ position: 'absolute', top: 16, left: 16, width: `${Math.min(100, Math.max(5, (cycleMonth / 6) * 100))}%`, height: 2, backgroundColor: '#4C9A2A', zIndex: 1 }} />
               
-              {/* M1 */}
-              <View style={{ alignItems: 'center', zIndex: 2 }}>
-                <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#4C9A2A', justifyContent: 'center', alignItems: 'center', marginBottom: 8, borderWidth: 2, borderColor: 'white' }}>
-                  <Ionicons name="checkmark" size={16} color="white" />
-                </View>
-                <Text style={{ fontSize: 11, fontWeight: '700', color: '#111827' }}>M1</Text>
-                <Text style={{ fontSize: 10, color: '#6B7280' }}>Start</Text>
-              </View>
-
-              {/* M2 */}
-              <View style={{ alignItems: 'center', zIndex: 2 }}>
-                <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#4C9A2A', justifyContent: 'center', alignItems: 'center', marginBottom: 8, borderWidth: 2, borderColor: 'white' }}>
-                  <Ionicons name="checkmark" size={16} color="white" />
-                </View>
-                <Text style={{ fontSize: 11, fontWeight: '700', color: '#111827' }}>M2</Text>
-                <Text style={{ fontSize: 10, color: '#6B7280' }}>Build</Text>
-              </View>
-
-              {/* M3 */}
-              <View style={{ alignItems: 'center', zIndex: 2 }}>
-                <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#4C9A2A', justifyContent: 'center', alignItems: 'center', marginBottom: 8, borderWidth: 2, borderColor: 'white' }}>
-                  <Ionicons name="checkmark" size={16} color="white" />
-                </View>
-                <Text style={{ fontSize: 11, fontWeight: '700', color: '#111827' }}>M3</Text>
-                <Text style={{ fontSize: 10, color: '#6B7280' }}>Habit</Text>
-              </View>
-
-              {/* M4 */}
-              <View style={{ alignItems: 'center', zIndex: 2 }}>
-                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'white', justifyContent: 'center', alignItems: 'center', marginBottom: 6, borderWidth: 2, borderColor: '#4C9A2A' }}>
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#111827' }}>M4</Text>
-                </View>
-                <Text style={{ fontSize: 11, fontWeight: '700', color: '#4C9A2A' }}>Consistency</Text>
-                <Text style={{ fontSize: 10, color: '#4C9A2A' }}>10 visits/mo</Text>
-              </View>
-
-              {/* M5 */}
-              <View style={{ alignItems: 'center', zIndex: 2 }}>
-                <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', marginBottom: 8, borderWidth: 2, borderColor: 'white' }}>
-                  <Text style={{ fontSize: 11, fontWeight: '600', color: '#6B7280' }}>M5</Text>
-                </View>
-                <Text style={{ fontSize: 10, color: '#6B7280' }}>Lifestyle</Text>
-                <Text style={{ fontSize: 9, color: '#9CA3AF' }}>15 visits/mo</Text>
-              </View>
-
-              {/* M6 */}
-              <View style={{ alignItems: 'center', zIndex: 2 }}>
-                <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', marginBottom: 8, borderWidth: 2, borderColor: 'white' }}>
-                  <Text style={{ fontSize: 11, fontWeight: '600', color: '#6B7280' }}>M6</Text>
-                </View>
-                <Text style={{ fontSize: 10, color: '#6B7280' }}>Stronger</Text>
-                <Text style={{ fontSize: 9, color: '#9CA3AF' }}>15 visits/mo</Text>
-              </View>
-              
-              {/* Dots */}
-              <View style={{ alignItems: 'center', justifyContent: 'center', height: 32, zIndex: 2 }}>
-                <Text style={{ fontSize: 14, color: '#9CA3AF', letterSpacing: 2 }}>•••</Text>
-              </View>
-
-              {/* M12 */}
-              <View style={{ alignItems: 'center', zIndex: 2 }}>
-                <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', marginBottom: 8, borderWidth: 2, borderColor: 'white' }}>
-                  <Text style={{ fontSize: 11, fontWeight: '600', color: '#6B7280' }}>M12</Text>
-                </View>
-                <Text style={{ fontSize: 10, color: '#6B7280' }}>Identity</Text>
-                <Text style={{ fontSize: 9, color: '#9CA3AF' }}>15 visits/mo</Text>
-              </View>
+              {[
+                { m: 1, label: "Start", target: "10 visits/month", focus: "Foundation habit: show up regularly at your home gym." },
+                { m: 2, label: "Build", target: "10 visits/month", focus: "Consistency building: establish your weekly schedule." },
+                { m: 3, label: "Habit", target: "10 visits/month", focus: "Automatic routine: working out becomes second nature." },
+                { m: 4, label: "Consistency", target: "12 visits/month", focus: "Expanding frequency: start exploring network partner gyms." },
+                { m: 5, label: "Lifestyle", target: "15 visits/month", focus: "Identity transformation: fitness is who you are." },
+                { m: 6, label: "Stronger", target: "15 visits/month", focus: "Peak performance: solid habit & community participation." },
+              ].map(({ m, label, target, focus }) => {
+                const isCompleted = cycleMonth > m;
+                const isCurrent = cycleMonth === m;
+                return (
+                  <Pressable 
+                    key={m} 
+                    onPress={() => Alert.alert(`Month ${m} — ${label}`, `Target: ${target}\nFocus: ${focus}`)}
+                    style={{ alignItems: 'center', zIndex: 2 }}
+                  >
+                    <View style={{ 
+                      width: isCurrent ? 36 : 32, 
+                      height: isCurrent ? 36 : 32, 
+                      borderRadius: isCurrent ? 18 : 16, 
+                      backgroundColor: isCompleted ? '#4C9A2A' : isCurrent ? 'white' : '#F3F4F6', 
+                      justifyContent: 'center', 
+                      alignItems: 'center', 
+                      marginBottom: isCurrent ? 6 : 8, 
+                      borderWidth: isCurrent ? 2 : 0, 
+                      borderColor: '#4C9A2A' 
+                    }}>
+                      {isCompleted ? (
+                        <Ionicons name="checkmark" size={16} color="white" />
+                      ) : (
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: isCurrent ? '#4C9A2A' : '#6B7280' }}>
+                          M{m}
+                        </Text>
+                      )}
+                    </View>
+                    <Text style={{ fontSize: 10, fontWeight: isCurrent ? '700' : '500', color: isCurrent ? '#4C9A2A' : '#6B7280' }}>
+                      {label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
           </View>
 
