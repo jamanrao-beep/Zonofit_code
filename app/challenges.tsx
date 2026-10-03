@@ -28,7 +28,7 @@ const FALLBACK_CHALLENGES: Challenge[] = [
     targetCount: 10,
     rewardCredits: 0,
     type: "VISITS",
-    currentCount: 7,
+    currentCount: 0,
     completed: false,
   },
   {
@@ -39,7 +39,7 @@ const FALLBACK_CHALLENGES: Challenge[] = [
     targetCount: 3,
     rewardCredits: 0,
     type: "WEEKEND",
-    currentCount: 2,
+    currentCount: 0,
     completed: false,
   },
   {
@@ -50,8 +50,8 @@ const FALLBACK_CHALLENGES: Challenge[] = [
     targetCount: 2,
     rewardCredits: 0,
     type: "EXPLORE",
-    currentCount: 2,
-    completed: true,
+    currentCount: 0,
+    completed: false,
   },
 ];
 

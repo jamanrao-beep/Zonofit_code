@@ -59,6 +59,7 @@ interface CreditsState {
   deductCredits: (creditsAmount: number, description: string) => Promise<{ success: boolean; message?: string }>;
   addTransaction: (type: "debit" | "credit", amount: number, currency: "credits" | "cash", description: string) => void;
   checkoutCart: (items: { itemId: string; quantity: number }[], totalCostInr: number, couponCode?: string, creditsToUse?: number) => Promise<{ success: boolean; message?: string; breakdown?: any }>;
+  reset: () => void;
 }
 
 export const useCreditsStore = create<CreditsState>((set, get) => ({
@@ -68,6 +69,15 @@ export const useCreditsStore = create<CreditsState>((set, get) => ({
   membershipInfo: null,
   transactions: [],
   loading: false,
+
+  reset: () => set({
+    credits: 0,
+    cashBalance: 0,
+    inrWallet: null,
+    membershipInfo: null,
+    transactions: [],
+    loading: false,
+  }),
 
   fetchWallet: async (token) => {
     set({ loading: true });

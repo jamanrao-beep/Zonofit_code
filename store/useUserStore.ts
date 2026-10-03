@@ -31,6 +31,7 @@ interface UserState {
   updatePlan: (planId: string, amountPaidPaise: number, primaryGymId?: string) => Promise<{ success: boolean; message?: string }>;
   purchaseGymPlan: (gymPlanId: string, amountPaidPaise: number) => Promise<{ success: boolean; message?: string }>;
   uploadAvatar: (uri: string) => Promise<{ success: boolean; message?: string }>;
+  reset: () => void;
 }
 
 export const useUserStore = create<UserState>((set) => ({
@@ -52,6 +53,27 @@ export const useUserStore = create<UserState>((set) => ({
   trainingHours: 0,
   loading: false,
   memberSince: "Recently",
+
+  reset: () => set({
+    name: "Member",
+    email: "",
+    phone: null,
+    avatarUrl: null,
+    visitsRemaining: 0,
+    membershipStatus: "No Active Membership",
+    planName: "None",
+    membershipExpiry: "N/A",
+    currentMonth: 1,
+    totalMonths: 1,
+    identityStage: "New Member",
+    progressPercentage: 0,
+    nextMilestone: "First Visit",
+    streak: 0,
+    totalWorkouts: 0,
+    trainingHours: 0,
+    loading: false,
+    memberSince: "Recently",
+  }),
 
   fetchProfile: async (token) => {
     set({ loading: true });
