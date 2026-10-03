@@ -1,50 +1,33 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, Pressable, Image, StatusBar, Alert, Platform, Modal, TextInput, KeyboardAvoidingView } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Text, StyleSheet, Pressable, Image, StatusBar, Alert, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useGuestStore } from "@/store/useGuestStore";
+import GoogleAccountChooserModal from "@/components/GoogleAccountChooserModal";
 
 export default function CreateAccountScreen() {
   const router = useRouter();
   const googleSignIn = useAuthStore(state => state.googleSignIn);
   const loading = useAuthStore(state => state.loading);
-  const startGuestSession = useGuestStore(state => state.startGuestSession);
+  const { startGuestSession, isGuest, endGuestSession } = useGuestStore();
 
   const [guestLoading, setGuestLoading] = useState(false);
   const [showGoogleModal, setShowGoogleModal] = useState(false);
-  const [googleEmail, setGoogleEmail] = useState("");
-  const [googleName, setGoogleName] = useState("");
-  const [googleSubmitting, setGoogleSubmitting] = useState(false);
+
+  // When a guest navigates here to create a full account, end the guest session
+  // so auth flow is clean and AuthGate won't fight navigation.
+  useEffect(() => {
+    if (isGuest) {
+      endGuestSession();
+    }
+  }, []);
 
   const handleGoogleSignIn = () => {
     setShowGoogleModal(true);
   };
 
-  const handleConfirmGoogleSignIn = async () => {
-    const cleanEmail = googleEmail.trim().toLowerCase();
-    if (!cleanEmail) {
-      Alert.alert("Google Account Required", "Please enter your Google account email to sign in.");
-      return;
-    }
-    if (!cleanEmail.includes("@") || !cleanEmail.includes(".")) {
-      Alert.alert("Invalid Email", "Please enter a valid Google email address (e.g. yourname@gmail.com).");
-      return;
-    }
-
-    try {
-      setGoogleSubmitting(true);
-      await googleSignIn(cleanEmail, googleName.trim() || undefined);
-      setShowGoogleModal(false);
-      router.replace("/(tabs)");
-    } catch (e: any) {
-      console.warn("Google sign-in error:", e);
-      Alert.alert("Sign-In Error", e?.message || "Failed to sign in with Google. Please try again or use mobile login.");
-    } finally {
-      setGoogleSubmitting(false);
-    }
-  };
 
   const handleAppleSignIn = () => {
     Alert.alert(
@@ -72,6 +55,17 @@ export default function CreateAccountScreen() {
       <StatusBar barStyle="dark-content" />
       
       <View style={styles.content}>
+        <View style={styles.topBar}>
+          <Pressable 
+            onPress={() => router.push("/intro" as any)}
+            style={styles.tourBtn}
+            accessibilityLabel="Tour ZonoFit Intro Screens"
+          >
+            <Ionicons name="sparkles" size={13} color="#1F7A3E" />
+            <Text style={styles.tourText}>Tour ZonoFit</Text>
+          </Pressable>
+        </View>
+
         <View style={styles.header}>
           <Image
             /* eslint-disable-next-line @typescript-eslint/no-require-imports */
@@ -132,6 +126,14 @@ export default function CreateAccountScreen() {
               <Text style={styles.guestSubtext}>Explore gyms & understand ZonoFit first</Text>
             </View>
           </Pressable>
+
+          {/* Explicit Account Choice / Sign-in toggle */}
+          <View style={styles.loginRow}>
+            <Text style={styles.loginRowText}>Already have a ZonoFit account? </Text>
+            <Pressable onPress={handleGoogleSignIn}>
+              <Text style={styles.loginRowLink}>Sign In</Text>
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.footer}>
@@ -141,77 +143,16 @@ export default function CreateAccountScreen() {
         </View>
       </View>
 
-      {/* Google Account Sign-In Modal */}
-      <Modal
+      {/* Official Google Account Chooser Bottom Sheet */}
+      <GoogleAccountChooserModal
         visible={showGoogleModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowGoogleModal(false)}
-      >
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <View style={styles.googleIconCircle}>
-                <Ionicons name="logo-google" size={24} color="#EA4335" />
-              </View>
-              <Text style={styles.modalTitle}>Sign In with Google</Text>
-              <Text style={styles.modalSubtitle}>
-                Enter your Google account to log into your personal ZonoFit profile.
-              </Text>
-            </View>
-
-            <View style={styles.modalInputs}>
-              <View style={styles.modalInputGroup}>
-                <Text style={styles.modalInputLabel}>Google Email Address *</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="yourname@gmail.com"
-                  placeholderTextColor="#9CA3AF"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  value={googleEmail}
-                  onChangeText={setGoogleEmail}
-                />
-              </View>
-
-              <View style={styles.modalInputGroup}>
-                <Text style={styles.modalInputLabel}>Your Name (Optional)</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="e.g. John Doe"
-                  placeholderTextColor="#9CA3AF"
-                  value={googleName}
-                  onChangeText={setGoogleName}
-                />
-              </View>
-            </View>
-
-            <View style={styles.modalActions}>
-              <Pressable
-                style={[styles.modalSubmitButton, googleSubmitting && { opacity: 0.6 }]}
-                onPress={handleConfirmGoogleSignIn}
-                disabled={googleSubmitting}
-              >
-                <Text style={styles.modalSubmitText}>
-                  {googleSubmitting ? "Signing in..." : "Continue with this Account"}
-                </Text>
-              </Pressable>
-
-              <Pressable
-                style={styles.modalCancelButton}
-                onPress={() => setShowGoogleModal(false)}
-                disabled={googleSubmitting}
-              >
-                <Text style={styles.modalCancelText}>Cancel</Text>
-              </Pressable>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+        onSelectAccount={async (email, name) => {
+          await googleSignIn(email, name);
+          setShowGoogleModal(false);
+          router.replace("/(tabs)");
+        }}
+        onClose={() => setShowGoogleModal(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -346,100 +287,41 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     fontWeight: "600",
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "flex-end",
-  },
-  modalCard: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingHorizontal: 24,
-    paddingTop: 28,
-    paddingBottom: 40,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 20,
-  },
-  modalHeader: {
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  googleIconCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: "#FEE2E2",
+  loginRow: {
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
+    marginTop: 14,
   },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#111827",
-    marginBottom: 6,
-  },
-  modalSubtitle: {
+  loginRowText: {
     fontSize: 13,
     color: "#6B7280",
-    textAlign: "center",
-    lineHeight: 18,
+    fontWeight: "500",
+  },
+  loginRowLink: {
+    fontSize: 13,
+    color: "#1F7A3E",
+    fontWeight: "700",
+  },
+  topBar: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginBottom: 4,
+  },
+  tourBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#ECFDF5",
+    borderWidth: 1,
+    borderColor: "#A7F3D0",
     paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+    gap: 4,
   },
-  modalInputs: {
-    gap: 14,
-    marginBottom: 20,
-  },
-  modalInputGroup: {
-    gap: 6,
-  },
-  modalInputLabel: {
+  tourText: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#374151",
-  },
-  modalInput: {
-    height: 50,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    fontSize: 15,
-    color: "#111827",
-    backgroundColor: "#F9FAFB",
-  },
-  modalActions: {
-    gap: 10,
-  },
-  modalSubmitButton: {
-    height: 54,
-    backgroundColor: "#1F7A3E",
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#1F7A3E",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  modalSubmitText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#FFFFFF",
-  },
-  modalCancelButton: {
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modalCancelText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#6B7280",
+    color: "#065F46",
   },
 });
