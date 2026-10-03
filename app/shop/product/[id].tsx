@@ -13,30 +13,83 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useCartStore } from "@/store/useCartStore";
 import CartModal from "@/components/CartModal";
+import AddToCartConfirmModal from "@/components/AddToCartConfirmModal";
 
-const FLAVOURS = ["Chocolate", "Vanilla", "Strawberry", "Cookies & Cream"];
-const SIZES = ["1kg", "2kg", "5lb (2.27kg)"];
+const PRODUCT_CATALOG: Record<string, {
+  name: string;
+  brand: string;
+  price: number;
+  discountedPrice: number;
+  image: string;
+  flavours: string[];
+  sizes: string[];
+  rating: string;
+}> = {
+  prod_1: {
+    name: "Gold Standard 100% Whey",
+    brand: "Optimum Nutrition",
+    price: 2499,
+    discountedPrice: 2249,
+    image: "https://images.unsplash.com/photo-1579722820308-d74e571900a9?auto=format&fit=crop&q=80&w=600",
+    flavours: ["Chocolate", "Vanilla", "Strawberry", "Cookies & Cream"],
+    sizes: ["1kg", "2kg", "5lb (2.27kg)"],
+    rating: "4.8 (1,247 ratings)"
+  },
+  prod_2: {
+    name: "Micronized Creatine Powder",
+    brand: "MuscleBlaze",
+    price: 899,
+    discountedPrice: 799,
+    image: "https://images.unsplash.com/photo-1593095948071-474c5cc2989d?auto=format&fit=crop&q=80&w=600",
+    flavours: ["Unflavoured", "Fruit Punch", "Blueberry Blast"],
+    sizes: ["100g", "250g", "400g"],
+    rating: "4.7 (856 ratings)"
+  },
+  prod_3: {
+    name: "Biozyme Performance Whey",
+    brand: "MuscleBlaze",
+    price: 2899,
+    discountedPrice: 2649,
+    image: "https://images.unsplash.com/photo-1579722821273-0f137351ecf4?auto=format&fit=crop&q=80&w=600",
+    flavours: ["Rich Chocolate", "Cafe Mocha", "Hazelnut"],
+    sizes: ["1kg", "2kg"],
+    rating: "4.6 (732 ratings)"
+  },
+  prod_4: {
+    name: "Isorich 100% Whey Isolate",
+    brand: "Avvatar",
+    price: 2399,
+    discountedPrice: 2199,
+    image: "https://images.unsplash.com/photo-1593095948071-474c5cc2989d?auto=format&fit=crop&q=80&w=600",
+    flavours: ["Belgian Chocolate", "Cafe Latte", "Malai Kulfi"],
+    sizes: ["1kg", "2kg"],
+    rating: "4.5 (508 ratings)"
+  }
+};
 
 export default function ProductDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-  
-  const [selectedFlavour, setSelectedFlavour] = useState("Chocolate");
-  const [selectedSize, setSelectedSize] = useState("1kg");
+  const productId = typeof id === 'string' ? id : "prod_1";
+  const catalogItem = PRODUCT_CATALOG[productId] || PRODUCT_CATALOG["prod_1"];
+
+  const [selectedFlavour, setSelectedFlavour] = useState(catalogItem.flavours[0]);
+  const [selectedSize, setSelectedSize] = useState(catalogItem.sizes[0]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [showAddedModal, setShowAddedModal] = useState(false);
 
   const cartCount = useCartStore((state) => state.getTotalItems());
   const addToCart = useCartStore((state) => state.addToCart);
 
-  // Hardcoded product data to match the design EXACTLY
   const product = {
-    id: typeof id === 'string' ? id : "prod_1",
-    name: "Gold Standard 100% Whey",
-    brand: "Optimum Nutrition",
+    id: productId,
+    name: catalogItem.name,
+    brand: catalogItem.brand,
     variant: `${selectedFlavour} • ${selectedSize}`,
-    price: 2499,
-    discountedPrice: 2249,
-    image: "https://images.unsplash.com/photo-1579722820308-d74e571900a9?auto=format&fit=crop&q=80&w=600",
+    price: catalogItem.price,
+    discountedPrice: catalogItem.discountedPrice,
+    image: catalogItem.image,
+    rating: catalogItem.rating,
   };
 
   const handleAddToCart = () => {
@@ -50,7 +103,7 @@ export default function ProductDetailScreen() {
       selectedColor: selectedFlavour,
       variant: `${selectedFlavour} • ${selectedSize}`
     });
-    router.back();
+    setShowAddedModal(true);
   };
 
   return (
@@ -86,7 +139,7 @@ export default function ProductDetailScreen() {
             {[1, 2, 3, 4].map((index) => (
               <View key={index} className={`w-14 h-14 rounded-lg border items-center justify-center overflow-hidden mb-3 relative ${index === 1 ? 'border-[#111827]' : 'border-gray-200'}`}>
                 <Image 
-                  source={{ uri: "https://images.unsplash.com/photo-1579722820308-d74e571900a9?auto=format&fit=crop&q=80&w=200" }} 
+                  source={{ uri: product.image }} 
                   className="w-10 h-10"
                   resizeMode="contain"
                 />
@@ -102,7 +155,7 @@ export default function ProductDetailScreen() {
           {/* Main Image */}
           <View className="flex-1 bg-white items-center justify-center">
             <Image 
-              source={{ uri: "https://images.unsplash.com/photo-1579722820308-d74e571900a9?auto=format&fit=crop&q=80&w=600" }} 
+              source={{ uri: product.image }} 
               className="w-full h-full"
               resizeMode="contain"
             />
@@ -176,7 +229,7 @@ export default function ProductDetailScreen() {
         <View className="px-5 mb-6">
           <Text className="text-[14px] font-bold text-[#111827] mb-3">Flavour</Text>
           <View className="flex-row flex-wrap">
-            {FLAVOURS.map((f) => (
+            {catalogItem.flavours.map((f) => (
               <Pressable 
                 key={f}
                 onPress={() => setSelectedFlavour(f)}
@@ -192,7 +245,7 @@ export default function ProductDetailScreen() {
         <View className="px-5 mb-6">
           <Text className="text-[14px] font-bold text-[#111827] mb-3">Size</Text>
           <View className="flex-row flex-wrap">
-            {SIZES.map((s) => (
+            {catalogItem.sizes.map((s) => (
               <Pressable 
                 key={s}
                 onPress={() => setSelectedSize(s)}
@@ -234,6 +287,22 @@ export default function ProductDetailScreen() {
         </View>
       </View>
       <CartModal visible={isCartOpen} onClose={() => setIsCartOpen(false)} />
+      <AddToCartConfirmModal
+        visible={showAddedModal}
+        item={{
+          id: product.id,
+          name: product.name,
+          brand: product.brand,
+          price: product.price,
+          image: product.image,
+          variant: `${selectedFlavour} • ${selectedSize}`
+        }}
+        onViewCart={() => {
+          setShowAddedModal(false);
+          setIsCartOpen(true);
+        }}
+        onContinueShopping={() => setShowAddedModal(false)}
+      />
     </SafeAreaView>
   );
 }

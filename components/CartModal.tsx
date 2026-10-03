@@ -23,7 +23,7 @@ export default function CartModal({ visible, onClose }: CartModalProps) {
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [creditsToUse, setCreditsToUse] = useState(0);
 
-  const { isGuest } = useGuestStore();
+  const { isGuest, endGuestSession } = useGuestStore();
   const { cashBalance, credits, checkoutCart } = useCreditsStore();
   const { getSelectedAddress } = useAddressStore();
   const selectedAddress = getSelectedAddress();
@@ -69,9 +69,10 @@ export default function CartModal({ visible, onClose }: CartModalProps) {
         [
           { 
             text: "Create Account", 
-            onPress: () => {
+            onPress: async () => {
               onClose();
-              router.push("/(auth)/create-account");
+              await endGuestSession();
+              router.replace("/(auth)/create-account");
             } 
           },
           { text: "Cancel", style: "cancel" }
