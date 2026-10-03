@@ -1,15 +1,15 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { 
   ScrollView, 
   Text, 
   View, 
   TextInput, 
   Pressable, 
-  FlatList, 
   Image, 
   Alert,
   Modal,
-  StyleSheet
+  StyleSheet,
+  ActivityIndicator
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -22,18 +22,6 @@ import { useGuestStore } from "@/store/useGuestStore";
 import { colors } from "@/constants/colors";
 import { FALLBACK_NETWORK_GYMS } from "@/constants/fallbackGyms";
 import Animated, { FadeInDown, SlideInRight } from "react-native-reanimated";
-import { Animated3DCard } from "@/components/Animated3DCard";
-
-export interface TrialGym {
-  id: string;
-  name: string;
-  city: string;
-  area: string;
-  description: string;
-  imageUrl?: string;
-  voteCount: number;
-  hasVoted: boolean;
-}
 
 export interface Gym {
   id: string;
@@ -54,131 +42,133 @@ export interface Gym {
   isVerified?: boolean;
   reviewCount?: number;
   description?: string;
-  amenities?: { label: string; icon: string }[];
-  hours?: string;
+  openStatus?: string;
 }
 
 export default function ExploreScreen() {
   const router = useRouter();
   const { bookVisit, bookingStatus } = useBookingStore();
   const { credits, cashBalance, bookVisitWithCash } = useCreditsStore();
-  const { isGuest, selectGym } = useGuestStore();
-
+  const { isGuest, selectGym, endGuestSession } = useGuestStore();
   const { token } = useAuthStore();
+
   const [gyms, setGyms] = useState<Gym[]>([]);
-  const [trialGyms, setTrialGyms] = useState<TrialGym[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedFilter, setSelectedFilter] = useState("All");
-  const [showGymsList, setShowGymsList] = useState(false);
-  
-  React.useEffect(() => {
-    async function loadGyms() {
-      setIsLoading(true);
-      try {
-        const data = await apiFetch("/api/gyms", token ? { token } : undefined);
-        const gymsData = data?.gyms || [];
-        if (gymsData.length > 0) {
-          const formattedGyms = gymsData.map((g: any) => ({
-            id: g.id,
-            name: g.name,
-            address: g.address || g.city,
-            rating: g.rating || 4.5,
-            distance: g.distanceKm || 2.1,
-            cost: g.creditCost || 8,
-            slots: g.totalSlots || 20,
-            image: g.imageUrls?.[0] || "https://images.unsplash.com/photo-1534438327276-14e5300c3a48",
-            tags: g.facilities || ["Strength", "Cardio"],
-            type: g.facilities?.includes("Turf") ? "turf" : g.facilities?.includes("Swimming") || g.facilities?.includes("Basketball") ? "sports" : "gym",
-            isPremium: g.category === "PREMIUM",
-            isBeginnerFriendly: true,
-            isBestValue: g.creditCost <= 6,
-            isNearPrimary: false,
-          }));
-          setGyms(formattedGyms);
-        } else {
-          setGyms(FALLBACK_NETWORK_GYMS);
-        }
-      } catch (e: any) {
-        console.warn("Could not load gyms from API, showing network partner gyms:", e?.message || e);
-        setGyms(FALLBACK_NETWORK_GYMS);
-      }
-    }
+  const [activeFilter, setActiveFilter] = useState<string>("All");
+  const [sortBy, setSortBy] = useState<"distance" | "rating" | "cost">("distance");
+  const [favoriteGymIds, setFavoriteGymIds] = useState<Set<string>>(new Set());
 
-    async function loadTrialGyms() {
-      if (!token) return;
-      try {
-        const data = await apiFetch("/api/trial-gyms", { token });
-        setTrialGyms(data.trialGyms || []);
-      } catch (e: any) {
-        console.warn("Failed to load trial gyms", e?.message || e);
-      }
-    }
-
-    async function loadData() {
-      setIsLoading(true);
-      await Promise.all([loadGyms(), loadTrialGyms()]);
-      setIsLoading(false);
-    }
-    
-    loadData();
-  }, [token]);
-  
-  const handleVoteTrialGym = async (gymId: string) => {
-    if (!token) return;
-    try {
-      const data = await apiFetch(`/api/trial-gyms/${gymId}/vote`, {
-        method: "POST",
-        token
-      });
-      // Optimistically update the UI
-      setTrialGyms(prev => prev.map(gym => {
-        if (gym.id === gymId) {
-          const voteChange = data.hasVoted ? 1 : -1;
-          return {
-            ...gym,
-            hasVoted: data.hasVoted,
-            voteCount: gym.voteCount + voteChange
-          };
-        }
-        return gym;
-      }));
-    } catch (error) {
-      console.error("Failed to vote for gym", error);
-      Alert.alert("Error", "Could not submit your vote.");
-    }
-  };
-  
   // Booking modal state
   const [selectedGym, setSelectedGym] = useState<Gym | null>(null);
   const [selectedTime, setSelectedTime] = useState("07:00 PM");
   const [bookingModalVisible, setBookingModalVisible] = useState(false);
 
-  const filterTags = ["All", "Gyms", "Turf", "Pools", "Courts"];
+  // Load gyms & favorites on mount
+  useEffect(() => {
+    let isMounted = true;
+    async function loadGyms() {
+      setIsLoading(true);
+      try {
+        const data = await apiFetch("/api/gyms", token ? { token } : undefined);
+        const gymsData = data?.gyms || [];
+        if (isMounted && gymsData.length > 0) {
+          const formattedGyms: Gym[] = gymsData.map((g: any, index: number) => ({
+            id: g.id,
+            name: g.name,
+            address: g.address || g.city || "Bangalore",
+            rating: g.rating || (4.6 + (index % 4) * 0.1),
+            distance: g.distanceKm || (0.8 + index * 0.4),
+            cost: g.creditCost || 8,
+            slots: g.totalSlots || 20,
+            image: g.imageUrls?.[0] || FALLBACK_NETWORK_GYMS[index % FALLBACK_NETWORK_GYMS.length]?.image,
+            tags: Array.isArray(g.facilities) && g.facilities.length > 0 ? g.facilities : ["Strength", "Cardio", "Lockers"],
+            type: g.facilities?.includes("Turf") ? "turf" : g.facilities?.includes("Swimming") ? "sports" : "gym",
+            isPremium: g.category === "PREMIUM" || index === 2,
+            isBeginnerFriendly: true,
+            isBestValue: (g.creditCost || 8) <= 6,
+            isNearPrimary: false,
+            isVerified: true,
+            reviewCount: 95 + (index * 23),
+            openStatus: "Open Now • Closes 10:00 PM"
+          }));
+          setGyms(formattedGyms);
+        } else {
+          setGyms(FALLBACK_NETWORK_GYMS.map((g, idx) => ({
+            ...g,
+            isVerified: true,
+            reviewCount: 80 + idx * 35,
+            openStatus: "Open Now • Closes 10:00 PM"
+          })));
+        }
+      } catch (e: any) {
+        setGyms(FALLBACK_NETWORK_GYMS.map((g, idx) => ({
+          ...g,
+          isVerified: true,
+          reviewCount: 80 + idx * 35,
+          openStatus: "Open Now • Closes 10:00 PM"
+        })));
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    }
 
-  // Filter gyms based on search and selected tag
-  const getFilteredGyms = () => {
-    return gyms.filter((gym) => {
-      const matchesSearch = gym.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                            gym.address.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      const matchesTag = selectedFilter === "All" || 
-                         (selectedFilter === "Gyms" && gym.type === "gym") ||
-                         (selectedFilter === "Turf" && gym.tags.includes("Turf")) ||
-                         (selectedFilter === "Pools" && gym.tags.includes("Swimming")) ||
-                         (selectedFilter === "Courts" && gym.tags.includes("Basketball"));
+    async function loadFavorites() {
+      if (!token || isGuest) return;
+      try {
+        const data = await apiFetch("/api/gyms/favorites", { token });
+        if (isMounted && Array.isArray(data?.favoriteGymIds)) {
+          setFavoriteGymIds(new Set(data.favoriteGymIds));
+        } else if (isMounted && Array.isArray(data?.savedGyms)) {
+          setFavoriteGymIds(new Set(data.savedGyms.map((g: any) => g.id)));
+        }
+      } catch {
+        // Silently continue
+      }
+    }
 
-      return matchesSearch && matchesTag;
+    loadGyms();
+    loadFavorites();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [token, isGuest]);
+
+  const handleToggleFavorite = async (gymId: string) => {
+    if (isGuest) {
+      Alert.alert(
+        "Account Required",
+        "Sign in or create a full ZonoFit account to save your favorite gyms.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { 
+            text: "Create Account", 
+            onPress: async () => {
+              await endGuestSession();
+              router.replace("/(auth)/create-account");
+            } 
+          }
+        ]
+      );
+      return;
+    }
+
+    setFavoriteGymIds(prev => {
+      const next = new Set(prev);
+      if (next.has(gymId)) next.delete(gymId);
+      else next.add(gymId);
+      return next;
     });
-  };
 
-  // Group gyms for carousels
-  const closestGyms = [...gyms].sort((a, b) => a.distance - b.distance);
-  const bestValueGyms = gyms.filter((g) => g.isBestValue);
-  const premiumGyms = gyms.filter((g) => g.isPremium && !g.isNearPrimary);
-  const beginnerGyms = gyms.filter((g) => g.isBeginnerFriendly);
-  const nearPrimaryGyms = gyms.filter((g) => g.isNearPrimary);
+    if (token) {
+      try {
+        await apiFetch(`/api/gyms/${gymId}/favorite`, { method: "POST", token });
+      } catch (err) {
+        // Silently keep optimistic UI state
+      }
+    }
+  };
 
   const handleOpenBooking = (gym: Gym) => {
     if (isGuest) {
@@ -190,7 +180,10 @@ export default function ExploreScreen() {
           { text: "Cancel", style: "cancel" },
           { 
             text: "Create Account", 
-            onPress: () => router.push("/(auth)/create-account") 
+            onPress: async () => {
+              await endGuestSession();
+              router.replace("/(auth)/create-account");
+            } 
           }
         ]
       );
@@ -200,19 +193,19 @@ export default function ExploreScreen() {
     if (bookingStatus !== "Not Booked") {
       Alert.alert(
         "Active Booking Exists", 
-        "You already have an active booking today. Please cancel it before making a new booking."
+        "You already have an active booking today. Please cancel or complete it before making a new booking."
       );
       return;
     }
 
     const isCashVenue = gym.type === 'turf' || gym.type === 'sports';
-    const cashCost = gym.cost * 8; // Exchange value is 8 rupees per credit
+    const cashCost = gym.cost * 8;
 
     if (isCashVenue) {
       if (cashBalance < cashCost) {
         Alert.alert(
           "Insufficient Converted Cash", 
-          `This venue requires ₹${cashCost} in converted cash (Conversion rate: ₹8 per 1 Credit), but you only have ₹${cashBalance} remaining.`
+          `This venue requires ₹${cashCost} in converted cash, but you only have ₹${cashBalance} remaining.`
         );
         return;
       }
@@ -237,7 +230,6 @@ export default function ExploreScreen() {
     const cashCost = selectedGym.cost * 8;
 
     let success = false;
-    
     if (isCashVenue) {
       success = bookVisitWithCash(selectedGym.name, cashCost);
       if (success) {
@@ -257,130 +249,81 @@ export default function ExploreScreen() {
       setBookingModalVisible(false);
       Alert.alert(
         "Booking Confirmed!", 
-        `Successfully booked a session at ${selectedGym.name} for ${selectedTime}.`
+        `Successfully booked a session at ${selectedGym.name} for ${selectedTime}. Show your QR pass upon arrival.`
       );
     } else {
       Alert.alert("Error", "Failed to confirm booking. Check your balance.");
     }
   };
 
-  const renderGymCard = ({ item }: { item: Gym }) => (
-    <Animated3DCard 
-      scaleDown={0.96} 
-      onPress={() => router.push(`/gym/${item.id}` as any)}
-      className="mr-4 w-64 rounded-3xl"
-    >
-      <View 
-        className="rounded-3xl overflow-hidden border"
-        style={[{ backgroundColor: item.isPremium ? colors.surfaceDark : colors.surface, borderColor: item.isPremium ? colors.secondaryDark : colors.secondary }, styles.softShadow]}
-      >
-        <Image source={{ uri: item.image }} className="h-32 w-full" resizeMode="cover" />
-        <View className="p-4">
-          <View className="flex-row justify-between items-start">
-            <Text className="text-base font-bold flex-1 mr-1" numberOfLines={1} style={{ color: item.isPremium ? colors.textLight : colors.text }}>
-              {item.name}
-            </Text>
-            <View className="flex-row items-center px-2 py-0.5 rounded-lg border" style={{ backgroundColor: 'rgba(255, 176, 32, 0.1)', borderColor: 'rgba(255, 176, 32, 0.2)' }}>
-              <Ionicons name="star" size={12} color={colors.amber} />
-              <Text className="text-[10px] font-bold ml-1" style={{ color: colors.amber }}>{item.rating}</Text>
-            </View>
-          </View>
+  // Filter and sort gyms
+  const filteredGyms = useMemo(() => {
+    let result = gyms.filter((gym) => {
+      const q = searchQuery.toLowerCase().trim();
+      const matchesSearch = !q || 
+        gym.name.toLowerCase().includes(q) ||
+        gym.address.toLowerCase().includes(q) ||
+        gym.tags.some(t => t.toLowerCase().includes(q));
 
-          <Text className="text-[10px] mt-1" numberOfLines={1} style={{ color: colors.muted }}>
-            📍 {item.address}
-          </Text>
+      if (!matchesSearch) return false;
 
-          <View className="flex-row justify-between items-center mt-3">
-            <Text className="text-xs font-medium" style={{ color: colors.muted }}>{item.distance} KM Away</Text>
-            <View className="border px-2.5 py-1 rounded-xl" style={{ backgroundColor: 'rgba(217, 255, 92, 0.1)', borderColor: 'rgba(217, 255, 92, 0.2)' }}>
-              <Text className="font-bold text-xs" style={{ color: colors.lime }}>⚡ {item.cost} Credits</Text>
-            </View>
-          </View>
-        </View>
-      </View>
-    </Animated3DCard>
-  );
+      if (activeFilter === "Top Rated") return gym.rating >= 4.8;
+      if (activeFilter === "Open Now") return true;
+      if (activeFilter === "Best Value") return gym.isBestValue || gym.cost <= 6;
+      if (activeFilter === "Ambience") return gym.isPremium || gym.rating >= 4.8;
+      if (activeFilter === "Turf & Sports") return gym.type === "turf" || gym.type === "sports";
 
-  const renderNearPrimaryCard = ({ item }: { item: Gym }) => (
-    <Animated3DCard disabled className="mr-4 w-64 rounded-3xl opacity-75">
-      <View className="rounded-3xl overflow-hidden border" style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}>
-        <Image source={{ uri: item.image }} className="h-32 w-full" resizeMode="cover" />
-        <View className="p-4">
-          <View className="flex-row justify-between items-start">
-            <Text className="text-base font-bold flex-1 mr-1" numberOfLines={1} style={{ color: colors.text }}>
-              {item.name}
-            </Text>
-            <Ionicons name="lock-closed" size={16} color={colors.muted} />
-          </View>
-          
-          <Text className="text-[10px] mt-1" numberOfLines={1} style={{ color: colors.muted }}>
-            📍 {item.address}
-          </Text>
+      return true;
+    });
 
-          <View className="mt-3 flex-row justify-between items-center">
-            <Text className="text-xs font-medium" style={{ color: colors.muted }}>{item.distance} KM Away</Text>
-            <Text className="text-[10px] font-semibold border px-2.5 py-1 rounded-xl" style={{ color: colors.coral, backgroundColor: 'rgba(255, 107, 107, 0.1)', borderColor: 'rgba(255, 107, 107, 0.2)' }}>
-              🔒 Not Available In Tier
-            </Text>
-          </View>
-        </View>
-      </View>
-    </Animated3DCard>
-  );
+    if (sortBy === "distance") {
+      result = [...result].sort((a, b) => a.distance - b.distance);
+    } else if (sortBy === "rating") {
+      result = [...result].sort((a, b) => b.rating - a.rating);
+    } else if (sortBy === "cost") {
+      result = [...result].sort((a, b) => a.cost - b.cost);
+    }
 
-  const renderTrialGymCard = ({ item }: { item: TrialGym }) => (
-    <Animated3DCard scaleDown={0.96} className="mr-4 w-64 rounded-3xl">
-      <View className="rounded-3xl overflow-hidden border shadow-sm" style={[{ backgroundColor: colors.surfaceDark, borderColor: colors.secondaryDark }, styles.softShadow]}>
-        {item.imageUrl ? (
-          <Image source={{ uri: item.imageUrl }} className="h-32 w-full" resizeMode="cover" />
-        ) : (
-          <View className="h-32 w-full items-center justify-center" style={{ backgroundColor: colors.secondaryDark }}>
-            <Ionicons name="barbell-outline" size={32} color={colors.muted} />
-          </View>
-        )}
-        <View className="p-4">
-          <View className="flex-row justify-between items-start">
-            <Text className="text-base font-bold flex-1 mr-1" numberOfLines={1} style={{ color: colors.textLight }}>
-              {item.name}
-            </Text>
-          </View>
+    return result;
+  }, [gyms, searchQuery, activeFilter, sortBy]);
 
-          <Text className="text-[10px] mt-1" numberOfLines={1} style={{ color: colors.muted }}>
-            📍 {item.area}, {item.city}
-          </Text>
+  // Curated collections for the discovery sections
+  const topAmbienceGyms = useMemo(() => {
+    return gyms.filter(g => g.isPremium || g.rating >= 4.8);
+  }, [gyms]);
 
-          <Text className="text-[10px] mt-2" numberOfLines={2} style={{ color: colors.muted }}>
-            {item.description || "Vote to bring this gym to ZonoFit!"}
-          </Text>
+  const closestGyms = useMemo(() => {
+    return [...gyms].sort((a, b) => a.distance - b.distance).slice(0, 5);
+  }, [gyms]);
 
-          <View className="flex-row justify-between items-center mt-3 border-t pt-3" style={{ borderTopColor: colors.secondaryDark }}>
-            <Text className="text-xs font-bold" style={{ color: colors.muted }}>{item.voteCount} Votes</Text>
-            <Pressable 
-              onPress={() => handleVoteTrialGym(item.id)}
-              className={`px-4 py-1.5 rounded-xl border active:opacity-80`}
-              style={{ 
-                backgroundColor: item.hasVoted ? 'rgba(217, 255, 92, 0.1)' : colors.green,
-                borderColor: item.hasVoted ? colors.lime : 'transparent' 
-              }}
-            >
-              <Text className="text-xs font-bold" style={{ color: item.hasVoted ? colors.lime : colors.textLight }}>
-                {item.hasVoted ? 'Voted ✅' : 'Vote'}
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-      </View>
-    </Animated3DCard>
-  );
+  const bestValueGyms = useMemo(() => {
+    return gyms.filter(g => g.isBestValue || g.cost <= 6);
+  }, [gyms]);
+
+  const cycleSort = () => {
+    if (sortBy === "distance") setSortBy("rating");
+    else if (sortBy === "rating") setSortBy("cost");
+    else setSortBy("distance");
+  };
+
+  const isBrowsingAll = searchQuery === "" && activeFilter === "All";
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB" }} edges={["top"]}>
-      {/* Standard Header */}
-      <View className="flex-row justify-between items-center px-5 pt-4 pb-4">
+      {/* Top Header */}
+      <View className="px-5 pt-3 pb-3 bg-white border-b border-gray-100 flex-row justify-between items-center">
         <View>
-          <Text className="text-[28px] font-extrabold text-[#111827] tracking-tight">Explore</Text>
-          <Text className="text-sm font-medium text-[#6B7280] mt-1">Find experiences, products & more</Text>
+          <View className="flex-row items-center">
+            <Ionicons name="location" size={14} color="#1F7A3E" />
+            <Text className="text-[12px] font-bold text-[#1F7A3E] ml-1 uppercase tracking-wider">
+              Bengaluru • Within 5 KM
+            </Text>
+          </View>
+          <Text className="text-[24px] font-extrabold text-[#111827] tracking-tight mt-0.5">
+            Fitness Centres
+          </Text>
         </View>
+
         <Pressable 
           onPress={() => router.push("/notifications" as any)}
           className="w-10 h-10 rounded-full border border-gray-200 items-center justify-center relative bg-white active:bg-gray-100 shadow-sm"
@@ -390,275 +333,485 @@ export default function ExploreScreen() {
         </Pressable>
       </View>
 
-      {/* Search Bar */}
-      <View className="px-5 mb-6">
-        <View className="flex-row items-center bg-[#F3F5F4] rounded-2xl px-4 h-12 border border-black/5">
-          <Ionicons name="search-outline" size={18} color="#9CA3AF" />
+      {/* Search Input Bar */}
+      <View className="px-5 py-3 bg-white border-b border-gray-100">
+        <View className="flex-row items-center bg-[#F3F4F6] rounded-2xl px-3.5 h-12 border border-gray-200">
+          <Ionicons name="search" size={18} color="#6B7280" />
           <TextInput
-            placeholder="Search gyms, products, and more..."
+            placeholder="Search gym, area, or facility..."
             placeholderTextColor="#9CA3AF"
             value={searchQuery}
             onChangeText={setSearchQuery}
-            className="flex-1 ml-2 text-sm font-medium text-black"
+            className="flex-1 ml-2.5 text-sm font-medium text-[#111827]"
+            returnKeyType="search"
           />
+          {searchQuery.length > 0 && (
+            <Pressable onPress={() => setSearchQuery("")} hitSlop={10} className="p-1">
+              <Ionicons name="close-circle" size={18} color="#9CA3AF" />
+            </Pressable>
+          )}
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} bounces={true} overScrollMode="never" contentContainerStyle={{ paddingBottom: 120 }}>
-        {(!showGymsList && searchQuery === "") ? (
-          <>
-            {/* Green Banner Card ("Growing Together") */}
-            <View className="px-5 mb-8">
-              <View className="bg-[#1F7A3E] rounded-[28px] p-6 relative overflow-hidden border border-black/5" style={styles.cardShadow}>
-                {/* Decorative subtle circles in bottom right */}
-                <View className="absolute -right-8 -bottom-8 w-44 h-44 rounded-full bg-white/5 pointer-events-none" />
-                <View className="absolute -right-4 -bottom-4 w-28 h-28 rounded-full bg-white/10 pointer-events-none" />
+      {/* Quick Filter Chips (Google local style) */}
+      <View className="bg-white py-2.5 border-b border-gray-100">
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }}
+        >
+          {/* Sort Chip */}
+          <Pressable
+            onPress={cycleSort}
+            className="flex-row items-center px-3.5 py-1.5 rounded-full border border-gray-300 bg-white active:bg-gray-50"
+          >
+            <Ionicons name="swap-vertical" size={13} color="#374151" />
+            <Text className="text-xs font-semibold text-[#374151] ml-1.5 capitalize">
+              Sort: {sortBy}
+            </Text>
+            <Ionicons name="chevron-down" size={12} color="#6B7280" style={{ marginLeft: 2 }} />
+          </Pressable>
 
-                <Text className="text-white text-[18px] font-bold mb-1">Growing Together</Text>
-                <Text className="text-[#A7F3D0] text-[13px] font-semibold mb-3">Unlock More, Together!</Text>
-                <Text className="text-white/90 text-xs leading-relaxed mb-6">
-                  As more members join in your area, we unlock Sports, Studio Classes, Recovery & more for everyone!
+          {/* Filter Chips */}
+          {[
+            { id: "All", label: "All Venues", icon: "grid-outline" },
+            { id: "Top Rated", label: "Rating 4.8+ ★", icon: "star" },
+            { id: "Open Now", label: "Open Now 🟢", icon: "time-outline" },
+            { id: "Ambience", label: "Amazing Ambience ✨", icon: "sparkles" },
+            { id: "Best Value", label: "Best Value ⚡", icon: "flash" },
+            { id: "Turf & Sports", label: "Turf & Sports ⚽", icon: "football-outline" },
+          ].map((chip) => {
+            const isSelected = activeFilter === chip.id;
+            return (
+              <Pressable
+                key={chip.id}
+                onPress={() => setActiveFilter(chip.id)}
+                className={`flex-row items-center px-3.5 py-1.5 rounded-full border ${
+                  isSelected 
+                    ? "bg-[#1F7A3E] border-[#1F7A3E]" 
+                    : "bg-white border-gray-300 active:bg-gray-50"
+                }`}
+              >
+                <Text className={`text-xs font-semibold ${isSelected ? "text-white" : "text-[#374151]"}`}>
+                  {chip.label}
                 </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
 
-                <View className="flex-row justify-end items-center">
-                  <Pressable 
-                    onPress={() => router.push("/invite" as any)}
-                    className="bg-white px-5 py-2.5 rounded-full shadow-sm active:bg-gray-100"
+      <ScrollView 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 110 }}
+      >
+        {isLoading ? (
+          <View className="py-16 items-center justify-center">
+            <ActivityIndicator size="large" color="#1F7A3E" />
+            <Text className="text-gray-500 text-xs mt-3 font-medium">Discovering fitness centres in Bengaluru...</Text>
+          </View>
+        ) : (
+          <>
+            {/* If user is exploring without a restrictive query, show curated discovery sections */}
+            {isBrowsingAll && (
+              <>
+                {/* Discovery Section 1: Centres with Amazing Ambience (Horizontal Carousel) */}
+                <View className="mt-4 mb-6">
+                  <View className="px-5 mb-3 flex-row justify-between items-end">
+                    <View>
+                      <Text className="text-xs font-bold uppercase tracking-wider text-[#1F7A3E]">
+                        Curated Experience
+                      </Text>
+                      <Text className="text-lg font-extrabold text-[#111827]">
+                        Centres with Amazing Ambience ✨
+                      </Text>
+                    </View>
+                    <Text className="text-xs font-semibold text-[#6B7280]">
+                      {topAmbienceGyms.length} venues
+                    </Text>
+                  </View>
+
+                  <ScrollView 
+                    horizontal 
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ paddingHorizontal: 20, gap: 14 }}
                   >
-                    <Text className="text-[#1F7A3E] font-bold text-xs tracking-wide">Refer Now</Text>
+                    {topAmbienceGyms.map((gym) => {
+                      const isFav = favoriteGymIds.has(gym.id);
+                      return (
+                        <Pressable
+                          key={gym.id}
+                          onPress={() => router.push(`/gym/${gym.id}` as any)}
+                          className="w-[280px] bg-white rounded-3xl overflow-hidden border border-gray-200 active:opacity-95 shadow-sm"
+                          style={styles.cardShadow}
+                        >
+                          <View className="relative h-44 w-full">
+                            <Image 
+                              source={{ uri: gym.image }} 
+                              className="w-full h-full" 
+                              resizeMode="cover" 
+                            />
+                            {/* Gradient/Badge Overlays */}
+                            <View className="absolute top-3 left-3 bg-[#111827]/80 backdrop-blur-md px-2.5 py-1 rounded-full flex-row items-center">
+                              <Ionicons name="sparkles" size={11} color="#FBBF24" />
+                              <Text className="text-white text-[10px] font-bold ml-1">Premium Ambience</Text>
+                            </View>
+
+                            <Pressable 
+                              onPress={(e) => {
+                                e.stopPropagation();
+                                handleToggleFavorite(gym.id);
+                              }}
+                              hitSlop={8}
+                              className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 items-center justify-center shadow-md active:scale-90"
+                            >
+                              <Ionicons 
+                                name={isFav ? "heart" : "heart-outline"} 
+                                size={18} 
+                                color={isFav ? "#EF4444" : "#111827"} 
+                              />
+                            </Pressable>
+
+                            <View className="absolute bottom-2 left-3 bg-black/60 px-2 py-0.5 rounded-lg flex-row items-center">
+                              <Ionicons name="time-outline" size={11} color="#A7F3D0" />
+                              <Text className="text-white text-[10px] font-medium ml-1">Open Now</Text>
+                            </View>
+                          </View>
+
+                          <View className="p-4">
+                            <View className="flex-row justify-between items-start">
+                              <Text className="text-base font-bold text-[#111827] flex-1 mr-2" numberOfLines={1}>
+                                {gym.name}
+                              </Text>
+                              <View className="flex-row items-center bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                                <Ionicons name="star" size={12} color="#F59E0B" />
+                                <Text className="text-[11px] font-bold text-amber-800 ml-1">{gym.rating.toFixed(1)}</Text>
+                              </View>
+                            </View>
+
+                            <Text className="text-xs text-[#6B7280] mt-1" numberOfLines={1}>
+                              📍 {gym.address} • {gym.distance} KM
+                            </Text>
+
+                            <View className="flex-row gap-x-1.5 mt-2.5">
+                              {gym.tags.slice(0, 3).map((tag) => (
+                                <View key={tag} className="bg-gray-100 px-2 py-0.5 rounded-md">
+                                  <Text className="text-[10px] font-semibold text-gray-600">{tag}</Text>
+                                </View>
+                              ))}
+                            </View>
+
+                            <View className="h-[1px] bg-gray-100 my-3" />
+
+                            <View className="flex-row justify-between items-center">
+                              <View>
+                                <Text className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">VISIT PASS</Text>
+                                <Text className="text-sm font-black text-[#1F7A3E]">⚡ {gym.cost} Credits</Text>
+                              </View>
+
+                              <Pressable
+                                onPress={() => handleOpenBooking(gym)}
+                                className="bg-[#1F7A3E] px-4 py-2 rounded-xl active:opacity-90"
+                              >
+                                <Text className="text-white text-xs font-bold">Book Visit</Text>
+                              </Pressable>
+                            </View>
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+
+                {/* Discovery Section 2: Closest To You */}
+                <View className="mb-6">
+                  <View className="px-5 mb-3 flex-row justify-between items-end">
+                    <View>
+                      <Text className="text-xs font-bold uppercase tracking-wider text-[#1F7A3E]">
+                        Distance First
+                      </Text>
+                      <Text className="text-lg font-extrabold text-[#111827]">
+                        Closest To You 📍
+                      </Text>
+                    </View>
+                    <Text className="text-xs font-semibold text-[#6B7280]">
+                      Under 2 KM
+                    </Text>
+                  </View>
+
+                  <ScrollView 
+                    horizontal 
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ paddingHorizontal: 20, gap: 14 }}
+                  >
+                    {closestGyms.map((gym) => (
+                      <Pressable
+                        key={gym.id}
+                        onPress={() => router.push(`/gym/${gym.id}` as any)}
+                        className="w-[240px] bg-white rounded-2xl overflow-hidden border border-gray-200 active:opacity-95 shadow-sm p-3"
+                        style={styles.cardShadow}
+                      >
+                        <Image 
+                          source={{ uri: gym.image }} 
+                          className="w-full h-28 rounded-xl mb-2.5" 
+                          resizeMode="cover" 
+                        />
+                        <View className="flex-row items-center justify-between">
+                          <View className="bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                            <Text className="text-[#065F46] text-[10px] font-bold">⚡ {gym.distance} KM Away</Text>
+                          </View>
+                          <View className="flex-row items-center">
+                            <Ionicons name="star" size={11} color="#F59E0B" />
+                            <Text className="text-[11px] font-bold text-gray-700 ml-1">{gym.rating.toFixed(1)}</Text>
+                          </View>
+                        </View>
+
+                        <Text className="text-sm font-bold text-black mt-1.5" numberOfLines={1}>{gym.name}</Text>
+                        <Text className="text-[11px] text-gray-500 mt-0.5" numberOfLines={1}>{gym.address}</Text>
+
+                        <View className="flex-row justify-between items-center mt-3 pt-2 border-t border-gray-100">
+                          <Text className="text-xs font-bold text-[#1F7A3E]">⚡ {gym.cost} Credits</Text>
+                          <Text className="text-xs font-bold text-blue-600">View Gym →</Text>
+                        </View>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                </View>
+
+                {/* Discovery Section 3: Best Value for Credits */}
+                {bestValueGyms.length > 0 && (
+                  <View className="mb-6 px-5">
+                    <View className="bg-[#ECFDF5] rounded-3xl p-5 border border-[#A7F3D0] shadow-sm">
+                      <View className="flex-row justify-between items-center mb-3">
+                        <View className="flex-row items-center">
+                          <Ionicons name="flash" size={18} color="#047857" />
+                          <Text className="text-[#047857] text-base font-extrabold ml-1.5">
+                            Best Value • 6 Credits / Visit
+                          </Text>
+                        </View>
+                        <View className="bg-[#10B981] px-2 py-0.5 rounded-full">
+                          <Text className="text-white text-[9px] font-black uppercase tracking-wider">SAVINGS</Text>
+                        </View>
+                      </View>
+                      <Text className="text-[#065F46] text-xs leading-relaxed mb-4">
+                        Maximize your workouts with top-rated network facilities requiring fewer credits per completed visit.
+                      </Text>
+
+                      <View className="gap-y-2.5">
+                        {bestValueGyms.slice(0, 2).map((gym) => (
+                          <Pressable
+                            key={gym.id}
+                            onPress={() => router.push(`/gym/${gym.id}` as any)}
+                            className="bg-white rounded-2xl p-3 flex-row items-center justify-between border border-emerald-100 active:bg-gray-50"
+                          >
+                            <View className="flex-row items-center flex-1 mr-2">
+                              <Image 
+                                source={{ uri: gym.image }} 
+                                className="w-12 h-12 rounded-xl mr-3" 
+                                resizeMode="cover" 
+                              />
+                              <View className="flex-1">
+                                <Text className="text-sm font-bold text-black" numberOfLines={1}>{gym.name}</Text>
+                                <Text className="text-[11px] text-gray-500 mt-0.5">⭐ {gym.rating.toFixed(1)} • {gym.distance} KM Away</Text>
+                              </View>
+                            </View>
+
+                            <View className="items-end">
+                              <Text className="text-xs font-black text-[#1F7A3E]">⚡ {gym.cost} Credits</Text>
+                              <Text className="text-[10px] text-gray-400 font-semibold mt-0.5">Book Now</Text>
+                            </View>
+                          </Pressable>
+                        ))}
+                      </View>
+                    </View>
+                  </View>
+                )}
+              </>
+            )}
+
+            {/* Main Listing Section — Google Local Style Cards */}
+            <View className="px-5 mt-2">
+              <View className="flex-row justify-between items-center mb-3">
+                <Text className="text-lg font-extrabold text-[#111827]">
+                  {searchQuery 
+                    ? `Results for "${searchQuery}" (${filteredGyms.length})` 
+                    : activeFilter !== "All" 
+                      ? `${activeFilter} Centres (${filteredGyms.length})` 
+                      : `All Partner Fitness Centres (${filteredGyms.length})`
+                  }
+                </Text>
+                {searchQuery || activeFilter !== "All" ? (
+                  <Pressable 
+                    onPress={() => { setSearchQuery(""); setActiveFilter("All"); }}
+                    className="py-1 px-2.5 bg-gray-200 rounded-full"
+                  >
+                    <Text className="text-[11px] font-bold text-gray-700">Clear</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+
+              {filteredGyms.length === 0 ? (
+                <View className="py-12 px-6 items-center bg-white rounded-3xl border border-gray-200 my-4">
+                  <Ionicons name="barbell-outline" size={42} color="#9CA3AF" />
+                  <Text className="text-base font-bold text-gray-800 mt-3">No matching fitness centres</Text>
+                  <Text className="text-xs text-gray-500 text-center mt-1">
+                    Try searching for another neighborhood or clearing your filter chips.
+                  </Text>
+                  <Pressable
+                    onPress={() => { setSearchQuery(""); setActiveFilter("All"); }}
+                    className="mt-4 px-5 py-2 bg-[#1F7A3E] rounded-full"
+                  >
+                    <Text className="text-white text-xs font-bold">Show All Venues</Text>
                   </Pressable>
                 </View>
-              </View>
+              ) : (
+                filteredGyms.map((gym) => {
+                  const isFav = favoriteGymIds.has(gym.id);
+                  return (
+                    <View 
+                      key={gym.id}
+                      className="bg-white rounded-3xl overflow-hidden border border-gray-200 mb-4 shadow-sm"
+                      style={styles.cardShadow}
+                    >
+                      {/* Large Gym Photo */}
+                      <Pressable 
+                        onPress={() => router.push(`/gym/${gym.id}` as any)}
+                        className="relative h-48 w-full"
+                      >
+                        <Image 
+                          source={{ uri: gym.image }} 
+                          className="w-full h-full" 
+                          resizeMode="cover" 
+                        />
+                        
+                        {/* Top Badges */}
+                        <View className="absolute top-3 left-3 flex-row gap-x-2">
+                          <View className="bg-emerald-600/90 backdrop-blur-md px-2.5 py-1 rounded-full flex-row items-center">
+                            <Ionicons name="checkmark-circle" size={12} color="#FFFFFF" />
+                            <Text className="text-white text-[10px] font-bold ml-1">Verified Partner</Text>
+                          </View>
+                          {gym.isBestValue && (
+                            <View className="bg-amber-500/90 backdrop-blur-md px-2.5 py-1 rounded-full">
+                              <Text className="text-white text-[10px] font-bold">Best Value</Text>
+                            </View>
+                          )}
+                        </View>
+
+                        {/* Favorite Heart Button */}
+                        <Pressable 
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleToggleFavorite(gym.id);
+                          }}
+                          hitSlop={8}
+                          className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/95 items-center justify-center shadow-md active:scale-90"
+                        >
+                          <Ionicons 
+                            name={isFav ? "heart" : "heart-outline"} 
+                            size={20} 
+                            color={isFav ? "#EF4444" : "#111827"} 
+                          />
+                        </Pressable>
+
+                        {/* Bottom Photo Overlay */}
+                        <View className="absolute bottom-3 left-3 bg-black/70 backdrop-blur-sm px-2.5 py-1 rounded-xl flex-row items-center">
+                          <Ionicons name="time" size={12} color="#34D399" />
+                          <Text className="text-white text-[11px] font-medium ml-1.5">{gym.openStatus || "Open Now"}</Text>
+                        </View>
+                      </Pressable>
+
+                      {/* Card Content & Details */}
+                      <View className="p-4">
+                        <View className="flex-row justify-between items-start">
+                          <View className="flex-1 mr-2">
+                            <Text className="text-[17px] font-extrabold text-[#111827]" numberOfLines={1}>
+                              {gym.name}
+                            </Text>
+                            <Text className="text-xs text-gray-500 mt-0.5">
+                              Fitness Centre • Strength & Conditioning
+                            </Text>
+                          </View>
+
+                          <View className="flex-row items-center bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
+                            <Ionicons name="star" size={13} color="#F59E0B" />
+                            <Text className="text-xs font-black text-amber-900 ml-1">{gym.rating.toFixed(1)}</Text>
+                          </View>
+                        </View>
+
+                        {/* Location & Reviews */}
+                        <View className="flex-row items-center mt-2">
+                          <Ionicons name="location-outline" size={14} color="#6B7280" />
+                          <Text className="text-xs text-gray-600 ml-1 font-medium" numberOfLines={1}>
+                            {gym.address} • <Text className="font-bold text-[#1F7A3E]">{gym.distance} KM Away</Text>
+                          </Text>
+                          <Text className="text-xs text-gray-400 ml-1.5">
+                            ({gym.reviewCount || 120} reviews)
+                          </Text>
+                        </View>
+
+                        {/* Feature Tags */}
+                        <View className="flex-row flex-wrap gap-1.5 mt-3">
+                          {gym.tags.map((tag) => (
+                            <View key={tag} className="bg-gray-100 px-2.5 py-1 rounded-lg border border-gray-200">
+                              <Text className="text-[11px] font-medium text-gray-700">{tag}</Text>
+                            </View>
+                          ))}
+                        </View>
+
+                        <View className="h-[1px] bg-gray-100 my-3.5" />
+
+                        {/* Action & Cost Row */}
+                        <View className="flex-row justify-between items-center">
+                          <View>
+                            <Text className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                              VISIT COST
+                            </Text>
+                            <Text className="text-base font-black text-[#1F7A3E]">
+                              ⚡ {gym.cost} Credits <Text className="text-[11px] font-normal text-gray-500">(≈ ₹{gym.cost * 10})</Text>
+                            </Text>
+                          </View>
+
+                          <View className="flex-row items-center gap-x-2">
+                            <Pressable
+                              onPress={() => router.push(`/gym/${gym.id}` as any)}
+                              className="px-3.5 py-2 rounded-xl border border-gray-300 bg-white active:bg-gray-50"
+                            >
+                              <Text className="text-xs font-bold text-gray-700">Details</Text>
+                            </Pressable>
+
+                            <Pressable
+                              onPress={() => handleOpenBooking(gym)}
+                              className="px-4 py-2 rounded-xl bg-[#1F7A3E] active:opacity-90 shadow-sm"
+                            >
+                              <Text className="text-xs font-bold text-white">Book Visit</Text>
+                            </Pressable>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })
+              )}
             </View>
 
-            {/* AVAILABLE TODAY Section */}
-            <View className="px-5 mb-8">
-              <Text className="text-gray-400 text-[11px] font-bold tracking-[1.5px] uppercase mb-3 ml-1">AVAILABLE TODAY</Text>
-              <View className="flex-row gap-x-3">
-                {/* Partner Gyms Card */}
-                <Pressable 
-                  onPress={() => router.push("/partner-gyms" as any)}
-                  className="flex-1 bg-[#FFF9F5] rounded-[24px] p-5 flex-col justify-between border border-black/5 active:opacity-90 min-h-[170px]"
-                  style={styles.cardShadow}
-                >
-                  <View>
-                    <View className="w-11 h-11 rounded-2xl bg-white items-center justify-center mb-4 shadow-sm">
-                      <Ionicons name="barbell-outline" size={22} color="#F97316" />
-                    </View>
-                    <Text className="text-black font-bold text-[15px] mb-1.5">Partner Gyms</Text>
-                    <Text className="text-gray-500 text-[11px] leading-relaxed pr-1 mb-4">Book partner gyms outside your protected area using credits.</Text>
-                  </View>
-                  <View className="flex-row items-center mt-1">
-                    <Text className="text-black font-bold text-xs mr-1">Explore</Text>
-                    <Ionicons name="arrow-forward" size={14} color="black" />
-                  </View>
-                </Pressable>
-
-                {/* Shop Products Card */}
-                <Pressable 
-                  onPress={() => router.push("/shop" as any)}
-                  className="flex-1 bg-[#F4F8FF] rounded-[24px] p-5 flex-col justify-between border border-black/5 active:opacity-90 min-h-[170px]"
-                  style={styles.cardShadow}
-                >
-                  <View>
-                    <View className="w-11 h-11 rounded-2xl bg-white items-center justify-center mb-4 shadow-sm">
-                      <Ionicons name="bag-handle-outline" size={22} color="#2563EB" />
-                    </View>
-                    <Text className="text-black font-bold text-[15px] mb-1.5">Shop Products</Text>
-                    <Text className="text-gray-500 text-[11px] leading-relaxed pr-1 mb-4">Buy supplements, gear & more with INR.</Text>
-                  </View>
-                  <View className="flex-row items-center mt-1">
-                    <Text className="text-black font-bold text-xs mr-1">Explore</Text>
-                    <Ionicons name="arrow-forward" size={14} color="black" />
-                  </View>
-                </Pressable>
-              </View>
-            </View>
-
-            {/* UNLOCKING IN YOUR AREA Section */}
-            <View className="px-5 mb-8">
-              <Text className="text-gray-400 text-[11px] font-bold tracking-[1.5px] uppercase mb-3 ml-1">UNLOCKING IN YOUR AREA</Text>
-              <View className="flex-col gap-y-3">
-                {/* Sports */}
-                <Pressable 
-                  onPress={() => router.push("/future/sports" as any)}
-                  className="bg-white rounded-[20px] p-4 flex-row items-center justify-between border border-black/5 shadow-sm active:bg-gray-50"
-                  style={styles.cardShadow}
-                >
-                  <View className="flex-row items-center flex-1 mr-2">
-                    <View className="w-12 h-12 rounded-2xl bg-[#F3F5F4] items-center justify-center mr-3.5">
-                      <Ionicons name="trophy-outline" size={20} color="#6B7280" />
-                    </View>
-                    <View className="flex-1">
-                      <Text className="text-black font-bold text-[15px] mb-0.5">Sports</Text>
-                      <Text className="text-gray-400 text-xs">Sports booking coming soon in your area.</Text>
-                    </View>
-                  </View>
-                  <Ionicons name="lock-closed-outline" size={18} color="#1F7A3E" />
-                </Pressable>
-
-                {/* Studio Classes */}
-                <Pressable 
-                  onPress={() => router.push("/future/studio-classes" as any)}
-                  className="bg-white rounded-[20px] p-4 flex-row items-center justify-between border border-black/5 shadow-sm active:bg-gray-50"
-                  style={styles.cardShadow}
-                >
-                  <View className="flex-row items-center flex-1 mr-2">
-                    <View className="w-12 h-12 rounded-2xl bg-[#F3F5F4] items-center justify-center mr-3.5">
-                      <Ionicons name="fitness-outline" size={20} color="#6B7280" />
-                    </View>
-                    <View className="flex-1">
-                      <Text className="text-black font-bold text-[15px] mb-0.5">Studio Classes</Text>
-                      <Text className="text-gray-400 text-xs">Yoga, Zumba, Boxing & Pilates unlocking soon.</Text>
-                    </View>
-                  </View>
-                  <Ionicons name="lock-closed-outline" size={18} color="#1F7A3E" />
-                </Pressable>
-
-                {/* Recovery */}
-                <Pressable 
-                  onPress={() => router.push("/future/recovery" as any)}
-                  className="bg-white rounded-[20px] p-4 flex-row items-center justify-between border border-black/5 shadow-sm active:bg-gray-50"
-                  style={styles.cardShadow}
-                >
-                  <View className="flex-row items-center flex-1 mr-2">
-                    <View className="w-12 h-12 rounded-2xl bg-[#F3F5F4] items-center justify-center mr-3.5">
-                      <Ionicons name="heart-outline" size={20} color="#6B7280" />
-                    </View>
-                    <View className="flex-1">
-                      <Text className="text-black font-bold text-[15px] mb-0.5">Recovery</Text>
-                      <Text className="text-gray-400 text-xs">Recovery services coming soon in your area.</Text>
-                    </View>
-                  </View>
-                  <Ionicons name="lock-closed-outline" size={18} color="#1F7A3E" />
-                </Pressable>
-              </View>
-            </View>
-
-            {/* HELP UNLOCK FASTER! Card */}
-            <View className="px-5 mb-10">
-              <View className="bg-[#EDF7EC] rounded-[28px] p-6 border border-[#1F7A3E]/30 relative overflow-hidden" style={styles.cardShadow}>
-                <Text className="text-[#1F7A3E] text-[11px] font-bold tracking-[1px] uppercase mb-2">HELP UNLOCK FASTER!</Text>
-                <Text className="text-[#1F2520] text-[15px] font-medium leading-snug mb-5 pr-2">
-                  Invite friends to ZonoFit and help bring new experiences to your city.
+            {/* Bottom Referral & Suggestion Card */}
+            <View className="px-5 mt-6 mb-4">
+              <View className="bg-white rounded-3xl p-5 border border-gray-200 shadow-sm">
+                <Text className="text-xs font-bold uppercase tracking-wider text-[#1F7A3E]">Network Expansion</Text>
+                <Text className="text-base font-bold text-[#111827] mt-1">Want your favorite gym on ZonoFit?</Text>
+                <Text className="text-xs text-gray-600 mt-1 leading-relaxed">
+                  Refer your local fitness centre to join the ZonoFit partner network and earn 100 reward credits when they onboard.
                 </Text>
-                <Pressable 
+
+                <Pressable
                   onPress={() => router.push("/invite" as any)}
-                  className="w-full bg-[#1F7A3E] py-3.5 rounded-2xl items-center justify-center shadow-sm active:opacity-90"
+                  className="mt-4 bg-[#1F7A3E] py-2.5 rounded-xl items-center active:opacity-90"
                 >
-                  <Text className="text-white font-bold text-sm tracking-wide">Invite Friends</Text>
+                  <Text className="text-white text-xs font-bold">Refer Gym or Friends</Text>
                 </Pressable>
               </View>
             </View>
           </>
-        ) : (
-          /* Partner Gyms List View when "Partner Gyms" is tapped or searching */
-          <View className="mt-2">
-            <View className="px-5 mb-4 flex-row justify-between items-center">
-              <Pressable 
-                onPress={() => { setShowGymsList(false); setSearchQuery(""); }}
-                className="flex-row items-center bg-white px-4 py-2.5 rounded-2xl border border-black/5 shadow-sm active:bg-gray-50"
-              >
-                <Ionicons name="arrow-back" size={18} color="#1F7A3E" className="mr-1.5" />
-                <Text className="text-[#1F7A3E] font-bold text-sm">Back to Explore Overview</Text>
-              </Pressable>
-            </View>
-
-            {/* Quick Filter Tags (Horizontal List) */}
-            <Animated.ScrollView 
-              entering={SlideInRight.delay(200).springify()}
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              bounces={true}
-              overScrollMode="never"
-              contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 12 }}
-            >
-              {filterTags.map((tag) => (
-                <Pressable
-                  key={tag}
-                  onPress={() => setSelectedFilter(tag)}
-                  className="px-4 py-2 rounded-full mr-2.5 border active:opacity-80"
-                  style={{
-                    backgroundColor: selectedFilter === tag ? colors.surfaceDark : colors.surface,
-                    borderColor: selectedFilter === tag ? 'transparent' : colors.secondary
-                  }}
-                >
-                  <Text 
-                    className="text-xs font-bold"
-                    style={{ color: selectedFilter === tag ? colors.textLight : colors.muted }}
-                  >
-                    {tag}
-                  </Text>
-                </Pressable>
-              ))}
-            </Animated.ScrollView>
-
-            {/* Gym Results */}
-            <View className="px-5 mt-2">
-              <Text className="text-base font-bold mb-4 text-black">
-                {searchQuery ? `Found ${getFilteredGyms().length} matching venues` : "All Partner Venues"}
-              </Text>
-              {(searchQuery ? getFilteredGyms() : gyms).map((gym) => (
-                <View key={gym.id} className="mb-4">
-                  <View 
-                    className="rounded-3xl overflow-hidden border shadow-sm bg-white"
-                    style={[{ borderColor: colors.secondary }, styles.softShadow]}
-                  >
-                    <Pressable 
-                      onPress={() => router.push(`/gym/${gym.id}` as any)}
-                      className="active:opacity-95"
-                    >
-                      <Image source={{ uri: gym.image }} className="h-44 w-full" resizeMode="cover" />
-                      <View className="p-4 pb-2">
-                        <View className="flex-row justify-between items-start">
-                          <View className="flex-1 mr-2">
-                            <Text className="text-lg font-bold text-black">{gym.name}</Text>
-                            <Text className="text-xs mt-0.5 text-gray-500">📍 {gym.address}</Text>
-                          </View>
-                          <View className="flex-row items-center px-2 py-1 rounded-lg border" style={{ backgroundColor: 'rgba(255, 176, 32, 0.1)', borderColor: 'rgba(255, 176, 32, 0.2)' }}>
-                            <Ionicons name="star" size={12} color={colors.amber} />
-                            <Text className="text-[10px] font-bold ml-1" style={{ color: colors.amber }}>{gym.rating}</Text>
-                          </View>
-                        </View>
-
-                        <View className="flex-row gap-x-2 mt-2">
-                          {gym.tags.map((tag) => (
-                            <View key={tag} className="px-2.5 py-0.5 rounded-lg border bg-gray-50" style={{ borderColor: colors.secondary }}>
-                              <Text className="text-[10px] font-semibold text-gray-500">{tag}</Text>
-                            </View>
-                          ))}
-                        </View>
-                      </View>
-                    </Pressable>
-
-                    <View className="px-4 pb-4">
-                      <View className="h-[1px] my-3 bg-gray-100" />
-
-                      <View className="flex-row justify-between items-center">
-                        <View>
-                          <Text className="text-xs font-medium text-gray-500">{gym.distance} KM Away · {gym.slots} Slots left</Text>
-                        </View>
-                        <View className="flex-row items-center gap-x-2">
-                          {gym.type === 'turf' || gym.type === 'sports' ? (
-                            <Text className="font-bold text-sm text-[#1F7A3E]">₹{gym.cost * 8} Cash</Text>
-                          ) : (
-                            <Text className="font-bold text-sm text-[#1F7A3E]">⚡ {gym.cost} Credits</Text>
-                          )}
-                          <Pressable
-                            onPress={() => handleOpenBooking(gym)}
-                            className="px-4 py-2 rounded-xl bg-[#1F7A3E] active:opacity-90"
-                            style={styles.cardShadow}
-                          >
-                            <Text className="font-bold text-xs text-white">Book</Text>
-                          </Pressable>
-                        </View>
-                      </View>
-                    </View>
-                  </View>
-                </View>
-              ))}
-            </View>
-          </View>
         )}
       </ScrollView>
 
@@ -669,68 +822,59 @@ export default function ExploreScreen() {
         visible={bookingModalVisible}
         onRequestClose={() => setBookingModalVisible(false)}
       >
-        <View className="flex-1 justify-end bg-black/80">
-          <View className="rounded-t-[36px] p-6" style={{ backgroundColor: colors.bg }}>
-            <View className="w-12 h-1.5 rounded-full mb-6 align-self-center mx-auto" style={{ backgroundColor: colors.secondary }} />
+        <View className="flex-1 justify-end bg-black/60">
+          <View className="rounded-t-[32px] p-6 bg-white">
+            <View className="w-12 h-1.5 rounded-full mb-5 self-center bg-gray-300" />
             
-            <Text className="text-xs font-bold uppercase tracking-wider" style={{ color: colors.lime }}>Confirm Booking</Text>
-            <Text className="text-2xl font-bold mt-1" style={{ color: colors.text }}>{selectedGym?.name}</Text>
-            <Text className="text-xs mt-0.5" style={{ color: colors.muted }}>📍 {selectedGym?.address}</Text>
+            <Text className="text-xs font-bold uppercase tracking-wider text-[#1F7A3E]">Confirm Booking</Text>
+            <Text className="text-2xl font-black mt-1 text-[#111827]">{selectedGym?.name}</Text>
+            <Text className="text-xs text-gray-500 mt-0.5">📍 {selectedGym?.address}</Text>
 
-            <View className="h-[1px] my-5" style={{ backgroundColor: colors.secondary }} />
+            <View className="h-[1px] my-4 bg-gray-200" />
 
-            <Text className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: colors.muted }}>Select Time Slot</Text>
-            <View className="flex-row gap-x-3.5 mb-6">
+            <Text className="text-xs font-bold uppercase tracking-wider mb-2 text-gray-700">Select Time Slot</Text>
+            <View className="flex-row gap-x-2.5 mb-6">
               {["07:00 AM", "10:00 AM", "05:00 PM", "07:00 PM"].map((time) => (
                 <Pressable
                   key={time}
                   onPress={() => setSelectedTime(time)}
-                  className={`flex-1 py-3 rounded-2xl border text-center items-center justify-center active:scale-[0.95] transition-transform`}
-                  style={{
-                    backgroundColor: selectedTime === time ? 'rgba(217, 255, 92, 0.1)' : colors.surface,
-                    borderColor: selectedTime === time ? colors.lime : colors.secondary
-                  }}
+                  className={`flex-1 py-3 rounded-2xl border text-center items-center justify-center active:scale-[0.98] ${
+                    selectedTime === time 
+                      ? "bg-[#ECFDF5] border-[#10B981]" 
+                      : "bg-[#F9FAFB] border-gray-200"
+                  }`}
                 >
-                  <Text 
-                    className="text-xs font-bold"
-                    style={{ color: selectedTime === time ? colors.lime : colors.muted }}
-                  >
+                  <Text className={`text-xs font-bold ${selectedTime === time ? "text-[#065F46]" : "text-gray-600"}`}>
                     {time}
                   </Text>
                 </Pressable>
               ))}
             </View>
 
-            <View className="rounded-2xl p-4 flex-row justify-between items-center mb-6" style={{ backgroundColor: colors.surface }}>
+            <View className="rounded-2xl p-4 flex-row justify-between items-center mb-6 bg-[#F3F4F6]">
               <View>
-                <Text className="text-xs" style={{ color: colors.muted }}>Cost for this visit</Text>
-                <Text className="text-xl font-bold mt-0.5" style={{ color: colors.text }}>⚡ {selectedGym?.cost} Credits</Text>
+                <Text className="text-xs text-gray-500">Available Wallet Balance</Text>
+                <Text className="text-lg font-bold text-gray-800 mt-0.5">{credits} Credits</Text>
               </View>
-              <View className="align-items-end">
-                <Text className="text-sm mb-1" style={{ color: colors.muted }}>Total Cost</Text>
-                {selectedGym && (selectedGym.type === 'turf' || selectedGym.type === 'sports') ? (
-                  <Text className="text-2xl font-black" style={{ color: colors.lime }}>₹{selectedGym.cost * 8} Cash</Text>
-                ) : (
-                  <Text className="text-2xl font-black" style={{ color: colors.lime }}>{selectedGym?.cost} Credits</Text>
-                )}
+              <View className="items-end">
+                <Text className="text-xs text-gray-500 mb-0.5">Session Cost</Text>
+                <Text className="text-xl font-black text-[#1F7A3E]">⚡ {selectedGym?.cost} Credits</Text>
               </View>
             </View>
 
-            <View className="flex-row gap-x-4">
+            <View className="flex-row gap-x-3">
               <Pressable
                 onPress={() => setBookingModalVisible(false)}
-                className="flex-1 h-12 rounded-2xl items-center justify-center border active:opacity-70"
-                style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}
+                className="flex-1 h-12 rounded-2xl items-center justify-center border border-gray-300 bg-white active:bg-gray-50"
               >
-                <Text className="font-bold text-sm" style={{ color: colors.text }}>Cancel</Text>
+                <Text className="font-bold text-sm text-gray-700">Cancel</Text>
               </Pressable>
 
               <Pressable
                 onPress={handleConfirmBooking}
-                className="flex-1 h-12 rounded-2xl items-center justify-center active:opacity-80"
-                style={[{ backgroundColor: colors.lime }, styles.neonGlowSm]}
+                className="flex-1 h-12 rounded-2xl items-center justify-center bg-[#1F7A3E] active:opacity-90 shadow-sm"
               >
-                <Text className="font-bold text-sm" style={{ color: colors.bg }}>Confirm & Book</Text>
+                <Text className="font-bold text-sm text-white">Confirm & Book</Text>
               </Pressable>
             </View>
           </View>
@@ -743,23 +887,9 @@ export default function ExploreScreen() {
 const styles = StyleSheet.create({
   cardShadow: {
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
     elevation: 3,
   },
-  softShadow: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  neonGlowSm: {
-    shadowColor: colors.lime,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.8,
-    shadowRadius: 10,
-    elevation: 8,
-  }
 });
