@@ -9,15 +9,17 @@ import { useUserStore } from "@/store/useUserStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
 import { useGuestStore } from "@/store/useGuestStore";
 import { colors } from "@/constants/colors";
+import SignOutConfirmModal from "@/components/SignOutConfirmModal";
 
 export default function ProfileScreen() {
     const { user, isLoaded, signOut } = useAuthStore();
     const router = useRouter();
 
-    const { planName, membershipStatus, streak, totalWorkouts, avatarUrl, uploadAvatar, memberSince } = useUserStore();
+    const { planName, membershipStatus, streak, totalWorkouts, avatarUrl, uploadAvatar, memberSince, identityStage } = useUserStore();
     const { credits } = useCreditsStore();
     const { isGuest, getHoursRemaining, endGuestSession } = useGuestStore();
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
+    const [showSignOutModal, setShowSignOutModal] = useState(false);
 
     const pickImage = async () => {
         if (isGuest) {
@@ -49,17 +51,18 @@ export default function ProfileScreen() {
         );
     }
 
-    const onSignOutPress = async () => {
-        if (isGuest) {
-            await endGuestSession();
-            router.replace("/(auth)/create-account");
-            return;
-        }
+    const handleConfirmSignOut = async () => {
+        setShowSignOutModal(false);
         try {
-            await signOut();
-            router.replace("/(auth)/create-account");
+            if (isGuest) {
+                await endGuestSession();
+            } else {
+                await signOut();
+            }
+            router.replace("/intro" as any);
         } catch (err) {
-            console.error("Sign out error", err);
+            console.warn("Sign out handler:", err);
+            router.replace("/intro" as any);
         }
     };
 
@@ -123,7 +126,10 @@ export default function ProfileScreen() {
                             You are exploring ZonoFit with temporary guest access. Create a permanent account to unlock booking, check-ins, and credits.
                         </Text>
                         <Pressable 
-                            onPress={() => router.push("/(auth)/create-account")}
+                            onPress={async () => {
+                                await endGuestSession();
+                                router.replace("/(auth)/create-account");
+                            }}
                             className="bg-emerald-600 py-2.5 rounded-xl items-center"
                         >
                             <Text className="text-xs font-bold text-white">Create Full Account</Text>
@@ -199,7 +205,7 @@ export default function ProfileScreen() {
                     <NavRow
                         icon="timeline"
                         label="My Journey"
-                        value="Explorer Stage"
+                        value={identityStage || "New Member"}
                         onPress={() => router.push("/journey")}
                     />
                     <NavRow
@@ -323,8 +329,8 @@ export default function ProfileScreen() {
                 {/* Sign Out / Exit Guest Mode */}
                 <View className="mx-5">
                     <Pressable
-                        onPress={onSignOutPress}
-                        className="h-12 border rounded-2xl flex-row items-center justify-center gap-x-2"
+                        onPress={() => setShowSignOutModal(true)}
+                        className="h-12 border rounded-2xl flex-row items-center justify-center gap-x-2 active:opacity-80"
                         style={{ backgroundColor: 'rgba(255, 107, 107, 0.1)', borderColor: 'rgba(255, 107, 107, 0.2)' }}
                     >
                         <MaterialIcons name="logout" size={18} color={colors.coral} />
@@ -334,6 +340,13 @@ export default function ProfileScreen() {
                     </Pressable>
                 </View>
             </ScrollView>
+
+            <SignOutConfirmModal
+                visible={showSignOutModal}
+                isGuest={isGuest}
+                onConfirm={handleConfirmSignOut}
+                onCancel={() => setShowSignOutModal(false)}
+            />
         </SafeAreaView>
     );
 }

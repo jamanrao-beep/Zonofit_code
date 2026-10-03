@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, ScrollView, Pressable } from "react-native";
+import { View, Text, ScrollView, Pressable, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -38,20 +38,39 @@ export default function FeatureDetailsScreen() {
       ]
     },
     "workout-buddy": {
-      title: "Workout Buddy", icon: "people", iconBg: "bg-amber-50", iconColor: "#F59E0B",
-      status: "Coming Soon", statusBg: "bg-amber-50", statusColor: "text-amber-600",
-      launch: "Q1 2027", desc: "Find gym partners working out at the same time and place.",
-      themeColor: "#F59E0B", themeBg: "bg-[#F59E0B]", themeLightBg: "bg-amber-50",
+      title: "Workout Buddy", icon: "people", iconBg: "bg-purple-50", iconColor: "#7C3AED",
+      status: "In Development", statusBg: "bg-purple-100", statusColor: "text-purple-600",
+      launch: "Q1 2027", desc: "Find gym partners working out at the same time and place in your network.",
+      themeColor: "#7C3AED", themeBg: "bg-[#7C3AED]", themeLightBg: "bg-purple-50",
       whatsComing: [
-        { title: "Matchmaking", desc: "Find buddies with similar goals.", icon: "people-outline", iconBg: "bg-amber-50" },
-        { title: "Schedule Sync", desc: "Coordinate workout times effortlessly.", icon: "calendar-outline", iconBg: "bg-amber-50" },
-        { title: "Shared Goals", desc: "Track progress together.", icon: "trending-up-outline", iconBg: "bg-amber-50" }
+        { title: "Matchmaking by Goals", desc: "Match with gym partners who share your workout schedule.", icon: "people-outline", iconBg: "bg-purple-50" },
+        { title: "Schedule Sync", desc: "Coordinate workout times and check-in together.", icon: "calendar-outline", iconBg: "bg-purple-50" },
+        { title: "Shared Streaks", desc: "Keep each other accountable and unlock streak badges.", icon: "trending-up-outline", iconBg: "bg-purple-50" }
       ],
-      whyMatters: "Accountability is key to consistency. A workout buddy keeps you motivated.",
+      whyMatters: "Accountability is the #1 driver of fitness consistency. Training with a buddy cuts drop-off by 60%.",
       timeline: [
         { step: "Planning", status: "Completed", color: "text-green-600", dotColor: "bg-green-600", iconColor: "#10B981" },
-        { step: "Design & Research", status: "In Progress", color: "text-amber-500", dotColor: "bg-amber-500", iconColor: "#F59E0B" },
-        { step: "Development", status: "Upcoming", color: "text-gray-500", dotColor: "bg-gray-200", iconColor: "#E5E7EB" },
+        { step: "Design & Research", status: "Completed", color: "text-green-600", dotColor: "bg-green-600", iconColor: "#10B981" },
+        { step: "Development", status: "In Progress", color: "text-amber-500", dotColor: "bg-amber-500", iconColor: "#F59E0B" },
+        { step: "Testing", status: "Upcoming", color: "text-gray-500", dotColor: "bg-gray-200", iconColor: "#E5E7EB" },
+        { step: "Launch", status: "Q1 2027 (Expected)", color: "text-gray-500", dotColor: "bg-gray-200", iconColor: "#E5E7EB" }
+      ]
+    },
+    "personal-trainer": {
+      title: "Personal Trainer", icon: "barbell", iconBg: "bg-emerald-50", iconColor: "#059669",
+      status: "In Development", statusBg: "bg-emerald-100", statusColor: "text-emerald-700",
+      launch: "Q1 2027", desc: "Connect with certified, verified fitness trainers across our partner gym network.",
+      themeColor: "#059669", themeBg: "bg-[#059669]", themeLightBg: "bg-emerald-50",
+      whatsComing: [
+        { title: "Certified Network Coaches", desc: "Browse accredited trainers across partner gyms.", icon: "ribbon-outline", iconBg: "bg-emerald-50" },
+        { title: "Custom Workout Programming", desc: "Get tailored hypertrophy, strength, or fat loss plans.", icon: "clipboard-outline", iconBg: "bg-emerald-50" },
+        { title: "Flexible Session Booking", desc: "Book 1-on-1 coaching sessions using your ZonoFit credits.", icon: "calendar-outline", iconBg: "bg-emerald-50" }
+      ],
+      whyMatters: "Proper technique prevents injuries and speeds up results. Professional guidance when you need it most.",
+      timeline: [
+        { step: "Planning", status: "Completed", color: "text-green-600", dotColor: "bg-green-600", iconColor: "#10B981" },
+        { step: "Design & Research", status: "Completed", color: "text-green-600", dotColor: "bg-green-600", iconColor: "#10B981" },
+        { step: "Development", status: "In Progress", color: "text-amber-500", dotColor: "bg-amber-500", iconColor: "#F59E0B" },
         { step: "Testing", status: "Upcoming", color: "text-gray-500", dotColor: "bg-gray-200", iconColor: "#E5E7EB" },
         { step: "Launch", status: "Q1 2027 (Expected)", color: "text-gray-500", dotColor: "bg-gray-200", iconColor: "#E5E7EB" }
       ]
@@ -227,25 +246,6 @@ export default function FeatureDetailsScreen() {
         { step: "Launch", status: "Q1 2027 (Expected)", color: "text-gray-500", dotColor: "bg-gray-200", iconColor: "#E5E7EB" }
       ]
     },
-    "personal-trainer": {
-      title: "Personal Trainer", icon: "person", iconBg: "bg-orange-50", iconColor: "#EA580C",
-      status: "In Development", statusBg: "bg-orange-100", statusColor: "text-orange-600",
-      launch: "Q2 2027", desc: "Find, book, and train with certified personal trainers across our entire partner network.",
-      themeColor: "#EA580C", themeBg: "bg-[#EA580C]", themeLightBg: "bg-orange-50",
-      whatsComing: [
-        { title: "Book Trainers", desc: "Find trainers by specialty and location.", icon: "search-outline", iconBg: "bg-orange-50" },
-        { title: "1-on-1 Sessions", desc: "In-person or virtual training sessions.", icon: "people-outline", iconBg: "bg-orange-50" },
-        { title: "Training Plans", desc: "Trainers can assign workouts directly.", icon: "document-text-outline", iconBg: "bg-orange-50" }
-      ],
-      whyMatters: "Human connection and expert guidance are irreplaceable for reaching elite levels.",
-      timeline: [
-        { step: "Planning", status: "Completed", color: "text-green-600", dotColor: "bg-green-600", iconColor: "#10B981" },
-        { step: "Design & Research", status: "Completed", color: "text-green-600", dotColor: "bg-green-600", iconColor: "#10B981" },
-        { step: "Development", status: "In Progress", color: "text-amber-500", dotColor: "bg-amber-500", iconColor: "#F59E0B" },
-        { step: "Testing", status: "Upcoming", color: "text-gray-500", dotColor: "bg-gray-200", iconColor: "#E5E7EB" },
-        { step: "Launch", status: "Q2 2027 (Expected)", color: "text-gray-500", dotColor: "bg-gray-200", iconColor: "#E5E7EB" }
-      ]
-    },
     "travel-fitness": {
       title: "Travel Fitness", icon: "airplane", iconBg: "bg-indigo-50", iconColor: "#4F46E5",
       status: "Planned", statusBg: "bg-gray-100", statusColor: "text-gray-600",
@@ -380,58 +380,43 @@ export default function FeatureDetailsScreen() {
           </View>
         </View>
 
-        {/* Community Interest */}
+        {/* User Interest & Feedback (Clean, no fake counts) */}
         <View className="px-5 mb-8">
-          <Text className="text-[16px] font-bold text-black mb-2">Community Interest</Text>
-          <Text className={`${feature.statusColor} font-bold text-[12px] mb-4`}><Text className="font-black text-[13px]">{waitingString}</Text> members are waiting for this feature</Text>
-          <View className="flex-row items-center">
-            {/* Mock Avatars */}
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <View key={i} className={`w-10 h-10 rounded-full bg-gray-200 border-2 border-white items-center justify-center ${i > 1 ? '-ml-3' : ''} z-${10-i}`}>
-                <Ionicons name="person" size={20} color="#9CA3AF" />
-              </View>
-            ))}
-            <View className={`w-10 h-10 rounded-full ${feature.themeLightBg} border-2 border-white items-center justify-center -ml-3 z-0`}>
-              <Text className={`text-[10px] font-bold ${feature.statusColor}`}>+8K</Text>
+          <View className="bg-[#F9FAFB] rounded-[24px] p-5 border border-gray-200">
+            <Text className="text-[16px] font-bold text-black mb-1">Help Shape This Feature</Text>
+            <Text className="text-gray-500 text-[12px] mb-4 leading-relaxed">
+              We build ZonoFit based on real member feedback. Cast your vote or request early access so our team knows what matters to you.
+            </Text>
+            
+            <View className="flex-row gap-x-3 mb-3">
+              <Pressable 
+                onPress={handleVote}
+                className={`flex-1 ${hasVoted ? 'bg-white border-2 border-gray-300' : feature.themeBg} rounded-[14px] py-3.5 items-center justify-center flex-row active:opacity-90 shadow-sm`}
+              >
+                <Ionicons name={hasVoted ? "checkmark-circle" : "thumbs-up-outline"} size={16} color={hasVoted ? feature.iconColor : "white"} />
+                <Text className={`${hasVoted ? feature.statusColor : 'text-white'} font-bold text-[13px] ml-1.5`}>
+                  {hasVoted ? "Voted!" : "Vote to Prioritize"}
+                </Text>
+              </Pressable>
+
+              <Pressable 
+                onPress={handleNotify}
+                className={`flex-1 ${hasNotified ? 'bg-white border-2 border-gray-300' : 'bg-white border border-gray-300'} rounded-[14px] py-3.5 items-center justify-center flex-row active:bg-gray-50`}
+              >
+                <Ionicons name={hasNotified ? "checkmark-circle" : "notifications-outline"} size={16} color={hasNotified ? feature.iconColor : "#374151"} />
+                <Text className={`font-bold text-[13px] ml-1.5 ${hasNotified ? feature.statusColor : 'text-[#374151]'}`}>
+                  {hasNotified ? "Subscribed" : "Notify Me"}
+                </Text>
+              </Pressable>
             </View>
+
+            <Pressable 
+              onPress={() => Alert.alert("Share Feedback", `Tell our product team what you'd like to see in ${feature.title}. Email feedback@zonofit.com anytime!`)}
+              className="py-1 items-center justify-center"
+            >
+              <Text className="text-xs font-semibold text-gray-500">Have specific ideas? <Text className={`${feature.statusColor} font-bold`}>Share feedback</Text></Text>
+            </Pressable>
           </View>
-        </View>
-
-        {/* Help Prioritize */}
-        <View className="px-5 mb-8">
-          <Text className="text-[16px] font-bold text-black mb-2">Help Prioritize This Feature</Text>
-          <Text className="text-gray-500 text-[12px] mb-5">Your vote helps us decide what to build next.</Text>
-          
-          <Pressable 
-            onPress={handleVote}
-            className={`${hasVoted ? 'bg-white border-2 border-gray-200' : feature.themeBg} rounded-[16px] py-4 items-center justify-center flex-row mb-3 active:opacity-90 shadow-sm`}
-          >
-            <Ionicons name="thumbs-up" size={18} color={hasVoted ? feature.iconColor : "white"} />
-            <Text className={`${hasVoted ? feature.statusColor : 'text-white'} font-bold text-[15px] ml-2`}>
-              {hasVoted ? "Voted!" : `Vote for ${feature.title}`}
-            </Text>
-          </Pressable>
-          
-          <Pressable className={`border border-gray-200 ${feature.themeLightBg} rounded-[16px] py-4 items-center justify-center flex-row active:opacity-90`}>
-            <Ionicons name="chatbubble-outline" size={18} color={feature.iconColor} />
-            <Text className={`${feature.statusColor} font-bold text-[15px] ml-2`}>Share Feedback</Text>
-          </Pressable>
-        </View>
-
-        {/* Get Notified */}
-        <View className="px-5 mb-8">
-          <Text className="text-[16px] font-bold text-black mb-2">Get Notified</Text>
-          <Text className="text-gray-500 text-[12px] mb-5">We'll notify you as soon as this feature is available.</Text>
-          
-          <Pressable 
-            onPress={handleNotify}
-            className={`${hasNotified ? 'bg-white border-2 border-gray-200' : feature.themeBg} rounded-[16px] py-4 items-center justify-center flex-row active:opacity-90 shadow-sm`}
-          >
-            <Ionicons name={hasNotified ? "checkmark-circle" : "notifications"} size={18} color={hasNotified ? feature.iconColor : "white"} />
-            <Text className={`${hasNotified ? feature.statusColor : 'text-white'} font-bold text-[15px] ml-2`}>
-              {hasNotified ? "Notified!" : "Notify Me"}
-            </Text>
-          </Pressable>
         </View>
 
         {/* Roadmap Timeline */}

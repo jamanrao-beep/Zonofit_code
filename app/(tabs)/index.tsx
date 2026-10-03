@@ -28,7 +28,7 @@ export default function HomeScreen() {
   const { user } = useAuthStore();
   const { avatarUrl, visitsRemaining, planName, streak, totalWorkouts, trainingHours, currentMonth, totalMonths, identityStage, progressPercentage, nextMilestone } = useUserStore();
   const { credits } = useCreditsStore();
-  const { isGuest, hoursRemaining, checkExpiry } = useGuestStore();
+  const { isGuest, hoursRemaining, checkExpiry, endGuestSession } = useGuestStore();
   const { bookingStatus, bookedGymName, bookedTime } = useBookingStore();
   const { membershipInfo } = useCreditsStore();
 
@@ -53,7 +53,10 @@ export default function HomeScreen() {
             <Text className="text-xs font-medium text-gray-500 mt-0.5">Explore gyms & find your fitness home</Text>
           </View>
           <Pressable 
-            onPress={() => router.push("/(auth)/create-account")}
+            onPress={async () => {
+              await endGuestSession();
+              router.replace("/(auth)/create-account");
+            }}
             className="bg-[#1F7A3E] px-3.5 py-2 rounded-full active:opacity-90 shadow-sm"
           >
             <Text className="text-white font-bold text-xs">Create Account</Text>
@@ -74,7 +77,10 @@ export default function HomeScreen() {
               </View>
             </View>
             <Pressable 
-              onPress={() => router.push("/(auth)/create-account")}
+              onPress={async () => {
+                await endGuestSession();
+                router.replace("/(auth)/create-account");
+              }}
               className="bg-white border border-amber-300 px-3 py-1.5 rounded-xl shadow-xs active:bg-amber-100"
             >
               <Text className="text-xs font-bold text-amber-900">Sign Up</Text>
@@ -244,10 +250,11 @@ export default function HomeScreen() {
             {avatarUrl ? (
               <Image source={{ uri: avatarUrl }} className="w-10 h-10 rounded-full bg-gray-200" />
             ) : (
-              <Image 
-                source={{ uri: "https://images.unsplash.com/photo-1599566150163-29194dcaad36?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&q=80" }} 
-                className="w-10 h-10 rounded-full bg-gray-200" 
-              />
+              <View className="w-10 h-10 rounded-full bg-[#1F7A3E]/10 border border-[#1F7A3E]/20 items-center justify-center">
+                <Text className="text-[#1F7A3E] font-extrabold text-sm">
+                  {(user?.username || user?.phone || "Z")[0].toUpperCase()}
+                </Text>
+              </View>
             )}
           </Pressable>
         </View>
@@ -272,7 +279,13 @@ export default function HomeScreen() {
                 <Ionicons name="chevron-forward" size={18} color="white" className="ml-1 mt-0.5" />
               </View>
             </View>
-            <View className="w-12 h-12 rounded-full bg-white shadow-sm" />
+            <View className="w-12 h-12 rounded-full bg-white shadow-sm items-center justify-center overflow-hidden border border-white/20">
+              <Image 
+                source={require("@/assets/Zonofit_final_logo.jpeg")} 
+                style={{ width: 44, height: 44, borderRadius: 22 }}
+                resizeMode="cover"
+              />
+            </View>
           </Pressable>
 
           <View className="flex-row justify-between items-end mb-2">
@@ -479,34 +492,34 @@ export default function HomeScreen() {
             {/* Workout Buddy Card */}
             <Pressable 
               onPress={() => router.push("/future/workout-buddy" as any)}
-              className="flex-1 bg-[#F4F0FF] rounded-[24px] p-5 active:opacity-90 flex-col justify-between"
+              className="flex-1 bg-[#F5F3FF] rounded-[24px] p-5 active:opacity-90 flex-col justify-between border border-[#DDD6FE]"
             >
               <View>
-                <View className="w-10 h-10 rounded-full bg-white items-center justify-center mb-3 shadow-sm" style={styles.iconShadow}>
-                  <Ionicons name="people-outline" size={18} color="#8B5CF6" />
+                <View className="w-10 h-10 rounded-2xl bg-[#EDE9FE] items-center justify-center mb-3 border border-[#DDD6FE]">
+                  <Ionicons name="people" size={20} color="#7C3AED" />
                 </View>
-                <Text className="text-black font-bold text-[13px] mb-1.5">Find Workout Buddy</Text>
-                <Text className="text-gray-500 text-[10px] leading-relaxed pr-2 mb-3">Find someone to stay motivated together</Text>
+                <Text className="text-[#1E1B4B] font-bold text-[14px] mb-1">Find Workout Buddy</Text>
+                <Text className="text-[#6D28D9]/80 text-[10.5px] leading-relaxed pr-1 mb-3">Partner with gym members to keep accountability</Text>
               </View>
-              <View className="bg-white self-start px-3 py-1 rounded-full shadow-sm border border-gray-100">
-                <Text className="text-gray-400 text-[9px] font-bold tracking-wide">Coming Soon</Text>
+              <View className="bg-[#EDE9FE] self-start px-2.5 py-0.5 rounded-full border border-[#DDD6FE]">
+                <Text className="text-[#6D28D9] text-[9px] font-bold tracking-wide">Coming Soon</Text>
               </View>
             </Pressable>
 
             {/* Personal Trainer Card */}
             <Pressable 
               onPress={() => router.push("/future/personal-trainer" as any)}
-              className="flex-1 bg-[#FFF4ED] rounded-[24px] p-5 active:opacity-90 flex-col justify-between"
+              className="flex-1 bg-[#ECFDF5] rounded-[24px] p-5 active:opacity-90 flex-col justify-between border border-[#A7F3D0]"
             >
               <View>
-                <View className="w-10 h-10 rounded-full bg-white items-center justify-center mb-3 shadow-sm" style={styles.iconShadow}>
-                  <Ionicons name="person-outline" size={18} color="#F97316" />
+                <View className="w-10 h-10 rounded-2xl bg-[#D1FAE5] items-center justify-center mb-3 border border-[#A7F3D0]">
+                  <Ionicons name="barbell" size={20} color="#059669" />
                 </View>
-                <Text className="text-black font-bold text-[13px] mb-1.5">Find Personal Trainer</Text>
-                <Text className="text-gray-500 text-[10px] leading-relaxed pr-2 mb-3">Connect with certified trainers near you</Text>
+                <Text className="text-[#064E3B] font-bold text-[14px] mb-1">Find Personal Trainer</Text>
+                <Text className="text-[#047857]/80 text-[10.5px] leading-relaxed pr-1 mb-3">Connect with certified coaches across network gyms</Text>
               </View>
-              <View className="bg-white self-start px-3 py-1 rounded-full shadow-sm border border-gray-100">
-                <Text className="text-gray-400 text-[9px] font-bold tracking-wide">Coming Soon</Text>
+              <View className="bg-[#D1FAE5] self-start px-2.5 py-0.5 rounded-full border border-[#A7F3D0]">
+                <Text className="text-[#047857] text-[9px] font-bold tracking-wide">Coming Soon</Text>
               </View>
             </Pressable>
           </View>
@@ -514,7 +527,7 @@ export default function HomeScreen() {
 
         {/* Motivation Quote Card */}
         <Pressable 
-          onPress={() => router.push("/challenges")}
+          onPress={() => router.push("/motivation" as any)}
           className="bg-white rounded-[24px] p-5 mb-8 border border-black/5 shadow-sm active:opacity-95" 
           style={styles.cardShadow}
         >
