@@ -162,6 +162,7 @@ export default function TopUpCreditsScreen() {
             <Pressable
               onPress={handleDecrement}
               disabled={quantity <= MIN_CREDITS}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               className={`w-14 h-14 rounded-2xl items-center justify-center ${
                 quantity <= MIN_CREDITS ? "bg-gray-200 opacity-50" : "bg-white border border-gray-200 active:bg-gray-100 shadow-sm"
               }`}
@@ -191,6 +192,7 @@ export default function TopUpCreditsScreen() {
 
             <Pressable
               onPress={handleIncrement}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               className="w-14 h-14 rounded-2xl bg-white border border-gray-200 items-center justify-center active:bg-gray-100 shadow-sm"
             >
               <Ionicons name="add" size={26} color="#111827" />
