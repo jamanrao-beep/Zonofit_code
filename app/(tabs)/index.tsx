@@ -484,42 +484,44 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Connect Section */}
+        {/* Connect Section — Colors match internal screens */}
         <View>
           <Text className="text-black text-lg font-bold mb-4 ml-1">Connect</Text>
 
           <View className="flex-row gap-x-3 mb-6">
-            {/* Workout Buddy Card */}
+            {/* Workout Buddy Card — Purple theme matching internal screen */}
             <Pressable 
               onPress={() => router.push("/future/workout-buddy" as any)}
-              className="flex-1 bg-[#F5F3FF] rounded-[24px] p-5 active:opacity-90 flex-col justify-between border border-[#DDD6FE]"
+              className="flex-1 rounded-[24px] p-5 active:opacity-90 flex-col justify-between overflow-hidden relative"
+              style={{ backgroundColor: '#F5F3FF', borderWidth: 1, borderColor: '#DDD6FE' }}
             >
               <View>
-                <View className="w-10 h-10 rounded-2xl bg-[#EDE9FE] items-center justify-center mb-3 border border-[#DDD6FE]">
-                  <Ionicons name="people" size={20} color="#7C3AED" />
+                <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: '#EDE9FE', alignItems: 'center', justifyContent: 'center', marginBottom: 12, borderWidth: 1, borderColor: '#DDD6FE' }}>
+                  <Ionicons name="people" size={22} color="#7C3AED" />
                 </View>
                 <Text className="text-[#1E1B4B] font-bold text-[14px] mb-1">Find Workout Buddy</Text>
-                <Text className="text-[#6D28D9]/80 text-[10.5px] leading-relaxed pr-1 mb-3">Partner with gym members to keep accountability</Text>
+                <Text style={{ color: 'rgba(109,40,217,0.7)', fontSize: 10.5, lineHeight: 16, marginBottom: 12 }}>Partner with gym members for accountability</Text>
               </View>
-              <View className="bg-[#EDE9FE] self-start px-2.5 py-0.5 rounded-full border border-[#DDD6FE]">
-                <Text className="text-[#6D28D9] text-[9px] font-bold tracking-wide">Coming Soon</Text>
+              <View style={{ backgroundColor: '#EDE9FE', alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 12, borderWidth: 1, borderColor: '#DDD6FE' }}>
+                <Text style={{ color: '#6D28D9', fontSize: 9, fontWeight: '700', letterSpacing: 0.5 }}>Coming Soon</Text>
               </View>
             </Pressable>
 
-            {/* Personal Trainer Card */}
+            {/* Personal Trainer Card — Green theme matching internal screen */}
             <Pressable 
               onPress={() => router.push("/future/personal-trainer" as any)}
-              className="flex-1 bg-[#ECFDF5] rounded-[24px] p-5 active:opacity-90 flex-col justify-between border border-[#A7F3D0]"
+              className="flex-1 rounded-[24px] p-5 active:opacity-90 flex-col justify-between overflow-hidden relative"
+              style={{ backgroundColor: '#ECFDF5', borderWidth: 1, borderColor: '#A7F3D0' }}
             >
               <View>
-                <View className="w-10 h-10 rounded-2xl bg-[#D1FAE5] items-center justify-center mb-3 border border-[#A7F3D0]">
-                  <Ionicons name="barbell" size={20} color="#059669" />
+                <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: '#D1FAE5', alignItems: 'center', justifyContent: 'center', marginBottom: 12, borderWidth: 1, borderColor: '#A7F3D0' }}>
+                  <Ionicons name="barbell" size={22} color="#059669" />
                 </View>
                 <Text className="text-[#064E3B] font-bold text-[14px] mb-1">Find Personal Trainer</Text>
-                <Text className="text-[#047857]/80 text-[10.5px] leading-relaxed pr-1 mb-3">Connect with certified coaches across network gyms</Text>
+                <Text style={{ color: 'rgba(4,120,87,0.7)', fontSize: 10.5, lineHeight: 16, marginBottom: 12 }}>Connect with certified coaches at network gyms</Text>
               </View>
-              <View className="bg-[#D1FAE5] self-start px-2.5 py-0.5 rounded-full border border-[#A7F3D0]">
-                <Text className="text-[#047857] text-[9px] font-bold tracking-wide">Coming Soon</Text>
+              <View style={{ backgroundColor: '#D1FAE5', alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 12, borderWidth: 1, borderColor: '#A7F3D0' }}>
+                <Text style={{ color: '#047857', fontSize: 9, fontWeight: '700', letterSpacing: 0.5 }}>Coming Soon</Text>
               </View>
             </Pressable>
           </View>
@@ -542,62 +544,103 @@ export default function HomeScreen() {
           </Text>
         </Pressable>
 
-        {/* More Coming Your Way Section */}
+        {/* More Coming Your Way — Premium Glassmorphism Locked Features */}
         <View className="mb-10">
           <View className="flex-row items-center mb-4 ml-1">
-            <Ionicons name="globe-outline" size={18} color="#0B6E4F" />
+            <Ionicons name="sparkles" size={17} color="#1F7A3E" />
             <Text className="text-[#1F2520] text-[16px] font-bold ml-2">More Coming Your Way</Text>
           </View>
 
-          {/* 4 Locked Feature Grid Cards */}
-          <View className="flex-row gap-x-2.5">
-            {/* Nutrition */}
-            <Pressable 
-              onPress={() => router.push("/future/nutrition" as any)}
-              className="flex-1 bg-white rounded-2xl py-4 px-1 items-center border border-black/5 shadow-sm relative active:bg-gray-50"
-            >
-              <Ionicons name="lock-closed" size={10} color="#9CA3AF" className="absolute top-2 right-2" />
-              <View className="w-9 h-9 rounded-full bg-gray-50 items-center justify-center mb-1">
-                <Ionicons name="nutrition-outline" size={20} color="#1F2520" />
-              </View>
-              <Text className="text-[11px] font-semibold text-[#1F2520] mt-1 text-center">Nutrition</Text>
-            </Pressable>
+          {/* 2x2 Glassmorphism Locked Grid */}
+          <View className="gap-y-3">
+            <View className="flex-row gap-x-3">
+              {/* Nutrition — Warm Orange matching /future/nutrition */}
+              <Pressable 
+                onPress={() => router.push("/future/nutrition" as any)}
+                className="flex-1 rounded-[22px] overflow-hidden active:opacity-90"
+                style={styles.glassCard}
+              >
+                <View style={styles.glassCardInner}>
+                  <View style={[styles.glassIconWrap, { backgroundColor: '#FFEDD5' }]}>
+                    <Ionicons name="nutrition" size={22} color="#EA580C" />
+                  </View>
+                  <Text style={styles.glassCardTitle}>Nutrition</Text>
+                  <Text style={styles.glassCardSub}>Track meals & macros</Text>
+                </View>
+                {/* Premium Glassmorphism lock overlay */}
+                <View style={styles.glassOverlay}>
+                  <View style={styles.glassLockBadge}>
+                    <Ionicons name="lock-closed" size={11} color="#FFFFFF" />
+                    <Text style={styles.glassLockText}>Coming Soon</Text>
+                  </View>
+                </View>
+              </Pressable>
 
-            {/* AI Coach */}
-            <Pressable 
-              onPress={() => router.push("/future/ai-coach" as any)}
-              className="flex-1 bg-white rounded-2xl py-4 px-1 items-center border border-black/5 shadow-sm relative active:bg-gray-50"
-            >
-              <Ionicons name="lock-closed" size={10} color="#9CA3AF" className="absolute top-2 right-2" />
-              <View className="w-9 h-9 rounded-full bg-gray-50 items-center justify-center mb-1">
-                <Ionicons name="hardware-chip-outline" size={20} color="#1F2520" />
-              </View>
-              <Text className="text-[11px] font-semibold text-[#1F2520] mt-1 text-center">AI Coach</Text>
-            </Pressable>
+              {/* AI Coaching — Purple matching /future/ai-coach */}
+              <Pressable 
+                onPress={() => router.push("/future/ai-coach" as any)}
+                className="flex-1 rounded-[22px] overflow-hidden active:opacity-90"
+                style={styles.glassCard}
+              >
+                <View style={styles.glassCardInner}>
+                  <View style={[styles.glassIconWrap, { backgroundColor: '#EDE9FE' }]}>
+                    <Ionicons name="hardware-chip" size={22} color="#7C3AED" />
+                  </View>
+                  <Text style={styles.glassCardTitle}>AI Coaching</Text>
+                  <Text style={styles.glassCardSub}>Smart fitness guidance</Text>
+                </View>
+                <View style={styles.glassOverlay}>
+                  <View style={styles.glassLockBadge}>
+                    <Ionicons name="lock-closed" size={11} color="#FFFFFF" />
+                    <Text style={styles.glassLockText}>Coming Soon</Text>
+                  </View>
+                </View>
+              </Pressable>
+            </View>
 
-            {/* Home Workout */}
-            <Pressable 
-              onPress={() => router.push("/future/home-workout" as any)}
-              className="flex-1 bg-white rounded-2xl py-4 px-1 items-center border border-black/5 shadow-sm relative active:bg-gray-50"
-            >
-              <Ionicons name="lock-closed" size={10} color="#9CA3AF" className="absolute top-2 right-2" />
-              <View className="w-9 h-9 rounded-full bg-gray-50 items-center justify-center mb-1">
-                <Ionicons name="home-outline" size={20} color="#1F2520" />
-              </View>
-              <Text className="text-[11px] font-semibold text-[#1F2520] mt-1 text-center">Home Workout</Text>
-            </Pressable>
+            <View className="flex-row gap-x-3">
+              {/* Home Workout — Emerald matching /future/home-workout */}
+              <Pressable 
+                onPress={() => router.push("/future/home-workout" as any)}
+                className="flex-1 rounded-[22px] overflow-hidden active:opacity-90"
+                style={styles.glassCard}
+              >
+                <View style={styles.glassCardInner}>
+                  <View style={[styles.glassIconWrap, { backgroundColor: '#D1FAE5' }]}>
+                    <Ionicons name="home" size={22} color="#059669" />
+                  </View>
+                  <Text style={styles.glassCardTitle}>Home Workout</Text>
+                  <Text style={styles.glassCardSub}>Exercise at home</Text>
+                </View>
+                <View style={styles.glassOverlay}>
+                  <View style={styles.glassLockBadge}>
+                    <Ionicons name="lock-closed" size={11} color="#FFFFFF" />
+                    <Text style={styles.glassLockText}>Coming Soon</Text>
+                  </View>
+                </View>
+              </Pressable>
 
-            {/* Community */}
-            <Pressable 
-              onPress={() => router.push("/future/community" as any)}
-              className="flex-1 bg-white rounded-2xl py-4 px-1 items-center border border-black/5 shadow-sm relative active:bg-gray-50"
-            >
-              <Ionicons name="lock-closed" size={10} color="#9CA3AF" className="absolute top-2 right-2" />
-              <View className="w-9 h-9 rounded-full bg-gray-50 items-center justify-center mb-1">
-                <Ionicons name="people-outline" size={20} color="#1F2520" />
-              </View>
-              <Text className="text-[11px] font-semibold text-[#1F2520] mt-1 text-center">Community</Text>
-            </Pressable>
+              {/* Community — Blue matching /future/community */}
+              <Pressable 
+                onPress={() => router.push("/future/community" as any)}
+                className="flex-1 rounded-[22px] overflow-hidden active:opacity-90"
+                style={styles.glassCard}
+              >
+                <View style={styles.glassCardInner}>
+                  <View style={[styles.glassIconWrap, { backgroundColor: '#DBEAFE' }]}>
+                    <Ionicons name="people" size={22} color="#2563EB" />
+                  </View>
+                  <Text style={styles.glassCardTitle}>Community</Text>
+                  <Text style={styles.glassCardSub}>Connect & compete</Text>
+                </View>
+                <View style={styles.glassOverlay}>
+                  <View style={styles.glassLockBadge}>
+                    <Ionicons name="lock-closed" size={11} color="#FFFFFF" />
+                    <Text style={styles.glassLockText}>Coming Soon</Text>
+                  </View>
+                </View>
+              </Pressable>
+            </View>
           </View>
         </View>
 
@@ -620,5 +663,71 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 4,
     elevation: 2,
-  }
+  },
+  glassCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.06)",
+    position: "relative",
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  glassCardInner: {
+    padding: 16,
+    alignItems: "flex-start",
+  },
+  glassIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+  },
+  glassCardTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 2,
+  },
+  glassCardSub: {
+    fontSize: 11,
+    color: "#6B7280",
+    fontWeight: "500",
+  },
+  glassOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(255, 255, 255, 0.52)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  glassLockBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(17, 24, 39, 0.78)",
+    paddingHorizontal: 10,
+    paddingVertical: 4.5,
+    borderRadius: 16,
+    gap: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  glassLockText: {
+    color: "#FFFFFF",
+    fontSize: 10.5,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
 });

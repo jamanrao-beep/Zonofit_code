@@ -13,6 +13,7 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  RotateCcw,
 } from "lucide-react";
 
 export default function LandingPage() {
@@ -299,85 +300,157 @@ export default function LandingPage() {
         <section id="credits" className="pb-16 lg:pb-24">
           <div className="max-w-7xl mx-auto px-6 lg:px-12">
             
-            {/* Dark Forest Green Card */}
-            <div className="bg-[#142217] rounded-[36px] p-8 md:p-12 lg:p-16 text-white shadow-xl relative overflow-hidden">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
+            {/* Dark Forest Green Main Container Card */}
+            <div className="bg-[#0b160e] rounded-[36px] sm:rounded-[44px] p-8 sm:p-12 lg:p-16 text-white shadow-2xl relative overflow-hidden border border-white/5">
+              
+              {/* Header Intro */}
+              <div className="max-w-2xl mb-12 sm:mb-14">
+                <span className="text-xs sm:text-[13px] font-black tracking-widest text-[#9ecc3b] uppercase mb-4 block">
+                  A BROADER FITNESS ECOSYSTEM
+                </span>
+
+                <h2 className="text-3xl sm:text-5xl lg:text-[56px] font-extrabold text-white tracking-tight leading-[1.08] mb-5">
+                  Unused value, ready<br />for your next move.
+                </h2>
+
+                <p className="text-base sm:text-lg text-gray-300 leading-relaxed mb-8 max-w-xl font-normal">
+                  Eligible credits can help you explore participating fitness experiences beyond your primary gym—from a different workout to recovery and products.
+                </p>
+
+                <Link
+                  href="#credits"
+                  className="inline-flex items-center gap-2 bg-[#9ecc3b] hover:bg-[#8fc030] text-[#0b160e] font-bold text-base px-7 py-3.5 rounded-full transition-all shadow-sm hover:shadow group w-fit"
+                >
+                  <span>Understand credits</span>
+                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                </Link>
+              </div>
+
+              {/* Featured Card: Repurchase Your Gym Membership with Credits */}
+              <div className="bg-[#122316] rounded-[28px] sm:rounded-3xl p-7 sm:p-10 border border-white/5 shadow-xl mb-6 relative overflow-hidden">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
+                  
+                  {/* Left Column */}
+                  <div className="lg:col-span-7 flex flex-col items-start">
+                    <div className="mb-4">
+                      <RotateCcw className="w-8 h-8 text-[#9ecc3b] stroke-[2.2]" />
+                    </div>
+
+                    <h3 className="text-2xl sm:text-3xl lg:text-[36px] font-extrabold text-white leading-[1.15] mb-4 tracking-tight">
+                      Repurchase Your<br />
+                      <span className="text-[#9ecc3b]">Gym Membership</span><br />
+                      with Credits
+                    </h3>
+
+                    <p className="text-sm sm:text-base text-gray-300 leading-relaxed max-w-md font-normal">
+                      Already a member? Use your ZonoFit credits to renew your existing gym membership — quickly, easily, and flexibly.
+                    </p>
+                  </div>
+
+                  {/* Right Column: Floating Gym Membership Card Mockup */}
+                  <div className="lg:col-span-5 flex justify-center lg:justify-end relative">
+                    {/* Concentric Green Orbital Rings behind the card badge */}
+                    <div className="absolute -top-10 -right-6 w-44 h-44 pointer-events-none opacity-40 hidden sm:block">
+                      <div className="absolute inset-0 rounded-full border border-[#9ecc3b]" />
+                      <div className="absolute inset-4 rounded-full border border-[#9ecc3b]/70" />
+                      <div className="absolute inset-8 rounded-full border border-[#9ecc3b]/40" />
+                    </div>
+
+                    {/* Card container with slight tilt */}
+                    <div className="w-full max-w-[310px] sm:max-w-[330px] bg-white rounded-[24px] overflow-hidden shadow-2xl relative border border-white/20 transform md:-rotate-2 hover:rotate-0 transition-transform duration-300">
+                      
+                      {/* Floating Reload Badge on Top-Right */}
+                      <div className="absolute top-3.5 right-3.5 w-11 h-11 rounded-full bg-[#9ecc3b] flex items-center justify-center shadow-lg text-[#0b160e] z-20">
+                        <RotateCcw className="w-5 h-5 text-[#0b160e] stroke-[2.5]" />
+                      </div>
+
+                      {/* Gym Photo */}
+                      <div className="h-40 w-full relative overflow-hidden bg-gray-950">
+                        <img 
+                          src="/gym-membership.jpg" 
+                          alt="Gym Membership" 
+                          className="w-full h-full object-cover" 
+                        />
+                      </div>
+
+                      {/* White Info Box */}
+                      <div className="p-5 bg-white">
+                        <div className="w-8 h-8 rounded-lg bg-[#edf7ec] flex items-center justify-center text-[#206815] mb-3">
+                          <Dumbbell className="w-4 h-4 text-[#206815]" />
+                        </div>
+                        <h4 className="text-base font-extrabold text-gray-950">
+                          Gym Membership
+                        </h4>
+                        <p className="text-xs text-gray-500 font-medium mt-0.5">
+                          Your favourite gym
+                        </p>
+
+                        {/* Pricing Strip */}
+                        <div className="bg-[#f5f9f4] rounded-xl p-3.5 mt-3.5 border border-gray-100/90 flex flex-col gap-1.5">
+                          <span className="text-sm font-extrabold text-gray-950">
+                            ₹2,500 <span className="text-xs font-semibold text-gray-500">/ month</span>
+                          </span>
+                          <span className="text-xs font-bold text-[#206815] flex items-center gap-1.5">
+                            <span className="inline-block w-4 h-4 rounded-full bg-[#9ecc3b] text-[9px] text-[#0b160e] font-black leading-none text-center pt-[2px]">C</span>
+                            2,500 credits
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              {/* 4 Category Cards Grid (2x2 Layout matching screenshot) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 
-                {/* Left Column */}
-                <div className="lg:col-span-6 flex flex-col items-start">
-                  <span className="text-xs font-black tracking-widest text-[#a3dc43] uppercase mb-4 block">
-                    A BROADER FITNESS ECOSYSTEM
-                  </span>
-
-                  <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-[1.12] mb-5">
-                    Unused value, ready<br className="hidden sm:inline" /> for your next move.
-                  </h2>
-
-                  <p className="text-sm sm:text-base text-gray-300 leading-relaxed mb-8 max-w-md">
-                    Eligible credits can help you explore participating fitness experiences beyond your primary gym—from a different workout to recovery and products.
+                {/* 1. Sports (Top-Left) */}
+                <div className="bg-[#122316] rounded-2xl p-6 sm:p-7 border border-white/5 hover:border-white/10 transition-colors flex flex-col justify-start">
+                  <Trophy className="w-7 h-7 text-[#9ecc3b] mb-4 stroke-[1.8]" />
+                  <h4 className="text-xl font-bold text-white mb-1.5">
+                    Sports
+                  </h4>
+                  <p className="text-sm text-gray-400 font-medium">
+                    Eligible sports experiences
                   </p>
-
-                  <Link
-                    href="#credits"
-                    className="inline-flex items-center gap-2 bg-[#94ca3d] hover:bg-[#86ba33] text-gray-950 font-extrabold text-sm px-6 py-3.5 rounded-full transition-all shadow-sm group"
-                  >
-                    <span>Understand credits</span>
-                    <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                  </Link>
                 </div>
 
-                {/* Right Column: 2x2 Grid */}
-                <div className="lg:col-span-6">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    
-                    {/* 1. Sports */}
-                    <div className="bg-[#1e2d21] rounded-2xl p-6 border border-white/5 flex flex-col justify-start">
-                      <Trophy className="w-6 h-6 text-[#a3dc43] mb-4" />
-                      <h4 className="text-lg font-bold text-white mb-1">
-                        Sports
-                      </h4>
-                      <p className="text-xs text-gray-400 font-medium">
-                        Eligible sports experiences
-                      </p>
-                    </div>
+                {/* 2. Wellness (Top-Right) */}
+                <div className="bg-[#122316] rounded-2xl p-6 sm:p-7 border border-white/5 hover:border-white/10 transition-colors flex flex-col justify-start">
+                  <HeartPulse className="w-7 h-7 text-[#9ecc3b] mb-4 stroke-[1.8]" />
+                  <h4 className="text-xl font-bold text-white mb-1.5">
+                    Wellness
+                  </h4>
+                  <p className="text-sm text-gray-400 font-medium">
+                    Movement and recovery
+                  </p>
+                </div>
 
-                    {/* 2. Wellness */}
-                    <div className="bg-[#1e2d21] rounded-2xl p-6 border border-white/5 flex flex-col justify-start">
-                      <HeartPulse className="w-6 h-6 text-[#a3dc43] mb-4" />
-                      <h4 className="text-lg font-bold text-white mb-1">
-                        Wellness
-                      </h4>
-                      <p className="text-xs text-gray-400 font-medium">
-                        Movement and recovery
-                      </p>
-                    </div>
+                {/* 3. Other gyms (Bottom-Left) */}
+                <div className="bg-[#122316] rounded-2xl p-6 sm:p-7 border border-white/5 hover:border-white/10 transition-colors flex flex-col justify-start">
+                  <Building2 className="w-7 h-7 text-[#9ecc3b] mb-4 stroke-[1.8]" />
+                  <h4 className="text-xl font-bold text-white mb-1.5">
+                    Other gyms
+                  </h4>
+                  <p className="text-sm text-gray-400 font-medium">
+                    Participating locations
+                  </p>
+                </div>
 
-                    {/* 3. Other gyms */}
-                    <div className="bg-[#1e2d21] rounded-2xl p-6 border border-white/5 flex flex-col justify-start">
-                      <Building2 className="w-6 h-6 text-[#a3dc43] mb-4" />
-                      <h4 className="text-lg font-bold text-white mb-1">
-                        Other gyms
-                      </h4>
-                      <p className="text-xs text-gray-400 font-medium">
-                        Participating locations
-                      </p>
-                    </div>
-
-                    {/* 4. Products */}
-                    <div className="bg-[#1e2d21] rounded-2xl p-6 border border-white/5 flex flex-col justify-start">
-                      <Package className="w-6 h-6 text-[#a3dc43] mb-4" />
-                      <h4 className="text-lg font-bold text-white mb-1">
-                        Products
-                      </h4>
-                      <p className="text-xs text-gray-400 font-medium">
-                        Eligible fitness products
-                      </p>
-                    </div>
-
-                  </div>
+                {/* 4. Products (Bottom-Right) */}
+                <div className="bg-[#122316] rounded-2xl p-6 sm:p-7 border border-white/5 hover:border-white/10 transition-colors flex flex-col justify-start">
+                  <Package className="w-7 h-7 text-[#9ecc3b] mb-4 stroke-[1.8]" />
+                  <h4 className="text-xl font-bold text-white mb-1.5">
+                    Products
+                  </h4>
+                  <p className="text-sm text-gray-400 font-medium">
+                    Eligible fitness products
+                  </p>
                 </div>
 
               </div>
+
             </div>
 
           </div>

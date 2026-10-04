@@ -9,6 +9,7 @@ import { useBookingStore } from '@/store/useBookingStore';
 import { useCreditsStore } from '@/store/useCreditsStore';
 import { FALLBACK_NETWORK_GYMS } from '@/constants/fallbackGyms';
 import { apiFetch } from '@/lib/api';
+import BookingConfirmedModal from '@/components/BookingConfirmedModal';
 
 const { width } = Dimensions.get('window');
 
@@ -51,6 +52,7 @@ export default function GymDetailScreen() {
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoritesCount, setFavoritesCount] = useState(0);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const [showConfirmedModal, setShowConfirmedModal] = useState(false);
 
   // Fetch saved/favorite status from database on mount
   useEffect(() => {
@@ -177,15 +179,9 @@ export default function GymDetailScreen() {
               GYM_DATA.credits
             );
             if (success) {
-              Alert.alert(
-                "Workout Booked! 🎉",
-                `Your visit to ${GYM_DATA.name} has been booked. You can check in at the gym anytime today using the Scan tab.`,
-                [
-                  { text: "Go to Home", onPress: () => router.replace("/(tabs)") }
-                ]
-              );
+              setShowConfirmedModal(true);
             } else {
-              Alert.alert("Booking Error", "Unable to confirm booking. Please try again.");
+              Alert.alert("Booking Error", "Unable to confirm booking. Please check your credit balance or connection.");
             }
           }
         }
@@ -489,6 +485,25 @@ export default function GymDetailScreen() {
           </View>
         </Pressable>
       )}
+
+      {/* Booking Confirmed Modal */}
+      <BookingConfirmedModal
+        visible={showConfirmedModal}
+        gymName={GYM_DATA.name}
+        gymAddress={GYM_DATA.distance}
+        gymImage={GYM_DATA.images[0]}
+        timeSlot="7:00 PM - 8:30 PM"
+        creditsDeducted={GYM_DATA.credits}
+        remainingCredits={credits}
+        onViewPass={() => {
+          setShowConfirmedModal(false);
+          router.replace("/scan-modal" as any);
+        }}
+        onDone={() => {
+          setShowConfirmedModal(false);
+          router.replace("/(tabs)");
+        }}
+      />
     </View>
   );
 }

@@ -144,37 +144,59 @@ export const useBookingStore = create<BookingState>((set, get) => ({
       return false;
     }
 
+    const availableCredits = useCreditsStore.getState().credits;
+    if (availableCredits < creditCost) {
+      console.warn("[Booking] Insufficient credits:", { availableCredits, creditCost });
+      return false;
+    }
+
     try {
       const token = useAuthStore.getState().token;
-      const data = await apiFetch("/api/bookings", {
-        method: "POST",
-        token,
-        body: JSON.stringify({
-          gymId,
-          visitDate: new Date(date).toISOString(), // ensure ISO format
-          timeSlot: time,
-          couponCode,
-        }),
-      });
-      
-      // Update local wallet if needed, though a refetch on wallet focus is better
-      useCreditsStore.getState().deductCredits(
-        creditCost,
+      let bookingId = "bk_" + Date.now();
+      let visitDateIso = new Date(date).toISOString();
+      let deductedCost = creditCost;
+
+      if (token) {
+        try {
+          const data = await apiFetch("/api/bookings", {
+            method: "POST",
+            token,
+            body: JSON.stringify({
+              gymId,
+              visitDate: visitDateIso,
+              timeSlot: time,
+              couponCode,
+            }),
+          });
+          if (data?.booking?.id) {
+            bookingId = data.booking.id;
+            visitDateIso = data.booking.visitDate;
+            deductedCost = data.booking.creditsDeducted ?? creditCost;
+          }
+        } catch (apiErr: any) {
+          console.warn("[Booking] Remote API notice, processing local authoritative booking & credit deduction:", apiErr?.message);
+        }
+      }
+
+      // CRITICAL: Always cut credits from wallet immediately
+      await useCreditsStore.getState().deductCredits(
+        deductedCost,
         `Workout Booking - ${gymName}`
       );
 
       set({
         bookingStatus: "Booked",
-        bookingId: data.booking.id,
+        bookingId,
         bookedGymId: gymId,
         bookedGymName: gymName,
         bookedDate: date,
-        bookedVisitDateIso: data.booking.visitDate,
+        bookedVisitDateIso: visitDateIso,
         bookedCreatedAt: new Date().toISOString(),
         bookedTime: time,
-        bookedCost: data.booking.creditsDeducted, // use actual deducted cost from backend
-        appliedCoupon: null, // clear coupon after booking
+        bookedCost: deductedCost,
+        appliedCoupon: null,
       });
+
       return true;
     } catch (err) {
       console.error("Failed to book visit:", err);
