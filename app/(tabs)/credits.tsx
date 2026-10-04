@@ -49,7 +49,6 @@ export default function CreditsScreen() {
   // Additional Credits state (PRD Section 7 & 22C)
   const [purchaseQuantity, setPurchaseQuantity] = useState<number>(10);
   const [isPurchasing, setIsPurchasing] = useState<boolean>(false);
-  const [isRepurchasing, setIsRepurchasing] = useState<boolean>(false);
 
   useEffect(() => {
     if (token) {
@@ -69,10 +68,6 @@ export default function CreditsScreen() {
   const isMembershipActive = membershipInfo ? (!membershipInfo.isExpired && membershipInfo.status === "ACTIVE") : false;
   const daysRemaining = membershipInfo?.daysRemaining ?? 0;
   const gymName = membershipInfo?.gymName || "Primary Gym";
-
-  // Repurchase eligibility rules (PRD Section 11, 18, 19, 23)
-  const canRepurchase = isExpired && cycleNumber < maxCycles;
-  const isPlanCompleted = cycleNumber >= maxCycles && isExpired;
 
   // INR Wallet rules (PRD Section 13, 14, 15, 22D)
   const hasInrWallet = !!(inrWallet && inrWallet.isValid && inrWallet.balanceINR > 0);
@@ -148,63 +143,7 @@ export default function CreditsScreen() {
     );
   };
 
-  // Repurchase Membership Handler (PRD Section 11, 18, 19, 23)
-  const handleRepurchaseMembership = async () => {
-    if (!canRepurchase) {
-      if (isMembershipActive) {
-        Alert.alert(
-          "Repurchase Not Allowed",
-          "Your current membership is still active. Early repurchase is strictly disabled. If your credits are finished, please buy additional credits to continue.",
-          [{ text: "OK" }]
-        );
-      } else if (isPlanCompleted) {
-        Alert.alert(
-          "Plan Completed",
-          "You have completed all 12 membership cycles under this plan. No further repurchases are available.",
-          [{ text: "OK" }]
-        );
-      }
-      return;
-    }
 
-    // Repurchase is allowed (membership expired and cycle < 12)
-    const inrWalletDiscount = hasInrWallet ? inrWallet!.balanceINR : 0;
-    const basePlanPrice = 3999;
-    const payableAmount = Math.max(0, basePlanPrice - inrWalletDiscount);
-
-    Alert.alert(
-      `Repurchase Membership ${cycleNumber + 1} of ${maxCycles}`,
-      `Your previous cycle has expired. Repurchase next 30-day cycle for ${gymName}.\n\n` +
-      `Base Price: ₹${basePlanPrice}\n` +
-      (inrWalletDiscount > 0 ? `INR Wallet Auto-Deduction: -₹${inrWalletDiscount}\n` : "") +
-      `Amount Payable: ₹${payableAmount}`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Confirm Repurchase",
-          onPress: async () => {
-            setIsRepurchasing(true);
-            try {
-              const res = await apiFetch("/api/membership/activate", {
-                method: "POST",
-                token: token || "",
-                body: JSON.stringify({
-                  referenceId: "repurchase_" + Date.now(),
-                  amountPaidPaise: payableAmount * 100,
-                }),
-              });
-              setIsRepurchasing(false);
-              Alert.alert("Membership Activated", `Membership Cycle ${cycleNumber + 1} of 12 is now active!`);
-              if (token) fetchWallet(token);
-            } catch (err: any) {
-              setIsRepurchasing(false);
-              Alert.alert("Repurchase Failed", err.message || "Failed to repurchase membership.");
-            }
-          },
-        },
-      ]
-    );
-  };
 
   const renderTransactionRow = (item: any) => {
     const isPositive = item.type === "credit" || item.amount > 0;
@@ -468,9 +407,9 @@ export default function CreditsScreen() {
               </View>
             )}
 
-            {/* Primary Action Button */}
+            {/* Primary Action Button — Redirects to Credit Purchase Flow */}
             <Pressable
-              onPress={scrollToPurchase}
+              onPress={() => router.push("/top-up-credits" as any)}
               className="bg-white rounded-2xl py-3.5 px-4 items-center justify-center flex-row shadow-sm active:bg-gray-100"
             >
               <Ionicons name="add-circle" size={20} color="#1F7A3E" style={{ marginRight: 8 }} />
@@ -528,27 +467,31 @@ export default function CreditsScreen() {
           <View className="bg-white rounded-[26px] p-5 border border-gray-200 shadow-sm">
             <View className="flex-row justify-between items-center mb-1">
               <Text className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                Additional Credits
+                Instant Top-Up
               </Text>
-              <Text className="text-xs font-bold text-[#1F7A3E]">Whole numbers only</Text>
+              <View className="bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
+                <Text className="text-[10px] font-bold text-[#1F7A3E]">1 CR = ₹10</Text>
+              </View>
             </View>
             <Text className="text-lg font-black text-[#111827] mb-1">Buy Additional Credits</Text>
             <Text className="text-xs text-gray-500 mb-4">
-              Minimum 10 credits · Step by 1 credit (10, 11, 12, 13...)
+              Select credit quantity (minimum 10 credits)
             </Text>
 
-            {/* Stepper Control: "− 10 +" */}
+            {/* Stepper Control: Large touch targets with immediate visual updates */}
             <View className="flex-row items-center justify-between bg-gray-50 rounded-[20px] p-2.5 border border-gray-200 mb-4">
               <Pressable
                 onPress={handleDecrement}
                 disabled={purchaseQuantity <= MIN_CREDITS || !isMembershipActive}
-                className={`w-12 h-12 rounded-xl items-center justify-center ${
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                style={{ width: 56, height: 56, borderRadius: 16 }}
+                className={`items-center justify-center ${
                   purchaseQuantity <= MIN_CREDITS || !isMembershipActive
                     ? "bg-gray-200 opacity-50"
                     : "bg-white border border-gray-200 active:bg-gray-100 shadow-sm"
                 }`}
               >
-                <Ionicons name="remove" size={24} color={purchaseQuantity <= MIN_CREDITS ? "#9CA3AF" : "#111827"} />
+                <Ionicons name="remove" size={26} color={purchaseQuantity <= MIN_CREDITS ? "#9CA3AF" : "#111827"} />
               </Pressable>
 
               <View className="flex-1 items-center px-2">
@@ -559,31 +502,33 @@ export default function CreditsScreen() {
                     editable={isMembershipActive}
                     keyboardType="number-pad"
                     style={{
-                      fontSize: 30,
+                      fontSize: 32,
                       fontWeight: "900",
                       color: "#111827",
                       textAlign: "center",
-                      minWidth: 60,
+                      minWidth: 70,
                     }}
                     maxLength={4}
                   />
                   <Text className="text-base font-bold text-[#1F7A3E] ml-1">CR</Text>
                 </View>
-                <Text className="text-[10px] font-semibold text-gray-400">
-                  = ₹{formatINR(purchaseQuantity * CREDIT_PRICE_INR)}
+                <Text className="text-xs font-bold text-gray-500 mt-0.5">
+                  Total: ₹{formatINR(purchaseQuantity * CREDIT_PRICE_INR)}
                 </Text>
               </View>
 
               <Pressable
                 onPress={handleIncrement}
                 disabled={!isMembershipActive}
-                className={`w-12 h-12 rounded-xl items-center justify-center ${
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                style={{ width: 56, height: 56, borderRadius: 16 }}
+                className={`items-center justify-center ${
                   !isMembershipActive
                     ? "bg-gray-200 opacity-50"
                     : "bg-white border border-gray-200 active:bg-gray-100 shadow-sm"
                 }`}
               >
-                <Ionicons name="add" size={24} color="#111827" />
+                <Ionicons name="add" size={26} color="#111827" />
               </Pressable>
             </View>
 
@@ -596,7 +541,8 @@ export default function CreditsScreen() {
                     key={amt}
                     onPress={() => handlePresetSelect(amt)}
                     disabled={!isMembershipActive}
-                    className={`flex-1 py-2 rounded-xl items-center border ${
+                    hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                    className={`flex-1 py-2.5 rounded-xl items-center border ${
                       isSelected
                         ? "bg-[#1F7A3E] border-[#1F7A3E]"
                         : "bg-gray-50 border-gray-200 active:bg-gray-100"
@@ -610,10 +556,10 @@ export default function CreditsScreen() {
               })}
             </View>
 
-            {/* PRD Rule #9 & #24 Note */}
+            {/* Notice Note */}
             <View className="bg-gray-50 rounded-xl p-3 mb-4 border border-gray-100">
               <Text className="text-[11px] text-gray-500 leading-relaxed">
-                ℹ️ Buying additional credits does <Text className="font-bold text-gray-700">not</Text> extend membership duration or create a new cycle. Only your spendable credit balance changes.
+                ℹ️ Additional credits are added immediately to your spendable balance for any network gym visit.
               </Text>
             </View>
 
@@ -639,118 +585,6 @@ export default function CreditsScreen() {
                 </Text>
               )}
             </Pressable>
-          </View>
-        </View>
-
-        {/* ======================================================== */}
-        {/* SECTION E: MEMBERSHIP PROGRESS & REPURCHASE (PRD 4, 11, 18, 19, 22E) */}
-        {/* ======================================================== */}
-        <View className="px-5 mb-5">
-          <View className="bg-white rounded-[26px] p-5 border border-gray-200 shadow-sm">
-            <View className="flex-row justify-between items-center mb-1">
-              <Text className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                12-Membership Plan
-              </Text>
-              <Text className="text-xs font-bold text-[#1F7A3E]">
-                {cycleNumber} / {maxCycles} Used
-              </Text>
-            </View>
-            <Text className="text-base font-black text-[#111827] mb-3">
-              Membership Progress: {cycleNumber} Used · {cyclesRemaining} Remaining
-            </Text>
-
-            {/* 12-segment Cycle Tracker Grid */}
-            <View className="flex-row justify-between mb-4">
-              {Array.from({ length: maxCycles }).map((_, index) => {
-                const cycleIdx = index + 1;
-                const isCompleted = cycleIdx < cycleNumber;
-                const isCurrent = cycleIdx === cycleNumber;
-
-                return (
-                  <View key={index} className="items-center flex-1 mx-0.5">
-                    <View className={`h-2.5 w-full rounded-full ${
-                      isCompleted
-                        ? "bg-[#1F7A3E]"
-                        : isCurrent
-                        ? isMembershipActive ? "bg-[#1F7A3E]" : "bg-red-400"
-                        : "bg-gray-200"
-                    }`} />
-                    <Text className={`text-[9px] mt-1 font-bold ${
-                      isCurrent ? "text-[#1F7A3E]" : "text-gray-400"
-                    }`}>
-                      {cycleIdx}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-
-            {/* Repurchase Membership Button & Explanation (PRD Rule #11, #18, #19, #23) */}
-            <View className="pt-2 border-t border-gray-100">
-              {isMembershipActive ? (
-                // Situation: Active membership -> Repurchase STRICTLY DISABLED
-                <View>
-                  <View className="flex-row items-center mb-2">
-                    <Ionicons name="lock-closed" size={16} color="#6B7280" />
-                    <Text className="text-xs font-bold text-gray-700 ml-1.5">
-                      Repurchase Disabled (Active Membership)
-                    </Text>
-                  </View>
-                  <Text className="text-xs text-gray-500 leading-relaxed mb-3">
-                    Your current 30-day membership is active ({daysRemaining} days remaining). Early repurchase is strictly prohibited. If your credits are finished, please buy additional credits above.
-                  </Text>
-                  <Pressable
-                    disabled={true}
-                    className="h-11 rounded-xl bg-gray-100 border border-gray-200 items-center justify-center flex-row"
-                  >
-                    <Ionicons name="lock-closed-outline" size={16} color="#9CA3AF" style={{ marginRight: 6 }} />
-                    <Text className="text-gray-400 font-bold text-xs">
-                      Repurchase Available After Expiry
-                    </Text>
-                  </Pressable>
-                </View>
-              ) : isPlanCompleted ? (
-                // Situation: 12 Cycles Completed -> Plan completed
-                <View>
-                  <Text className="text-xs font-bold text-gray-700 mb-1">
-                    Plan Completed (12 of 12 Cycles)
-                  </Text>
-                  <Text className="text-xs text-gray-500 leading-relaxed">
-                    You have completed all 12 membership cycles under this plan. Thank you for your fitness commitment!
-                  </Text>
-                </View>
-              ) : (
-                // Situation: Expired + cycles remaining -> Repurchase ENABLED
-                <View>
-                  <View className="flex-row items-center mb-1">
-                    <Ionicons name="refresh-circle" size={18} color="#1F7A3E" />
-                    <Text className="text-xs font-bold text-[#1F7A3E] ml-1.5">
-                      Ready for Next Membership Cycle
-                    </Text>
-                  </View>
-                  <Text className="text-xs text-gray-500 leading-relaxed mb-3">
-                    Your previous cycle has expired. Repurchase Membership {cycleNumber + 1} of {maxCycles} for 30 days of access.
-                    {hasInrWallet ? ` Your ₹${formatINR(inrWallet?.balanceINR)} INR wallet will be auto-deducted.` : ""}
-                  </Text>
-                  <Pressable
-                    onPress={handleRepurchaseMembership}
-                    disabled={isRepurchasing}
-                    className="h-12 rounded-xl bg-[#1F7A3E] active:bg-[#165a2d] items-center justify-center flex-row shadow-sm"
-                  >
-                    {isRepurchasing ? (
-                      <ActivityIndicator size="small" color="#FFFFFF" />
-                    ) : (
-                      <>
-                        <Ionicons name="repeat" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-                        <Text className="text-white font-bold text-sm">
-                          Repurchase Membership (Cycle {cycleNumber + 1} of {maxCycles})
-                        </Text>
-                      </>
-                    )}
-                  </Pressable>
-                </View>
-              )}
-            </View>
           </View>
         </View>
 

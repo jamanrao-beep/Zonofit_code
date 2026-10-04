@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { useRef, useState } from "react";
+import React, { useRef, useState, useCallback, useEffect } from "react";
 import {
   Dimensions,
   Image,
@@ -10,220 +10,257 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+  Easing,
+} from "react-native-reanimated";
 
 const { width } = Dimensions.get("window");
 
-// Brand palette
+// Exact color palette matching the shared Lovable reference screens
 const C = {
-  green: "#68A03D",
-  greenLight: "#8CC63F",
-  greenDark: "#4B8B3B",
-  greenBg: "#EAF4DA",
+  primaryGreen: "#70B339", // Vibrant ZonoFit apple green for CTA and highlights
+  primaryGreenDark: "#5E9B2D",
+  lightGreenBg: "#F0FDF4",
+  borderGreen: "#BBF7D0",
+  textDark: "#0F172A",
+  textMuted: "#64748B",
+  cardBorder: "#E2E8F0",
+  dotInactive: "#E2E8F0",
   white: "#FFFFFF",
-  offWhite: "#F7FAF3",
-  textDark: "#1C2B16",
-  textMid: "#3A5A2A",
-  textLight: "#6B8260",
-  navy: "#1A2B4A",
-  purple: "#6B45C0",
-  amber: "#D97706",
 };
 
-interface Slide {
-  id: string;
-  emoji: string;
-  emojiSecondary?: string;
-  headline: string;
-  subheadline?: string;
-  body: string;
-  accentColor: string;
-  bgColor: string;
-  illustration: "ecosystem" | "credits" | "community" | "goals";
+// ─── Slide 1: Animated Man with Orbiting Life Categories ───────────
+function Slide1Illustration() {
+  const angle = useSharedValue(0);
+
+  useEffect(() => {
+    angle.value = withRepeat(
+      withTiming(2 * Math.PI, { duration: 6000, easing: Easing.linear }),
+      -1,
+      false
+    );
+  }, []);
+
+  // Circular motion for the central man ("make him round moving")
+  const manAnimatedStyle = useAnimatedStyle(() => {
+    const radius = 10;
+    const tx = Math.cos(angle.value) * radius;
+    const ty = Math.sin(angle.value) * radius;
+    return {
+      transform: [{ translateX: tx }, { translateY: ty }],
+    };
+  });
+
+  // Gentle floating for the orbiting life pills
+  const pillStyle1 = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: Math.cos(angle.value + Math.PI / 4) * 6 },
+      { translateY: Math.sin(angle.value + Math.PI / 4) * 6 },
+    ],
+  }));
+
+  const pillStyle2 = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: Math.cos(angle.value + (3 * Math.PI) / 4) * 6 },
+      { translateY: Math.sin(angle.value + (3 * Math.PI) / 4) * 6 },
+    ],
+  }));
+
+  const pillStyle3 = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: Math.cos(angle.value + (5 * Math.PI) / 4) * 6 },
+      { translateY: Math.sin(angle.value + (5 * Math.PI) / 4) * 6 },
+    ],
+  }));
+
+  const pillStyle4 = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: Math.cos(angle.value + (7 * Math.PI) / 4) * 6 },
+      { translateY: Math.sin(angle.value + (7 * Math.PI) / 4) * 6 },
+    ],
+  }));
+
+  return (
+    <View style={styles.illContainer}>
+      {/* Soft ambient background glow */}
+      <View style={styles.ambientGlow} />
+
+      {/* Floating Life Category Pills */}
+      <Animated.View style={[styles.floatingPill, { top: 25, left: 35 }, pillStyle1]}>
+        <Text style={styles.floatingPillText}>Work</Text>
+      </Animated.View>
+
+      <Animated.View style={[styles.floatingPill, { top: 40, right: 35 }, pillStyle2]}>
+        <Text style={styles.floatingPillText}>Study</Text>
+      </Animated.View>
+
+      <Animated.View style={[styles.floatingPill, { bottom: 45, left: 40 }, pillStyle3]}>
+        <Text style={styles.floatingPillText}>Family</Text>
+      </Animated.View>
+
+      <Animated.View style={[styles.floatingPill, { bottom: 30, right: 40 }, pillStyle4]}>
+        <Text style={styles.floatingPillText}>Travel</Text>
+      </Animated.View>
+
+      {/* Animated Man Character */}
+      <Animated.View style={[styles.manWrapper, manAnimatedStyle]}>
+        <Image
+          source={require("@/assets/images/onboarding-man.jpg")}
+          style={styles.manImage}
+          resizeMode="contain"
+        />
+      </Animated.View>
+    </View>
+  );
 }
 
-const slides: Slide[] = [
-  {
-    id: "s1",
-    emoji: "🏋️",
-    emojiSecondary: "⚡",
-    headline: "Not just a gym.",
-    subheadline: "An ecosystem.",
-    body: "ZonoFit gives you flexible gym access, rewards for consistency, and tools to actually stay on track.",
-    accentColor: C.green,
-    bgColor: "#F0F8E8",
-    illustration: "ecosystem",
-  },
-  {
-    id: "s2",
-    emoji: "💳",
-    emojiSecondary: "🔥",
-    headline: "Credits that work\nfor you.",
-    body: "Never lose value from a missed workout.\nYour plan converts to ZonoFit Credits — usable at gyms, activities, and more.",
-    accentColor: C.amber,
-    bgColor: "#FFF8ED",
-    illustration: "credits",
-  },
-  {
-    id: "s3",
-    emoji: "🤝",
-    headline: "Stay Consistent",
-    subheadline: "Fitness is better together.",
-    body: "Find workout buddies, earn rewards for streaks, and celebrate progress with a community that keeps you accountable.",
-    accentColor: C.purple,
-    bgColor: "#F5F0FF",
-    illustration: "community",
-  },
-  {
-    id: "s4",
-    emoji: "🎯",
-    headline: "Set a goal.\nTrack it. Crush it.",
-    body: "ZonoFit keeps you on timeline with visual progress, streaks, and milestone unlocks.",
-    accentColor: C.greenDark,
-    bgColor: C.offWhite,
-    illustration: "goals",
-  },
-];
+// ─── Slide 2: Traditional vs ZonoFit Comparison ───────────────────
+function Slide2Illustration() {
+  return (
+    <View style={styles.illContainer}>
+      <View style={styles.comparisonRow}>
+        {/* Left: Traditional Card */}
+        <View style={styles.tradCard}>
+          <Text style={styles.tradTitle}>TRADITIONAL</Text>
+          <View style={styles.tradGrid}>
+            {Array.from({ length: 16 }).map((_, i) => (
+              <View key={i} style={styles.tradBlock} />
+            ))}
+          </View>
+          <Text style={styles.tradBottomText}>Unused value fades away</Text>
+        </View>
 
-function EcosystemIllustration() {
-  const items = [
-    { emoji: "🏋️", label: "100+ Gyms" },
-    { emoji: "⚡", label: "Credits" },
-    { emoji: "📍", label: "Near You" },
-    { emoji: "🔥", label: "Streaks" },
-    { emoji: "🏅", label: "Badges" },
-    { emoji: "📅", label: "Booking" },
+        {/* Right: ZonoFit Card */}
+        <View style={styles.zonoCard}>
+          <Text style={styles.zonoTitle}>ZONOFIT</Text>
+          
+          {/* Top Credits Pill */}
+          <View style={styles.zonoCreditsRow}>
+            <View style={styles.zonoCreditIcon}>
+              <Text style={styles.zonoCreditIconText}>C</Text>
+            </View>
+            <Text style={styles.zonoCreditsLabel}>Credits</Text>
+          </View>
+
+          {/* Dashed connector line */}
+          <View style={styles.dashedBranch} />
+
+          {/* 4 Feature Circles */}
+          <View style={styles.zonoFeaturesGrid}>
+            <View style={styles.zonoFeatureItem}>
+              <View style={styles.zonoFeatureCircle}>
+                <Ionicons name="barbell-outline" size={16} color="#70B339" />
+              </View>
+              <Text style={styles.zonoFeatureText}>Gym</Text>
+            </View>
+
+            <View style={styles.zonoFeatureItem}>
+              <View style={styles.zonoFeatureCircle}>
+                <Ionicons name="trophy-outline" size={16} color="#70B339" />
+              </View>
+              <Text style={styles.zonoFeatureText}>Sports</Text>
+            </View>
+
+            <View style={styles.zonoFeatureItem}>
+              <View style={styles.zonoFeatureCircle}>
+                <Ionicons name="leaf-outline" size={16} color="#70B339" />
+              </View>
+              <Text style={styles.zonoFeatureText}>Wellness</Text>
+            </View>
+
+            <View style={styles.zonoFeatureItem}>
+              <View style={styles.zonoFeatureCircle}>
+                <Ionicons name="sparkles-outline" size={16} color="#70B339" />
+              </View>
+              <Text style={styles.zonoFeatureText}>Experiences</Text>
+            </View>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// ─── Slide 3: QR Check-in Phone Mockup ────────────────────────────
+function Slide3Illustration() {
+  return (
+    <View style={styles.illContainer}>
+      <View style={styles.phoneFrame}>
+        {/* Speaker notch */}
+        <View style={styles.phoneSpeaker} />
+
+        {/* Screen Content */}
+        <View style={styles.phoneInner}>
+          <View style={styles.qrIconWrap}>
+            <Ionicons name="qr-code" size={32} color="#FFFFFF" />
+          </View>
+          <Text style={styles.phoneTitle}>QR Check-in</Text>
+          <Text style={styles.phoneSubtitle}>Scan and you're in</Text>
+
+          {/* Mini phone screen dots */}
+          <View style={styles.phoneDots}>
+            <View style={styles.phoneDot} />
+            <View style={styles.phoneDotActive} />
+            <View style={styles.phoneDot} />
+            <View style={styles.phoneDot} />
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// ─── Slide 4: Vertical Roadmap Timeline ───────────────────────────
+function Slide4Illustration() {
+  const steps = [
+    { title: "Create Account", active: true },
+    { title: "Choose Goal", active: false },
+    { title: "Choose Primary Gym", active: false },
+    { title: "Start Training", active: false },
+    { title: "Stay Consistent", active: false },
   ];
+
   return (
-    <View style={styles.illustrationContainer}>
-      <View style={[styles.illustrationCard, { backgroundColor: "#fff" }]}>
-        <View style={styles.gridWrap}>
-          {items.map((item) => (
-            <View key={item.label} style={[styles.gridItem, { backgroundColor: C.greenBg }]}>
-              <Text style={{ fontSize: 26 }}>{item.emoji}</Text>
-              <Text style={[styles.gridLabel, { color: C.textMid }]}>{item.label}</Text>
+    <View style={styles.illContainer}>
+      <View style={styles.timelineCard}>
+        {steps.map((step, idx) => (
+          <View key={step.title} style={styles.timelineRow}>
+            {/* Indicator + vertical connector */}
+            <View style={styles.indicatorCol}>
+              <View style={step.active ? styles.stepCircleActive : styles.stepCircleInactive}>
+                {step.active && <View style={styles.stepCircleInner} />}
+              </View>
+              {idx < steps.length - 1 && <View style={styles.timelineLine} />}
             </View>
-          ))}
-        </View>
+            {/* Step label */}
+            <Text style={[styles.stepText, step.active && styles.stepTextActive]}>
+              {step.title}
+            </Text>
+          </View>
+        ))}
       </View>
     </View>
   );
 }
 
-function CreditsIllustration() {
-  return (
-    <View style={styles.illustrationContainer}>
-      <View style={[styles.illustrationCard, { backgroundColor: "#fff" }]}>
-        <View style={[styles.creditsBig, { backgroundColor: "#FFF3DC", borderColor: "#FBBF24" }]}>
-          <Text style={{ fontSize: 32 }}>⚡</Text>
-          <Text style={styles.creditsCount}>420</Text>
-          <Text style={styles.creditsLabel}>ZonoFit Credits</Text>
-          <Text style={styles.creditsValue}>≈ ₹4,200 Fitness Value</Text>
-        </View>
-        <View style={styles.creditsRow}>
-          <View style={styles.creditsMini}>
-            <Text style={styles.creditsMiniVal}>🏋️ 8</Text>
-            <Text style={styles.creditsMiniLabel}>per visit</Text>
-          </View>
-          <View style={[styles.creditsMini, { backgroundColor: "#E8F5E9" }]}>
-            <Text style={styles.creditsMiniVal}>₹80</Text>
-            <Text style={styles.creditsMiniLabel}>value/visit</Text>
-          </View>
-          <View style={[styles.creditsMini, { backgroundColor: "#EDE9FE" }]}>
-            <Text style={styles.creditsMiniVal}>♾️</Text>
-            <Text style={styles.creditsMiniLabel}>no expiry</Text>
-          </View>
-        </View>
-      </View>
-    </View>
-  );
-}
-
-function CommunityIllustration() {
-  const avatars = ["👩‍💼", "👨‍💻", "🏃‍♀️", "🧘‍♂️"];
-  return (
-    <View style={styles.illustrationContainer}>
-      <View style={[styles.illustrationCard, { backgroundColor: "#fff" }]}>
-        {/* Streak bar */}
-        <View style={[styles.communityStreak, { backgroundColor: "#F5F0FF" }]}>
-          <Text style={{ fontSize: 24 }}>🔥</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.communityStreakTitle}>14-Day Streak</Text>
-            <View style={{ flexDirection: "row", gap: 4, marginTop: 4 }}>
-              {Array.from({ length: 7 }).map((_, i) => (
-                <View key={i} style={[styles.streakDot, { backgroundColor: i < 5 ? C.purple : "#DDD6FE" }]} />
-              ))}
-            </View>
-          </View>
-          <Text style={styles.communityStreakBadge}>🏅</Text>
-        </View>
-
-        {/* Avatars */}
-        <View style={styles.communityAvatarRow}>
-          {avatars.map((a, i) => (
-            <View key={i} style={styles.communityAvatar}>
-              <Text style={{ fontSize: 22 }}>{a}</Text>
-            </View>
-          ))}
-          <View style={[styles.communityAvatar, { backgroundColor: C.purple }]}>
-            <Text style={{ color: "white", fontSize: 10, fontWeight: "700" }}>+12</Text>
-          </View>
-        </View>
-        <Text style={styles.communityAvatarLabel}>12 friends working out this week</Text>
-      </View>
-    </View>
-  );
-}
-
-function GoalsIllustration() {
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
-  const heights = [30, 45, 55, 70, 60, 85];
-  return (
-    <View style={styles.illustrationContainer}>
-      <View style={[styles.illustrationCard, { backgroundColor: "#fff" }]}>
-        <View style={styles.goalsMilestone}>
-          <Text style={{ fontSize: 22 }}>🎯</Text>
-          <View>
-            <Text style={styles.goalsMilestoneLabel}>Next Milestone</Text>
-            <Text style={styles.goalsMilestoneValue}>50 Workouts</Text>
-          </View>
-          <View style={[styles.goalsMilestoneBadge, { backgroundColor: C.greenBg }]}>
-            <Text style={{ color: C.green, fontSize: 11, fontWeight: "700" }}>0 / 50</Text>
-          </View>
-        </View>
-
-        {/* Bar chart */}
-        <View style={styles.goalsChart}>
-          {months.map((m, i) => (
-            <View key={m} style={styles.goalsBar}>
-              <View style={[styles.goalsBarFill, { height: heights[i], backgroundColor: i === 5 ? C.greenLight : "#C8E6A8" }]} />
-              <Text style={styles.goalsBarLabel}>{m}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
-    </View>
-  );
-}
-
-const ILLUSTRATIONS: Record<Slide["illustration"], React.ComponentType> = {
-  ecosystem: EcosystemIllustration,
-  credits: CreditsIllustration,
-  community: CommunityIllustration,
-  goals: GoalsIllustration,
-};
-
+// ─── Main Onboarding Screen ───────────────────────────────────────
 export default function IntroScreen() {
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
-  const isLast = activeIndex === slides.length - 1;
+  const isLast = activeIndex === 3;
 
-  const handleFinish = () => {
+  const handleFinish = useCallback(() => {
     router.replace("/(auth)/create-account");
-  };
+  }, [router]);
 
-  const goToNext = () => {
+  const goToNext = useCallback(() => {
     if (isLast) {
       handleFinish();
       return;
@@ -231,40 +268,19 @@ export default function IntroScreen() {
     const nextIndex = activeIndex + 1;
     scrollRef.current?.scrollTo({ x: nextIndex * width, animated: true });
     setActiveIndex(nextIndex);
-  };
+  }, [isLast, activeIndex, handleFinish]);
 
-  const onScroll = (e: any) => {
+  const onScroll = useCallback((e: any) => {
     const x = e.nativeEvent.contentOffset.x;
     const index = Math.round(x / width);
-    setActiveIndex(index);
-  };
-
-  const currentSlide = slides[activeIndex];
-  const Illustration = ILLUSTRATIONS[currentSlide.illustration];
+    if (index >= 0 && index <= 3) {
+      setActiveIndex(index);
+    }
+  }, []);
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: currentSlide.bgColor }]} edges={["top", "bottom"]}>
-      {/* Skip button — top right */}
-      {!isLast && (
-        <Pressable
-          onPress={handleFinish}
-          style={styles.skipBtn}
-        >
-          <Text style={styles.skipText}>Skip</Text>
-        </Pressable>
-      )}
-
-      {/* ZonoFit wordmark — top left */}
-      <View style={styles.wordmark}>
-        <Image
-          source={require("@/assets/Zonofit_final_logo.jpeg")}
-          style={styles.wordmarkLogo}
-          resizeMode="contain"
-        />
-        <Text style={styles.wordmarkText}>ZonoFit</Text>
-      </View>
-
-      {/* Slide carousel — horizontal scroll */}
+    <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
+      {/* Slide Carousel */}
       <ScrollView
         ref={scrollRef}
         horizontal
@@ -274,366 +290,522 @@ export default function IntroScreen() {
         scrollEventThrottle={16}
         style={{ flex: 1 }}
       >
-        {slides.map((slide) => {
-          const IllComp = ILLUSTRATIONS[slide.illustration];
-          return (
-            <View key={slide.id} style={[styles.slide, { width }]}>
-              {/* Illustration area */}
-              <IllComp />
-
-              {/* Text content */}
-              <View style={styles.textBlock}>
-                {/* Headline */}
-                <Text style={styles.headline}>{slide.headline}</Text>
-                {slide.subheadline ? (
-                  <Text style={[styles.subheadline, { color: slide.accentColor }]}>
-                    {slide.subheadline}
-                  </Text>
-                ) : null}
-
-                {/* Body */}
-                <Text style={styles.body}>{slide.body}</Text>
-              </View>
-            </View>
-          );
-        })}
-      </ScrollView>
-
-      {/* Bottom: dots + CTA */}
-      <View style={[styles.footer, { backgroundColor: currentSlide.bgColor }]}>
-        {/* Pagination dots */}
-        <View style={styles.dots}>
-          {slides.map((_, i) => (
-            <Pressable
-              key={i}
-              onPress={() => {
-                scrollRef.current?.scrollTo({ x: i * width, animated: true });
-                setActiveIndex(i);
-              }}
-            >
-              <View
-                style={[
-                  styles.dot,
-                  i === activeIndex
-                    ? [styles.dotActive, { backgroundColor: currentSlide.accentColor }]
-                    : styles.dotInactive,
-                ]}
-              />
-            </Pressable>
-          ))}
+        {/* ── Slide 1 ── */}
+        <View style={[styles.slide, { width }]}>
+          <Slide1Illustration />
+          <View style={styles.textBlock}>
+            <Text style={styles.headline}>Fitness should fit your life.</Text>
+            <Text style={styles.subheadline}>Not the other way around.</Text>
+          </View>
         </View>
 
-        {/* CTA button */}
+        {/* ── Slide 2 ── */}
+        <View style={[styles.slide, { width }]}>
+          <Slide2Illustration />
+          <View style={styles.textBlock}>
+            <Text style={styles.headline}>
+              Stop paying for workouts{"\n"}you never use.
+            </Text>
+            <Text style={styles.subheadline}>
+              Traditional memberships reward perfect{"\n"}consistency. Life isn't perfect.
+            </Text>
+          </View>
+        </View>
+
+        {/* ── Slide 3 ── */}
+        <View style={[styles.slide, { width }]}>
+          <Slide3Illustration />
+          <View style={styles.textBlock}>
+            <Text style={styles.headline}>
+              One membership.{"\n"}Endless possibilities.
+            </Text>
+            <Text style={styles.subheadline}>
+              Book workouts, earn value and explore{"\n"}partner gyms.
+            </Text>
+
+            {/* 2x2 Feature Checkmarks */}
+            <View style={styles.checklistGrid}>
+              <View style={styles.checkItem}>
+                <Ionicons name="checkmark" size={15} color="#70B339" style={{ marginRight: 6 }} />
+                <Text style={styles.checkText}>Flexible Membership</Text>
+              </View>
+              <View style={styles.checkItem}>
+                <Ionicons name="checkmark" size={15} color="#70B339" style={{ marginRight: 6 }} />
+                <Text style={styles.checkText}>Verified Partner Gyms</Text>
+              </View>
+              <View style={styles.checkItem}>
+                <Ionicons name="checkmark" size={15} color="#70B339" style={{ marginRight: 6 }} />
+                <Text style={styles.checkText}>Seamless Booking</Text>
+              </View>
+              <View style={styles.checkItem}>
+                <Ionicons name="checkmark" size={15} color="#70B339" style={{ marginRight: 6 }} />
+                <Text style={styles.checkText}>Smart Credit Wallet</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* ── Slide 4 ── */}
+        <View style={[styles.slide, { width }]}>
+          <Slide4Illustration />
+          <View style={styles.textBlock}>
+            <Text style={styles.headline}>Ready to begin?</Text>
+            <Text style={styles.subheadline}>
+              Let's build a fitness journey that actually{"\n"}works for you.
+            </Text>
+          </View>
+        </View>
+      </ScrollView>
+
+      {/* ── Footer: Dots, Continue Button & Login Link ── */}
+      <View style={styles.footer}>
+        {/* 4 Pagination Dots */}
+        <View style={styles.dotsRow}>
+          {[0, 1, 2, 3].map((i) => {
+            const isActive = i === activeIndex;
+            return (
+              <Pressable
+                key={i}
+                onPress={() => {
+                  scrollRef.current?.scrollTo({ x: i * width, animated: true });
+                  setActiveIndex(i);
+                }}
+                hitSlop={10}
+              >
+                <View style={[styles.dot, isActive ? styles.dotActive : styles.dotInactive]} />
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {/* Continue CTA Button */}
         <Pressable
           onPress={goToNext}
           style={({ pressed }) => [
-            styles.ctaButton,
-            { backgroundColor: currentSlide.accentColor, opacity: pressed ? 0.88 : 1 },
+            styles.continueBtn,
+            { opacity: pressed ? 0.92 : 1 },
           ]}
-          accessibilityLabel={isLast ? "Let's Start" : "Next"}
         >
-          <Text style={styles.ctaText}>{isLast ? "Let's Start 🚀" : "Next →"}</Text>
+          <Text style={styles.continueBtnText}>Continue</Text>
         </Pressable>
 
-        {/* Already a member link */}
-        <Pressable
-          onPress={handleFinish}
-          style={styles.loginLink}
-        >
-          <Text style={styles.loginLinkText}>
-            Already a member?{" "}
-            <Text style={[styles.loginLinkBold, { color: currentSlide.accentColor }]}>Log In</Text>
-          </Text>
+        {/* I already have an account */}
+        <Pressable onPress={handleFinish} hitSlop={10} style={styles.accountLink}>
+          <Text style={styles.accountLinkText}>I already have an account</Text>
         </Pressable>
       </View>
     </SafeAreaView>
   );
 }
 
-const CARD_WIDTH = width - 48;
-
+// ─── Styles ───────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-  },
-  skipBtn: {
-    position: "absolute",
-    top: 56,
-    right: 20,
-    zIndex: 10,
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    backgroundColor: "rgba(0,0,0,0.06)",
-    borderRadius: 20,
-  },
-  skipText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: C.textLight,
-  },
-  wordmark: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingTop: 16,
-    paddingLeft: 24,
-    gap: 8,
-  },
-  wordmarkLogo: {
-    width: 28,
-    height: 28,
-    borderRadius: 7,
-  },
-  wordmarkText: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: C.greenDark,
-    letterSpacing: 0.5,
+    backgroundColor: C.white,
   },
   slide: {
-    alignItems: "center",
-    paddingTop: 12,
+    flex: 1,
+    paddingHorizontal: 24,
+    justifyContent: "space-between",
+    paddingTop: 20,
+    paddingBottom: 10,
   },
-  illustrationContainer: {
-    width: CARD_WIDTH,
-    alignItems: "center",
+  illContainer: {
+    height: 310,
     justifyContent: "center",
-    marginHorizontal: 24,
+    alignItems: "center",
+    position: "relative",
   },
-  illustrationCard: {
+  ambientGlow: {
+    position: "absolute",
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: "rgba(240, 253, 244, 0.7)",
+  },
+
+  // Slide 1: Animated Man
+  manWrapper: {
+    width: 170,
+    height: 230,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
+  manImage: {
     width: "100%",
-    borderRadius: 28,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 4,
+    height: "100%",
   },
-  gridWrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    justifyContent: "center",
-  },
-  gridItem: {
-    width: (CARD_WIDTH - 80) / 3,
-    paddingVertical: 14,
-    borderRadius: 16,
-    alignItems: "center",
-    gap: 6,
-  },
-  gridLabel: {
-    fontSize: 10,
-    fontWeight: "700",
-    textAlign: "center",
-  },
-  creditsBig: {
+  floatingPill: {
+    position: "absolute",
+    backgroundColor: C.white,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
     borderRadius: 20,
-    borderWidth: 1.5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.04)",
+    zIndex: 20,
+  },
+  floatingPillText: {
+    fontSize: 12.5,
+    fontWeight: "600",
+    color: "#475569",
+  },
+
+  // Slide 2: Comparison Cards
+  comparisonRow: {
+    flexDirection: "row",
+    gap: 14,
+    width: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  tradCard: {
+    flex: 1,
+    backgroundColor: C.white,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
     padding: 16,
     alignItems: "center",
-    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 1,
   },
-  creditsCount: {
-    fontSize: 40,
-    fontWeight: "900",
-    color: C.textDark,
-    marginTop: 2,
-  },
-  creditsLabel: {
-    fontSize: 13,
+  tradTitle: {
+    fontSize: 10,
     fontWeight: "700",
-    color: C.textMid,
-    marginTop: 2,
+    color: "#94A3B8",
+    letterSpacing: 0.8,
+    marginBottom: 14,
   },
-  creditsValue: {
-    fontSize: 11,
-    color: C.textLight,
-    marginTop: 2,
-  },
-  creditsRow: {
+  tradGrid: {
+    width: 112,
     flexDirection: "row",
-    gap: 8,
-  },
-  creditsMini: {
-    flex: 1,
-    backgroundColor: "#FFF3DC",
-    borderRadius: 14,
-    padding: 12,
-    alignItems: "center",
-  },
-  creditsMiniVal: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: C.textDark,
-  },
-  creditsMiniLabel: {
-    fontSize: 9,
-    color: C.textLight,
-    marginTop: 2,
-    fontWeight: "600",
-  },
-  communityStreak: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 16,
-    padding: 14,
-    gap: 12,
-  },
-  communityStreakTitle: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: C.textDark,
-  },
-  streakDot: {
-    width: 14,
-    height: 6,
-    borderRadius: 3,
-  },
-  communityStreakBadge: {
-    fontSize: 22,
-  },
-  communityAvatarRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexWrap: "wrap",
     gap: 6,
-    marginTop: 14,
     justifyContent: "center",
   },
-  communityAvatar: {
+  tradBlock: {
+    width: 22,
+    height: 22,
+    borderRadius: 5,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  tradBottomText: {
+    fontSize: 9.5,
+    color: "#94A3B8",
+    marginTop: 14,
+    textAlign: "center",
+  },
+
+  zonoCard: {
+    flex: 1,
+    backgroundColor: "#F2FBF0",
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: "#D1F2B0",
+    padding: 16,
+    alignItems: "center",
+  },
+  zonoTitle: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#4D8520",
+    letterSpacing: 0.8,
+    marginBottom: 10,
+  },
+  zonoCreditsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: C.white,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#D1F2B0",
+  },
+  zonoCreditIcon: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#70B339",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 6,
+  },
+  zonoCreditIconText: {
+    color: C.white,
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  zonoCreditsLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#1E293B",
+  },
+  dashedBranch: {
+    width: 60,
+    height: 10,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: "#A3E635",
+    borderStyle: "dashed",
+    marginVertical: 4,
+  },
+  zonoFeaturesGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    width: 120,
+    gap: 8,
+    justifyContent: "center",
+  },
+  zonoFeatureItem: {
+    alignItems: "center",
+    width: 54,
+  },
+  zonoFeatureCircle: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: "#EDE9FE",
+    backgroundColor: C.white,
+    alignItems: "center",
     justifyContent: "center",
-    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#D1F2B0",
+    marginBottom: 4,
   },
-  communityAvatarLabel: {
-    fontSize: 11,
-    color: C.textLight,
-    textAlign: "center",
-    marginTop: 8,
-    fontWeight: "500",
-  },
-  goalsMilestone: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginBottom: 16,
-  },
-  goalsMilestoneLabel: {
-    fontSize: 10,
+  zonoFeatureText: {
+    fontSize: 9,
     fontWeight: "600",
-    color: C.textLight,
-    textTransform: "uppercase",
+    color: "#334155",
   },
-  goalsMilestoneValue: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: C.textDark,
-  },
-  goalsMilestoneBadge: {
-    marginLeft: "auto",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-  },
-  goalsChart: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
-    height: 90,
-    paddingHorizontal: 8,
-  },
-  goalsBar: {
+
+  // Slide 3: Phone Mockup
+  phoneFrame: {
+    width: 175,
+    height: 245,
+    borderRadius: 36,
+    borderWidth: 3,
+    borderColor: "#F1F5F9",
+    backgroundColor: C.white,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    padding: 10,
     alignItems: "center",
+  },
+  phoneSpeaker: {
+    width: 44,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#E2E8F0",
+    marginBottom: 28,
+  },
+  phoneInner: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+  },
+  qrIconWrap: {
+    width: 60,
+    height: 60,
+    borderRadius: 18,
+    backgroundColor: "#70B339",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 14,
+  },
+  phoneTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#0F172A",
+    marginBottom: 3,
+  },
+  phoneSubtitle: {
+    fontSize: 11,
+    color: "#64748B",
+    marginBottom: 20,
+  },
+  phoneDots: {
+    flexDirection: "row",
     gap: 4,
   },
-  goalsBarFill: {
-    width: 28,
-    borderRadius: 6,
+  phoneDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#E2E8F0",
   },
-  goalsBarLabel: {
-    fontSize: 10,
-    color: C.textLight,
-    fontWeight: "600",
+  phoneDotActive: {
+    width: 14,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#70B339",
   },
-  textBlock: {
-    paddingHorizontal: 32,
-    paddingTop: 24,
+
+  checklistGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 18,
+    gap: 10,
+    justifyContent: "center",
+  },
+  checkItem: {
+    flexDirection: "row",
     alignItems: "center",
+    width: "46%",
+  },
+  checkText: {
+    fontSize: 12,
+    color: "#334155",
+    fontWeight: "500",
+  },
+
+  // Slide 4: Vertical Timeline
+  timelineCard: {
+    width: "82%",
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+  },
+  timelineRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 4,
+  },
+  indicatorCol: {
+    alignItems: "center",
+    marginRight: 16,
+    width: 22,
+  },
+  stepCircleActive: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2.5,
+    borderColor: "#70B339",
+    backgroundColor: C.white,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stepCircleInner: {
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    backgroundColor: "#70B339",
+  },
+  stepCircleInactive: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: "#C5E6A3",
+    backgroundColor: C.white,
+  },
+  timelineLine: {
+    width: 1.5,
+    height: 24,
+    backgroundColor: "#E2F0D5",
+    marginVertical: 2,
+  },
+  stepText: {
+    fontSize: 14.5,
+    fontWeight: "600",
+    color: "#64748B",
+    marginTop: 0,
+  },
+  stepTextActive: {
+    color: "#0F172A",
+    fontWeight: "700",
+  },
+
+  // Typography
+  textBlock: {
+    alignItems: "center",
+    paddingHorizontal: 12,
+    marginTop: 10,
   },
   headline: {
-    fontSize: 28,
-    fontWeight: "900",
-    color: C.textDark,
+    fontSize: 27,
+    fontWeight: "800",
+    color: "#0F172A",
     textAlign: "center",
+    letterSpacing: -0.4,
     lineHeight: 34,
-    letterSpacing: -0.5,
+    marginBottom: 8,
   },
   subheadline: {
-    fontSize: 18,
-    fontWeight: "700",
-    marginTop: 4,
-    textAlign: "center",
-  },
-  body: {
     fontSize: 14,
-    color: C.textLight,
+    fontWeight: "400",
+    color: "#64748B",
     textAlign: "center",
     lineHeight: 21,
-    marginTop: 10,
-    fontWeight: "400",
   },
+
+  // Footer & Buttons
   footer: {
     paddingHorizontal: 24,
-    paddingBottom: 24,
-    paddingTop: 12,
-    gap: 12,
-  },
-  dots: {
-    flexDirection: "row",
-    justifyContent: "center",
+    paddingBottom: 16,
+    paddingTop: 10,
     alignItems: "center",
+  },
+  dotsRow: {
+    flexDirection: "row",
     gap: 6,
+    alignItems: "center",
+    marginBottom: 20,
   },
   dot: {
-    height: 8,
-    borderRadius: 4,
+    height: 6,
+    borderRadius: 3,
   },
   dotActive: {
     width: 24,
+    backgroundColor: "#70B339",
   },
   dotInactive: {
-    width: 8,
-    backgroundColor: "rgba(0,0,0,0.15)",
+    width: 6,
+    backgroundColor: "#E2E8F0",
   },
-  ctaButton: {
+  continueBtn: {
+    width: "100%",
     height: 52,
-    borderRadius: 16,
+    borderRadius: 26,
+    backgroundColor: "#70B339",
+    alignItems: "center",
     justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
+    shadowColor: "#70B339",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 4,
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  ctaText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "800",
-    letterSpacing: 0.3,
+  continueBtnText: {
+    fontSize: 15.5,
+    fontWeight: "700",
+    color: C.white,
+    letterSpacing: 0.2,
   },
-  loginLink: {
-    alignItems: "center",
+  accountLink: {
+    marginTop: 14,
     paddingVertical: 4,
   },
-  loginLinkText: {
+  accountLinkText: {
     fontSize: 13,
-    color: C.textLight,
-  },
-  loginLinkBold: {
-    fontWeight: "700",
+    fontWeight: "500",
+    color: "#64748B",
   },
 });
