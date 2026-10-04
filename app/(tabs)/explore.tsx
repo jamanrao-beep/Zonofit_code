@@ -19,9 +19,8 @@ import { useCreditsStore } from "@/store/useCreditsStore";
 import { apiFetch } from "@/lib/api";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useGuestStore } from "@/store/useGuestStore";
-import { colors } from "@/constants/colors";
 import { FALLBACK_NETWORK_GYMS } from "@/constants/fallbackGyms";
-import Animated, { FadeInDown, SlideInRight } from "react-native-reanimated";
+import BookingConfirmedModal from "@/components/BookingConfirmedModal";
 
 export interface Gym {
   id: string;
@@ -45,6 +44,8 @@ export interface Gym {
   openStatus?: string;
 }
 
+const GYMS_PER_PAGE = 5;
+
 export default function ExploreScreen() {
   const router = useRouter();
   const { bookVisit, bookingStatus } = useBookingStore();
@@ -55,14 +56,22 @@ export default function ExploreScreen() {
   const [gyms, setGyms] = useState<Gym[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeFilter, setActiveFilter] = useState<string>("All");
-  const [sortBy, setSortBy] = useState<"distance" | "rating" | "cost">("distance");
+  const [currentPage, setCurrentPage] = useState(0);
   const [favoriteGymIds, setFavoriteGymIds] = useState<Set<string>>(new Set());
 
   // Booking modal state
   const [selectedGym, setSelectedGym] = useState<Gym | null>(null);
   const [selectedTime, setSelectedTime] = useState("07:00 PM");
   const [bookingModalVisible, setBookingModalVisible] = useState(false);
+  const [confirmedModalVisible, setConfirmedModalVisible] = useState(false);
+  const [confirmedBookingData, setConfirmedBookingData] = useState<{
+    gymName: string;
+    gymAddress?: string;
+    gymImage?: string;
+    timeSlot: string;
+    creditsDeducted: number;
+    remainingCredits: number;
+  } | null>(null);
 
   // Load gyms & favorites on mount
   useEffect(() => {
@@ -90,7 +99,7 @@ export default function ExploreScreen() {
             isNearPrimary: false,
             isVerified: true,
             reviewCount: 95 + (index * 23),
-            openStatus: "Open Now • Closes 10:00 PM"
+            openStatus: "Open Now"
           }));
           setGyms(formattedGyms);
         } else {
@@ -98,7 +107,7 @@ export default function ExploreScreen() {
             ...g,
             isVerified: true,
             reviewCount: 80 + idx * 35,
-            openStatus: "Open Now • Closes 10:00 PM"
+            openStatus: "Open Now"
           })));
         }
       } catch (e: any) {
@@ -106,7 +115,7 @@ export default function ExploreScreen() {
           ...g,
           isVerified: true,
           reviewCount: 80 + idx * 35,
-          openStatus: "Open Now • Closes 10:00 PM"
+          openStatus: "Open Now"
         })));
       } finally {
         if (isMounted) setIsLoading(false);
@@ -134,6 +143,11 @@ export default function ExploreScreen() {
       isMounted = false;
     };
   }, [token, isGuest]);
+
+  // Reset page when search changes
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [searchQuery]);
 
   const handleToggleFavorite = async (gymId: string) => {
     if (isGuest) {
@@ -246,159 +260,179 @@ export default function ExploreScreen() {
     }
 
     if (success) {
+      const remaining = useCreditsStore.getState().credits;
+      setConfirmedBookingData({
+        gymName: selectedGym.name,
+        gymAddress: selectedGym.address,
+        gymImage: selectedGym.image,
+        timeSlot: selectedTime,
+        creditsDeducted: selectedGym.cost,
+        remainingCredits: remaining,
+      });
       setBookingModalVisible(false);
-      Alert.alert(
-        "Booking Confirmed!", 
-        `Successfully booked a session at ${selectedGym.name} for ${selectedTime}. Show your QR pass upon arrival.`
-      );
+      setConfirmedModalVisible(true);
     } else {
-      Alert.alert("Error", "Failed to confirm booking. Check your balance.");
+      Alert.alert("Booking Error", "Unable to confirm booking. Please check your credit balance or network connection.");
     }
   };
 
-  // Filter and sort gyms
+  // Filter gyms based on search
   const filteredGyms = useMemo(() => {
-    let result = gyms.filter((gym) => {
-      const q = searchQuery.toLowerCase().trim();
-      const matchesSearch = !q || 
-        gym.name.toLowerCase().includes(q) ||
-        gym.address.toLowerCase().includes(q) ||
-        gym.tags.some(t => t.toLowerCase().includes(q));
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return gyms;
+    return gyms.filter((gym) =>
+      gym.name.toLowerCase().includes(q) ||
+      gym.address.toLowerCase().includes(q) ||
+      gym.tags.some(t => t.toLowerCase().includes(q))
+    );
+  }, [gyms, searchQuery]);
 
-      if (!matchesSearch) return false;
+  // Pagination
+  const totalPages = Math.ceil(filteredGyms.length / GYMS_PER_PAGE);
+  const paginatedGyms = useMemo(() => {
+    const start = currentPage * GYMS_PER_PAGE;
+    return filteredGyms.slice(start, start + GYMS_PER_PAGE);
+  }, [filteredGyms, currentPage]);
 
-      if (activeFilter === "Top Rated") return gym.rating >= 4.8;
-      if (activeFilter === "Open Now") return true;
-      if (activeFilter === "Best Value") return gym.isBestValue || gym.cost <= 6;
-      if (activeFilter === "Ambience") return gym.isPremium || gym.rating >= 4.8;
-      if (activeFilter === "Turf & Sports") return gym.type === "turf" || gym.type === "sports";
-
-      return true;
-    });
-
-    if (sortBy === "distance") {
-      result = [...result].sort((a, b) => a.distance - b.distance);
-    } else if (sortBy === "rating") {
-      result = [...result].sort((a, b) => b.rating - a.rating);
-    } else if (sortBy === "cost") {
-      result = [...result].sort((a, b) => a.cost - b.cost);
+  const goToNextPage = () => {
+    if (currentPage < totalPages - 1) {
+      setCurrentPage(prev => prev + 1);
     }
-
-    return result;
-  }, [gyms, searchQuery, activeFilter, sortBy]);
-
-  // Curated collections for the discovery sections
-  const topAmbienceGyms = useMemo(() => {
-    return gyms.filter(g => g.isPremium || g.rating >= 4.8);
-  }, [gyms]);
-
-  const closestGyms = useMemo(() => {
-    return [...gyms].sort((a, b) => a.distance - b.distance).slice(0, 5);
-  }, [gyms]);
-
-  const bestValueGyms = useMemo(() => {
-    return gyms.filter(g => g.isBestValue || g.cost <= 6);
-  }, [gyms]);
-
-  const cycleSort = () => {
-    if (sortBy === "distance") setSortBy("rating");
-    else if (sortBy === "rating") setSortBy("cost");
-    else setSortBy("distance");
   };
 
-  const isBrowsingAll = searchQuery === "" && activeFilter === "All";
+  const goToPrevPage = () => {
+    if (currentPage > 0) {
+      setCurrentPage(prev => prev - 1);
+    }
+  };
+
+  // ─── Gym Card Component ───
+  const renderGymCard = (gym: Gym) => {
+    const isFav = favoriteGymIds.has(gym.id);
+    return (
+      <Pressable
+        key={gym.id}
+        onPress={() => router.push(`/gym/${gym.id}` as any)}
+        style={[styles.gymCard]}
+      >
+        {/* Gym Image */}
+        <View style={styles.gymImageWrap}>
+          <Image 
+            source={{ uri: gym.image }} 
+            style={styles.gymImage}
+            resizeMode="cover" 
+          />
+          {/* Verified Badge */}
+          <View style={styles.verifiedBadge}>
+            <Ionicons name="checkmark-circle" size={12} color="#FFFFFF" />
+            <Text style={styles.verifiedText}>ZonoFit Partner</Text>
+          </View>
+          {/* Favorite Button */}
+          <Pressable 
+            onPress={(e) => {
+              e.stopPropagation();
+              handleToggleFavorite(gym.id);
+            }}
+            hitSlop={10}
+            style={styles.favButton}
+          >
+            <Ionicons 
+              name={isFav ? "heart" : "heart-outline"} 
+              size={18} 
+              color={isFav ? "#EF4444" : "#111827"} 
+            />
+          </Pressable>
+        </View>
+
+        {/* Card Content */}
+        <View style={styles.gymContent}>
+          <View style={styles.gymHeader}>
+            <Text style={styles.gymName} numberOfLines={1}>{gym.name}</Text>
+            <View style={styles.ratingBadge}>
+              <Ionicons name="star" size={12} color="#F59E0B" />
+              <Text style={styles.ratingText}>{gym.rating.toFixed(1)}</Text>
+            </View>
+          </View>
+
+          <View style={styles.gymLocation}>
+            <Ionicons name="location-outline" size={13} color="#6B7280" />
+            <Text style={styles.gymAddress} numberOfLines={1}>{gym.address}</Text>
+          </View>
+
+          {/* Tags */}
+          <View style={styles.tagRow}>
+            {gym.tags.slice(0, 3).map((tag) => (
+              <View key={tag} style={styles.tag}>
+                <Text style={styles.tagText}>{tag}</Text>
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.divider} />
+
+          {/* Cost & Action Row */}
+          <View style={styles.actionRow}>
+            <View>
+              <Text style={styles.costLabel}>VISIT COST</Text>
+              <Text style={styles.costValue}>⚡ {gym.cost} Credits</Text>
+            </View>
+            <View style={styles.actionButtons}>
+              <Pressable
+                onPress={() => router.push(`/gym/${gym.id}` as any)}
+                style={styles.detailsBtn}
+              >
+                <Text style={styles.detailsBtnText}>View Gym</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => handleOpenBooking(gym)}
+                style={styles.bookBtn}
+              >
+                <Text style={styles.bookBtnText}>Book Visit</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Pressable>
+    );
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB" }} edges={["top"]}>
-      {/* Top Header */}
-      <View className="px-5 pt-3 pb-3 bg-white border-b border-gray-100 flex-row justify-between items-center">
+      {/* Header */}
+      <View style={styles.header}>
         <View>
-          <View className="flex-row items-center">
-            <Ionicons name="location" size={14} color="#1F7A3E" />
-            <Text className="text-[12px] font-bold text-[#1F7A3E] ml-1 uppercase tracking-wider">
-              Bengaluru • Within 5 KM
-            </Text>
-          </View>
-          <Text className="text-[24px] font-extrabold text-[#111827] tracking-tight mt-0.5">
-            Fitness Centres
+          <Text style={styles.headerTitle}>All Partner Gym Centres</Text>
+          <Text style={styles.headerSubtitle}>
+            {filteredGyms.length} ZonoFit partner {filteredGyms.length === 1 ? "gym" : "gyms"} available
           </Text>
         </View>
-
         <Pressable 
           onPress={() => router.push("/notifications" as any)}
-          className="w-10 h-10 rounded-full border border-gray-200 items-center justify-center relative bg-white active:bg-gray-100 shadow-sm"
+          style={styles.notifBtn}
         >
           <Ionicons name="notifications-outline" size={20} color="#111827" />
-          <View className="absolute top-2 right-2.5 w-2 h-2 rounded-full bg-orange-500 border border-white" />
+          <View style={styles.notifDot} />
         </Pressable>
       </View>
 
-      {/* Search Input Bar */}
-      <View className="px-5 py-3 bg-white border-b border-gray-100">
-        <View className="flex-row items-center bg-[#F3F4F6] rounded-2xl px-3.5 h-12 border border-gray-200">
+      {/* Search Bar */}
+      <View style={styles.searchWrap}>
+        <View style={styles.searchBar}>
           <Ionicons name="search" size={18} color="#6B7280" />
           <TextInput
             placeholder="Search gym, area, or facility..."
             placeholderTextColor="#9CA3AF"
             value={searchQuery}
             onChangeText={setSearchQuery}
-            className="flex-1 ml-2.5 text-sm font-medium text-[#111827]"
+            style={styles.searchInput}
             returnKeyType="search"
           />
           {searchQuery.length > 0 && (
-            <Pressable onPress={() => setSearchQuery("")} hitSlop={10} className="p-1">
+            <Pressable onPress={() => setSearchQuery("")} hitSlop={10} style={{ padding: 4 }}>
               <Ionicons name="close-circle" size={18} color="#9CA3AF" />
             </Pressable>
           )}
         </View>
-      </View>
-
-      {/* Quick Filter Chips (Google local style) */}
-      <View className="bg-white py-2.5 border-b border-gray-100">
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }}
-        >
-          {/* Sort Chip */}
-          <Pressable
-            onPress={cycleSort}
-            className="flex-row items-center px-3.5 py-1.5 rounded-full border border-gray-300 bg-white active:bg-gray-50"
-          >
-            <Ionicons name="swap-vertical" size={13} color="#374151" />
-            <Text className="text-xs font-semibold text-[#374151] ml-1.5 capitalize">
-              Sort: {sortBy}
-            </Text>
-            <Ionicons name="chevron-down" size={12} color="#6B7280" style={{ marginLeft: 2 }} />
-          </Pressable>
-
-          {/* Filter Chips */}
-          {[
-            { id: "All", label: "All Venues", icon: "grid-outline" },
-            { id: "Top Rated", label: "Rating 4.8+ ★", icon: "star" },
-            { id: "Open Now", label: "Open Now 🟢", icon: "time-outline" },
-            { id: "Ambience", label: "Amazing Ambience ✨", icon: "sparkles" },
-            { id: "Best Value", label: "Best Value ⚡", icon: "flash" },
-            { id: "Turf & Sports", label: "Turf & Sports ⚽", icon: "football-outline" },
-          ].map((chip) => {
-            const isSelected = activeFilter === chip.id;
-            return (
-              <Pressable
-                key={chip.id}
-                onPress={() => setActiveFilter(chip.id)}
-                className={`flex-row items-center px-3.5 py-1.5 rounded-full border ${
-                  isSelected 
-                    ? "bg-[#1F7A3E] border-[#1F7A3E]" 
-                    : "bg-white border-gray-300 active:bg-gray-50"
-                }`}
-              >
-                <Text className={`text-xs font-semibold ${isSelected ? "text-white" : "text-[#374151]"}`}>
-                  {chip.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
       </View>
 
       <ScrollView 
@@ -406,412 +440,94 @@ export default function ExploreScreen() {
         contentContainerStyle={{ paddingBottom: 110 }}
       >
         {isLoading ? (
-          <View className="py-16 items-center justify-center">
+          <View style={styles.loadingWrap}>
             <ActivityIndicator size="large" color="#1F7A3E" />
-            <Text className="text-gray-500 text-xs mt-3 font-medium">Discovering fitness centres in Bengaluru...</Text>
+            <Text style={styles.loadingText}>Discovering partner gyms...</Text>
+          </View>
+        ) : filteredGyms.length === 0 ? (
+          <View style={styles.emptyWrap}>
+            <Ionicons name="barbell-outline" size={42} color="#9CA3AF" />
+            <Text style={styles.emptyTitle}>No matching gyms found</Text>
+            <Text style={styles.emptySubtitle}>
+              Try searching for another area or gym name.
+            </Text>
+            <Pressable
+              onPress={() => setSearchQuery("")}
+              style={styles.emptyBtn}
+            >
+              <Text style={styles.emptyBtnText}>Show All Gyms</Text>
+            </Pressable>
           </View>
         ) : (
-          <>
-            {/* If user is exploring without a restrictive query, show curated discovery sections */}
-            {isBrowsingAll && (
-              <>
-                {/* Discovery Section 1: Centres with Amazing Ambience (Horizontal Carousel) */}
-                <View className="mt-4 mb-6">
-                  <View className="px-5 mb-3 flex-row justify-between items-end">
-                    <View>
-                      <Text className="text-xs font-bold uppercase tracking-wider text-[#1F7A3E]">
-                        Curated Experience
-                      </Text>
-                      <Text className="text-lg font-extrabold text-[#111827]">
-                        Centres with Amazing Ambience ✨
-                      </Text>
-                    </View>
-                    <Text className="text-xs font-semibold text-[#6B7280]">
-                      {topAmbienceGyms.length} venues
-                    </Text>
-                  </View>
-
-                  <ScrollView 
-                    horizontal 
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={{ paddingHorizontal: 20, gap: 14 }}
-                  >
-                    {topAmbienceGyms.map((gym) => {
-                      const isFav = favoriteGymIds.has(gym.id);
-                      return (
-                        <Pressable
-                          key={gym.id}
-                          onPress={() => router.push(`/gym/${gym.id}` as any)}
-                          className="w-[280px] bg-white rounded-3xl overflow-hidden border border-gray-200 active:opacity-95 shadow-sm"
-                          style={styles.cardShadow}
-                        >
-                          <View className="relative h-44 w-full">
-                            <Image 
-                              source={{ uri: gym.image }} 
-                              className="w-full h-full" 
-                              resizeMode="cover" 
-                            />
-                            {/* Gradient/Badge Overlays */}
-                            <View className="absolute top-3 left-3 bg-[#111827]/80 backdrop-blur-md px-2.5 py-1 rounded-full flex-row items-center">
-                              <Ionicons name="sparkles" size={11} color="#FBBF24" />
-                              <Text className="text-white text-[10px] font-bold ml-1">Premium Ambience</Text>
-                            </View>
-
-                            <Pressable 
-                              onPress={(e) => {
-                                e.stopPropagation();
-                                handleToggleFavorite(gym.id);
-                              }}
-                              hitSlop={8}
-                              className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 items-center justify-center shadow-md active:scale-90"
-                            >
-                              <Ionicons 
-                                name={isFav ? "heart" : "heart-outline"} 
-                                size={18} 
-                                color={isFav ? "#EF4444" : "#111827"} 
-                              />
-                            </Pressable>
-
-                            <View className="absolute bottom-2 left-3 bg-black/60 px-2 py-0.5 rounded-lg flex-row items-center">
-                              <Ionicons name="time-outline" size={11} color="#A7F3D0" />
-                              <Text className="text-white text-[10px] font-medium ml-1">Open Now</Text>
-                            </View>
-                          </View>
-
-                          <View className="p-4">
-                            <View className="flex-row justify-between items-start">
-                              <Text className="text-base font-bold text-[#111827] flex-1 mr-2" numberOfLines={1}>
-                                {gym.name}
-                              </Text>
-                              <View className="flex-row items-center bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
-                                <Ionicons name="star" size={12} color="#F59E0B" />
-                                <Text className="text-[11px] font-bold text-amber-800 ml-1">{gym.rating.toFixed(1)}</Text>
-                              </View>
-                            </View>
-
-                            <Text className="text-xs text-[#6B7280] mt-1" numberOfLines={1}>
-                              📍 {gym.address} • {gym.distance} KM
-                            </Text>
-
-                            <View className="flex-row gap-x-1.5 mt-2.5">
-                              {gym.tags.slice(0, 3).map((tag) => (
-                                <View key={tag} className="bg-gray-100 px-2 py-0.5 rounded-md">
-                                  <Text className="text-[10px] font-semibold text-gray-600">{tag}</Text>
-                                </View>
-                              ))}
-                            </View>
-
-                            <View className="h-[1px] bg-gray-100 my-3" />
-
-                            <View className="flex-row justify-between items-center">
-                              <View>
-                                <Text className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">VISIT PASS</Text>
-                                <Text className="text-sm font-black text-[#1F7A3E]">⚡ {gym.cost} Credits</Text>
-                              </View>
-
-                              <Pressable
-                                onPress={() => handleOpenBooking(gym)}
-                                className="bg-[#1F7A3E] px-4 py-2 rounded-xl active:opacity-90"
-                              >
-                                <Text className="text-white text-xs font-bold">Book Visit</Text>
-                              </Pressable>
-                            </View>
-                          </View>
-                        </Pressable>
-                      );
-                    })}
-                  </ScrollView>
-                </View>
-
-                {/* Discovery Section 2: Closest To You */}
-                <View className="mb-6">
-                  <View className="px-5 mb-3 flex-row justify-between items-end">
-                    <View>
-                      <Text className="text-xs font-bold uppercase tracking-wider text-[#1F7A3E]">
-                        Distance First
-                      </Text>
-                      <Text className="text-lg font-extrabold text-[#111827]">
-                        Closest To You 📍
-                      </Text>
-                    </View>
-                    <Text className="text-xs font-semibold text-[#6B7280]">
-                      Under 2 KM
-                    </Text>
-                  </View>
-
-                  <ScrollView 
-                    horizontal 
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={{ paddingHorizontal: 20, gap: 14 }}
-                  >
-                    {closestGyms.map((gym) => (
-                      <Pressable
-                        key={gym.id}
-                        onPress={() => router.push(`/gym/${gym.id}` as any)}
-                        className="w-[240px] bg-white rounded-2xl overflow-hidden border border-gray-200 active:opacity-95 shadow-sm p-3"
-                        style={styles.cardShadow}
-                      >
-                        <Image 
-                          source={{ uri: gym.image }} 
-                          className="w-full h-28 rounded-xl mb-2.5" 
-                          resizeMode="cover" 
-                        />
-                        <View className="flex-row items-center justify-between">
-                          <View className="bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                            <Text className="text-[#065F46] text-[10px] font-bold">⚡ {gym.distance} KM Away</Text>
-                          </View>
-                          <View className="flex-row items-center">
-                            <Ionicons name="star" size={11} color="#F59E0B" />
-                            <Text className="text-[11px] font-bold text-gray-700 ml-1">{gym.rating.toFixed(1)}</Text>
-                          </View>
-                        </View>
-
-                        <Text className="text-sm font-bold text-black mt-1.5" numberOfLines={1}>{gym.name}</Text>
-                        <Text className="text-[11px] text-gray-500 mt-0.5" numberOfLines={1}>{gym.address}</Text>
-
-                        <View className="flex-row justify-between items-center mt-3 pt-2 border-t border-gray-100">
-                          <Text className="text-xs font-bold text-[#1F7A3E]">⚡ {gym.cost} Credits</Text>
-                          <Text className="text-xs font-bold text-blue-600">View Gym →</Text>
-                        </View>
-                      </Pressable>
-                    ))}
-                  </ScrollView>
-                </View>
-
-                {/* Discovery Section 3: Best Value for Credits */}
-                {bestValueGyms.length > 0 && (
-                  <View className="mb-6 px-5">
-                    <View className="bg-[#ECFDF5] rounded-3xl p-5 border border-[#A7F3D0] shadow-sm">
-                      <View className="flex-row justify-between items-center mb-3">
-                        <View className="flex-row items-center">
-                          <Ionicons name="flash" size={18} color="#047857" />
-                          <Text className="text-[#047857] text-base font-extrabold ml-1.5">
-                            Best Value • 6 Credits / Visit
-                          </Text>
-                        </View>
-                        <View className="bg-[#10B981] px-2 py-0.5 rounded-full">
-                          <Text className="text-white text-[9px] font-black uppercase tracking-wider">SAVINGS</Text>
-                        </View>
-                      </View>
-                      <Text className="text-[#065F46] text-xs leading-relaxed mb-4">
-                        Maximize your workouts with top-rated network facilities requiring fewer credits per completed visit.
-                      </Text>
-
-                      <View className="gap-y-2.5">
-                        {bestValueGyms.slice(0, 2).map((gym) => (
-                          <Pressable
-                            key={gym.id}
-                            onPress={() => router.push(`/gym/${gym.id}` as any)}
-                            className="bg-white rounded-2xl p-3 flex-row items-center justify-between border border-emerald-100 active:bg-gray-50"
-                          >
-                            <View className="flex-row items-center flex-1 mr-2">
-                              <Image 
-                                source={{ uri: gym.image }} 
-                                className="w-12 h-12 rounded-xl mr-3" 
-                                resizeMode="cover" 
-                              />
-                              <View className="flex-1">
-                                <Text className="text-sm font-bold text-black" numberOfLines={1}>{gym.name}</Text>
-                                <Text className="text-[11px] text-gray-500 mt-0.5">⭐ {gym.rating.toFixed(1)} • {gym.distance} KM Away</Text>
-                              </View>
-                            </View>
-
-                            <View className="items-end">
-                              <Text className="text-xs font-black text-[#1F7A3E]">⚡ {gym.cost} Credits</Text>
-                              <Text className="text-[10px] text-gray-400 font-semibold mt-0.5">Book Now</Text>
-                            </View>
-                          </Pressable>
-                        ))}
-                      </View>
-                    </View>
-                  </View>
-                )}
-              </>
-            )}
-
-            {/* Main Listing Section — Google Local Style Cards */}
-            <View className="px-5 mt-2">
-              <View className="flex-row justify-between items-center mb-3">
-                <Text className="text-lg font-extrabold text-[#111827]">
-                  {searchQuery 
-                    ? `Results for "${searchQuery}" (${filteredGyms.length})` 
-                    : activeFilter !== "All" 
-                      ? `${activeFilter} Centres (${filteredGyms.length})` 
-                      : `All Partner Fitness Centres (${filteredGyms.length})`
-                  }
-                </Text>
-                {searchQuery || activeFilter !== "All" ? (
-                  <Pressable 
-                    onPress={() => { setSearchQuery(""); setActiveFilter("All"); }}
-                    className="py-1 px-2.5 bg-gray-200 rounded-full"
-                  >
-                    <Text className="text-[11px] font-bold text-gray-700">Clear</Text>
-                  </Pressable>
-                ) : null}
-              </View>
-
-              {filteredGyms.length === 0 ? (
-                <View className="py-12 px-6 items-center bg-white rounded-3xl border border-gray-200 my-4">
-                  <Ionicons name="barbell-outline" size={42} color="#9CA3AF" />
-                  <Text className="text-base font-bold text-gray-800 mt-3">No matching fitness centres</Text>
-                  <Text className="text-xs text-gray-500 text-center mt-1">
-                    Try searching for another neighborhood or clearing your filter chips.
-                  </Text>
-                  <Pressable
-                    onPress={() => { setSearchQuery(""); setActiveFilter("All"); }}
-                    className="mt-4 px-5 py-2 bg-[#1F7A3E] rounded-full"
-                  >
-                    <Text className="text-white text-xs font-bold">Show All Venues</Text>
-                  </Pressable>
-                </View>
-              ) : (
-                filteredGyms.map((gym) => {
-                  const isFav = favoriteGymIds.has(gym.id);
-                  return (
-                    <View 
-                      key={gym.id}
-                      className="bg-white rounded-3xl overflow-hidden border border-gray-200 mb-4 shadow-sm"
-                      style={styles.cardShadow}
-                    >
-                      {/* Large Gym Photo */}
-                      <Pressable 
-                        onPress={() => router.push(`/gym/${gym.id}` as any)}
-                        className="relative h-48 w-full"
-                      >
-                        <Image 
-                          source={{ uri: gym.image }} 
-                          className="w-full h-full" 
-                          resizeMode="cover" 
-                        />
-                        
-                        {/* Top Badges */}
-                        <View className="absolute top-3 left-3 flex-row gap-x-2">
-                          <View className="bg-emerald-600/90 backdrop-blur-md px-2.5 py-1 rounded-full flex-row items-center">
-                            <Ionicons name="checkmark-circle" size={12} color="#FFFFFF" />
-                            <Text className="text-white text-[10px] font-bold ml-1">Verified Partner</Text>
-                          </View>
-                          {gym.isBestValue && (
-                            <View className="bg-amber-500/90 backdrop-blur-md px-2.5 py-1 rounded-full">
-                              <Text className="text-white text-[10px] font-bold">Best Value</Text>
-                            </View>
-                          )}
-                        </View>
-
-                        {/* Favorite Heart Button */}
-                        <Pressable 
-                          onPress={(e) => {
-                            e.stopPropagation();
-                            handleToggleFavorite(gym.id);
-                          }}
-                          hitSlop={8}
-                          className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/95 items-center justify-center shadow-md active:scale-90"
-                        >
-                          <Ionicons 
-                            name={isFav ? "heart" : "heart-outline"} 
-                            size={20} 
-                            color={isFav ? "#EF4444" : "#111827"} 
-                          />
-                        </Pressable>
-
-                        {/* Bottom Photo Overlay */}
-                        <View className="absolute bottom-3 left-3 bg-black/70 backdrop-blur-sm px-2.5 py-1 rounded-xl flex-row items-center">
-                          <Ionicons name="time" size={12} color="#34D399" />
-                          <Text className="text-white text-[11px] font-medium ml-1.5">{gym.openStatus || "Open Now"}</Text>
-                        </View>
-                      </Pressable>
-
-                      {/* Card Content & Details */}
-                      <View className="p-4">
-                        <View className="flex-row justify-between items-start">
-                          <View className="flex-1 mr-2">
-                            <Text className="text-[17px] font-extrabold text-[#111827]" numberOfLines={1}>
-                              {gym.name}
-                            </Text>
-                            <Text className="text-xs text-gray-500 mt-0.5">
-                              Fitness Centre • Strength & Conditioning
-                            </Text>
-                          </View>
-
-                          <View className="flex-row items-center bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
-                            <Ionicons name="star" size={13} color="#F59E0B" />
-                            <Text className="text-xs font-black text-amber-900 ml-1">{gym.rating.toFixed(1)}</Text>
-                          </View>
-                        </View>
-
-                        {/* Location & Reviews */}
-                        <View className="flex-row items-center mt-2">
-                          <Ionicons name="location-outline" size={14} color="#6B7280" />
-                          <Text className="text-xs text-gray-600 ml-1 font-medium" numberOfLines={1}>
-                            {gym.address} • <Text className="font-bold text-[#1F7A3E]">{gym.distance} KM Away</Text>
-                          </Text>
-                          <Text className="text-xs text-gray-400 ml-1.5">
-                            ({gym.reviewCount || 120} reviews)
-                          </Text>
-                        </View>
-
-                        {/* Feature Tags */}
-                        <View className="flex-row flex-wrap gap-1.5 mt-3">
-                          {gym.tags.map((tag) => (
-                            <View key={tag} className="bg-gray-100 px-2.5 py-1 rounded-lg border border-gray-200">
-                              <Text className="text-[11px] font-medium text-gray-700">{tag}</Text>
-                            </View>
-                          ))}
-                        </View>
-
-                        <View className="h-[1px] bg-gray-100 my-3.5" />
-
-                        {/* Action & Cost Row */}
-                        <View className="flex-row justify-between items-center">
-                          <View>
-                            <Text className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-                              VISIT COST
-                            </Text>
-                            <Text className="text-base font-black text-[#1F7A3E]">
-                              ⚡ {gym.cost} Credits <Text className="text-[11px] font-normal text-gray-500">(≈ ₹{gym.cost * 10})</Text>
-                            </Text>
-                          </View>
-
-                          <View className="flex-row items-center gap-x-2">
-                            <Pressable
-                              onPress={() => router.push(`/gym/${gym.id}` as any)}
-                              className="px-3.5 py-2 rounded-xl border border-gray-300 bg-white active:bg-gray-50"
-                            >
-                              <Text className="text-xs font-bold text-gray-700">Details</Text>
-                            </Pressable>
-
-                            <Pressable
-                              onPress={() => handleOpenBooking(gym)}
-                              className="px-4 py-2 rounded-xl bg-[#1F7A3E] active:opacity-90 shadow-sm"
-                            >
-                              <Text className="text-xs font-bold text-white">Book Visit</Text>
-                            </Pressable>
-                          </View>
-                        </View>
-                      </View>
-                    </View>
-                  );
-                })
-              )}
+          <View style={styles.listWrap}>
+            {/* Page indicator */}
+            <View style={styles.pageInfo}>
+              <Text style={styles.pageInfoText}>
+                Showing {currentPage * GYMS_PER_PAGE + 1}–{Math.min((currentPage + 1) * GYMS_PER_PAGE, filteredGyms.length)} of {filteredGyms.length}
+              </Text>
             </View>
 
-            {/* Bottom Referral & Suggestion Card */}
-            <View className="px-5 mt-6 mb-4">
-              <View className="bg-white rounded-3xl p-5 border border-gray-200 shadow-sm">
-                <Text className="text-xs font-bold uppercase tracking-wider text-[#1F7A3E]">Network Expansion</Text>
-                <Text className="text-base font-bold text-[#111827] mt-1">Want your favorite gym on ZonoFit?</Text>
-                <Text className="text-xs text-gray-600 mt-1 leading-relaxed">
-                  Refer your local fitness centre to join the ZonoFit partner network and earn 100 reward credits when they onboard.
-                </Text>
+            {/* Gym Cards */}
+            {paginatedGyms.map(renderGymCard)}
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <View style={styles.paginationWrap}>
+                <Pressable
+                  onPress={goToPrevPage}
+                  disabled={currentPage === 0}
+                  style={[
+                    styles.pageBtn,
+                    currentPage === 0 && styles.pageBtnDisabled
+                  ]}
+                >
+                  <Ionicons 
+                    name="chevron-back" 
+                    size={18} 
+                    color={currentPage === 0 ? "#9CA3AF" : "#1F7A3E"} 
+                  />
+                  <Text style={[
+                    styles.pageBtnText,
+                    currentPage === 0 && styles.pageBtnTextDisabled
+                  ]}>Previous</Text>
+                </Pressable>
+
+                {/* Page dots */}
+                <View style={styles.pageDots}>
+                  {Array.from({ length: totalPages }).map((_, i) => (
+                    <Pressable
+                      key={i}
+                      onPress={() => setCurrentPage(i)}
+                    >
+                      <View style={[
+                        styles.pageDot,
+                        i === currentPage && styles.pageDotActive
+                      ]} />
+                    </Pressable>
+                  ))}
+                </View>
 
                 <Pressable
-                  onPress={() => router.push("/invite" as any)}
-                  className="mt-4 bg-[#1F7A3E] py-2.5 rounded-xl items-center active:opacity-90"
+                  onPress={goToNextPage}
+                  disabled={currentPage >= totalPages - 1}
+                  style={[
+                    styles.pageBtn,
+                    currentPage >= totalPages - 1 && styles.pageBtnDisabled
+                  ]}
                 >
-                  <Text className="text-white text-xs font-bold">Refer Gym or Friends</Text>
+                  <Text style={[
+                    styles.pageBtnText,
+                    currentPage >= totalPages - 1 && styles.pageBtnTextDisabled
+                  ]}>Next</Text>
+                  <Ionicons 
+                    name="chevron-forward" 
+                    size={18} 
+                    color={currentPage >= totalPages - 1 ? "#9CA3AF" : "#1F7A3E"} 
+                  />
                 </Pressable>
               </View>
-            </View>
-          </>
+            )}
+          </View>
         )}
       </ScrollView>
 
@@ -822,74 +538,569 @@ export default function ExploreScreen() {
         visible={bookingModalVisible}
         onRequestClose={() => setBookingModalVisible(false)}
       >
-        <View className="flex-1 justify-end bg-black/60">
-          <View className="rounded-t-[32px] p-6 bg-white">
-            <View className="w-12 h-1.5 rounded-full mb-5 self-center bg-gray-300" />
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHandle} />
             
-            <Text className="text-xs font-bold uppercase tracking-wider text-[#1F7A3E]">Confirm Booking</Text>
-            <Text className="text-2xl font-black mt-1 text-[#111827]">{selectedGym?.name}</Text>
-            <Text className="text-xs text-gray-500 mt-0.5">📍 {selectedGym?.address}</Text>
+            <Text style={styles.modalTag}>Confirm Booking</Text>
+            <Text style={styles.modalTitle}>{selectedGym?.name}</Text>
+            <Text style={styles.modalAddress}>📍 {selectedGym?.address}</Text>
 
-            <View className="h-[1px] my-4 bg-gray-200" />
+            <View style={styles.modalDivider} />
 
-            <Text className="text-xs font-bold uppercase tracking-wider mb-2 text-gray-700">Select Time Slot</Text>
-            <View className="flex-row gap-x-2.5 mb-6">
+            <Text style={styles.modalSectionTitle}>Select Time Slot</Text>
+            <View style={styles.timeSlotRow}>
               {["07:00 AM", "10:00 AM", "05:00 PM", "07:00 PM"].map((time) => (
                 <Pressable
                   key={time}
                   onPress={() => setSelectedTime(time)}
-                  className={`flex-1 py-3 rounded-2xl border text-center items-center justify-center active:scale-[0.98] ${
-                    selectedTime === time 
-                      ? "bg-[#ECFDF5] border-[#10B981]" 
-                      : "bg-[#F9FAFB] border-gray-200"
-                  }`}
+                  style={[
+                    styles.timeSlot,
+                    selectedTime === time && styles.timeSlotActive
+                  ]}
                 >
-                  <Text className={`text-xs font-bold ${selectedTime === time ? "text-[#065F46]" : "text-gray-600"}`}>
+                  <Text style={[
+                    styles.timeSlotText,
+                    selectedTime === time && styles.timeSlotTextActive
+                  ]}>
                     {time}
                   </Text>
                 </Pressable>
               ))}
             </View>
 
-            <View className="rounded-2xl p-4 flex-row justify-between items-center mb-6 bg-[#F3F4F6]">
+            <View style={styles.modalCostRow}>
               <View>
-                <Text className="text-xs text-gray-500">Available Wallet Balance</Text>
-                <Text className="text-lg font-bold text-gray-800 mt-0.5">{credits} Credits</Text>
+                <Text style={styles.modalCostLabel}>Available Balance</Text>
+                <Text style={styles.modalCostValue}>{credits} Credits</Text>
               </View>
-              <View className="items-end">
-                <Text className="text-xs text-gray-500 mb-0.5">Session Cost</Text>
-                <Text className="text-xl font-black text-[#1F7A3E]">⚡ {selectedGym?.cost} Credits</Text>
+              <View style={{ alignItems: "flex-end" }}>
+                <Text style={styles.modalCostLabel}>Session Cost</Text>
+                <Text style={styles.modalCostHighlight}>⚡ {selectedGym?.cost} Credits</Text>
               </View>
             </View>
 
-            <View className="flex-row gap-x-3">
+            <View style={styles.modalActions}>
               <Pressable
                 onPress={() => setBookingModalVisible(false)}
-                className="flex-1 h-12 rounded-2xl items-center justify-center border border-gray-300 bg-white active:bg-gray-50"
+                style={styles.modalCancelBtn}
               >
-                <Text className="font-bold text-sm text-gray-700">Cancel</Text>
+                <Text style={styles.modalCancelText}>Cancel</Text>
               </Pressable>
-
               <Pressable
                 onPress={handleConfirmBooking}
-                className="flex-1 h-12 rounded-2xl items-center justify-center bg-[#1F7A3E] active:opacity-90 shadow-sm"
+                style={styles.modalConfirmBtn}
               >
-                <Text className="font-bold text-sm text-white">Confirm & Book</Text>
+                <Text style={styles.modalConfirmText}>Confirm & Book</Text>
               </Pressable>
             </View>
           </View>
         </View>
       </Modal>
+
+      {/* Booking Confirmed Modal */}
+      <BookingConfirmedModal
+        visible={confirmedModalVisible}
+        gymName={confirmedBookingData?.gymName || "Fitness Centre"}
+        gymAddress={confirmedBookingData?.gymAddress}
+        gymImage={confirmedBookingData?.gymImage}
+        timeSlot={confirmedBookingData?.timeSlot || "07:00 PM"}
+        creditsDeducted={confirmedBookingData?.creditsDeducted || 8}
+        remainingCredits={confirmedBookingData?.remainingCredits ?? credits}
+        onViewPass={() => {
+          setConfirmedModalVisible(false);
+          router.push("/scan-modal" as any);
+        }}
+        onDone={() => {
+          setConfirmedModalVisible(false);
+          router.replace("/(tabs)" as any);
+        }}
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  cardShadow: {
+  // ─── Header ───
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 12,
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#111827",
+    letterSpacing: -0.3,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#6B7280",
+    marginTop: 2,
+  },
+  notifBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+    position: "relative",
+  },
+  notifDot: {
+    position: "absolute",
+    top: 10,
+    right: 11,
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: "#F97316",
+    borderWidth: 1.5,
+    borderColor: "#FFFFFF",
+  },
+
+  // ─── Search ───
+  searchWrap: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+  },
+  searchBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F3F4F6",
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    height: 48,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 10,
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#111827",
+  },
+
+  // ─── Loading & Empty States ───
+  loadingWrap: {
+    paddingVertical: 64,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingText: {
+    color: "#6B7280",
+    fontSize: 12,
+    marginTop: 12,
+    fontWeight: "500",
+  },
+  emptyWrap: {
+    paddingVertical: 48,
+    paddingHorizontal: 24,
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    margin: 20,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#374151",
+    marginTop: 12,
+  },
+  emptySubtitle: {
+    fontSize: 12,
+    color: "#6B7280",
+    textAlign: "center",
+    marginTop: 4,
+  },
+  emptyBtn: {
+    marginTop: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    backgroundColor: "#1F7A3E",
+    borderRadius: 20,
+  },
+  emptyBtnText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+  // ─── List Wrapper ───
+  listWrap: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+  },
+  pageInfo: {
+    paddingVertical: 8,
+  },
+  pageInfoText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#6B7280",
+  },
+
+  // ─── Gym Card ───
+  gymCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    marginBottom: 16,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
     elevation: 3,
+  },
+  gymImageWrap: {
+    height: 170,
+    width: "100%",
+    position: "relative",
+  },
+  gymImage: {
+    width: "100%",
+    height: "100%",
+  },
+  verifiedBadge: {
+    position: "absolute",
+    top: 12,
+    left: 12,
+    backgroundColor: "rgba(31,122,62,0.9)",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  verifiedText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  favButton: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.95)",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  gymContent: {
+    padding: 16,
+  },
+  gymHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  gymName: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: "#111827",
+    flex: 1,
+    marginRight: 8,
+  },
+  ratingBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFBEB",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+    gap: 3,
+  },
+  ratingText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#92400E",
+  },
+  gymLocation: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 6,
+    gap: 4,
+  },
+  gymAddress: {
+    fontSize: 12,
+    color: "#6B7280",
+    fontWeight: "500",
+    flex: 1,
+  },
+  tagRow: {
+    flexDirection: "row",
+    gap: 6,
+    marginTop: 10,
+    flexWrap: "wrap",
+  },
+  tag: {
+    backgroundColor: "#F3F4F6",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  tagText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#4B5563",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#F3F4F6",
+    marginVertical: 14,
+  },
+  actionRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  costLabel: {
+    fontSize: 10,
+    color: "#9CA3AF",
+    fontWeight: "700",
+    letterSpacing: 0.8,
+  },
+  costValue: {
+    fontSize: 15,
+    fontWeight: "900",
+    color: "#1F7A3E",
+    marginTop: 2,
+  },
+  actionButtons: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  detailsBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    backgroundColor: "#FFFFFF",
+  },
+  detailsBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#374151",
+  },
+  bookBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: "#1F7A3E",
+  },
+  bookBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+
+  // ─── Pagination ───
+  paginationWrap: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 4,
+  },
+  pageBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    gap: 4,
+  },
+  pageBtnDisabled: {
+    opacity: 0.5,
+  },
+  pageBtnText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#1F7A3E",
+  },
+  pageBtnTextDisabled: {
+    color: "#9CA3AF",
+  },
+  pageDots: {
+    flexDirection: "row",
+    gap: 6,
+    alignItems: "center",
+  },
+  pageDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#D1D5DB",
+  },
+  pageDotActive: {
+    width: 20,
+    backgroundColor: "#1F7A3E",
+  },
+
+  // ─── Modal ───
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0,0,0,0.6)",
+  },
+  modalContent: {
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    padding: 24,
+    backgroundColor: "#FFFFFF",
+  },
+  modalHandle: {
+    width: 48,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: "#D1D5DB",
+    alignSelf: "center",
+    marginBottom: 20,
+  },
+  modalTag: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#1F7A3E",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: "900",
+    color: "#111827",
+    marginTop: 4,
+  },
+  modalAddress: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginTop: 4,
+  },
+  modalDivider: {
+    height: 1,
+    backgroundColor: "#E5E7EB",
+    marginVertical: 16,
+  },
+  modalSectionTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#374151",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+    marginBottom: 10,
+  },
+  timeSlotRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 24,
+  },
+  timeSlot: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    backgroundColor: "#F9FAFB",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  timeSlotActive: {
+    backgroundColor: "#ECFDF5",
+    borderColor: "#10B981",
+  },
+  timeSlotText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#4B5563",
+  },
+  timeSlotTextActive: {
+    color: "#065F46",
+  },
+  modalCostRow: {
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 24,
+    backgroundColor: "#F3F4F6",
+  },
+  modalCostLabel: {
+    fontSize: 12,
+    color: "#6B7280",
+  },
+  modalCostValue: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#374151",
+    marginTop: 4,
+  },
+  modalCostHighlight: {
+    fontSize: 20,
+    fontWeight: "900",
+    color: "#1F7A3E",
+    marginTop: 4,
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  modalCancelBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    backgroundColor: "#FFFFFF",
+  },
+  modalCancelText: {
+    fontWeight: "700",
+    fontSize: 14,
+    color: "#4B5563",
+  },
+  modalConfirmBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#1F7A3E",
+  },
+  modalConfirmText: {
+    fontWeight: "700",
+    fontSize: 14,
+    color: "#FFFFFF",
   },
 });
