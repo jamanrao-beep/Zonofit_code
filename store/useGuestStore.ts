@@ -111,20 +111,29 @@ export const useGuestStore = create<GuestState>((set, get) => ({
 
   selectGym: async (gymId: string, gymName?: string) => {
     const { session } = get();
-    if (!session) return;
+    if (session) {
+      const updated: GuestSession = {
+        ...session,
+        selectedGymId: gymId,
+        selectedGymName: gymName || null,
+      };
+      await SecureStore.setItemAsync(GUEST_STORAGE_KEY, JSON.stringify(updated));
+      set({
+        session: updated,
+        selectedGymId: gymId,
+        selectedGymName: gymName || null,
+      });
+    } else {
+      set({
+        selectedGymId: gymId,
+        selectedGymName: gymName || null,
+      });
+    }
 
-    const updated: GuestSession = {
-      ...session,
-      selectedGymId: gymId,
-      selectedGymName: gymName || null,
-    };
-
-    await SecureStore.setItemAsync(GUEST_STORAGE_KEY, JSON.stringify(updated));
-    set({
-      session: updated,
-      selectedGymId: gymId,
-      selectedGymName: gymName || null,
-    });
+    try {
+      const { useUserStore } = require("./useUserStore");
+      useUserStore.getState().setPrimaryGym(gymId, gymName || "FitZone Pro");
+    } catch {}
   },
 
   convertGuest: async () => {

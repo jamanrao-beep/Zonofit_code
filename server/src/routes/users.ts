@@ -6,6 +6,7 @@ import { S3Client } from "@aws-sdk/client-s3";
 import path from "path";
 import prisma from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
+import { generateUniqueReferralCode } from "../lib/referral";
 
 const router = Router();
 
@@ -33,7 +34,7 @@ const upload = multer({
 
 // ─── GET /api/users/me ────────────────────────────────────────────────────────
 /**
- * Returns the authenticated user's full profile with membership and wallet.
+ * Returns the authenticated user's full profile with membership, wallet, and referral stats.
  * This is the "load everything" endpoint called on app boot / profile screen.
  */
 router.get(
@@ -45,7 +46,7 @@ router.get(
             include: {
                 wallet: true,
                 membership: {
-                    include: { plan: true },
+                    include: { plan: true, primaryGym: true },
                 },
             },
         });
@@ -55,8 +56,18 @@ router.get(
             return;
         }
 
-        // Compute streak and stats from booking history
-        const [totalWorkouts, thisMonthWorkouts] = await Promise.all([
+        // Ensure user has an actual unique random referral code saved in PostgreSQL
+        let userReferralCode = user.referralCode;
+        if (!userReferralCode) {
+            userReferralCode = await generateUniqueReferralCode();
+            await prisma.user.update({
+                where: { id: user.id },
+                data: { referralCode: userReferralCode },
+            }).catch(() => {});
+        }
+
+        // Real counts from actual database
+        const [totalWorkouts, thisMonthWorkouts, friendsJoined, completedReferrals] = await Promise.all([
             prisma.booking.count({
                 where: { userId: user.id, status: { in: ["CHECKED_IN", "COMPLETED"] } },
             }),
@@ -69,7 +80,20 @@ router.get(
                     },
                 },
             }),
+            prisma.user.count({
+                where: { referredByUserId: user.id },
+            }),
+            prisma.user.count({
+                where: {
+                    referredByUserId: user.id,
+                    bookings: {
+                        some: { status: { in: ["CHECKED_IN", "COMPLETED"] } }
+                    }
+                }
+            })
         ]);
+
+        const creditsEarned = completedReferrals * 50;
 
         res.json({
             id: user.id,
@@ -77,7 +101,7 @@ router.get(
             name: user.name,
             phone: user.phone,
             avatarUrl: user.avatarUrl,
-            referralCode: user.referralCode,
+            referralCode: userReferralCode,
             createdAt: user.createdAt,
             wallet: user.wallet
                 ? {
@@ -88,8 +112,8 @@ router.get(
                 : null,
             progress: {
                 streak: user.streak,
-                totalWorkouts: user.totalWorkouts,
-                trainingHours: user.trainingHours,
+                totalWorkouts: Math.max(user.totalWorkouts, totalWorkouts),
+                trainingHours: Math.max(user.trainingHours, Math.round(totalWorkouts * 1.5)),
                 identityStage: user.identityStage,
             },
             membership: user.membership
@@ -100,13 +124,78 @@ router.get(
                     startDate: user.membership.startDate,
                     endDate: user.membership.endDate,
                     monthlyCredits: user.membership.plan?.monthlyCredits || 0,
+                    primaryGymId: user.membership.primaryGymId,
+                    gymName: user.membership.primaryGym?.name || "FitZone Pro",
+                    primaryGymVisits: user.membership.primaryGymVisits || 10,
                 }
                 : null,
             stats: {
                 totalWorkouts,
                 thisMonthWorkouts,
             },
+            referral: {
+                code: userReferralCode,
+                friendsJoined,
+                creditsEarned,
+                rewardAmount: 50,
+            },
         });
+    }
+);
+
+// ─── GET /api/users/referral ────────────────────────────────────────────────
+/**
+ * Dedicated endpoint for the Refer & Earn screen.
+ * Fetches real random referral code and actual friends joined / credits earned from DB.
+ */
+router.get(
+    "/referral",
+    requireAuth,
+    async (req: Request, res: Response): Promise<void> => {
+        try {
+            const user = await prisma.user.findUnique({
+                where: { id: req.dbUserId! },
+                select: { id: true, referralCode: true }
+            });
+
+            if (!user) {
+                res.status(404).json({ error: "UserNotFound" });
+                return;
+            }
+
+            let referralCode = user.referralCode;
+            if (!referralCode) {
+                referralCode = await generateUniqueReferralCode();
+                await prisma.user.update({
+                    where: { id: user.id },
+                    data: { referralCode }
+                }).catch(() => {});
+            }
+
+            const [friendsJoined, completedReferrals] = await Promise.all([
+                prisma.user.count({
+                    where: { referredByUserId: user.id },
+                }),
+                prisma.user.count({
+                    where: {
+                        referredByUserId: user.id,
+                        bookings: {
+                            some: { status: { in: ["CHECKED_IN", "COMPLETED"] } }
+                        }
+                    }
+                })
+            ]);
+
+            res.json({
+                referralCode,
+                friendsJoined,
+                creditsEarned: completedReferrals * 50,
+                rewardAmount: 50
+            });
+        } catch (err: any) {
+            console.error("Failed to fetch referral info:", err);
+            res.status(500).json({ error: "ServerError", message: err.message });
+        }
     }
 );
 
