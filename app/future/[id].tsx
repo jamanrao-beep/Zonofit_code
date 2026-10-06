@@ -38,9 +38,9 @@ export default function FeatureDetailsScreen() {
       ]
     },
     "workout-buddy": {
-      title: "Workout Buddy", icon: "people", iconBg: "bg-purple-50", iconColor: "#7C3AED",
+      title: "Workout Buddy", icon: "people-outline", iconBg: "bg-purple-50", iconColor: "#7C3AED",
       status: "In Development", statusBg: "bg-purple-100", statusColor: "text-purple-600",
-      launch: "Q1 2027", desc: "Find gym partners working out at the same time and place in your network.",
+      launch: "Q1 2027", desc: "Find someone to stay motivated together at your network gyms.",
       themeColor: "#7C3AED", themeBg: "bg-[#7C3AED]", themeLightBg: "bg-purple-50",
       whatsComing: [
         { title: "Matchmaking by Goals", desc: "Match with gym partners who share your workout schedule.", icon: "people-outline", iconBg: "bg-purple-50" },
@@ -57,14 +57,14 @@ export default function FeatureDetailsScreen() {
       ]
     },
     "personal-trainer": {
-      title: "Personal Trainer", icon: "barbell", iconBg: "bg-emerald-50", iconColor: "#059669",
-      status: "In Development", statusBg: "bg-emerald-100", statusColor: "text-emerald-700",
-      launch: "Q1 2027", desc: "Connect with certified, verified fitness trainers across our partner gym network.",
-      themeColor: "#059669", themeBg: "bg-[#059669]", themeLightBg: "bg-emerald-50",
+      title: "Personal Trainer", icon: "person-outline", iconBg: "bg-amber-50", iconColor: "#D97706",
+      status: "In Development", statusBg: "bg-amber-100", statusColor: "text-amber-700",
+      launch: "Q1 2027", desc: "Connect with certified trainers near you across our partner gym network.",
+      themeColor: "#D97706", themeBg: "bg-[#D97706]", themeLightBg: "bg-amber-50",
       whatsComing: [
-        { title: "Certified Network Coaches", desc: "Browse accredited trainers across partner gyms.", icon: "ribbon-outline", iconBg: "bg-emerald-50" },
-        { title: "Custom Workout Programming", desc: "Get tailored hypertrophy, strength, or fat loss plans.", icon: "clipboard-outline", iconBg: "bg-emerald-50" },
-        { title: "Flexible Session Booking", desc: "Book 1-on-1 coaching sessions using your ZonoFit credits.", icon: "calendar-outline", iconBg: "bg-emerald-50" }
+        { title: "Certified Network Coaches", desc: "Browse accredited trainers across partner gyms.", icon: "ribbon-outline", iconBg: "bg-amber-50" },
+        { title: "Custom Workout Programming", desc: "Get tailored hypertrophy, strength, or fat loss plans.", icon: "clipboard-outline", iconBg: "bg-amber-50" },
+        { title: "Flexible Session Booking", desc: "Book 1-on-1 coaching sessions using your ZonoFit credits.", icon: "calendar-outline", iconBg: "bg-amber-50" }
       ],
       whyMatters: "Proper technique prevents injuries and speeds up results. Professional guidance when you need it most.",
       timeline: [
@@ -391,7 +391,11 @@ export default function FeatureDetailsScreen() {
             <View className="flex-row gap-x-3 mb-3">
               <Pressable 
                 onPress={handleVote}
-                className={`flex-1 ${hasVoted ? 'bg-white border-2 border-gray-300' : feature.themeBg} rounded-[14px] py-3.5 items-center justify-center flex-row active:opacity-90 shadow-sm`}
+                style={[
+                  { flex: 1, borderRadius: 14, paddingVertical: 14, alignItems: "center", justifyContent: "center", flexDirection: "row" },
+                  hasVoted ? { backgroundColor: "#FFFFFF", borderWidth: 2, borderColor: "#D1D5DB" } : {}
+                ]}
+                className={hasVoted ? "" : `${feature.themeBg} shadow-sm active:opacity-90`}
               >
                 <Ionicons name={hasVoted ? "checkmark-circle" : "thumbs-up-outline"} size={16} color={hasVoted ? feature.iconColor : "white"} />
                 <Text className={`${hasVoted ? feature.statusColor : 'text-white'} font-bold text-[13px] ml-1.5`}>
@@ -401,7 +405,11 @@ export default function FeatureDetailsScreen() {
 
               <Pressable 
                 onPress={handleNotify}
-                className={`flex-1 ${hasNotified ? 'bg-white border-2 border-gray-300' : 'bg-white border border-gray-300'} rounded-[14px] py-3.5 items-center justify-center flex-row active:bg-gray-50`}
+                style={[
+                  { flex: 1, borderRadius: 14, paddingVertical: 14, alignItems: "center", justifyContent: "center", flexDirection: "row", backgroundColor: "#FFFFFF" },
+                  hasNotified ? { borderWidth: 2, borderColor: "#D1D5DB" } : { borderWidth: 1, borderColor: "#D1D5DB" }
+                ]}
+                className="active:opacity-80"
               >
                 <Ionicons name={hasNotified ? "checkmark-circle" : "notifications-outline"} size={16} color={hasNotified ? feature.iconColor : "#374151"} />
                 <Text className={`font-bold text-[13px] ml-1.5 ${hasNotified ? feature.statusColor : 'text-[#374151]'}`}>
