@@ -154,7 +154,21 @@ export default function ToolScreen() {
                 <Pressable 
                   onPress={handleSubmit}
                   disabled={isSubmitting || !comment.trim()}
-                  className={`w-full h-14 rounded-2xl items-center justify-center flex-row ${!comment.trim() ? 'bg-[#A3ADA6]' : 'bg-[#1F2520] active:opacity-90'}`}
+                  style={({ pressed }) => [
+                    {
+                      width: "100%",
+                      height: 56,
+                      borderRadius: 16,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexDirection: "row",
+                      backgroundColor: !comment.trim()
+                        ? "#A3ADA6"
+                        : pressed
+                        ? "#141815"
+                        : "#1F2520",
+                    },
+                  ]}
                 >
                   {isSubmitting ? (
                     <ActivityIndicator color="white" />

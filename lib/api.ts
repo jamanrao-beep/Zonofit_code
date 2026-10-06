@@ -16,6 +16,7 @@ if (__DEV__) {
 interface RequestOptions extends RequestInit {
   token?: string | null;
   timeoutMs?: number;
+  silent?: boolean;
 }
 
 /**
@@ -88,7 +89,9 @@ export async function apiFetch(path: string, options: RequestOptions = {}) {
     
     if (err.status) {
       if (err.status !== 401) {
-        console.warn(`[API Error] Request to ${url} failed:`, err.message);
+        if (!options.silent) {
+          console.warn(`[API Error] Request to ${url} failed:`, err.message);
+        }
         throw err;
       } else {
         // Throw a plain object for 401s so `console.error` in stores doesn't spam stack traces
@@ -96,7 +99,9 @@ export async function apiFetch(path: string, options: RequestOptions = {}) {
       }
     }
     
-    console.warn(`[API Error] Request to ${url} failed:`, err);
+    if (!options.silent) {
+      console.warn(`[API Error] Request to ${url} failed:`, err);
+    }
     throw new Error(
       err.message ||
       `Network request failed while calling ${url}. Please check if the backend server is running and reachable from this device/emulator.`
