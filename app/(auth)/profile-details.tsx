@@ -32,8 +32,8 @@ export default function ProfileDetailsScreen() {
     
     try {
       await updateProfile({ name, dob, referral });
-      // After profile is updated, we go to location permission
-      router.replace("/onboarding/location");
+      // Go directly to city selection (no detect location step)
+      router.replace("/onboarding/select-city");
     } catch (e: any) {
       Alert.alert("Error", e?.message || "Failed to save profile. Please try again.");
     }

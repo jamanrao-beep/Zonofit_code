@@ -8,7 +8,8 @@ import {
   TextInput, 
   Alert,
   ActivityIndicator,
-  StyleSheet
+  StyleSheet,
+  Animated
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,6 +19,41 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { useGuestStore } from "@/store/useGuestStore";
 import { useRouter } from "expo-router";
 import { apiFetch } from "@/lib/api";
+
+function BlinkingRedDot() {
+  const opacity = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 0.15,
+          duration: 450,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 450,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [opacity]);
+
+  return (
+    <Animated.View
+      style={{
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: '#DC2626',
+        opacity,
+      }}
+    />
+  );
+}
 
 const MIN_CREDITS = 10;
 const CREDIT_PRICE_INR = 10; // 1 Credit = ₹10
@@ -57,17 +93,54 @@ export default function CreditsScreen() {
   }, [token]);
 
   // Derived state from membershipInfo (or fallbacks)
-  const cycleNumber = membershipInfo?.cycleNumber ?? 1;
+  const hasMembership = !!membershipInfo && membershipInfo.status !== "NONE" && membershipInfo.status !== "INACTIVE";
+  const isExpired = membershipInfo ? (membershipInfo.isExpired || membershipInfo.status === "EXPIRED") : false;
+  const isMembershipActive = membershipInfo ? (!membershipInfo.isExpired && membershipInfo.status === "ACTIVE") : false;
+  const daysRemaining = membershipInfo?.daysRemaining ?? 0;
+  const isExpiringSoon = isMembershipActive && daysRemaining <= 3 && daysRemaining > 0;
+  const showRenewalBanner = isExpired || isExpiringSoon;
+  const gymName = membershipInfo?.gymName || "Primary Gym";
+
+  const cycleNumber = membershipInfo?.cycleNumber ?? (hasMembership ? 1 : 0);
   const maxCycles = membershipInfo?.maxCycles ?? 12;
-  const cyclesRemaining = membershipInfo?.cyclesRemaining ?? Math.max(0, maxCycles - cycleNumber);
+  const cyclesRemaining = membershipInfo?.cyclesRemaining ?? (hasMembership ? Math.max(0, maxCycles - cycleNumber) : 12);
   const mandatoryVisits = membershipInfo?.mandatoryVisits ?? 0;
   const completedVisits = membershipInfo?.completedVisits ?? 0;
   const mandatoryVisitsRemaining = membershipInfo?.mandatoryVisitsRemaining ?? Math.max(0, mandatoryVisits - completedVisits);
-  
-  const isExpired = membershipInfo ? membershipInfo.isExpired : false;
-  const isMembershipActive = membershipInfo ? (!membershipInfo.isExpired && membershipInfo.status === "ACTIVE") : false;
-  const daysRemaining = membershipInfo?.daysRemaining ?? 0;
-  const gymName = membershipInfo?.gymName || "Primary Gym";
+
+  // Status Badge Configuration (Text, Background, Color, Indicator Dot)
+  const badgeConfig = (() => {
+    if (isExpired) {
+      return {
+        text: "Expired",
+        bgColor: "#FEF2F2",
+        textColor: "#DC2626",
+        dot: <BlinkingRedDot />,
+      };
+    }
+    if (isExpiringSoon) {
+      return {
+        text: `Expiring Soon (${daysRemaining}d)`,
+        bgColor: "#FEF2F2",
+        textColor: "#DC2626",
+        dot: <BlinkingRedDot />,
+      };
+    }
+    if (isMembershipActive) {
+      return {
+        text: "Active",
+        bgColor: "#E8F5E9",
+        textColor: "#1F7A3E",
+        dot: <View className="w-2 h-2 rounded-full bg-[#1F7A3E]" />,
+      };
+    }
+    return {
+      text: "Inactive",
+      bgColor: "#F3F4F6",
+      textColor: "#6B7280",
+      dot: <View className="w-2 h-2 rounded-full bg-[#9CA3AF]" />,
+    };
+  })();
 
   // INR Wallet rules (PRD Section 13, 14, 15, 22D)
   const hasInrWallet = !!(inrWallet && inrWallet.isValid && inrWallet.balanceINR > 0);
@@ -192,7 +265,7 @@ export default function CreditsScreen() {
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20, paddingBottom: 100 }}>
           {/* Guest Locked Hero Card */}
-          <View className="bg-[#1F7A3E] rounded-[26px] p-6 shadow-md mb-6 relative overflow-hidden">
+          <View style={{ backgroundColor: '#1F7A3E', borderRadius: 26, padding: 24, marginBottom: 24, position: 'relative', overflow: 'hidden' }}>
             <View style={{ position: "absolute", top: -30, right: -30, width: 140, height: 140, borderRadius: 70, backgroundColor: "rgba(255,255,255,0.08)" }} />
             
             <View className="flex-row items-center mb-3">
@@ -301,9 +374,87 @@ export default function CreditsScreen() {
         contentContainerStyle={{ paddingBottom: 100 }}
       >
         {/* ======================================================== */}
+        {/* MEMBERSHIP EXPIRY / RENEWAL ALERT BANNER                  */}
+        {/* ======================================================== */}
+        {/* ======================================================== */}
+        {/* MEMBERSHIP EXPIRY / RENEWAL ALERT BANNER                  */}
+        {/* ======================================================== */}
+        {showRenewalBanner ? (
+          <View key="sec-renewal-banner" className="px-5 pt-4">
+            <View className="bg-red-50 border border-red-200 rounded-[24px] p-4 shadow-sm">
+              <View className="flex-row items-center justify-between mb-2">
+                <View className="flex-row items-center flex-1 mr-2">
+                  <View className="mr-2.5">
+                    <BlinkingRedDot />
+                  </View>
+                  <Text className="text-sm font-black text-red-700">
+                    {isExpired
+                      ? "Membership Expired"
+                      : `Plan Expiring Soon (${daysRemaining} ${daysRemaining === 1 ? "day" : "days"} left)`}
+                  </Text>
+                </View>
+                <View className="bg-red-100 px-2.5 py-0.5 rounded-full">
+                  <Text className="text-[10px] font-extrabold text-red-700 uppercase">
+                    {isExpired ? "Action Required" : "Renew Plan"}
+                  </Text>
+                </View>
+              </View>
+
+              <Text className="text-xs text-red-600 mb-3 leading-relaxed">
+                {isExpired
+                  ? "Your membership has ended. Renew your plan to unlock gym check-ins, visits, and credit top-ups."
+                  : "Your plan is expiring soon. Renew now so your workouts continue seamlessly without interruption."}
+              </Text>
+
+              <Pressable
+                onPress={() => router.push("/membership" as any)}
+                className="bg-red-600 active:bg-red-700 rounded-xl py-3 px-4 flex-row items-center justify-center shadow-sm"
+              >
+                <Ionicons name="refresh" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text className="text-white font-black text-xs uppercase tracking-wider">
+                  {isExpired ? "Renew Membership Now" : "Renew Plan Now"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : !isMembershipActive && (
+          <View key="sec-no-membership-banner" className="px-5 pt-4">
+            <View className="bg-emerald-50 border border-emerald-200 rounded-[24px] p-4 shadow-sm">
+              <View className="flex-row items-center justify-between mb-2">
+                <View className="flex-row items-center flex-1 mr-2">
+                  <Ionicons name="sparkles" size={18} color="#1F7A3E" style={{ marginRight: 8 }} />
+                  <Text className="text-sm font-black text-[#1F7A3E]">
+                    No Active Membership
+                  </Text>
+                </View>
+                <View className="bg-[#E8F5E9] px-2.5 py-0.5 rounded-full">
+                  <Text className="text-[10px] font-extrabold text-[#1F7A3E] uppercase">
+                    Get Access
+                  </Text>
+                </View>
+              </View>
+
+              <Text className="text-xs text-gray-600 mb-3 leading-relaxed">
+                Get a ZonoFit membership to access partner gyms, receive workout credits, and unlock instant top-ups.
+              </Text>
+
+              <Pressable
+                onPress={() => router.push("/membership" as any)}
+                className="bg-[#1F7A3E] active:bg-[#186031] rounded-xl py-3 px-4 flex-row items-center justify-center shadow-sm"
+              >
+                <Ionicons name="card-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text className="text-white font-black text-xs uppercase tracking-wider">
+                  Explore Membership Plans
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
+        {/* ======================================================== */}
         {/* SECTION A: CURRENT MEMBERSHIP CARD (PRD Section 5 & 22A) */}
         {/* ======================================================== */}
-        <View className="px-5 pt-5 mb-5">
+        <View key="sec-membership" className="px-5 pt-4 mb-5">
           <View className="bg-white rounded-[26px] p-5 border border-gray-200 shadow-sm">
             {/* Header: Gym Name + Status Badge */}
             <View className="flex-row justify-between items-start mb-3">
@@ -313,16 +464,18 @@ export default function CreditsScreen() {
                   {gymName}
                 </Text>
               </View>
-              <View className={`px-3 py-1 rounded-full flex-row items-center ${
-                isMembershipActive ? "bg-[#E8F5E9]" : "bg-red-50"
-              }`}>
-                <View className={`w-2 h-2 rounded-full mr-1.5 ${
-                  isMembershipActive ? "bg-[#1F7A3E]" : "bg-red-500"
-                }`} />
-                <Text className={`text-xs font-extrabold uppercase ${
-                  isMembershipActive ? "text-[#1F7A3E]" : "text-red-600"
-                }`}>
-                  {isMembershipActive ? "Active" : "Expired"}
+              <View 
+                className="px-3 py-1 rounded-full flex-row items-center"
+                style={{ backgroundColor: badgeConfig.bgColor }}
+              >
+                <View className="mr-1.5">
+                  {badgeConfig.dot}
+                </View>
+                <Text 
+                  className="text-xs font-extrabold uppercase"
+                  style={{ color: badgeConfig.textColor }}
+                >
+                  {badgeConfig.text}
                 </Text>
               </View>
             </View>
@@ -332,11 +485,13 @@ export default function CreditsScreen() {
               <View className="flex-row items-center">
                 <Ionicons name="fitness-outline" size={18} color="#1F7A3E" />
                 <Text className="text-sm font-bold text-[#111827] ml-2">
-                  Membership {cycleNumber} of {maxCycles}
+                  {hasMembership ? `Membership ${cycleNumber} of ${maxCycles}` : "12-Month Habit Engine"}
                 </Text>
               </View>
               <Text className="text-xs font-bold text-[#1F7A3E]">
-                {cycleNumber} Used · {cyclesRemaining} Remaining
+                {hasMembership 
+                  ? `${cycleNumber} Used · ${cyclesRemaining} Remaining` 
+                  : "12 Cycles Available"}
               </Text>
             </View>
 
@@ -348,10 +503,18 @@ export default function CreditsScreen() {
                   <Text className="text-xs font-semibold text-gray-500 ml-1.5">Duration</Text>
                 </View>
                 <Text className="text-lg font-black text-[#111827]">
-                  {isMembershipActive ? `${daysRemaining} Days` : "Cycle Ended"}
+                  {isMembershipActive 
+                    ? `${daysRemaining} Days` 
+                    : isExpired 
+                    ? "Cycle Ended" 
+                    : "No Plan"}
                 </Text>
                 <Text className="text-[11px] text-gray-400 mt-0.5">
-                  {isMembershipActive ? "Remaining in cycle" : "Needs repurchase"}
+                  {isMembershipActive 
+                    ? "Remaining in cycle" 
+                    : isExpired 
+                    ? "Needs repurchase" 
+                    : "Join a membership"}
                 </Text>
               </View>
 
@@ -361,21 +524,47 @@ export default function CreditsScreen() {
                   <Text className="text-xs font-semibold text-gray-500 ml-1.5">Mandatory Visits</Text>
                 </View>
                 <Text className="text-lg font-black text-[#1F7A3E]">
-                  {mandatoryVisitsRemaining} Remaining
+                  {isMembershipActive ? `${mandatoryVisitsRemaining} Remaining` : "0 Remaining"}
                 </Text>
                 <Text className="text-[11px] text-gray-400 mt-0.5">
-                  {completedVisits} of {mandatoryVisits} completed
+                  {isMembershipActive 
+                    ? `${completedVisits} of ${mandatoryVisits} completed` 
+                    : isExpired 
+                    ? "Cycle completed" 
+                    : "Unlock with plan"}
                 </Text>
               </View>
             </View>
+
+            {showRenewalBanner ? (
+              <Pressable
+                onPress={() => router.push("/membership" as any)}
+                className="mt-4 bg-red-600 active:bg-red-700 rounded-2xl py-3 px-4 flex-row items-center justify-center shadow-sm"
+              >
+                <Ionicons name="refresh" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text className="text-white font-black text-xs uppercase tracking-wider">
+                  {isExpired ? "Renew Membership" : "Renew Plan Early"}
+                </Text>
+              </Pressable>
+            ) : !isMembershipActive && (
+              <Pressable
+                onPress={() => router.push("/membership" as any)}
+                className="mt-4 bg-[#1F7A3E] active:bg-[#186031] rounded-2xl py-3 px-4 flex-row items-center justify-center shadow-sm"
+              >
+                <Ionicons name="sparkles" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text className="text-white font-black text-xs uppercase tracking-wider">
+                  Explore Membership Plans
+                </Text>
+              </Pressable>
+            )}
           </View>
         </View>
 
         {/* ======================================================== */}
         {/* SECTION B: CREDIT BALANCE CARD (PRD Section 5, 6 & 22B) */}
         {/* ======================================================== */}
-        <View className="px-5 mb-5">
-          <View className="bg-[#1F7A3E] rounded-[26px] p-6 shadow-md relative overflow-hidden">
+        <View key="sec-credits-balance" className="px-5 mb-5">
+          <View style={{ backgroundColor: '#1F7A3E', borderRadius: 26, padding: 24, position: 'relative', overflow: 'hidden' }}>
             {/* Subtle background decoration */}
             <View style={{ position: "absolute", top: -30, right: -30, width: 140, height: 140, borderRadius: 70, backgroundColor: "rgba(255,255,255,0.08)" }} />
 
@@ -407,13 +596,30 @@ export default function CreditsScreen() {
               </View>
             )}
 
-            {/* Primary Action Button — Redirects to Credit Purchase Flow */}
+            {/* Primary Action Button — Redirects to Credit Purchase Flow or Membership */}
             <Pressable
-              onPress={() => router.push("/top-up-credits" as any)}
+              onPress={() => {
+                if (isMembershipActive) {
+                  router.push("/top-up-credits" as any);
+                } else {
+                  router.push("/membership" as any);
+                }
+              }}
               className="bg-white rounded-2xl py-3.5 px-4 items-center justify-center flex-row shadow-sm active:bg-gray-100"
             >
-              <Ionicons name="add-circle" size={20} color="#1F7A3E" style={{ marginRight: 8 }} />
-              <Text className="text-[#1F7A3E] font-black text-sm">Buy Additional Credits</Text>
+              <Ionicons 
+                name={isMembershipActive ? "add-circle" : "card-outline"} 
+                size={20} 
+                color="#1F7A3E" 
+                style={{ marginRight: 8 }} 
+              />
+              <Text className="text-[#1F7A3E] font-black text-sm">
+                {isMembershipActive 
+                  ? "Buy Additional Credits" 
+                  : isExpired 
+                  ? "Renew Membership to Unlock" 
+                  : "Get Membership to Unlock Credits"}
+              </Text>
             </Pressable>
           </View>
         </View>
@@ -423,7 +629,7 @@ export default function CreditsScreen() {
         {/* Only shown when an INR wallet exists (balance > 0)       */}
         {/* ======================================================== */}
         {hasInrWallet && (
-          <View className="px-5 mb-5">
+          <View key="sec-inr-wallet" className="px-5 mb-5">
             <View className="bg-[#FFFBEB] rounded-[24px] p-5 border border-[#FDE68A] shadow-sm">
               <View className="flex-row justify-between items-center mb-3">
                 <View className="flex-row items-center">
@@ -463,7 +669,7 @@ export default function CreditsScreen() {
         {/* ======================================================== */}
         {/* SECTION C: ADDITIONAL CREDIT PURCHASE (PRD Section 7 & 22C)*/}
         {/* ======================================================== */}
-        <View className="px-5 mb-5">
+        <View key="sec-additional-purchase" className="px-5 mb-5">
           <View className="bg-white rounded-[26px] p-5 border border-gray-200 shadow-sm">
             <View className="flex-row justify-between items-center mb-1">
               <Text className="text-xs font-bold text-gray-400 uppercase tracking-wider">
@@ -484,12 +690,12 @@ export default function CreditsScreen() {
                 onPress={handleDecrement}
                 disabled={purchaseQuantity <= MIN_CREDITS || !isMembershipActive}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                style={{ width: 56, height: 56, borderRadius: 16 }}
-                className={`items-center justify-center ${
-                  purchaseQuantity <= MIN_CREDITS || !isMembershipActive
-                    ? "bg-gray-200 opacity-50"
-                    : "bg-white border border-gray-200 active:bg-gray-100 shadow-sm"
-                }`}
+                style={[
+                  { width: 56, height: 56, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+                  (purchaseQuantity <= MIN_CREDITS || !isMembershipActive)
+                    ? { backgroundColor: "#E5E7EB", opacity: 0.5 }
+                    : { backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E5E7EB" },
+                ]}
               >
                 <Ionicons name="remove" size={26} color={purchaseQuantity <= MIN_CREDITS ? "#9CA3AF" : "#111827"} />
               </Pressable>
@@ -521,12 +727,12 @@ export default function CreditsScreen() {
                 onPress={handleIncrement}
                 disabled={!isMembershipActive}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                style={{ width: 56, height: 56, borderRadius: 16 }}
-                className={`items-center justify-center ${
-                  !isMembershipActive
-                    ? "bg-gray-200 opacity-50"
-                    : "bg-white border border-gray-200 active:bg-gray-100 shadow-sm"
-                }`}
+                style={[
+                  { width: 56, height: 56, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+                  (!isMembershipActive)
+                    ? { backgroundColor: "#E5E7EB", opacity: 0.5 }
+                    : { backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E5E7EB" },
+                ]}
               >
                 <Ionicons name="add" size={26} color="#111827" />
               </Pressable>
@@ -542,11 +748,12 @@ export default function CreditsScreen() {
                     onPress={() => handlePresetSelect(amt)}
                     disabled={!isMembershipActive}
                     hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-                    className={`flex-1 py-2.5 rounded-xl items-center border ${
+                    style={[
+                      { flex: 1, paddingVertical: 10, borderRadius: 12, alignItems: "center", borderWidth: 1 },
                       isSelected
-                        ? "bg-[#1F7A3E] border-[#1F7A3E]"
-                        : "bg-gray-50 border-gray-200 active:bg-gray-100"
-                    }`}
+                        ? { backgroundColor: "#1F7A3E", borderColor: "#1F7A3E" }
+                        : { backgroundColor: "#F9FAFB", borderColor: "#E5E7EB" },
+                    ]}
                   >
                     <Text className={`text-xs font-bold ${isSelected ? "text-white" : "text-gray-700"}`}>
                       {amt} CR
@@ -565,15 +772,37 @@ export default function CreditsScreen() {
 
             {/* Purchase CTA */}
             <Pressable
-              onPress={handleBuyAdditionalCredits}
-              disabled={isPurchasing || !isMembershipActive}
-              className={`h-12 rounded-xl items-center justify-center flex-row shadow-sm ${
-                !isMembershipActive
-                  ? "bg-gray-300"
-                  : isPurchasing
-                  ? "bg-[#1F7A3E]/80"
-                  : "bg-[#1F7A3E] active:bg-[#165a2d]"
-              }`}
+              onPress={() => {
+                if (!isMembershipActive) {
+                  Alert.alert(
+                    "Active Membership Required",
+                    "Additional credits can only be purchased while your membership is active. Would you like to explore membership plans?",
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      { text: "Explore Plans", onPress: () => router.push("/membership" as any) },
+                    ]
+                  );
+                } else {
+                  handleBuyAdditionalCredits();
+                }
+              }}
+              disabled={isPurchasing}
+              style={({ pressed }) => [
+                {
+                  height: 48,
+                  borderRadius: 12,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexDirection: "row",
+                  backgroundColor: !isMembershipActive
+                    ? "#D1D5DB"
+                    : isPurchasing
+                    ? "#1F7A3ECC"
+                    : pressed
+                    ? "#165a2d"
+                    : "#1F7A3E",
+                },
+              ]}
             >
               {isPurchasing ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
@@ -585,6 +814,17 @@ export default function CreditsScreen() {
                 </Text>
               )}
             </Pressable>
+
+            {!isMembershipActive && (
+              <Pressable
+                onPress={() => router.push("/membership" as any)}
+                className="mt-3 items-center"
+              >
+                <Text className="text-xs font-bold text-[#1F7A3E]">
+                  {isExpired ? "Renew your membership to top up credits →" : "Explore membership plans to get credits →"}
+                </Text>
+              </Pressable>
+            )}
           </View>
         </View>
 

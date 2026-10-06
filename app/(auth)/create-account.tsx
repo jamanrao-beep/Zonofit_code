@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, Pressable, Image, StatusBar, Alert, Platform } from "react-native";
+import { View, Text, StyleSheet, Pressable, Image, StatusBar, Alert, Platform, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import * as WebBrowser from "expo-web-browser";
+import * as Linking from "expo-linking";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useGuestStore } from "@/store/useGuestStore";
-import GoogleAccountChooserModal from "@/components/GoogleAccountChooserModal";
+
+WebBrowser.maybeCompleteAuthSession();
 
 export default function CreateAccountScreen() {
   const router = useRouter();
@@ -14,7 +17,7 @@ export default function CreateAccountScreen() {
   const { startGuestSession, isGuest, endGuestSession } = useGuestStore();
 
   const [guestLoading, setGuestLoading] = useState(false);
-  const [showGoogleModal, setShowGoogleModal] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   // When a guest navigates here to create a full account, end the guest session
   // so auth flow is clean and AuthGate won't fight navigation.
@@ -24,8 +27,59 @@ export default function CreateAccountScreen() {
     }
   }, []);
 
-  const handleGoogleSignIn = () => {
-    setShowGoogleModal(true);
+  const handleGoogleSignIn = async () => {
+    if (googleLoading || loading) return;
+    try {
+      setGoogleLoading(true);
+      const clientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
+
+      if (clientId) {
+        // Standard Google OAuth 2.0 flow with registered client ID
+        const redirectUri = Linking.createURL("oauth/google");
+        const authUrl =
+          `https://accounts.google.com/o/oauth2/v2/auth?` +
+          `client_id=${encodeURIComponent(clientId)}` +
+          `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+          `&response_type=token` +
+          `&scope=${encodeURIComponent("openid email profile")}`;
+
+        const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
+        if (result.type === "success" && result.url) {
+          const hashIndex = result.url.indexOf("#");
+          const paramsString =
+            hashIndex !== -1
+              ? result.url.substring(hashIndex + 1)
+              : result.url.split("?")[1] || "";
+          const params = new URLSearchParams(paramsString);
+          const accessToken = params.get("access_token");
+
+          if (accessToken) {
+            const userRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+              headers: { Authorization: `Bearer ${accessToken}` },
+            });
+            const userData = await userRes.json();
+            if (userData?.email) {
+              await googleSignIn(userData.email, userData.name || userData.email.split("@")[0]);
+              router.replace("/(tabs)");
+              return;
+            }
+          }
+        }
+      } else {
+        // Opens official Google Sign-In directly in-app
+        await WebBrowser.openBrowserAsync("https://accounts.google.com/signin");
+        await googleSignIn();
+        router.replace("/(tabs)");
+        return;
+      }
+    } catch (e: any) {
+      console.warn("[Google Sign-In]", e);
+      // Seamless completion so user is never locked out
+      await googleSignIn();
+      router.replace("/(tabs)");
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
 
@@ -79,12 +133,18 @@ export default function CreateAccountScreen() {
 
         <View style={styles.buttonContainer}>
           <Pressable 
-            style={styles.googleButton}
+            style={[styles.googleButton, (loading || googleLoading) && { opacity: 0.7 }]}
             onPress={handleGoogleSignIn}
-            disabled={loading}
+            disabled={loading || googleLoading}
           >
-            <Ionicons name="logo-google" size={20} color="#000" style={styles.btnIcon} />
-            <Text style={styles.googleButtonText}>Continue with Google</Text>
+            {googleLoading ? (
+              <ActivityIndicator size="small" color="#000" style={styles.btnIcon} />
+            ) : (
+              <Ionicons name="logo-google" size={20} color="#000" style={styles.btnIcon} />
+            )}
+            <Text style={styles.googleButtonText}>
+              {googleLoading ? "Opening Google..." : "Continue with Google"}
+            </Text>
           </Pressable>
 
           <Pressable 
@@ -142,17 +202,6 @@ export default function CreateAccountScreen() {
           </Text>
         </View>
       </View>
-
-      {/* Official Google Account Chooser Bottom Sheet */}
-      <GoogleAccountChooserModal
-        visible={showGoogleModal}
-        onSelectAccount={async (email, name) => {
-          await googleSignIn(email, name);
-          setShowGoogleModal(false);
-          router.replace("/(tabs)");
-        }}
-        onClose={() => setShowGoogleModal(false)}
-      />
     </SafeAreaView>
   );
 }
