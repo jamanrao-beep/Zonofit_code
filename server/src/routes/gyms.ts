@@ -247,6 +247,46 @@ router.get(
   }
 );
 
+// ─── GET /api/gyms/favorites ────────────────────────────────────────────────
+/**
+ * Get all saved/favorite gyms for the authenticated user.
+ * Must be registered before /:id so Express does not capture 'favorites' as a gym ID.
+ */
+router.get("/favorites", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.dbUserId!;
+
+    const savedGyms = await prisma.savedGym.findMany({
+      where: { userId },
+      include: {
+        gym: {
+          select: {
+            id: true,
+            name: true,
+            address: true,
+            city: true,
+            creditCost: true,
+            rating: true,
+            imageUrls: true,
+            facilities: true,
+            category: true,
+            isVerified: true,
+          }
+        }
+      },
+      orderBy: { createdAt: "desc" }
+    });
+
+    res.json({ 
+      savedGyms: savedGyms.map(sg => ({ ...sg.gym, savedAt: sg.createdAt })),
+      favoriteGymIds: savedGyms.map(sg => sg.gym.id)
+    });
+  } catch (err: any) {
+    console.error("Failed to fetch favorites:", err);
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
 // ─── GET /api/gyms/:id ────────────────────────────────────────────────────────
 /**
  * Get full gym details by ID.
@@ -894,41 +934,6 @@ router.post("/:id/favorite", requireAuth, async (req: Request, res: Response) =>
   }
 });
 
-// ─── GET /api/gyms/favorites ────────────────────────────────────────────────
-/**
- * Get all saved/favorite gyms for the authenticated user.
- */
-router.get("/favorites", requireAuth, async (req: Request, res: Response) => {
-  try {
-    const userId = req.dbUserId!;
-
-    const savedGyms = await prisma.savedGym.findMany({
-      where: { userId },
-      include: {
-        gym: {
-          select: {
-            id: true,
-            name: true,
-            address: true,
-            city: true,
-            creditCost: true,
-            rating: true,
-            imageUrls: true,
-            facilities: true,
-            category: true,
-            isVerified: true,
-          }
-        }
-      },
-      orderBy: { createdAt: "desc" }
-    });
-
-    res.json({ savedGyms: savedGyms.map(sg => ({ ...sg.gym, savedAt: sg.createdAt })) });
-  } catch (err: any) {
-    console.error("Failed to fetch favorites:", err);
-    res.status(500).json({ error: "ServerError", message: err.message });
-  }
-});
 
 // ─── GET /api/gyms/:id/favorite ─────────────────────────────────────────────
 /**

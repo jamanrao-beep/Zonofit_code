@@ -53,6 +53,19 @@ router.get(
       return;
     }
 
+    // If user's wallet has balance > 0, but user has never had any credit transactions or payments,
+    // it was from the test auto-grant on signup. Correct it to 0.
+    const transactionCount = await prisma.creditTransaction.count({
+      where: { userId: req.dbUserId! },
+    });
+    if (transactionCount === 0 && wallet.balance > 0) {
+      await prisma.creditWallet.update({
+        where: { id: wallet.id },
+        data: { balance: 0 },
+      });
+      wallet.balance = 0;
+    }
+
     const now = new Date();
     const convertibleCashINR = wallet.convertibleCashBalanceInPaise / 100;
     const isCashValid = !!(wallet.cashExpiryDate && wallet.cashExpiryDate > now && convertibleCashINR > 0);
@@ -73,7 +86,8 @@ router.get(
     const completedVisits = membership?.completedVisits || 0;
     const mandatoryVisitsRemaining = Math.max(0, mandatoryVisits - completedVisits);
 
-    const canRepurchase = !!membership && isExpired && cycleNumber < maxCycles;
+    // Can repurchase/renew if expired OR within 3 days of expiry
+    const canRepurchase = !!membership && (isExpired || daysRemaining <= 3) && cycleNumber <= maxCycles;
     const canBuyAdditionalCredits = !!membership && !isExpired;
 
     res.json({
@@ -91,6 +105,7 @@ router.get(
         ? {
             status: isExpired ? "EXPIRED" : membership.status,
             isExpired,
+            isExpiringSoon: !isExpired && daysRemaining <= 3,
             tier: membership.plan ? membership.plan.tier : "STANDARD",
             planName: membership.plan ? membership.plan.name : "Plan",
             gymName: membership.primaryGym?.name || "ZonoFit Partner Gym",
