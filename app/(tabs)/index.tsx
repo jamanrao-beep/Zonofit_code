@@ -1,11 +1,12 @@
-import React from "react";
+import React, { useRef, useEffect } from "react";
 import { 
   ScrollView, 
   Text, 
   View, 
   Pressable, 
   Image,
-  StyleSheet
+  StyleSheet,
+  Animated
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -15,6 +16,41 @@ import { useUserStore } from "@/store/useUserStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
 import { useGuestStore } from "@/store/useGuestStore";
 import { useBookingStore } from "@/store/useBookingStore";
+
+function BlinkingRedDot() {
+  const opacity = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 0.15,
+          duration: 450,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 450,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [opacity]);
+
+  return (
+    <Animated.View
+      style={{
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: '#DC2626',
+        opacity,
+      }}
+    />
+  );
+}
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -31,6 +67,12 @@ export default function HomeScreen() {
   const { isGuest, hoursRemaining, checkExpiry, endGuestSession } = useGuestStore();
   const { bookingStatus, bookedGymName, bookedTime } = useBookingStore();
   const { membershipInfo } = useCreditsStore();
+
+  const isExpired = membershipInfo ? membershipInfo.isExpired : false;
+  const isMembershipActive = membershipInfo ? (!membershipInfo.isExpired && membershipInfo.status === "ACTIVE") : false;
+  const daysRemaining = membershipInfo?.daysRemaining ?? 0;
+  const isExpiringSoon = isMembershipActive && daysRemaining <= 3 && daysRemaining > 0;
+  const showRenewalAlert = isExpired || isExpiringSoon;
 
   React.useEffect(() => {
     if (isGuest && checkExpiry()) {
@@ -266,8 +308,35 @@ export default function HomeScreen() {
         overScrollMode="never"
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120, paddingTop: 8 }}
       >
+        {/* Renewal / Expiry Alert Banner */}
+        {showRenewalAlert && (
+          <View className="mb-4 bg-red-50 border border-red-200 rounded-[24px] p-4 shadow-sm">
+            <View className="flex-row items-center justify-between mb-2">
+              <View className="flex-row items-center flex-1 mr-2">
+                <View className="mr-2.5">
+                  <BlinkingRedDot />
+                </View>
+                <Text className="text-sm font-black text-red-700">
+                  {isExpired ? "Membership Expired" : `Plan About to Expire (${daysRemaining}d left)`}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => router.push("/membership")}
+                className="bg-red-600 active:bg-red-700 rounded-xl px-3 py-1.5 flex-row items-center shadow-sm"
+              >
+                <Text className="text-white font-extrabold text-[11px] uppercase tracking-wider">Renew Now</Text>
+              </Pressable>
+            </View>
+            <Text className="text-xs text-red-600 leading-relaxed">
+              {isExpired 
+                ? "Your membership cycle has ended. Renew now to continue booking gym visits."
+                : "Your plan is about to expire in 3 days. Renew now to avoid workout interruptions."}
+            </Text>
+          </View>
+        )}
+
         {/* Primary Gym Card */}
-        <View className="bg-[#1F7A3E] rounded-[32px] p-6 mb-6">
+        <View style={{ backgroundColor: '#1F7A3E', borderRadius: 32, padding: 24, marginBottom: 24 }}>
           <Pressable 
             onPress={() => router.push("/explore")}
             className="flex-row justify-between items-start mb-6 active:opacity-80"
@@ -450,7 +519,20 @@ export default function HomeScreen() {
         </Pressable>
 
         {/* Refer & Earn Card */}
-        <View className="bg-[#EDF7EC] rounded-[24px] p-6 mb-8 flex-row justify-between overflow-hidden relative border border-black/5" style={styles.cardShadow}>
+        <View 
+          style={[{
+            backgroundColor: '#EDF7EC',
+            borderRadius: 24,
+            padding: 24,
+            marginBottom: 32,
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            overflow: 'hidden',
+            position: 'relative',
+            borderWidth: 1,
+            borderColor: 'rgba(0,0,0,0.05)',
+          }, styles.cardShadow]}
+        >
           {/* Top Right Share Button */}
           <Pressable 
             onPress={() => router.push("/invite" as any)}
@@ -489,39 +571,39 @@ export default function HomeScreen() {
           <Text className="text-black text-lg font-bold mb-4 ml-1">Connect</Text>
 
           <View className="flex-row gap-x-3 mb-6">
-            {/* Workout Buddy Card — Purple theme matching internal screen */}
+            {/* Workout Buddy Card — Soft Lavender theme with white circular icon */}
             <Pressable 
               onPress={() => router.push("/future/workout-buddy" as any)}
               className="flex-1 rounded-[24px] p-5 active:opacity-90 flex-col justify-between overflow-hidden relative"
-              style={{ backgroundColor: '#F5F3FF', borderWidth: 1, borderColor: '#DDD6FE' }}
+              style={{ backgroundColor: '#F6F3FD', borderWidth: 1, borderColor: '#EDE9FE' }}
             >
               <View>
-                <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: '#EDE9FE', alignItems: 'center', justifyContent: 'center', marginBottom: 12, borderWidth: 1, borderColor: '#DDD6FE' }}>
-                  <Ionicons name="people" size={22} color="#7C3AED" />
+                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', marginBottom: 12, borderWidth: 1, borderColor: '#EDE9FE', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 }}>
+                  <Ionicons name="people-outline" size={21} color="#7C3AED" />
                 </View>
-                <Text className="text-[#1E1B4B] font-bold text-[14px] mb-1">Find Workout Buddy</Text>
-                <Text style={{ color: 'rgba(109,40,217,0.7)', fontSize: 10.5, lineHeight: 16, marginBottom: 12 }}>Partner with gym members for accountability</Text>
+                <Text className="text-[#0F172A] font-bold text-[14.5px] mb-1.5">Find Workout Buddy</Text>
+                <Text style={{ color: '#64748B', fontSize: 10.5, lineHeight: 15, marginBottom: 14 }}>Find someone to stay motivated together</Text>
               </View>
-              <View style={{ backgroundColor: '#EDE9FE', alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 12, borderWidth: 1, borderColor: '#DDD6FE' }}>
-                <Text style={{ color: '#6D28D9', fontSize: 9, fontWeight: '700', letterSpacing: 0.5 }}>Coming Soon</Text>
+              <View style={{ backgroundColor: '#FFFFFF', alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 4.5, borderRadius: 14, borderWidth: 1, borderColor: '#EDE9FE', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3, elevation: 1 }}>
+                <Text style={{ color: '#64748B', fontSize: 9.5, fontWeight: '700' }}>Coming Soon</Text>
               </View>
             </Pressable>
 
-            {/* Personal Trainer Card — Green theme matching internal screen */}
+            {/* Personal Trainer Card — Soft Peach/Cream theme with white circular icon */}
             <Pressable 
               onPress={() => router.push("/future/personal-trainer" as any)}
               className="flex-1 rounded-[24px] p-5 active:opacity-90 flex-col justify-between overflow-hidden relative"
-              style={{ backgroundColor: '#ECFDF5', borderWidth: 1, borderColor: '#A7F3D0' }}
+              style={{ backgroundColor: '#FFF5EC', borderWidth: 1, borderColor: '#FED7AA' }}
             >
               <View>
-                <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: '#D1FAE5', alignItems: 'center', justifyContent: 'center', marginBottom: 12, borderWidth: 1, borderColor: '#A7F3D0' }}>
-                  <Ionicons name="barbell" size={22} color="#059669" />
+                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', marginBottom: 12, borderWidth: 1, borderColor: '#FED7AA', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 }}>
+                  <Ionicons name="person-outline" size={21} color="#D97706" />
                 </View>
-                <Text className="text-[#064E3B] font-bold text-[14px] mb-1">Find Personal Trainer</Text>
-                <Text style={{ color: 'rgba(4,120,87,0.7)', fontSize: 10.5, lineHeight: 16, marginBottom: 12 }}>Connect with certified coaches at network gyms</Text>
+                <Text className="text-[#0F172A] font-bold text-[14.5px] mb-1.5">Find Personal Trainer</Text>
+                <Text style={{ color: '#64748B', fontSize: 10.5, lineHeight: 15, marginBottom: 14 }}>Connect with certified trainers near you</Text>
               </View>
-              <View style={{ backgroundColor: '#D1FAE5', alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 12, borderWidth: 1, borderColor: '#A7F3D0' }}>
-                <Text style={{ color: '#047857', fontSize: 9, fontWeight: '700', letterSpacing: 0.5 }}>Coming Soon</Text>
+              <View style={{ backgroundColor: '#FFFFFF', alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 4.5, borderRadius: 14, borderWidth: 1, borderColor: '#FED7AA', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3, elevation: 1 }}>
+                <Text style={{ color: '#64748B', fontSize: 9.5, fontWeight: '700' }}>Coming Soon</Text>
               </View>
             </Pressable>
           </View>

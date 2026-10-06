@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Image, Pressable, Dimensions, StatusBar, StyleSheet, Platform, Alert } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useGuestStore } from '@/store/useGuestStore';
@@ -214,7 +214,16 @@ export default function GymDetailScreen() {
 
           {/* Top Actions */}
           <View style={{ position: 'absolute', top: Math.max(insets.top, 40), left: 16, right: 16, flexDirection: 'row', justifyContent: 'space-between' }}>
-            <Pressable onPress={() => router.back()} style={styles.iconButton}>
+            <Pressable 
+              onPress={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace("/partner-gyms" as any);
+                }
+              }} 
+              style={styles.iconButton}
+            >
               <Ionicons name="arrow-back" size={20} color="#000" />
             </Pressable>
             <Pressable 
@@ -276,7 +285,7 @@ export default function GymDetailScreen() {
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 3, marginBottom: 24, borderWidth: 1, borderColor: '#F3F4F6' }}>
             <View style={{ alignItems: 'center', flex: 1 }}>
               <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#F0FDF4', justifyContent: 'center', alignItems: 'center', marginBottom: 8 }}>
-                <MaterialCommunityIcons name="dumbbell" size={20} color="#16A34A" />
+                <Ionicons name="barbell" size={20} color="#16A34A" />
               </View>
               <Text style={{ fontSize: 12, fontWeight: '700', color: '#111827', marginBottom: 4 }}>Equipment</Text>
               <Text style={{ fontSize: 10, color: '#6B7280', textAlign: 'center', lineHeight: 14 }}>Strength · Cardio{'\n'}Functional</Text>
@@ -284,7 +293,7 @@ export default function GymDetailScreen() {
             <View style={{ width: 1, backgroundColor: '#F3F4F6', marginHorizontal: 4 }} />
             <View style={{ alignItems: 'center', flex: 1 }}>
               <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#F0FDF4', justifyContent: 'center', alignItems: 'center', marginBottom: 8 }}>
-                <MaterialCommunityIcons name="shower" size={20} color="#111827" />
+                <Ionicons name="water" size={20} color="#111827" />
               </View>
               <Text style={{ fontSize: 12, fontWeight: '700', color: '#111827', marginBottom: 4 }}>Facilities</Text>
               <Text style={{ fontSize: 10, color: '#6B7280', textAlign: 'center', lineHeight: 14 }}>Shower · Changing{'\n'}Parking</Text>
@@ -472,7 +481,7 @@ export default function GymDetailScreen() {
           }]}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-            <MaterialCommunityIcons name="ticket-outline" size={24} color="white" />
+            <Ionicons name="ticket-outline" size={24} color="white" />
             <View style={{ marginLeft: 12 }}>
               <Text style={{ color: 'white', fontSize: 13, fontWeight: '600' }}>1 Visit Available</Text>
               <Text style={{ color: 'white', fontSize: 12, opacity: 0.9 }}>{GYM_DATA.credits} Credits</Text>
