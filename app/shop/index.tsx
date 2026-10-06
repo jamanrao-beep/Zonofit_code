@@ -15,6 +15,7 @@ import { useRouter } from "expo-router";
 import { colors } from "@/constants/colors";
 import { useCartStore } from "@/store/useCartStore";
 import CartModal from "@/components/CartModal";
+import AddToCartConfirmModal, { AddedItemDetails } from "@/components/AddToCartConfirmModal";
 
 const CATEGORIES = [
   { id: "supplements", name: "Supplements", icon: "nutrition-outline" },
@@ -77,6 +78,7 @@ export default function ShopHomeScreen() {
   const cartCount = useCartStore((state) => state.getTotalItems());
   const addToCart = useCartStore((state) => state.addToCart);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [addedItem, setAddedItem] = useState<AddedItemDetails | null>(null);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }} edges={["top"]}>
@@ -84,9 +86,24 @@ export default function ShopHomeScreen() {
       
       {/* Header */}
       <View className="px-5 pt-4 pb-4 flex-row justify-between items-start bg-white">
-        <View className="flex-1">
-          <Text className="text-[28px] font-extrabold text-[#111827] tracking-tight mb-1">Shop</Text>
-          <Text className="text-[13px] font-medium text-[#6B7280]">Fitness essentials for your journey</Text>
+        <View className="flex-row items-center flex-1">
+          <Pressable 
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace("/(tabs)/explore" as any);
+              }
+            }} 
+            className="w-10 h-10 rounded-full bg-[#F3F4F6] items-center justify-center mr-3"
+            hitSlop={8}
+          >
+            <Ionicons name="arrow-back" size={20} color="#111827" />
+          </Pressable>
+          <View className="flex-1">
+            <Text className="text-[28px] font-extrabold text-[#111827] tracking-tight mb-0.5">Shop</Text>
+            <Text className="text-[12px] font-medium text-[#6B7280]">Fitness essentials for your journey</Text>
+          </View>
         </View>
         <View className="flex-row items-center pt-2">
           <Pressable onPress={() => Alert.alert("Saved Items", "Your saved wishlist items will appear here.")} className="mr-5">
@@ -202,41 +219,56 @@ export default function ShopHomeScreen() {
           
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
             {BEST_SELLERS.map((prod) => (
-              <Pressable 
+              <View 
                 key={prod.id} 
-                className="w-[160px] bg-white border border-gray-200 rounded-2xl p-3 mr-4 shadow-sm"
-                onPress={() => router.push(`/shop/product/${prod.id}` as any)}
+                className="w-[160px] bg-white border border-gray-200 rounded-2xl p-3 mr-4 shadow-sm justify-between"
               >
-                <View className="w-full h-32 bg-white rounded-xl mb-3 items-center justify-center">
-                  <Image 
-                    source={{ uri: prod.image }} 
-                    className="w-full h-full rounded-xl"
-                    resizeMode="contain"
-                  />
-                </View>
-                <Text className="text-[12px] font-bold text-[#111827] leading-tight mb-1" numberOfLines={2}>
-                  {prod.name}
-                </Text>
-                <Text className="text-[10px] text-gray-500 mb-1.5">{prod.variant}</Text>
-                <View className="flex-row items-center mb-2">
-                  <Ionicons name="star" size={10} color="#F59E0B" />
-                  <Text className="text-[10px] text-gray-600 font-medium ml-1">{prod.rating}</Text>
-                </View>
-                <Text className="text-[14px] font-bold text-[#111827] mb-3">₹{prod.price.toLocaleString()}</Text>
+                <Pressable
+                  onPress={() => router.push(`/shop/product/${prod.id}` as any)}
+                  className="active:opacity-80"
+                >
+                  <View className="w-full h-32 bg-white rounded-xl mb-3 items-center justify-center">
+                    <Image 
+                      source={{ uri: prod.image }} 
+                      className="w-full h-full rounded-xl"
+                      resizeMode="contain"
+                    />
+                  </View>
+                  <Text className="text-[12px] font-bold text-[#111827] leading-tight mb-1" numberOfLines={2}>
+                    {prod.name}
+                  </Text>
+                  <Text className="text-[10px] text-gray-500 mb-1.5">{prod.variant}</Text>
+                  <View className="flex-row items-center mb-2">
+                    <Ionicons name="star" size={10} color="#F59E0B" />
+                    <Text className="text-[10px] text-gray-600 font-medium ml-1">{prod.rating}</Text>
+                  </View>
+                  <Text className="text-[14px] font-bold text-[#111827] mb-3">₹{prod.price.toLocaleString()}</Text>
+                </Pressable>
                 
                 <Pressable 
                   className="w-full py-2 rounded-lg border border-[#1F7A3E] items-center justify-center active:bg-[#F3FAF4]"
-                  onPress={() => addToCart({
-                    id: prod.id,
-                    name: prod.name,
-                    brand: prod.brand,
-                    price: prod.price,
-                    image: prod.image,
-                  })}
+                  onPress={() => {
+                    addToCart({
+                      id: prod.id,
+                      name: prod.name,
+                      brand: prod.brand,
+                      price: prod.price,
+                      image: prod.image,
+                      variant: prod.variant,
+                    });
+                    setAddedItem({
+                      id: prod.id,
+                      name: prod.name,
+                      brand: prod.brand,
+                      price: prod.price,
+                      image: prod.image,
+                      variant: prod.variant,
+                    });
+                  }}
                 >
                   <Text className="text-[#1F7A3E] font-bold text-[11px]">Add to Cart</Text>
                 </Pressable>
-              </Pressable>
+              </View>
             ))}
           </ScrollView>
         </View>
@@ -264,6 +296,15 @@ export default function ShopHomeScreen() {
 
       </ScrollView>
       <CartModal visible={isCartOpen} onClose={() => setIsCartOpen(false)} />
+      <AddToCartConfirmModal
+        visible={!!addedItem}
+        item={addedItem}
+        onViewCart={() => {
+          setAddedItem(null);
+          setIsCartOpen(true);
+        }}
+        onContinueShopping={() => setAddedItem(null)}
+      />
     </SafeAreaView>
   );
 }
