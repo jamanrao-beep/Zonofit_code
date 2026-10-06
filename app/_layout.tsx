@@ -3,7 +3,7 @@ import { useUserStore } from "@/store/useUserStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
 import { useBookingStore } from "@/store/useBookingStore";
 import { useGuestStore } from "@/store/useGuestStore";
-import { useRouter, useSegments, Slot } from "expo-router";
+import { useRouter, useSegments, Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import "../global.css";
@@ -58,7 +58,13 @@ function AuthGate() {
     }
   }, [isLoaded, isSignedIn, isGuest, isGuestExpired, segments]);
 
-  return <Slot />;
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+    </Stack>
+  );
 }
 
 export default function RootLayout() {

@@ -1,23 +1,74 @@
-import React from "react";
-import { View, Text, Pressable, ScrollView, Share, Alert } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Text, Pressable, ScrollView, Share, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "@/store/useAuthStore";
+import { apiFetch } from "@/lib/api";
+
+interface ReferralData {
+  referralCode: string;
+  friendsJoined: number;
+  creditsEarned: number;
+  rewardAmount: number;
+}
 
 export default function InviteScreen() {
   const router = useRouter();
+  const token = useAuthStore((state) => state.token);
   const user = useAuthStore((state) => state.user);
-  
-  const rawId = (user?.username || user?.phone || "USER").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-  const inviteCode = user 
-    ? `ZONO-${rawId.slice(0, 4)}${user.id ? user.id.slice(-2).toUpperCase() : "77"}` 
-    : "ZONO-FIT77";
+
+  const [loading, setLoading] = useState(true);
+  const [referralInfo, setReferralInfo] = useState<ReferralData>({
+    referralCode: "",
+    friendsJoined: 0,
+    creditsEarned: 0,
+    rewardAmount: 50,
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function fetchReferralData() {
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const data = await apiFetch("/api/users/referral", { token, silent: true });
+        if (isMounted && data && data.referralCode) {
+          setReferralInfo({
+            referralCode: data.referralCode,
+            friendsJoined: typeof data.friendsJoined === "number" ? data.friendsJoined : 0,
+            creditsEarned: typeof data.creditsEarned === "number" ? data.creditsEarned : 0,
+            rewardAmount: typeof data.rewardAmount === "number" ? data.rewardAmount : 50,
+          });
+        }
+      } catch (err) {
+        console.log("[Referral] Failed to fetch referral info from database:", err);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    fetchReferralData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [token]);
+
+  const activeCode = referralInfo.referralCode || (loading ? "LOADING..." : "ZONO-FIT");
 
   const handleShare = async () => {
+    if (!referralInfo.referralCode && loading) return;
     try {
       await Share.share({
-        message: `Join ZonoFit using my code ${inviteCode} and we both get 50 bonus credits! Download here: https://zonofit.com/app`,
+        message: `Join ZonoFit using my code ${activeCode}! Download here and book your first gym visit: https://zonofit.com/app`,
       });
     } catch (error) {
       Alert.alert("Error", "Could not share code.");
@@ -29,7 +80,13 @@ export default function InviteScreen() {
       {/* Header */}
       <View className="px-5 pt-3 pb-4 flex-row items-center justify-between">
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace("/(tabs)/explore" as any);
+            }
+          }}
           className="w-9 h-9 rounded-full bg-white items-center justify-center border border-black/5 shadow-sm"
         >
           <Ionicons name="arrow-back" size={18} color="#1F2520" />
@@ -45,18 +102,22 @@ export default function InviteScreen() {
             <Ionicons name="gift" size={64} color="#6BCB77" />
           </View>
           <Text className="text-2xl font-black text-[#1F2520] text-center mb-2">
-            Give 50, Get 50
+            Refer & Get 50
           </Text>
           <Text className="text-center text-[#6B756E] px-4 leading-relaxed">
-            Invite friends to ZonoFit. They get 50 credits when they sign up, and you get 50 credits when they complete their first visit!
+            Invite friends to ZonoFit. You get 50 credits when they complete their first visit!
           </Text>
         </View>
 
         {/* Code Box */}
         <View className="bg-white rounded-3xl p-6 border border-black/5 shadow-sm items-center mb-8">
           <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider mb-3">Your Unique Code</Text>
-          <View className="bg-[#F5F7F4] px-8 py-4 rounded-2xl border border-dashed border-black/20 w-full items-center mb-4">
-            <Text className="text-2xl font-black tracking-widest text-[#1F2520]">{inviteCode}</Text>
+          <View className="bg-[#F5F7F4] px-8 py-4 rounded-2xl border border-dashed border-black/20 w-full items-center mb-4 min-h-[64px] justify-center">
+            {loading ? (
+              <ActivityIndicator color="#6BCB77" size="small" />
+            ) : (
+              <Text className="text-2xl font-black tracking-widest text-[#1F2520]">{activeCode}</Text>
+            )}
           </View>
           <Pressable 
             onPress={handleShare}
@@ -71,12 +132,16 @@ export default function InviteScreen() {
         <Text className="text-xs font-bold text-[#6B756E] uppercase tracking-wider mb-3 ml-2">Your Rewards</Text>
         <View className="bg-white rounded-[24px] p-5 border border-black/5 shadow-sm flex-row justify-between mb-8">
           <View className="items-center flex-1">
-            <Text className="text-2xl font-black text-[#1F2520]">3</Text>
+            <Text className="text-2xl font-black text-[#1F2520]">
+              {loading ? "-" : referralInfo.friendsJoined}
+            </Text>
             <Text className="text-[10px] text-[#6B756E] mt-1">Friends Joined</Text>
           </View>
           <View className="w-[1px] bg-black/5 mx-2" />
           <View className="items-center flex-1">
-            <Text className="text-2xl font-black text-[#6BCB77]">150</Text>
+            <Text className="text-2xl font-black text-[#6BCB77]">
+              {loading ? "-" : referralInfo.creditsEarned}
+            </Text>
             <Text className="text-[10px] text-[#6B756E] mt-1">Credits Earned</Text>
           </View>
         </View>
@@ -94,7 +159,7 @@ export default function InviteScreen() {
             <View className="w-8 h-8 rounded-full bg-[#F5F7F4] items-center justify-center">
               <Text className="font-bold text-[#1F2520]">2</Text>
             </View>
-            <Text className="flex-1 text-sm text-[#4A5043]">They get 50 bonus credits on sign-up</Text>
+            <Text className="flex-1 text-sm text-[#4A5043]">They sign up and book their first gym visit</Text>
           </View>
           <View className="flex-row items-center gap-x-3">
             <View className="w-8 h-8 rounded-full bg-[#F5F7F4] items-center justify-center">

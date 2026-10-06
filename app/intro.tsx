@@ -17,6 +17,7 @@ import Animated, {
   withRepeat,
   withTiming,
   Easing,
+  type SharedValue,
 } from "react-native-reanimated";
 
 const { width } = Dimensions.get("window");
@@ -119,13 +120,128 @@ function Slide1Illustration() {
   );
 }
 
+// ─── Moving Dotted Line Helpers for Slide 2 ────────────────────────
+function MovingVerticalDots({
+  height,
+  progress,
+  direction = "down",
+}: {
+  height: number;
+  progress: SharedValue<number>;
+  direction?: "down" | "up";
+}) {
+  const spacing = 5;
+  const count = Math.ceil(height / spacing) + 2;
+
+  const animStyle = useAnimatedStyle(() => {
+    const shift = (direction === "down" ? 1 : -1) * (progress.value * spacing);
+    return {
+      transform: [{ translateY: shift }],
+    };
+  });
+
+  return (
+    <View style={{ height, width: 4, overflow: "hidden", alignItems: "center" }}>
+      <Animated.View style={[{ alignItems: "center", marginTop: -spacing }, animStyle]}>
+        {Array.from({ length: count }).map((_, i) => (
+          <View
+            key={i}
+            style={{
+              width: 2.5,
+              height: 2.5,
+              borderRadius: 1.25,
+              backgroundColor: "#70B339",
+              marginVertical: (spacing - 2.5) / 2,
+            }}
+          />
+        ))}
+      </Animated.View>
+    </View>
+  );
+}
+
+function MovingHorizontalDots({
+  width,
+  progress,
+  direction = "right",
+}: {
+  width: number;
+  progress: SharedValue<number>;
+  direction?: "left" | "right";
+}) {
+  const spacing = 5;
+  const count = Math.ceil(width / spacing) + 2;
+
+  const animStyle = useAnimatedStyle(() => {
+    const shift = (direction === "right" ? 1 : -1) * (progress.value * spacing);
+    return {
+      transform: [{ translateX: shift }],
+    };
+  });
+
+  return (
+    <View style={{ width, height: 4, overflow: "hidden", justifyContent: "center" }}>
+      <Animated.View style={[{ flexDirection: "row", marginLeft: -spacing, alignItems: "center" }, animStyle]}>
+        {Array.from({ length: count }).map((_, i) => (
+          <View
+            key={i}
+            style={{
+              width: 2.5,
+              height: 2.5,
+              borderRadius: 1.25,
+              backgroundColor: "#70B339",
+              marginHorizontal: (spacing - 2.5) / 2,
+            }}
+          />
+        ))}
+      </Animated.View>
+    </View>
+  );
+}
+
 // ─── Slide 2: Traditional vs ZonoFit Comparison ───────────────────
 function Slide2Illustration() {
+  // Shared values for floating cards and flowing dotted connectors
+  const floatProgress = useSharedValue(0);
+  const dotProgress = useSharedValue(0);
+
+  useEffect(() => {
+    // Gentle harmonic floating for the two cards (sine oscillation)
+    floatProgress.value = withRepeat(
+      withTiming(1, { duration: 3200, easing: Easing.linear }),
+      -1,
+      false
+    );
+
+    // Continuous flowing dots stream
+    dotProgress.value = withRepeat(
+      withTiming(1, { duration: 700, easing: Easing.linear }),
+      -1,
+      false
+    );
+  }, []);
+
+  // Traditional card floating animation
+  const tradCardStyle = useAnimatedStyle(() => {
+    const ty = Math.sin(floatProgress.value * 2 * Math.PI) * 6;
+    return {
+      transform: [{ translateY: ty }],
+    };
+  });
+
+  // ZonoFit card floating animation (opposite phase so cards bob organically)
+  const zonoCardStyle = useAnimatedStyle(() => {
+    const ty = Math.sin(floatProgress.value * 2 * Math.PI + Math.PI) * 6;
+    return {
+      transform: [{ translateY: ty }],
+    };
+  });
+
   return (
     <View style={styles.illContainer}>
       <View style={styles.comparisonRow}>
-        {/* Left: Traditional Card */}
-        <View style={styles.tradCard}>
+        {/* Left: Traditional Card (Animated Floating) */}
+        <Animated.View style={[styles.tradCard, tradCardStyle]}>
           <Text style={styles.tradTitle}>TRADITIONAL</Text>
           <View style={styles.tradGrid}>
             {Array.from({ length: 16 }).map((_, i) => (
@@ -133,10 +249,10 @@ function Slide2Illustration() {
             ))}
           </View>
           <Text style={styles.tradBottomText}>Unused value fades away</Text>
-        </View>
+        </Animated.View>
 
-        {/* Right: ZonoFit Card */}
-        <View style={styles.zonoCard}>
+        {/* Right: ZonoFit Card (Animated Floating) */}
+        <Animated.View style={[styles.zonoCard, zonoCardStyle]}>
           <Text style={styles.zonoTitle}>ZONOFIT</Text>
           
           {/* Top Credits Pill */}
@@ -147,8 +263,24 @@ function Slide2Illustration() {
             <Text style={styles.zonoCreditsLabel}>Credits</Text>
           </View>
 
-          {/* Dashed connector line */}
-          <View style={styles.dashedBranch} />
+          {/* Animated Moving Dotted Connector Tree */}
+          <View style={styles.movingDottedTree}>
+            {/* Vertical stem from Credits down */}
+            <MovingVerticalDots height={8} progress={dotProgress} direction="down" />
+
+            {/* Horizontal branch left & right */}
+            <View style={{ flexDirection: "row", width: 62, alignItems: "center" }}>
+              <MovingHorizontalDots width={31} progress={dotProgress} direction="left" />
+              <MovingHorizontalDots width={31} progress={dotProgress} direction="right" />
+            </View>
+
+            {/* Drop lines: to Gym (left), center tick, to Sports (right) */}
+            <View style={{ flexDirection: "row", width: 62, justifyContent: "space-between" }}>
+              <MovingVerticalDots height={8} progress={dotProgress} direction="down" />
+              <MovingVerticalDots height={5} progress={dotProgress} direction="down" />
+              <MovingVerticalDots height={8} progress={dotProgress} direction="down" />
+            </View>
+          </View>
 
           {/* 4 Feature Circles */}
           <View style={styles.zonoFeaturesGrid}>
@@ -180,43 +312,226 @@ function Slide2Illustration() {
               <Text style={styles.zonoFeatureText}>Experiences</Text>
             </View>
           </View>
-        </View>
+        </Animated.View>
       </View>
     </View>
   );
 }
 
-// ─── Slide 3: QR Check-in Phone Mockup ────────────────────────────
+// ─── Slide 3 Previews Data ─────────────────────────────────────────
+const PHONE_PREVIEWS = [
+  {
+    id: "home",
+    title: "Home",
+    subtitle: "Your week at a glance",
+    iconName: "home" as const,
+  },
+  {
+    id: "book",
+    title: "Book Visit",
+    subtitle: "Pick a gym, pick a time",
+    iconName: "calendar" as const,
+  },
+  {
+    id: "wallet",
+    title: "Wallet",
+    subtitle: "Value that stays yours",
+    iconName: "wallet" as const,
+  },
+  {
+    id: "credits",
+    title: "Credits",
+    subtitle: "Spend them anywhere",
+    iconName: "credits",
+  },
+  {
+    id: "discover",
+    title: "Discover",
+    subtitle: "Explore partner gyms",
+    iconName: "compass" as const,
+  },
+];
+
+const PREVIEW_WIDTH = 155;
+
+// ─── Slide 3: Interactive Auto-scrolling Floating Phone Mockup ─────
 function Slide3Illustration() {
+  const floatProgress = useSharedValue(0);
+  const scrollX = useSharedValue(0);
+  const [activeDot, setActiveDot] = useState(0);
+
+  // Floating animation for the phone frame
+  useEffect(() => {
+    floatProgress.value = withRepeat(
+      withTiming(1, { duration: 3400, easing: Easing.linear }),
+      -1,
+      false
+    );
+  }, []);
+
+  const phoneFloatingStyle = useAnimatedStyle(() => {
+    const ty = Math.sin(floatProgress.value * 2 * Math.PI) * 6;
+    return {
+      transform: [{ translateY: ty }],
+    };
+  });
+
+  // Auto-scroll every 1000ms gap
+  useEffect(() => {
+    let index = 0;
+    const interval = setInterval(() => {
+      index += 1;
+
+      if (index === 5) {
+        // Smoothly slide to index 5 (seamless clone of Home)
+        setActiveDot(0);
+        scrollX.value = withTiming(-5 * PREVIEW_WIDTH, {
+          duration: 400,
+          easing: Easing.out(Easing.cubic),
+        });
+        index = 0;
+
+        // Snap back to index 0 after transition finishes
+        setTimeout(() => {
+          scrollX.value = 0;
+        }, 420);
+      } else {
+        setActiveDot(index);
+        scrollX.value = withTiming(-index * PREVIEW_WIDTH, {
+          duration: 400,
+          easing: Easing.out(Easing.cubic),
+        });
+      }
+    }, 1400); // 1 sec pause + 400ms transition = 1s gap
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const trackAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: scrollX.value }],
+  }));
+
+  const allSlides = [...PHONE_PREVIEWS, PHONE_PREVIEWS[0]];
+
   return (
     <View style={styles.illContainer}>
-      <View style={styles.phoneFrame}>
+      <View style={styles.ambientGlow} />
+      <Animated.View style={[styles.phoneFrame, phoneFloatingStyle]}>
         {/* Speaker notch */}
         <View style={styles.phoneSpeaker} />
 
-        {/* Screen Content */}
-        <View style={styles.phoneInner}>
-          <View style={styles.qrIconWrap}>
-            <Ionicons name="qr-code" size={32} color="#FFFFFF" />
-          </View>
-          <Text style={styles.phoneTitle}>QR Check-in</Text>
-          <Text style={styles.phoneSubtitle}>Scan and you're in</Text>
+        {/* Auto-scrolling Viewport */}
+        <View style={{ width: PREVIEW_WIDTH, height: 135, overflow: "hidden" }}>
+          <Animated.View
+            style={[
+              { flexDirection: "row", width: PREVIEW_WIDTH * 6, height: "100%" },
+              trackAnimatedStyle,
+            ]}
+          >
+            {allSlides.map((item, i) => (
+              <View
+                key={`${item.id}-${i}`}
+                style={{
+                  width: PREVIEW_WIDTH,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {/* Green Rounded App Icon */}
+                <View style={styles.previewIconBox}>
+                  {item.iconName === "credits" ? (
+                    <View style={{ width: 26, height: 26, justifyContent: "center", alignItems: "center" }}>
+                      <View
+                        style={{
+                          position: "absolute",
+                          top: 1,
+                          right: 3,
+                          width: 14,
+                          height: 14,
+                          borderRadius: 7,
+                          borderWidth: 2,
+                          borderColor: "#FFFFFF",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <View style={{ width: 3, height: 3, borderRadius: 1.5, backgroundColor: "#FFFFFF" }} />
+                      </View>
+                      <View
+                        style={{
+                          position: "absolute",
+                          bottom: 1,
+                          left: 3,
+                          width: 14,
+                          height: 14,
+                          borderRadius: 7,
+                          borderWidth: 2,
+                          borderColor: "#FFFFFF",
+                          backgroundColor: "#70B339",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <View style={{ width: 3, height: 3, borderRadius: 1.5, backgroundColor: "#FFFFFF" }} />
+                      </View>
+                    </View>
+                  ) : (
+                    <Ionicons name={item.iconName as any} size={25} color="#FFFFFF" />
+                  )}
+                </View>
 
-          {/* Mini phone screen dots */}
-          <View style={styles.phoneDots}>
-            <View style={styles.phoneDot} />
-            <View style={styles.phoneDotActive} />
-            <View style={styles.phoneDot} />
-            <View style={styles.phoneDot} />
-          </View>
+                {/* Title */}
+                <Text style={styles.previewTitle}>{item.title}</Text>
+
+                {/* Subtitle */}
+                <Text style={styles.previewSubtitle}>{item.subtitle}</Text>
+              </View>
+            ))}
+          </Animated.View>
         </View>
-      </View>
+
+        {/* 5 Mini Pagination Dots */}
+        <View style={styles.phoneDots}>
+          {[0, 1, 2, 3, 4].map((dotIdx) => (
+            <View
+              key={dotIdx}
+              style={
+                dotIdx === activeDot ? styles.phoneDotActive : styles.phoneDot
+              }
+            />
+          ))}
+        </View>
+      </Animated.View>
     </View>
   );
 }
 
 // ─── Slide 4: Vertical Roadmap Timeline ───────────────────────────
 function Slide4Illustration() {
+  const floatProgress = useSharedValue(0);
+
+  useEffect(() => {
+    floatProgress.value = withRepeat(
+      withTiming(1, { duration: 3200, easing: Easing.linear }),
+      -1,
+      false
+    );
+  }, []);
+
+  const timelineFloatingStyle = useAnimatedStyle(() => {
+    const ty = Math.sin(floatProgress.value * 2 * Math.PI) * 6;
+    return {
+      transform: [{ translateY: ty }],
+    };
+  });
+
+  const activePulseStyle = useAnimatedStyle(() => {
+    const s = 1 + Math.sin(floatProgress.value * 2 * Math.PI) * 0.15;
+    return {
+      transform: [{ scale: s }],
+    };
+  });
+
   const steps = [
     { title: "Create Account", active: true },
     { title: "Choose Goal", active: false },
@@ -227,13 +542,16 @@ function Slide4Illustration() {
 
   return (
     <View style={styles.illContainer}>
-      <View style={styles.timelineCard}>
+      <View style={styles.ambientGlow} />
+      <Animated.View style={[styles.timelineCard, timelineFloatingStyle]}>
         {steps.map((step, idx) => (
           <View key={step.title} style={styles.timelineRow}>
             {/* Indicator + vertical connector */}
             <View style={styles.indicatorCol}>
               <View style={step.active ? styles.stepCircleActive : styles.stepCircleInactive}>
-                {step.active && <View style={styles.stepCircleInner} />}
+                {step.active && (
+                  <Animated.View style={[styles.stepCircleInner, activePulseStyle]} />
+                )}
               </View>
               {idx < steps.length - 1 && <View style={styles.timelineLine} />}
             </View>
@@ -243,7 +561,7 @@ function Slide4Illustration() {
             </Text>
           </View>
         ))}
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -554,6 +872,10 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#1E293B",
   },
+  movingDottedTree: {
+    alignItems: "center",
+    marginVertical: 3,
+  },
   dashedBranch: {
     width: 60,
     height: 10,
@@ -605,54 +927,61 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 4,
-    padding: 10,
+    paddingTop: 10,
+    paddingBottom: 14,
     alignItems: "center",
+    justifyContent: "space-between",
   },
   phoneSpeaker: {
     width: 44,
     height: 4,
     borderRadius: 2,
     backgroundColor: "#E2E8F0",
-    marginBottom: 28,
+    marginTop: 2,
   },
-  phoneInner: {
-    alignItems: "center",
-    justifyContent: "center",
-    width: "100%",
-  },
-  qrIconWrap: {
-    width: 60,
-    height: 60,
-    borderRadius: 18,
+  previewIconBox: {
+    width: 58,
+    height: 58,
+    borderRadius: 20,
     backgroundColor: "#70B339",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 14,
+    shadowColor: "#70B339",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.28,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  phoneTitle: {
-    fontSize: 14,
+  previewTitle: {
+    fontSize: 15,
     fontWeight: "800",
     color: "#0F172A",
+    marginTop: 12,
     marginBottom: 3,
+    textAlign: "center",
   },
-  phoneSubtitle: {
-    fontSize: 11,
+  previewSubtitle: {
+    fontSize: 10.5,
     color: "#64748B",
-    marginBottom: 20,
+    fontWeight: "500",
+    textAlign: "center",
   },
   phoneDots: {
     flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 4,
+    marginBottom: 2,
   },
   phoneDot: {
-    width: 4,
-    height: 4,
+    width: 3.5,
+    height: 3.5,
     borderRadius: 2,
     backgroundColor: "#E2E8F0",
   },
   phoneDotActive: {
     width: 14,
-    height: 4,
+    height: 3.5,
     borderRadius: 2,
     backgroundColor: "#70B339",
   },
