@@ -1,5 +1,5 @@
 import { colors } from "@/constants/colors";
-import { MaterialIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import type { ComponentProps } from "react";
 import { Pressable, Text, View } from "react-native";
@@ -7,13 +7,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type BottomTabBarProps = NonNullable<ComponentProps<typeof Tabs>["tabBar"]> extends (props: infer P) => unknown ? P : never;
 
-type IconName = keyof typeof MaterialIcons.glyphMap;
+type IconName = keyof typeof Ionicons.glyphMap;
 
-const TAB_CONFIG: Record<string, { label: string; icon: IconName }> = {
-    index: { label: "Home", icon: "home" },
-    explore: { label: "Explore", icon: "explore" },
-    credits: { label: "Credits", icon: "account-balance-wallet" },
-    profile: { label: "Profile", icon: "person" },
+const TAB_CONFIG: Record<string, { label: string; icon: IconName; iconOutline: IconName }> = {
+    index: { label: "Home", icon: "home", iconOutline: "home-outline" },
+    explore: { label: "Explore", icon: "compass", iconOutline: "compass-outline" },
+    credits: { label: "Credits", icon: "wallet", iconOutline: "wallet-outline" },
+    profile: { label: "Profile", icon: "person", iconOutline: "person-outline" },
 };
 
 export function BottomNav({ state, navigation }: BottomTabBarProps) {
@@ -62,7 +62,7 @@ export function BottomNav({ state, navigation }: BottomTabBarProps) {
                             className="items-center justify-center w-14 h-9 rounded-2xl" 
                             style={{ backgroundColor: isFocused ? '#E8F5E9' : 'transparent' }}
                         >
-                            <MaterialIcons name={tab.icon} size={24} color={isFocused ? '#1F7A3E' : colors.muted} />
+                            <Ionicons name={isFocused ? tab.icon : tab.iconOutline} size={22} color={isFocused ? '#1F7A3E' : colors.muted} />
                         </View>
                         <Text 
                             className={`text-[10px] mt-1 tracking-wider ${isFocused ? 'font-bold' : 'font-medium'}`} 

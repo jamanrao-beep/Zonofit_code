@@ -4,6 +4,7 @@ import { signToken } from "../lib/jwt";
 import prisma from "../lib/prisma";
 import { sendOTP } from "../lib/sms";
 import { setOTP, verifyOTP } from "../lib/otpStore";
+import { generateUniqueReferralCode } from "../lib/referral";
 
 const router = Router();
 
@@ -97,9 +98,10 @@ router.post(
     body("code").isString().trim(),
     body("isSignIn").isBoolean(),
     body("username").optional().isString().trim(),
+    body("referralCode").optional().isString().trim(),
   ],
   async (req: Request, res: Response): Promise<void> => {
-    const { phone, code, isSignIn, username } = req.body;
+    const { phone, code, isSignIn, username, referralCode: inputRefCode } = req.body;
 
     const isDev = process.env.NODE_ENV === "development" || !process.env.FAST2SMS_API_KEY;
     const isValid = verifyOTP(phone, code) || (isDev && (code === "1234" || code === "123456"));
@@ -159,29 +161,32 @@ router.post(
         where: { name: "Premium" },
       });
 
+      let referredByUserId: string | undefined = undefined;
+      if (inputRefCode && typeof inputRefCode === "string") {
+        const referrer = await prisma.user.findUnique({
+          where: { referralCode: inputRefCode.trim().toUpperCase() },
+        });
+        if (referrer) {
+          referredByUserId = referrer.id;
+        }
+      }
+
+      const uniqueReferralCode = await generateUniqueReferralCode();
+
       user = await prisma.user.create({
         data: {
           email,
           name: username,
           phone,
+          referralCode: uniqueReferralCode,
+          referredByUserId,
           wallet: {
             create: {
-              balance: premiumPlan ? premiumPlan.monthlyCredits : 0,
+              balance: 0,
               convertibleCashBalanceInPaise: 0,
               nonConvertibleCashBalanceInPaise: 0,
             },
           },
-          ...(premiumPlan && {
-            membership: {
-              create: {
-                planId: premiumPlan.id,
-                status: "ACTIVE",
-                startDate: new Date(),
-                endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-                autoRenew: true,
-              },
-            },
-          }),
         },
         include: {
           wallet: true,
@@ -212,7 +217,7 @@ router.post(
 // POST /api/auth/google
 router.post("/google", async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email: bodyEmail, name: bodyName } = req.body || {};
+    const { email: bodyEmail, name: bodyName, referralCode: inputRefCode } = req.body || {};
     
     if (!bodyEmail || typeof bodyEmail !== "string" || !bodyEmail.trim()) {
       res.status(400).json({ error: "EmailRequired", message: "Email address is required for Google Sign-In." });
@@ -240,6 +245,18 @@ router.post("/google", async (req: Request, res: Response): Promise<void> => {
       }
     }
 
+    let referredByUserId: string | undefined = undefined;
+    if (inputRefCode && typeof inputRefCode === "string") {
+      const referrer = await prisma.user.findUnique({
+        where: { referralCode: inputRefCode.trim().toUpperCase() },
+      });
+      if (referrer) {
+        referredByUserId = referrer.id;
+      }
+    }
+
+    const uniqueReferralCode = await generateUniqueReferralCode();
+
     //  Use upsert so clicking Google twice doesn't crash
     const user = await prisma.user.upsert({
       where: { email },
@@ -248,24 +265,15 @@ router.post("/google", async (req: Request, res: Response): Promise<void> => {
         email,
         name,
         avatarUrl: `https://api.dicebear.com/7.x/adventurer/svg?seed=${name}`,
+        referralCode: uniqueReferralCode,
+        referredByUserId,
         wallet: {
           create: {
-            balance: premiumPlan ? premiumPlan.monthlyCredits : 80,
+            balance: 0,
             convertibleCashBalanceInPaise: 0,
             nonConvertibleCashBalanceInPaise: 0,
           },
         },
-        ...(premiumPlan && {
-          membership: {
-            create: {
-              planId: premiumPlan.id,
-              status: "ACTIVE",
-              startDate: new Date(),
-              endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-              autoRenew: true,
-            },
-          },
-        }),
       },
       include: { wallet: true, membership: true },
     });
