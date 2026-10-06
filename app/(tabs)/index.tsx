@@ -61,12 +61,45 @@ function getGreeting(): string {
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user } = useAuthStore();
-  const { avatarUrl, visitsRemaining, planName, streak, totalWorkouts, trainingHours, currentMonth, totalMonths, identityStage, progressPercentage, nextMilestone } = useUserStore();
-  const { credits } = useCreditsStore();
-  const { isGuest, hoursRemaining, checkExpiry, endGuestSession } = useGuestStore();
+  const { user, token } = useAuthStore();
+  const { 
+    avatarUrl, 
+    visitsRemaining, 
+    planName, 
+    primaryGymName: userPrimaryGymName,
+    primaryGymId: userPrimaryGymId,
+    streak, 
+    totalWorkouts, 
+    trainingHours, 
+    currentMonth, 
+    totalMonths, 
+    identityStage, 
+    progressPercentage, 
+    nextMilestone 
+  } = useUserStore();
+  const { credits, membershipInfo } = useCreditsStore();
+  const { isGuest, hoursRemaining, checkExpiry, endGuestSession, selectedGymName, selectedGymId } = useGuestStore();
   const { bookingStatus, bookedGymName, bookedTime } = useBookingStore();
-  const { membershipInfo } = useCreditsStore();
+
+  React.useEffect(() => {
+    if (token) {
+      useCreditsStore.getState().fetchWallet(token);
+      useUserStore.getState().fetchProfile(token);
+    }
+  }, [token]);
+
+  const resolvedGymName = (
+    membershipInfo?.gymName && 
+    membershipInfo.gymName !== "None" && 
+    membershipInfo.gymName !== "Select a Gym" && 
+    membershipInfo.gymName !== "Primary Gym" &&
+    membershipInfo.gymName !== "ZonoFit Partner Gym"
+  ) ? membershipInfo.gymName 
+    : (userPrimaryGymName || selectedGymName || user?.primaryGym || "FitZone Pro");
+
+  const mandatoryVisits = membershipInfo?.mandatoryVisits ?? (visitsRemaining > 0 ? visitsRemaining + totalWorkouts : 10);
+  const completedVisits = membershipInfo?.completedVisits ?? totalWorkouts ?? 0;
+  const visitsLeft = membershipInfo?.primaryGymVisits ?? (visitsRemaining > 0 ? visitsRemaining : Math.max(0, mandatoryVisits - completedVisits));
 
   const isExpired = membershipInfo ? membershipInfo.isExpired : false;
   const isMembershipActive = membershipInfo ? (!membershipInfo.isExpired && membershipInfo.status === "ACTIVE") : false;
@@ -338,13 +371,13 @@ export default function HomeScreen() {
         {/* Primary Gym Card */}
         <View style={{ backgroundColor: '#1F7A3E', borderRadius: 32, padding: 24, marginBottom: 24 }}>
           <Pressable 
-            onPress={() => router.push("/explore")}
+            onPress={() => router.push("/partner-gyms" as any)}
             className="flex-row justify-between items-start mb-6 active:opacity-80"
           >
             <View>
               <Text className="text-white/70 text-[10px] font-bold tracking-[1.5px] uppercase mb-1">PRIMARY GYM</Text>
               <View className="flex-row items-center">
-                <Text className="text-white text-[22px] font-bold tracking-tight">{membershipInfo?.gymName || planName || "Select a Gym"}</Text>
+                <Text className="text-white text-[22px] font-bold tracking-tight">{resolvedGymName}</Text>
                 <Ionicons name="chevron-forward" size={18} color="white" className="ml-1 mt-0.5" />
               </View>
             </View>
@@ -361,19 +394,19 @@ export default function HomeScreen() {
             <View>
               <Text className="text-white/70 text-xs mb-1">Completed Visits</Text>
               <Text className="text-white text-[32px] font-bold leading-9">
-                {membershipInfo?.completedVisits ?? totalWorkouts} <Text className="text-white/70 text-lg font-normal">/ {membershipInfo?.mandatoryVisits ?? (visitsRemaining + totalWorkouts)}</Text>
+                {completedVisits} <Text className="text-white/70 text-lg font-normal">/ {mandatoryVisits}</Text>
               </Text>
             </View>
             <View className="items-end">
               <Text className="text-white/70 text-xs mb-1">Visits Left</Text>
-              <Text className="text-white text-[32px] font-bold leading-9">{visitsRemaining}</Text>
+              <Text className="text-white text-[32px] font-bold leading-9">{visitsLeft}</Text>
             </View>
           </View>
 
           {/* Dynamic Progress Bar */}
           {(() => {
-            const totalVisits = membershipInfo?.mandatoryVisits ?? (visitsRemaining + totalWorkouts);
-            const completed = membershipInfo?.completedVisits ?? totalWorkouts;
+            const totalVisits = mandatoryVisits;
+            const completed = completedVisits;
             const segments = Math.max(totalVisits, 1);
             return (
               <View className="flex-row gap-x-1.5 mb-6 w-full">
