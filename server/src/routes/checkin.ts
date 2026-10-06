@@ -60,6 +60,7 @@ router.post(
         include: {
           checkIn: true,
           gym: { select: { name: true, lat: true, lng: true } },
+          user: { select: { id: true, name: true, referredByUserId: true, totalWorkouts: true } },
         },
       });
 
@@ -125,7 +126,7 @@ router.post(
         );
       }
 
-      // ✅ Valid — mark as VERIFIED
+      // ✅ Valid — mark as VERIFIED and update user journey stats
       const [updatedCheckIn] = await Promise.all([
         tx.checkIn.update({
           where: { id: checkIn.id },
@@ -138,17 +139,65 @@ router.post(
           where: { id: booking.id },
           data: { status: "CHECKED_IN" },
         }),
+        tx.user.update({
+          where: { id: req.dbUserId! },
+          data: {
+            totalWorkouts: { increment: 1 },
+            streak: { increment: 1 },
+            trainingHours: { increment: 1 },
+          },
+        }),
+        tx.membership.updateMany({
+          where: { userId: req.dbUserId!, status: "ACTIVE" },
+          data: {
+            completedVisits: { increment: 1 },
+          },
+        }),
       ]);
 
-      return { checkIn: updatedCheckIn, gymName: booking.gym.name };
+      // Award 50 credits to referrer if this is their friend's first completed visit
+      let referrerIdToNotify: string | null = null;
+      if (booking.user?.referredByUserId && booking.user.totalWorkouts === 0) {
+        referrerIdToNotify = booking.user.referredByUserId;
+        const referrerWallet = await tx.creditWallet.findUnique({
+          where: { userId: referrerIdToNotify },
+        });
+        if (referrerWallet) {
+          await tx.creditWallet.update({
+            where: { id: referrerWallet.id },
+            data: { balance: { increment: 50 } },
+          });
+          await tx.creditTransaction.create({
+            data: {
+              walletId: referrerWallet.id,
+              userId: referrerIdToNotify,
+              type: "BONUS",
+              amount: 50,
+              balanceAfter: referrerWallet.balance + 50,
+              description: `Referral reward: ${booking.user?.name || "Friend"} completed their first gym visit!`,
+            },
+          });
+        }
+      }
+
+      return { checkIn: updatedCheckIn, gymName: booking.gym.name, referrerIdToNotify };
     });
 
-    // Send push notification
+    // Send push notification to user
     sendPushNotification(
       req.dbUserId!,
       "Check-in Verified 🔥",
       `You're all checked in at ${result.gymName}. Have a great workout!`
     ).catch(e => console.error(e));
+
+    // Send push notification to referrer if applicable
+    if (result.referrerIdToNotify) {
+      sendPushNotification(
+        result.referrerIdToNotify,
+        "Referral Bonus! 🎁",
+        "You earned 50 credits! Your referred friend just completed their first workout."
+      ).catch(e => console.error(e));
+    }
 
     res.json({
       success: true,
