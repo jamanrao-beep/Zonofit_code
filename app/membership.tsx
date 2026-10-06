@@ -11,7 +11,7 @@ import { apiFetch } from "@/lib/api";
 
 const uiPlans: { id: string; name: string; color: string; emoji: string; isPopular: boolean; priceINR: number; priceInPaise: number; monthlyCredits: number; monthlyVisits: number; networkAccess: string; features: string[] }[] = [
   {
-    id: "plan-starter",
+    id: "755fb72b-6174-44a9-9456-e4747dc46095",
     name: "Starter",
     color: "#6BCB77",
     emoji: "🌱",
@@ -29,7 +29,7 @@ const uiPlans: { id: string; name: string; color: string; emoji: string; isPopul
     ]
   },
   {
-    id: "plan-premium",
+    id: "51ce9651-698c-429c-b7ba-6f07f7b2c5aa",
     name: "Premium",
     color: "#3B82F6",
     emoji: "✨",
@@ -47,7 +47,7 @@ const uiPlans: { id: string; name: string; color: string; emoji: string; isPopul
     ]
   },
   {
-    id: "plan-elite",
+    id: "3f941562-f0a3-41da-9c4e-0374203e4810",
     name: "Elite",
     color: "#8B5CF6",
     emoji: "👑",
@@ -122,6 +122,10 @@ export default function MembershipScreen() {
             const result = await updatePlan(plan.id, plan.priceInPaise);
             if (result.success) {
               Alert.alert("Success", `You have successfully upgraded to the ${plan.name} plan!`);
+              if (token) {
+                useCreditsStore.getState().fetchWallet(token);
+                useUserStore.getState().fetchProfile(token);
+              }
             } else {
               Alert.alert("Upgrade Failed", result.message || "An error occurred.");
             }
@@ -132,10 +136,28 @@ export default function MembershipScreen() {
   };
 
   const handleRenew = () => {
+    if (!currentPlan) return;
     Alert.alert(
       "Renew Membership",
-      "Membership renewal will be processed via the payment gateway. Payment integration coming soon.",
-      [{ text: "OK" }]
+      `Renew your ${currentPlan.name} plan for ₹${currentPlan.priceINR}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Renew Now",
+          onPress: async () => {
+            const result = await updatePlan(currentPlan.id, currentPlan.priceInPaise);
+            if (result.success) {
+              Alert.alert("Success", `Your ${currentPlan.name} membership has been renewed successfully!`);
+              if (token) {
+                useCreditsStore.getState().fetchWallet(token);
+                useUserStore.getState().fetchProfile(token);
+              }
+            } else {
+              Alert.alert("Renewal Failed", result.message || "An error occurred.");
+            }
+          },
+        },
+      ]
     );
   };
 

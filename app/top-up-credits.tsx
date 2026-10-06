@@ -163,9 +163,12 @@ export default function TopUpCreditsScreen() {
               onPress={handleDecrement}
               disabled={quantity <= MIN_CREDITS}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              className={`w-14 h-14 rounded-2xl items-center justify-center ${
-                quantity <= MIN_CREDITS ? "bg-gray-200 opacity-50" : "bg-white border border-gray-200 active:bg-gray-100 shadow-sm"
-              }`}
+              style={[
+                { width: 56, height: 56, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+                quantity <= MIN_CREDITS
+                  ? { backgroundColor: "#E5E7EB", opacity: 0.5 }
+                  : { backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E5E7EB" },
+              ]}
             >
               <Ionicons name="remove" size={26} color={quantity <= MIN_CREDITS ? "#9CA3AF" : "#111827"} />
             </Pressable>
@@ -193,7 +196,16 @@ export default function TopUpCreditsScreen() {
             <Pressable
               onPress={handleIncrement}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              className="w-14 h-14 rounded-2xl bg-white border border-gray-200 items-center justify-center active:bg-gray-100 shadow-sm"
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 16,
+                backgroundColor: "#FFFFFF",
+                borderWidth: 1,
+                borderColor: "#E5E7EB",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
             >
               <Ionicons name="add" size={26} color="#111827" />
             </Pressable>
@@ -208,11 +220,12 @@ export default function TopUpCreditsScreen() {
                 <Pressable
                   key={preset}
                   onPress={() => handlePresetSelect(preset)}
-                  className={`flex-1 py-2.5 rounded-xl items-center border ${
+                  style={[
+                    { flex: 1, paddingVertical: 10, borderRadius: 12, alignItems: "center", borderWidth: 1 },
                     isSelected
-                      ? "bg-[#1F7A3E] border-[#1F7A3E]"
-                      : "bg-gray-50 border-gray-200 active:bg-gray-100"
-                  }`}
+                      ? { backgroundColor: "#1F7A3E", borderColor: "#1F7A3E" }
+                      : { backgroundColor: "#F9FAFB", borderColor: "#E5E7EB" },
+                  ]}
                 >
                   <Text className={`text-xs font-bold ${isSelected ? "text-white" : "text-gray-700"}`}>
                     {preset} CR
@@ -261,27 +274,62 @@ export default function TopUpCreditsScreen() {
 
         {/* CTA Button */}
         <Pressable
-          onPress={handlePurchase}
-          disabled={loading || !isMembershipActive}
-          className={`h-14 rounded-2xl items-center justify-center flex-row shadow-sm ${
-            !isMembershipActive
-              ? "bg-gray-300"
-              : loading
-              ? "bg-[#1F7A3E]/80"
-              : "bg-[#1F7A3E] active:bg-[#165a2d]"
-          }`}
+          onPress={() => {
+            if (!isMembershipActive) {
+              Alert.alert(
+                "Active Membership Required",
+                "Additional credits can only be purchased while your membership is active. Would you like to explore membership plans?",
+                [
+                  { text: "Cancel", style: "cancel" },
+                  { text: "Explore Plans", onPress: () => router.push("/membership" as any) },
+                ]
+              );
+            } else {
+              handlePurchase();
+            }
+          }}
+          disabled={loading}
+          style={({ pressed }) => [
+            {
+              height: 56,
+              borderRadius: 16,
+              alignItems: "center",
+              justifyContent: "center",
+              flexDirection: "row",
+              backgroundColor: !isMembershipActive
+                ? "#D1D5DB"
+                : loading
+                ? "#1F7A3ECC"
+                : pressed
+                ? "#165a2d"
+                : "#1F7A3E",
+            },
+          ]}
         >
           {loading ? (
             <ActivityIndicator size="small" color="#FFFFFF" />
           ) : (
             <>
-              <Ionicons name="flash" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+              <Ionicons name={isMembershipActive ? "flash" : "lock-closed"} size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
               <Text className="text-white font-bold text-base">
-                Buy {quantity} Credits (₹{totalPrice.toLocaleString("en-IN")})
+                {isMembershipActive 
+                  ? `Buy ${quantity} Credits (₹${totalPrice.toLocaleString("en-IN")})`
+                  : "Active Membership Required"}
               </Text>
             </>
           )}
         </Pressable>
+
+        {!isMembershipActive && (
+          <Pressable
+            onPress={() => router.push("/membership" as any)}
+            className="mt-3.5 items-center"
+          >
+            <Text className="text-xs font-bold text-[#1F7A3E]">
+              Explore membership plans to get credits →
+            </Text>
+          </Pressable>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
