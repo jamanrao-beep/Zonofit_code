@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useGuestStore } from "@/store/useGuestStore";
 import { useAddressStore } from "@/store/useAddressStore";
@@ -495,7 +495,7 @@ export default function EligibilityScreen() {
                 onPress={() => setIsRulesModalOpen(true)}
                 style={styles.footerLinkItem}
               >
-                <MaterialCommunityIcons name="file-document-outline" size={15} color="#4B5563" />
+                <Ionicons name="document-text-outline" size={15} color="#4B5563" />
                 <Text style={styles.footerLinkText}>Eligibility Rules</Text>
               </Pressable>
 
@@ -505,7 +505,7 @@ export default function EligibilityScreen() {
                 onPress={() => setIsRefundModalOpen(true)}
                 style={styles.footerLinkItem}
               >
-                <MaterialCommunityIcons name="file-document-outline" size={15} color="#4B5563" />
+                <Ionicons name="document-text-outline" size={15} color="#4B5563" />
                 <Text style={styles.footerLinkText}>Refund Policy</Text>
               </Pressable>
             </View>
