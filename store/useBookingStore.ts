@@ -232,6 +232,18 @@ export const useBookingStore = create<BookingState>((set, get) => ({
     useUserStore.getState().recordWorkout(1.5); // 1.5 hours default workout length
     useUserStore.getState().decrementVisits(); // decrement visits remaining from active plan
     
+    // Update membership completed visits in credits store for instant Journey sync
+    const currentMembership = useCreditsStore.getState().membershipInfo;
+    if (currentMembership) {
+      useCreditsStore.setState({
+        membershipInfo: {
+          ...currentMembership,
+          completedVisits: (currentMembership.completedVisits || 0) + 1,
+          mandatoryVisitsRemaining: Math.max(0, (currentMembership.mandatoryVisitsRemaining || 0) - 1),
+        }
+      });
+    }
+    
     return true;
   },
 
