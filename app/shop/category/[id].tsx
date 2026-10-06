@@ -158,42 +158,46 @@ export default function CategoryScreen() {
 
           <View className="flex-row flex-wrap justify-between">
             {PRODUCTS.map((prod) => (
-              <Pressable 
+              <View 
                 key={prod.id} 
-                className="w-[48%] bg-white border border-gray-200 rounded-2xl p-3 mb-4 shadow-sm"
-                onPress={() => router.push(`/shop/product/${prod.id}` as any)}
+                className="w-[48%] bg-white border border-gray-200 rounded-2xl p-3 mb-4 shadow-sm justify-between"
               >
-                {prod.isBestSeller && (
-                  <View className="absolute top-0 left-0 bg-[#1F7A3E] px-2 py-0.5 rounded-br-lg rounded-tl-2xl z-10">
-                    <Text className="text-white text-[8px] font-bold uppercase">Bestseller</Text>
+                <Pressable
+                  onPress={() => router.push(`/shop/product/${prod.id}` as any)}
+                  className="active:opacity-85"
+                >
+                  {prod.isBestSeller && (
+                    <View className="absolute top-0 left-0 bg-[#1F7A3E] px-2 py-0.5 rounded-br-lg rounded-tl-2xl z-10">
+                      <Text className="text-white text-[8px] font-bold uppercase">Bestseller</Text>
+                    </View>
+                  )}
+                  <View className="w-full h-32 bg-white rounded-xl mb-3 items-center justify-center">
+                    <Image 
+                      source={{ uri: prod.image }} 
+                      className="w-full h-full rounded-xl"
+                      resizeMode="contain"
+                    />
+                    <View className="absolute top-2 right-2 bg-white rounded-full p-1 shadow-sm">
+                      <Ionicons name="heart-outline" size={14} color="#9CA3AF" />
+                    </View>
                   </View>
-                )}
-                <View className="w-full h-32 bg-white rounded-xl mb-3 items-center justify-center">
-                  <Image 
-                    source={{ uri: prod.image }} 
-                    className="w-full h-full rounded-xl"
-                    resizeMode="contain"
-                  />
-                  <View className="absolute top-2 right-2 bg-white rounded-full p-1 shadow-sm">
-                    <Ionicons name="heart-outline" size={14} color="#9CA3AF" />
+                  
+                  <Text className="text-[12px] font-bold text-[#111827] leading-tight mb-1" numberOfLines={2}>
+                    {prod.name}
+                  </Text>
+                  <Text className="text-[10px] text-gray-500 mb-1.5">{prod.variant}</Text>
+                  <View className="flex-row items-center mb-2">
+                    <Ionicons name="star" size={10} color="#F59E0B" />
+                    <Text className="text-[10px] text-gray-600 font-medium ml-1">{prod.rating}</Text>
                   </View>
-                </View>
-                
-                <Text className="text-[12px] font-bold text-[#111827] leading-tight mb-1" numberOfLines={2}>
-                  {prod.name}
-                </Text>
-                <Text className="text-[10px] text-gray-500 mb-1.5">{prod.variant}</Text>
-                <View className="flex-row items-center mb-2">
-                  <Ionicons name="star" size={10} color="#F59E0B" />
-                  <Text className="text-[10px] text-gray-600 font-medium ml-1">{prod.rating}</Text>
-                </View>
-                
-                <Text className="text-[14px] font-bold text-[#111827] mb-2">₹{prod.price.toLocaleString()}</Text>
-                
-                <View className="bg-[#F5F3FF] self-start px-1.5 py-0.5 rounded border border-[#8B5CF6]/20 mb-3 flex-row items-center">
-                  <Ionicons name="wallet-outline" size={10} color="#8B5CF6" />
-                  <Text className="text-[#8B5CF6] text-[8px] font-bold ml-1">Wallet Accepted</Text>
-                </View>
+                  
+                  <Text className="text-[14px] font-bold text-[#111827] mb-2">₹{prod.price.toLocaleString()}</Text>
+                  
+                  <View className="bg-[#F5F3FF] self-start px-1.5 py-0.5 rounded border border-[#8B5CF6]/20 mb-3 flex-row items-center">
+                    <Ionicons name="wallet-outline" size={10} color="#8B5CF6" />
+                    <Text className="text-[#8B5CF6] text-[8px] font-bold ml-1">Wallet Accepted</Text>
+                  </View>
+                </Pressable>
                 
                 <Pressable 
                   className="w-full py-2 rounded-lg border border-[#1F7A3E] items-center justify-center active:bg-[#F3FAF4]"
@@ -204,6 +208,7 @@ export default function CategoryScreen() {
                       brand: prod.brand,
                       price: prod.price,
                       image: prod.image,
+                      variant: prod.variant,
                     });
                     setAddedItem({
                       id: prod.id,
@@ -217,7 +222,7 @@ export default function CategoryScreen() {
                 >
                   <Text className="text-[#1F7A3E] font-bold text-[11px]">Add to Cart</Text>
                 </Pressable>
-              </Pressable>
+              </View>
             ))}
           </View>
         </View>

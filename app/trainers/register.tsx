@@ -210,7 +210,16 @@ export default function TrainerRegisterScreen() {
         <Pressable
           onPress={handleRegister}
           disabled={isLoading}
-          className={`h-14 rounded-2xl items-center justify-center ${isLoading ? "bg-gray-400" : "bg-[#6BCB77] active:opacity-90"}`}
+          style={({ pressed }) => [
+            {
+              height: 56,
+              borderRadius: 16,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: isLoading ? "#9CA3AF" : "#6BCB77",
+              opacity: pressed ? 0.9 : 1,
+            },
+          ]}
         >
           {isLoading ? (
             <ActivityIndicator color="white" />
