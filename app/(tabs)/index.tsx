@@ -99,7 +99,7 @@ export default function HomeScreen() {
 
   const mandatoryVisits = membershipInfo?.mandatoryVisits ?? (visitsRemaining > 0 ? visitsRemaining + totalWorkouts : 10);
   const completedVisits = membershipInfo?.completedVisits ?? totalWorkouts ?? 0;
-  const visitsLeft = membershipInfo?.primaryGymVisits ?? (visitsRemaining > 0 ? visitsRemaining : Math.max(0, mandatoryVisits - completedVisits));
+  const visitsLeft = membershipInfo?.mandatoryVisitsRemaining ?? (visitsRemaining > 0 ? visitsRemaining : Math.max(0, mandatoryVisits - completedVisits));
 
   const isExpired = membershipInfo ? membershipInfo.isExpired : false;
   const isMembershipActive = membershipInfo ? (!membershipInfo.isExpired && membershipInfo.status === "ACTIVE") : false;
