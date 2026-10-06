@@ -22,6 +22,7 @@ export interface INRWalletInfo {
 export interface MembershipLifecycleInfo {
   status: string;
   isExpired: boolean;
+  isExpiringSoon?: boolean;
   tier: string;
   planName: string;
   gymName: string;
