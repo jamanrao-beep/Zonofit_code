@@ -13,7 +13,6 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
-  RotateCcw,
 } from "lucide-react";
 
 export default function LandingPage() {
@@ -324,82 +323,6 @@ export default function LandingPage() {
                   <span>Understand credits</span>
                   <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                 </Link>
-              </div>
-
-              {/* Featured Card: Repurchase Your Gym Membership with Credits */}
-              <div className="bg-[#122316] rounded-[28px] sm:rounded-3xl p-7 sm:p-10 border border-white/5 shadow-xl mb-6 relative overflow-hidden">
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
-                  
-                  {/* Left Column */}
-                  <div className="lg:col-span-7 flex flex-col items-start">
-                    <div className="mb-4">
-                      <RotateCcw className="w-8 h-8 text-[#9ecc3b] stroke-[2.2]" />
-                    </div>
-
-                    <h3 className="text-2xl sm:text-3xl lg:text-[36px] font-extrabold text-white leading-[1.15] mb-4 tracking-tight">
-                      Repurchase Your<br />
-                      <span className="text-[#9ecc3b]">Gym Membership</span><br />
-                      with Credits
-                    </h3>
-
-                    <p className="text-sm sm:text-base text-gray-300 leading-relaxed max-w-md font-normal">
-                      Already a member? Use your ZonoFit credits to renew your existing gym membership — quickly, easily, and flexibly.
-                    </p>
-                  </div>
-
-                  {/* Right Column: Floating Gym Membership Card Mockup */}
-                  <div className="lg:col-span-5 flex justify-center lg:justify-end relative">
-                    {/* Concentric Green Orbital Rings behind the card badge */}
-                    <div className="absolute -top-10 -right-6 w-44 h-44 pointer-events-none opacity-40 hidden sm:block">
-                      <div className="absolute inset-0 rounded-full border border-[#9ecc3b]" />
-                      <div className="absolute inset-4 rounded-full border border-[#9ecc3b]/70" />
-                      <div className="absolute inset-8 rounded-full border border-[#9ecc3b]/40" />
-                    </div>
-
-                    {/* Card container with slight tilt */}
-                    <div className="w-full max-w-[310px] sm:max-w-[330px] bg-white rounded-[24px] overflow-hidden shadow-2xl relative border border-white/20 transform md:-rotate-2 hover:rotate-0 transition-transform duration-300">
-                      
-                      {/* Floating Reload Badge on Top-Right */}
-                      <div className="absolute top-3.5 right-3.5 w-11 h-11 rounded-full bg-[#9ecc3b] flex items-center justify-center shadow-lg text-[#0b160e] z-20">
-                        <RotateCcw className="w-5 h-5 text-[#0b160e] stroke-[2.5]" />
-                      </div>
-
-                      {/* Gym Photo */}
-                      <div className="h-40 w-full relative overflow-hidden bg-gray-950">
-                        <img 
-                          src="/gym-membership.jpg" 
-                          alt="Gym Membership" 
-                          className="w-full h-full object-cover" 
-                        />
-                      </div>
-
-                      {/* White Info Box */}
-                      <div className="p-5 bg-white">
-                        <div className="w-8 h-8 rounded-lg bg-[#edf7ec] flex items-center justify-center text-[#206815] mb-3">
-                          <Dumbbell className="w-4 h-4 text-[#206815]" />
-                        </div>
-                        <h4 className="text-base font-extrabold text-gray-950">
-                          Gym Membership
-                        </h4>
-                        <p className="text-xs text-gray-500 font-medium mt-0.5">
-                          Your favourite gym
-                        </p>
-
-                        {/* Pricing Strip */}
-                        <div className="bg-[#f5f9f4] rounded-xl p-3.5 mt-3.5 border border-gray-100/90 flex flex-col gap-1.5">
-                          <span className="text-sm font-extrabold text-gray-950">
-                            ₹2,500 <span className="text-xs font-semibold text-gray-500">/ month</span>
-                          </span>
-                          <span className="text-xs font-bold text-[#206815] flex items-center gap-1.5">
-                            <span className="inline-block w-4 h-4 rounded-full bg-[#9ecc3b] text-[9px] text-[#0b160e] font-black leading-none text-center pt-[2px]">C</span>
-                            2,500 credits
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                </div>
               </div>
 
               {/* 4 Category Cards Grid (2x2 Layout matching screenshot) */}
@@ -862,6 +785,16 @@ export default function LandingPage() {
                   <li>
                     <Link href="/refund-policy" className="hover:text-gray-950 transition-colors">
                       Refund &amp; Cancellation
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/disclaimer" className="hover:text-gray-950 transition-colors">
+                      Disclaimer
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/partner-agreement" className="hover:text-gray-950 transition-colors">
+                      Gym Partner Agreement
                     </Link>
                   </li>
                   <li>
