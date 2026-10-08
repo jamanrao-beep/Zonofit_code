@@ -10,6 +10,7 @@ import { useCreditsStore } from "@/store/useCreditsStore";
 import { useGuestStore } from "@/store/useGuestStore";
 import { colors } from "@/constants/colors";
 import SignOutConfirmModal from "@/components/SignOutConfirmModal";
+import { SwipeableTabScreen } from "@/components/SwipeableTabScreen";
 
 export default function ProfileScreen() {
     const { user, isLoaded, signOut } = useAuthStore();
@@ -99,7 +100,8 @@ export default function ProfileScreen() {
     );
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={["top"]}>
+        <SwipeableTabScreen currentTab="profile">
+            <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={["top"]}>
             {/* Standard Header */}
             <View className="flex-row justify-between items-center px-5 pt-4 pb-4">
                 <View>
@@ -297,6 +299,26 @@ export default function ProfileScreen() {
                         label="Terms & Conditions"
                         onPress={() => router.push({ pathname: "/content", params: { type: "terms_and_conditions", title: "Terms & Conditions" } })}
                     />
+                    <NavRow
+                        icon="privacy-tip"
+                        label="Privacy Policy"
+                        onPress={() => router.push({ pathname: "/content", params: { type: "privacy_policy", title: "Privacy Policy" } })}
+                    />
+                    <NavRow
+                        icon="assignment-return"
+                        label="Refund & Cancellation"
+                        onPress={() => router.push({ pathname: "/content", params: { type: "refund_policy", title: "Refund & Cancellation" } })}
+                    />
+                    <NavRow
+                        icon="info-outline"
+                        label="Disclaimer"
+                        onPress={() => router.push({ pathname: "/content", params: { type: "disclaimer", title: "Disclaimer" } })}
+                    />
+                    <NavRow
+                        icon="handshake"
+                        label="Gym Partner Agreement"
+                        onPress={() => router.push({ pathname: "/content", params: { type: "gym_partner_agreement", title: "Gym Partner Agreement" } })}
+                    />
                 </View>
 
                 {/* Account Section */}
@@ -347,7 +369,8 @@ export default function ProfileScreen() {
                 onConfirm={handleConfirmSignOut}
                 onCancel={() => setShowSignOutModal(false)}
             />
-        </SafeAreaView>
+            </SafeAreaView>
+        </SwipeableTabScreen>
     );
 }
 

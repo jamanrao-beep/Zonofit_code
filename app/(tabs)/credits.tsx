@@ -19,6 +19,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { useGuestStore } from "@/store/useGuestStore";
 import { useRouter } from "expo-router";
 import { apiFetch } from "@/lib/api";
+import { SwipeableTabScreen } from "@/components/SwipeableTabScreen";
 
 function BlinkingRedDot() {
   const opacity = useRef(new Animated.Value(1)).current;
@@ -250,7 +251,8 @@ export default function CreditsScreen() {
 
   if (isGuest) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB" }} edges={["top"]}>
+      <SwipeableTabScreen currentTab="credits">
+        <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB" }} edges={["top"]}>
         {/* Top App Bar */}
         <View className="flex-row justify-between items-center px-5 pt-3 pb-3 bg-white border-b border-gray-100">
           <View>
@@ -341,11 +343,13 @@ export default function CreditsScreen() {
           </View>
         </ScrollView>
       </SafeAreaView>
+      </SwipeableTabScreen>
     );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB" }} edges={["top"]}>
+    <SwipeableTabScreen currentTab="credits">
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB" }} edges={["top"]}>
       {/* Top App Bar */}
       <View className="flex-row justify-between items-center px-5 pt-3 pb-3 bg-white border-b border-gray-100">
         <View>
@@ -855,6 +859,7 @@ export default function CreditsScreen() {
           </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </SwipeableTabScreen>
   );
 }
