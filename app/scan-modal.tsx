@@ -275,9 +275,40 @@ export default function ScanModal() {
             </Pressable>
           )}
 
+          {/* Cancel Booking option if user booked a workout */}
+          {bookingStatus === "Booked" && (
+            <Pressable
+              onPress={() => {
+                Alert.alert(
+                  "Cancel Workout Booking?",
+                  "Are you sure you want to cancel this booking? Your visit / credits will be restored immediately.",
+                  [
+                    { text: "Keep Booking", style: "cancel" },
+                    {
+                      text: "Yes, Cancel",
+                      style: "destructive",
+                      onPress: async () => {
+                        try {
+                          await useBookingStore.getState().cancelBooking();
+                          Alert.alert("Booking Cancelled", "Your booking has been cancelled and your visits / credits have been restored.");
+                          router.replace("/(tabs)");
+                        } catch (e: any) {
+                          Alert.alert("Error", e?.message || "Could not cancel booking.");
+                        }
+                      }
+                    }
+                  ]
+                );
+              }}
+              className="mt-3 px-4 py-2 bg-red-600/80 rounded-xl border border-white/20 active:opacity-80"
+            >
+              <Text className="text-white font-bold text-xs">Cancel This Booking</Text>
+            </Pressable>
+          )}
+
           {/* Dev button for local development/emulator testing only */}
           {__DEV__ && (
-            <Pressable onPress={handleMockScan} className="mt-6 bg-[#1F7A3E]/90 px-4 py-2 rounded-xl border border-white/20 active:opacity-80">
+            <Pressable onPress={handleMockScan} className="mt-4 bg-[#1F7A3E]/90 px-4 py-2 rounded-xl border border-white/20 active:opacity-80">
               <Text className="text-white font-bold text-xs">Simulate Front-Desk Scan (Dev)</Text>
             </Pressable>
           )}
