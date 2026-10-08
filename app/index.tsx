@@ -120,10 +120,21 @@ export default function SplashAnimationScreen() {
     const delay = Math.max(0, MIN_SPLASH_MS - elapsed);
 
     const timer = setTimeout(async () => {
-      const { isOnboarded } = useAuthStore.getState();
-      if (isSignedInRef.current && isOnboarded) {
-        router.replace("/(tabs)");
-        return;
+      const { isOnboarded, user } = useAuthStore.getState();
+      if (isSignedInRef.current) {
+        if (isOnboarded) {
+          router.replace("/(tabs)");
+          return;
+        } else {
+          // User signed in but didn't finish onboarding: resume onboarding directly
+          const needsProfile = !user?.username || user.username === "ZonoFit Member" || user.username === "Google User";
+          if (needsProfile) {
+            router.replace("/(auth)/profile-details" as any);
+          } else {
+            router.replace("/onboarding/select-city" as any);
+          }
+          return;
+        }
       }
 
       // Check guest session status per PRD Section 6

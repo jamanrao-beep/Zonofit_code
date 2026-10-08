@@ -124,7 +124,7 @@ export default function JourneyScreen() {
             <Pressable 
               onPress={() => {
                 if (bookingStatus === "Booked") {
-                  router.push("/scan-modal" as any);
+                  router.push("/booking-pass" as any);
                 } else {
                   router.push("/partner-gyms" as any);
                 }
@@ -138,27 +138,38 @@ export default function JourneyScreen() {
             </Pressable>
           </View>
 
-          {/* ZonoFit Score Expanded Card */}
-          <View style={{ backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#F3F4F6', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 }}>
-
+          {/* ZonoFit Score Expanded Card (Locked / Coming Soon) */}
+          <Pressable 
+            onPress={() => {
+              Alert.alert(
+                "ZonoFit Score • Coming Soon",
+                "The ZonoFit Score habit engine is currently in development for Phase 2. Continue visiting your gym to build your consistency streak!"
+              );
+            }}
+            style={{ 
+              backgroundColor: '#FFFFFF', 
+              borderRadius: 20, 
+              padding: 20, 
+              marginBottom: 16, 
+              borderWidth: 1, 
+              borderColor: '#F3F4F6', 
+              shadowColor: '#000', 
+              shadowOffset: { width: 0, height: 1 }, 
+              shadowOpacity: 0.05, 
+              shadowRadius: 3, 
+              elevation: 1,
+              position: 'relative',
+              overflow: 'hidden'
+            }}
+          >
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>ZonoFit Score</Text>
-              <Pressable 
-                onPress={() => {
-                  const cScore = visitsGoal > 0 ? Math.min(40, Math.round((visitsCompleted / visitsGoal) * 40)) : 0;
-                  const dScore = Math.min(35, Math.round((Math.min(streak, 15) / 15) * 35));
-                  const aScore = Math.min(25, Math.round((Math.min(visitsCompleted, 10) / 10) * 25));
-                  const tScore = cScore + dScore + aScore;
-                  Alert.alert(
-                    `ZonoFit Score: ${tScore}/100`, 
-                    `• Commitment: ${cScore}/40\n• Discipline (Streak): ${dScore}/35\n• Overall Activity: ${aScore}/25\n\nConsistency builds habits. Keep checking in at gyms to increase your score.`
-                  );
-                }}
-                style={{ flexDirection: 'row', alignItems: 'center' }}
-              >
-                <Text style={{ fontSize: 12, fontWeight: '600', color: '#4C9A2A', marginRight: 2 }}>View breakdown</Text>
-                <Ionicons name="chevron-forward" size={12} color="#4C9A2A" />
-              </Pressable>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>ZonoFit Score</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F3F4F6', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12 }}>
+                <Ionicons name="lock-closed" size={11} color="#6B7280" style={{ marginRight: 3 }} />
+                <Text style={{ fontSize: 11, fontWeight: '700', color: '#6B7280' }}>Locked</Text>
+              </View>
             </View>
             
             {(() => {
@@ -210,7 +221,44 @@ export default function JourneyScreen() {
                 </View>
               );
             })()}
-          </View>
+
+            {/* Glassmorphism lock overlay */}
+            <View 
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(255, 255, 255, 0.55)',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <View 
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: 'rgba(17, 24, 39, 0.82)',
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 16,
+                  gap: 5,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.15,
+                  shadowRadius: 4,
+                  elevation: 3,
+                }}
+              >
+                <Ionicons name="lock-closed" size={12} color="#FFFFFF" />
+                <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '700', letterSpacing: 0.3 }}>
+                  Coming Soon
+                </Text>
+              </View>
+            </View>
+          </Pressable>
 
           {/* Next Milestone Card */}
           <View style={{ backgroundColor: '#FFFFFF', borderRadius: 20, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#F3F4F6', flexDirection: 'row', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 }}>
