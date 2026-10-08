@@ -1,19 +1,29 @@
 {
   "cli": {
-    "version": ">= 7.6.0"
+    "version": ">= 7.6.0",
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://100.31.236.208"
+      }
     },
     "preview": {
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://100.31.236.208"
+      },
       "android": {
         "buildType": "apk"
       }
     },
     "production": {
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://100.31.236.208"
+      },
       "android": {
         "buildType": "app-bundle"
       }

@@ -1,5 +1,5 @@
 import React from "react";
-import { ScrollView, Text, View, Pressable } from "react-native";
+import { ScrollView, Text, View, Pressable, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -33,7 +33,29 @@ const statusConfig = {
 
 export default function BookingHistoryScreen() {
   const router = useRouter();
-  const { pastBookings } = useBookingStore();
+  const { pastBookings, bookingStatus, bookedGymName, bookedTime, cancelBooking } = useBookingStore();
+
+  const handleCancel = () => {
+    Alert.alert(
+      "Cancel Workout Booking?",
+      `Are you sure you want to cancel your visit at ${bookedGymName || "the gym"}?\n\nYour visit or credits will be restored immediately.`,
+      [
+        { text: "Keep Booking", style: "cancel" },
+        {
+          text: "Yes, Cancel",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await cancelBooking();
+              Alert.alert("Booking Cancelled", "Your booking has been cancelled and your visits / credits have been restored.");
+            } catch (err: any) {
+              Alert.alert("Error", err?.message || "Could not cancel booking.");
+            }
+          }
+        }
+      ]
+    );
+  };
 
   const allBookings = pastBookings.map(b => ({
     id: b.id,
@@ -65,6 +87,38 @@ export default function BookingHistoryScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+
+        {/* Active Booking Card (if any) */}
+        {bookingStatus === "Booked" && (
+          <View className="mx-5 mb-5 bg-white rounded-[22px] p-4 border border-emerald-500/30 shadow-sm">
+            <View className="flex-row items-center justify-between mb-2">
+              <View className="flex-row items-center">
+                <View className="w-2 h-2 rounded-full bg-emerald-500 mr-2" />
+                <Text className="text-[11px] font-bold uppercase tracking-wider text-emerald-700">Upcoming Workout</Text>
+              </View>
+              <View className="bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                <Text className="text-[10px] font-bold text-emerald-700">Active</Text>
+              </View>
+            </View>
+            <Text className="text-base font-extrabold text-[#111827]">{bookedGymName || "Primary Gym"}</Text>
+            <Text className="text-xs text-gray-500 mt-0.5">Time: {bookedTime || "Today"}</Text>
+
+            <View className="flex-row items-center gap-x-2.5 mt-3 pt-3 border-t border-gray-100">
+              <Pressable 
+                onPress={handleCancel}
+                className="flex-1 bg-red-50 border border-red-200 py-2 rounded-xl items-center active:opacity-80"
+              >
+                <Text className="text-red-600 font-bold text-xs">Cancel Booking</Text>
+              </Pressable>
+              <Pressable 
+                onPress={() => router.push("/booking-pass" as any)}
+                className="flex-1 bg-[#1F7A3E] py-2 rounded-xl items-center active:opacity-90"
+              >
+                <Text className="text-white font-bold text-xs">View Pass</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
 
         {/* Summary Card */}
         <View className="mx-5 mb-5">
