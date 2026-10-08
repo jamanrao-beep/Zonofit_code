@@ -1,5 +1,5 @@
-import React from "react";
-import { View, Text, StyleSheet, Pressable, StatusBar } from "react-native";
+import React, { useEffect } from "react";
+import { View, Text, StyleSheet, Pressable, StatusBar, BackHandler } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -25,6 +25,15 @@ export default function WelcomeScreen() {
     // In a real app, this might go to a specific booking screen or pre-select the primary gym
     router.replace("/(tabs)");
   };
+
+  useEffect(() => {
+    const backAction = () => {
+      handleGoHome();
+      return true;
+    };
+    const backHandler = BackHandler.addEventListener("hardwareBackPress", backAction);
+    return () => backHandler.remove();
+  }, []);
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>

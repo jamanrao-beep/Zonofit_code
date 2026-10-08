@@ -7,9 +7,11 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useGuestStore } from '@/store/useGuestStore';
 import { useBookingStore } from '@/store/useBookingStore';
 import { useCreditsStore } from '@/store/useCreditsStore';
+import { useUserStore } from '@/store/useUserStore';
 import { FALLBACK_NETWORK_GYMS } from '@/constants/fallbackGyms';
 import { apiFetch } from '@/lib/api';
 import BookingConfirmedModal from '@/components/BookingConfirmedModal';
+import BookingModal from '@/components/BookingModal';
 
 const { width } = Dimensions.get('window');
 
@@ -45,14 +47,23 @@ export default function GymDetailScreen() {
   const isFromOnboarding = useAuthStore(state => state.isViewingOnboardingGym);
   const { isGuest, selectGym, endGuestSession } = useGuestStore();
   const { bookVisit, bookingStatus } = useBookingStore();
-  const { credits } = useCreditsStore();
+  const { credits, membershipInfo, cashBalance } = useCreditsStore();
+  const { primaryGymId, visitsRemaining } = useUserStore();
   const { token } = useAuthStore();
   const insets = useSafeAreaInsets();
   const [activeImage, setActiveImage] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoritesCount, setFavoritesCount] = useState(0);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const [showBookingModal, setShowBookingModal] = useState(false);
   const [showConfirmedModal, setShowConfirmedModal] = useState(false);
+  const [confirmedBookingData, setConfirmedBookingData] = useState<{
+    timeSlot: string;
+    isMandatoryVisit: boolean;
+    mandatoryVisitsLeft: number;
+    creditsDeducted: number;
+    remainingCredits: number;
+  } | null>(null);
 
   // Fetch saved/favorite status from database on mount
   useEffect(() => {
@@ -123,7 +134,10 @@ export default function GymDetailScreen() {
     images: matchedGym?.image ? [matchedGym.image, ...DEFAULT_GYM_DATA.images.slice(1)] : DEFAULT_GYM_DATA.images,
   };
 
-  const handleBookVisit = async () => {
+  const isPrimaryGym = Boolean(primaryGymId && (primaryGymId === id || primaryGymId === matchedGym?.id));
+  const isMandatoryVisit = isPrimaryGym && visitsRemaining > 0;
+
+  const handleOpenBooking = () => {
     if (isGuest) {
       selectGym(GYM_DATA.id, GYM_DATA.name);
       Alert.alert(
@@ -151,7 +165,7 @@ export default function GymDetailScreen() {
       return;
     }
 
-    if (credits < GYM_DATA.credits) {
+    if (!isMandatoryVisit && credits < GYM_DATA.credits) {
       Alert.alert(
         "Insufficient Credits",
         `This booking requires ${GYM_DATA.credits} credits, but you currently have ${credits} credits. Please buy credits to continue.`,
@@ -163,30 +177,35 @@ export default function GymDetailScreen() {
       return;
     }
 
-    Alert.alert(
-      "Confirm Workout Booking",
-      `Book a workout session at ${GYM_DATA.name} for ${GYM_DATA.credits} Credits?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Confirm",
-          onPress: async () => {
-            const success = await bookVisit(
-              GYM_DATA.id,
-              GYM_DATA.name,
-              new Date().toISOString(),
-              "7:00 PM - 8:30 PM",
-              GYM_DATA.credits
-            );
-            if (success) {
-              setShowConfirmedModal(true);
-            } else {
-              Alert.alert("Booking Error", "Unable to confirm booking. Please check your credit balance or connection.");
-            }
-          }
-        }
-      ]
+    setShowBookingModal(true);
+  };
+
+  const handleConfirmBooking = async (slotTime: string, dateIso?: string) => {
+    const effectiveCost = isMandatoryVisit ? 0 : GYM_DATA.credits;
+    const dateToUse = dateIso || new Date().toISOString();
+    const success = await bookVisit(
+      GYM_DATA.id,
+      GYM_DATA.name,
+      dateToUse,
+      slotTime,
+      effectiveCost
     );
+
+    if (success) {
+      const remainingCredits = useCreditsStore.getState().credits;
+      const updatedVisitsRemaining = useUserStore.getState().visitsRemaining;
+      setConfirmedBookingData({
+        timeSlot: slotTime,
+        isMandatoryVisit,
+        mandatoryVisitsLeft: updatedVisitsRemaining,
+        creditsDeducted: effectiveCost,
+        remainingCredits,
+      });
+      setShowBookingModal(false);
+      setShowConfirmedModal(true);
+    } else {
+      Alert.alert("Booking Error", "Unable to confirm booking. Please check your credit balance or connection.");
+    }
   };
 
   return (
@@ -216,8 +235,13 @@ export default function GymDetailScreen() {
           <View style={{ position: 'absolute', top: Math.max(insets.top, 40), left: 16, right: 16, flexDirection: 'row', justifyContent: 'space-between' }}>
             <Pressable 
               onPress={() => {
+                if (isFromOnboarding) {
+                  useAuthStore.getState().setIsViewingOnboardingGym(false);
+                }
                 if (router.canGoBack()) {
                   router.back();
+                } else if (isFromOnboarding) {
+                  router.replace("/onboarding/choose-gym" as any);
                 } else {
                   router.replace("/partner-gyms" as any);
                 }
@@ -374,8 +398,8 @@ export default function GymDetailScreen() {
                 <Text style={styles.ruleText}>Respect gym{'\n'}staff & members</Text>
               </View>
             </ScrollView>
-            <Pressable style={{ alignItems: 'center', marginTop: 8 }}>
-              <Text style={{ fontSize: 13, fontWeight: '600', color: '#16A34A' }}>View all rules {'>'}</Text>
+            <Pressable onPress={handleOpenBooking} style={{ alignItems: 'center', marginTop: 8 }}>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#16A34A' }}>View all rules & booking details {'>'}</Text>
             </Pressable>
           </View>
 
@@ -460,19 +484,19 @@ export default function GymDetailScreen() {
         </Pressable>
       ) : (
         <Pressable 
-          onPress={handleBookVisit}
+          onPress={handleOpenBooking}
           style={({ pressed }) => [{
             position: 'absolute', 
             bottom: Math.max(insets.bottom, 16), 
             left: 16, 
             right: 16, 
-            backgroundColor: '#4C9A2A', 
+            backgroundColor: isMandatoryVisit ? '#1F7A3E' : '#4C9A2A', 
             borderRadius: 12, 
             flexDirection: 'row', 
             alignItems: 'center', 
             paddingVertical: 14, 
             paddingHorizontal: 16, 
-            shadowColor: '#4C9A2A', 
+            shadowColor: isMandatoryVisit ? '#1F7A3E' : '#4C9A2A', 
             shadowOffset: { width: 0, height: 4 }, 
             shadowOpacity: 0.2, 
             shadowRadius: 8, 
@@ -481,10 +505,14 @@ export default function GymDetailScreen() {
           }]}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-            <Ionicons name="ticket-outline" size={24} color="white" />
+            <Ionicons name={isMandatoryVisit ? "shield-checkmark" : "ticket-outline"} size={24} color="white" />
             <View style={{ marginLeft: 12 }}>
-              <Text style={{ color: 'white', fontSize: 13, fontWeight: '600' }}>1 Visit Available</Text>
-              <Text style={{ color: 'white', fontSize: 12, opacity: 0.9 }}>{GYM_DATA.credits} Credits</Text>
+              <Text style={{ color: 'white', fontSize: 13, fontWeight: '700' }}>
+                {isMandatoryVisit ? `${visitsRemaining} Mandatory Visits Left` : 'Credit Visit'}
+              </Text>
+              <Text style={{ color: 'white', fontSize: 12, opacity: 0.9 }}>
+                {isMandatoryVisit ? 'Included (0 Credits)' : `${GYM_DATA.credits} Credits`}
+              </Text>
             </View>
           </View>
           <View style={{ width: 1, height: 32, backgroundColor: 'rgba(255,255,255,0.3)', marginHorizontal: 16 }} />
@@ -495,24 +523,50 @@ export default function GymDetailScreen() {
         </Pressable>
       )}
 
-      {/* Booking Confirmed Modal */}
-      <BookingConfirmedModal
-        visible={showConfirmedModal}
-        gymName={GYM_DATA.name}
-        gymAddress={GYM_DATA.distance}
-        gymImage={GYM_DATA.images[0]}
-        timeSlot="7:00 PM - 8:30 PM"
-        creditsDeducted={GYM_DATA.credits}
-        remainingCredits={credits}
-        onViewPass={() => {
-          setShowConfirmedModal(false);
-          router.replace("/scan-modal" as any);
+      {/* Booking Dialog Modal with Rules & Mandatory vs Credit Logic */}
+      <BookingModal
+        visible={showBookingModal}
+        onClose={() => setShowBookingModal(false)}
+        onConfirm={handleConfirmBooking}
+        gym={{
+          id: GYM_DATA.id,
+          name: GYM_DATA.name,
+          address: GYM_DATA.distance,
+          image: GYM_DATA.images[0],
+          cost: GYM_DATA.credits,
         }}
-        onDone={() => {
-          setShowConfirmedModal(false);
-          router.replace("/(tabs)");
-        }}
+        isPrimaryGym={isPrimaryGym}
+        visitsRemaining={visitsRemaining}
+        mandatoryVisitsTotal={membershipInfo?.mandatoryVisits || 10}
+        availableCredits={credits}
+        cashBalance={cashBalance}
       />
+
+      {/* Booking Confirmed Modal */}
+      {confirmedBookingData && (
+        <BookingConfirmedModal
+          visible={showConfirmedModal}
+          gymName={GYM_DATA.name}
+          gymAddress={GYM_DATA.distance}
+          gymImage={GYM_DATA.images[0]}
+          timeSlot={confirmedBookingData.timeSlot}
+          isMandatoryVisit={confirmedBookingData.isMandatoryVisit}
+          mandatoryVisitsLeft={confirmedBookingData.mandatoryVisitsLeft}
+          totalMandatoryVisits={membershipInfo?.mandatoryVisits || 10}
+          creditsDeducted={confirmedBookingData.creditsDeducted}
+          remainingCredits={confirmedBookingData.remainingCredits}
+          onViewPass={() => {
+            setShowConfirmedModal(false);
+            setConfirmedBookingData(null);
+            router.replace("/booking-pass" as any);
+          }}
+          onDone={() => {
+            setShowConfirmedModal(false);
+            setConfirmedBookingData(null);
+            router.replace("/(tabs)");
+          }}
+        />
+      )}
     </View>
   );
 }

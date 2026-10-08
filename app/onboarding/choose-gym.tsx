@@ -51,7 +51,16 @@ export default function ChooseGymScreen() {
       
       {/* Header with Progress Bar */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
+        <Pressable 
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace("/onboarding/select-city");
+            }
+          }} 
+          style={styles.backButton}
+        >
           <Ionicons name="chevron-back" size={24} color="#111827" />
         </Pressable>
         <View style={styles.progressBarContainer}>
