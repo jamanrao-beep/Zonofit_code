@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, Pressable, TextInput, KeyboardAvoidingView, Platform, StatusBar, Alert } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Text, StyleSheet, Pressable, TextInput, KeyboardAvoidingView, Platform, StatusBar, Alert, BackHandler } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -7,12 +7,42 @@ import { useAuthStore } from "@/store/useAuthStore";
 
 export default function ProfileDetailsScreen() {
   const router = useRouter();
-  const { updateProfile, loading } = useAuthStore();
+  const { user, updateProfile, loading } = useAuthStore();
 
-  const [name, setName] = useState("");
+  const initialName = user?.username && user.username !== "Google User" && user.username !== "ZonoFit Member" 
+    ? user.username 
+    : "";
+  const [name, setName] = useState(initialName);
   const [dob, setDob] = useState("");
   const [referral, setReferral] = useState("");
   const [referralApplied, setReferralApplied] = useState(false);
+
+  const handleBack = () => {
+    Alert.alert(
+      "Change Account?",
+      "Going back will log you out so you can sign in with a different number or email.",
+      [
+        { text: "Stay", style: "cancel" },
+        { 
+          text: "Log Out & Go Back", 
+          style: "destructive",
+          onPress: async () => {
+            await useAuthStore.getState().signOut();
+            router.replace("/(auth)/create-account");
+          }
+        }
+      ]
+    );
+  };
+
+  useEffect(() => {
+    const backAction = () => {
+      handleBack();
+      return true;
+    };
+    const backHandler = BackHandler.addEventListener("hardwareBackPress", backAction);
+    return () => backHandler.remove();
+  }, []);
 
   const handleApplyReferral = () => {
     if (!referral.trim()) {
@@ -28,10 +58,14 @@ export default function ProfileDetailsScreen() {
   };
 
   const handleContinue = async () => {
-    if (!name.trim()) return;
+    const trimmed = name.trim();
+    if (!trimmed || trimmed.length < 2) {
+      Alert.alert("Name Required", "Full name is compulsory. Please enter your name to proceed.");
+      return;
+    }
     
     try {
-      await updateProfile({ name, dob, referral });
+      await updateProfile({ name: trimmed, dob, referral });
       // Go directly to city selection (no detect location step)
       router.replace("/onboarding/select-city");
     } catch (e: any) {
@@ -45,7 +79,7 @@ export default function ProfileDetailsScreen() {
       
       {/* Progress Bar */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
+        <Pressable onPress={handleBack} style={styles.backButton}>
           <Ionicons name="chevron-back" size={24} color="#111827" />
         </Pressable>
         <View style={styles.progressBarContainer}>
@@ -59,14 +93,17 @@ export default function ProfileDetailsScreen() {
           <Text style={styles.subtitle}>Just a few details to get you started.</Text>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Full Name</Text>
+            <Text style={styles.label}>
+              Full Name <Text style={{ color: "#EF4444", fontWeight: "700" }}>*</Text>
+            </Text>
             <View style={styles.inputWrapper}>
               <TextInput
                 style={styles.input}
-                placeholder="Enter full name"
+                placeholder="Enter full name (required)"
                 placeholderTextColor="#9CA3AF"
                 value={name}
                 onChangeText={setName}
+                autoFocus={!initialName}
               />
             </View>
           </View>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, Pressable, Image, StatusBar, Alert, Platform, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, Pressable, Image, StatusBar, Alert, Platform, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,6 +18,8 @@ export default function CreateAccountScreen() {
 
   const [guestLoading, setGuestLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [showGoogleModal, setShowGoogleModal] = useState(false);
+  const [googleEmail, setGoogleEmail] = useState("");
 
   // When a guest navigates here to create a full account, end the guest session
   // so auth flow is clean and AuthGate won't fight navigation.
@@ -29,12 +31,11 @@ export default function CreateAccountScreen() {
 
   const handleGoogleSignIn = async () => {
     if (googleLoading || loading) return;
-    try {
-      setGoogleLoading(true);
-      const clientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
+    const clientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
 
-      if (clientId) {
-        // Standard Google OAuth 2.0 flow with registered client ID
+    if (clientId) {
+      try {
+        setGoogleLoading(true);
         const redirectUri = Linking.createURL("oauth/google");
         const authUrl =
           `https://accounts.google.com/o/oauth2/v2/auth?` +
@@ -59,24 +60,47 @@ export default function CreateAccountScreen() {
             });
             const userData = await userRes.json();
             if (userData?.email) {
-              await googleSignIn(userData.email, userData.name || userData.email.split("@")[0]);
-              router.replace("/(tabs)");
+              const res = await googleSignIn(userData.email, userData.name || userData.email.split("@")[0]);
+              if (res?.isOnboarded) {
+                router.replace("/(tabs)");
+              } else {
+                router.replace("/(auth)/profile-details");
+              }
               return;
             }
           }
         }
-      } else {
-        // Opens official Google Sign-In directly in-app
-        await WebBrowser.openBrowserAsync("https://accounts.google.com/signin");
-        await googleSignIn();
+        // If user cancelled, closed browser, or pressed back: DO NOTHING!
+      } catch (e: any) {
+        console.warn("[Google Sign-In]", e);
+      } finally {
+        setGoogleLoading(false);
+      }
+    } else {
+      // Show Google Email Sign-In Modal so user explicitly enters email or cancels
+      setShowGoogleModal(true);
+    }
+  };
+
+  const handleConfirmGoogleEmail = async () => {
+    const trimmed = googleEmail.trim();
+    if (!trimmed || !trimmed.includes("@") || !trimmed.includes(".")) {
+      Alert.alert("Invalid Email", "Please enter a valid Google / Gmail address.");
+      return;
+    }
+
+    try {
+      setGoogleLoading(true);
+      setShowGoogleModal(false);
+      const res = await googleSignIn(trimmed);
+      setGoogleEmail("");
+      if (res?.isOnboarded) {
         router.replace("/(tabs)");
-        return;
+      } else {
+        router.replace("/(auth)/profile-details");
       }
     } catch (e: any) {
-      console.warn("[Google Sign-In]", e);
-      // Seamless completion so user is never locked out
-      await googleSignIn();
-      router.replace("/(tabs)");
+      Alert.alert("Google Sign-In", e?.message || "Failed to sign in with Google.");
     } finally {
       setGoogleLoading(false);
     }
@@ -198,10 +222,90 @@ export default function CreateAccountScreen() {
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            By continuing you agree to our <Text style={styles.linkText}>Terms</Text> and <Text style={styles.linkText}>Privacy Policy</Text>.
+            By continuing you agree to our{" "}
+            <Text 
+              style={[styles.linkText, { textDecorationLine: "underline" }]}
+              onPress={() => router.push({ pathname: "/content", params: { type: "terms_and_conditions", title: "Terms & Conditions" } } as any)}
+            >
+              Terms
+            </Text>{" "}
+            and{" "}
+            <Text 
+              style={[styles.linkText, { textDecorationLine: "underline" }]}
+              onPress={() => router.push({ pathname: "/content", params: { type: "privacy_policy", title: "Privacy Policy" } } as any)}
+            >
+              Privacy Policy
+            </Text>.
           </Text>
         </View>
       </View>
+
+      {/* Google Email Input Modal */}
+      <Modal
+        visible={showGoogleModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setShowGoogleModal(false);
+          setGoogleEmail("");
+        }}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalIconWrap}>
+                <Ionicons name="logo-google" size={24} color="#EA4335" />
+              </View>
+              <Text style={styles.modalTitle}>Sign in with Google</Text>
+              <Text style={styles.modalSubtitle}>
+                Enter your Google / Gmail address to continue to ZonoFit.
+              </Text>
+            </View>
+
+            <TextInput
+              style={styles.modalInput}
+              placeholder="example@gmail.com"
+              placeholderTextColor="#9CA3AF"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoFocus
+              value={googleEmail}
+              onChangeText={setGoogleEmail}
+            />
+
+            <View style={styles.modalBtnRow}>
+              <Pressable
+                style={styles.modalCancelBtn}
+                onPress={() => {
+                  setShowGoogleModal(false);
+                  setGoogleEmail("");
+                }}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+
+              <Pressable
+                style={[
+                  styles.modalConfirmBtn,
+                  !googleEmail.trim() && { opacity: 0.5 },
+                ]}
+                disabled={!googleEmail.trim() || googleLoading}
+                onPress={handleConfirmGoogleEmail}
+              >
+                {googleLoading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.modalConfirmText}>Continue</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -372,5 +476,90 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     color: "#065F46",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 24,
+  },
+  modalContent: {
+    width: "100%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  modalHeader: {
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  modalIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#FEF2F2",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 6,
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    color: "#6B7280",
+    textAlign: "center",
+    lineHeight: 18,
+  },
+  modalInput: {
+    height: 48,
+    borderWidth: 1.5,
+    borderColor: "#E5E7EB",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    fontSize: 15,
+    color: "#111827",
+    marginBottom: 20,
+  },
+  modalBtnRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  modalCancelBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F9FAFB",
+  },
+  modalCancelText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#6B7280",
+  },
+  modalConfirmBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#1F7A3E",
+  },
+  modalConfirmText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#FFFFFF",
   },
 });
