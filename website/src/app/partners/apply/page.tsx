@@ -271,7 +271,14 @@ export default function ApplyPage() {
               </div>
             </div>
 
-            <div className="pt-6 border-t">
+            <div className="pt-6 border-t space-y-4">
+              <p className="text-xs text-gray-500 text-center">
+                By submitting this application, you agree to the terms of the{" "}
+                <Link href="/partner-agreement" target="_blank" className="text-primary font-bold hover:underline">
+                  ZonoFit Gym Partner Agreement
+                </Link>.
+              </p>
+
               <button 
                 type="submit"
                 disabled={loading}
