@@ -37,7 +37,7 @@ interface AuthState {
   verifyOTP: (code: string) => Promise<boolean>;
   updateProfile: (details: { name: string, dob?: string, referral?: string }) => Promise<void>;
   completeOnboarding: (city: string, gymId: string, plan: string) => Promise<void>;
-  googleSignIn: (email?: string, name?: string) => Promise<void>;
+  googleSignIn: (email?: string, name?: string) => Promise<{ success: boolean; isOnboarded: boolean }>;
   signOut: () => Promise<void>;
   setError: (msg: string | null) => void;
   setVerificationPhone: (phone: string) => void;
@@ -83,9 +83,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             id: freshData.id,
             username: freshData.name || cachedUser.username,
             phone: freshData.phone || cachedUser.phone,
+            city: freshData.city || cachedUser.city,
+            primaryGym: freshData.primaryGymId || freshData.membership?.gymId || cachedUser.primaryGym,
+            plan: freshData.membership?.plan || cachedUser.plan,
           };
+          const userIsOnboarded = !!(
+            freshUser.primaryGym &&
+            freshUser.username &&
+            freshUser.username !== "Google User" &&
+            freshUser.username !== "ZonoFit Member"
+          );
           await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(freshUser));
-          set({ user: freshUser, token, isSignedIn: true, isOnboarded: true, isLoaded: true });
+          set({ user: freshUser, token, isSignedIn: true, isOnboarded: userIsOnboarded, isLoaded: true });
         } catch (err: any) {
           const isAuthError = err.status === 401 || (err.message && (
             err.message.toLowerCase().includes("invalid or expired session token") ||
@@ -97,7 +106,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             set({ isLoaded: true });
           } else {
             // Offline/Network issue: allow offline cached session
-            set({ user: cachedUser, token, isSignedIn: true, isOnboarded: true, isLoaded: true });
+            const cachedIsOnboarded = !!(
+              cachedUser.primaryGym &&
+              cachedUser.username &&
+              cachedUser.username !== "Google User" &&
+              cachedUser.username !== "ZonoFit Member"
+            );
+            set({ user: cachedUser, token, isSignedIn: true, isOnboarded: cachedIsOnboarded, isLoaded: true });
           }
         }
       } else {
@@ -236,6 +251,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         user: updatedUser, 
         loading: false,
       });
+
+      if (details.name) {
+        try {
+          const { useUserStore } = require("./useUserStore");
+          useUserStore.setState({ name: details.name });
+        } catch {}
+      }
     } catch (err: any) {
       set({ loading: false, error: err.message || "Failed to update profile." });
     }
@@ -285,6 +307,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isOnboarded: true 
       });
 
+      // Sync with useUserStore
+      try {
+        const { useUserStore } = require("./useUserStore");
+        useUserStore.setState({
+          name: updatedUser.username,
+          primaryGymId: gymId,
+          primaryGymName: useGuestStore.getState().selectedGymName || "FitZone Pro",
+          planName: plan || "Quarterly",
+          membershipStatus: "Active",
+        });
+      } catch {}
+
       // Convert guest session if active per PRD Section 14
       await useGuestStore.getState().convertGuest();
     } catch (err: any) {
@@ -295,12 +329,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   googleSignIn: async (customEmail?: string, customName?: string) => {
     set({ loading: true, error: null });
     try {
+      if (!customEmail || !customEmail.trim()) {
+        throw new Error("Email address is required for Google Sign-In.");
+      }
+
       let authToken: string | null = null;
       let authUser: User | null = null;
+      let isOnboarded = false;
 
-      // Unique email per user/device — never share a static test email
-      const email = customEmail?.trim().toLowerCase() || `user_${Date.now()}_${Math.random().toString(36).substring(2, 8)}@zonofit.com`;
-      const name = customName?.trim() || (customEmail ? customEmail.split("@")[0] : "ZonoFit Member");
+      const email = customEmail.trim().toLowerCase();
+      const name = customName?.trim() || email.split("@")[0] || "";
 
       try {
         const data = await apiFetch("/api/auth/google", {
@@ -313,11 +351,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
         if (data.token) {
           authToken = data.token;
+          isOnboarded = data.isOnboarded || false;
           authUser = {
             id: data.user?.id || "usr_" + Date.now(),
             username: data.user?.username || name,
             phone: data.user?.phone || "",
             authMethod: "google",
+            city: data.user?.city,
+            primaryGym: data.user?.primaryGymId,
           };
         }
       } catch (apiErr) {
@@ -332,6 +373,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           phone: "",
           authMethod: "google",
         };
+        isOnboarded = false;
       }
 
       await SecureStore.setItemAsync(TOKEN_KEY, authToken);
@@ -342,12 +384,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         token: authToken,
         loading: false,
         isSignedIn: true,
-        isOnboarded: true,
+        isOnboarded,
         hasVerifiedOTP: true,
       });
 
+      // Sync username to useUserStore if real name provided
+      if (authUser.username && authUser.username !== "Google User") {
+        try {
+          const { useUserStore } = require("./useUserStore");
+          useUserStore.setState({ name: authUser.username });
+        } catch {}
+      }
+
       // Also convert guest session if active per PRD Section 14
       await useGuestStore.getState().convertGuest();
+      return { success: true, isOnboarded };
     } catch (err: any) {
       set({ loading: false, error: err.message || "Google sign-in failed." });
       throw err;

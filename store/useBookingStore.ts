@@ -145,7 +145,7 @@ export const useBookingStore = create<BookingState>((set, get) => ({
     }
 
     const availableCredits = useCreditsStore.getState().credits;
-    if (availableCredits < creditCost) {
+    if (creditCost > 0 && availableCredits < creditCost) {
       console.warn("[Booking] Insufficient credits:", { availableCredits, creditCost });
       return false;
     }
@@ -178,11 +178,25 @@ export const useBookingStore = create<BookingState>((set, get) => ({
         }
       }
 
-      // CRITICAL: Always cut credits from wallet immediately
-      await useCreditsStore.getState().deductCredits(
-        deductedCost,
-        `Workout Booking - ${gymName}`
-      );
+      // If credit cost applies, cut credits from wallet immediately
+      if (deductedCost > 0) {
+        await useCreditsStore.getState().deductCredits(
+          deductedCost,
+          `Workout Booking - ${gymName}`
+        );
+      } else {
+        // Mandatory visit (0 credits): decrement mandatory visit count (10, 9, 8... 0)
+        useUserStore.getState().decrementVisits();
+        const currentMembership = useCreditsStore.getState().membershipInfo;
+        if (currentMembership) {
+          useCreditsStore.setState({
+            membershipInfo: {
+              ...currentMembership,
+              mandatoryVisitsRemaining: Math.max(0, (currentMembership.mandatoryVisitsRemaining || 0) - 1),
+            }
+          });
+        }
+      }
 
       set({
         bookingStatus: "Booked",
@@ -230,7 +244,6 @@ export const useBookingStore = create<BookingState>((set, get) => ({
 
     // Record workout in user store (streak, total workouts)
     useUserStore.getState().recordWorkout(1.5); // 1.5 hours default workout length
-    useUserStore.getState().decrementVisits(); // decrement visits remaining from active plan
     
     // Update membership completed visits in credits store for instant Journey sync
     const currentMembership = useCreditsStore.getState().membershipInfo;
@@ -239,7 +252,6 @@ export const useBookingStore = create<BookingState>((set, get) => ({
         membershipInfo: {
           ...currentMembership,
           completedVisits: (currentMembership.completedVisits || 0) + 1,
-          mandatoryVisitsRemaining: Math.max(0, (currentMembership.mandatoryVisitsRemaining || 0) - 1),
         }
       });
     }
@@ -259,7 +271,7 @@ export const useBookingStore = create<BookingState>((set, get) => ({
       
       const refundedCredits = response.refundedCredits ?? 0;
 
-      // Refund credits
+      // Refund credits if paid via credits
       if (refundedCredits > 0) {
         useCreditsStore.getState().addTransaction(
           "credit",
@@ -272,6 +284,18 @@ export const useBookingStore = create<BookingState>((set, get) => ({
         useCreditsStore.setState((state) => ({
           credits: state.credits + refundedCredits,
         }));
+      } else if (bookedCost === 0) {
+        // Restore mandatory visit if cancelled
+        useUserStore.setState((s) => ({ visitsRemaining: Math.min(10, s.visitsRemaining + 1) }));
+        const mem = useCreditsStore.getState().membershipInfo;
+        if (mem) {
+          useCreditsStore.setState({
+            membershipInfo: {
+              ...mem,
+              mandatoryVisitsRemaining: Math.min(mem.mandatoryVisits || 10, (mem.mandatoryVisitsRemaining || 0) + 1),
+            }
+          });
+        }
       }
 
       set((state) => ({
