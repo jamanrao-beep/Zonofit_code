@@ -25,6 +25,9 @@ interface BookingConfirmedModalProps {
   gymImage?: string;
   timeSlot: string;
   dateStr?: string;
+  isMandatoryVisit?: boolean;
+  mandatoryVisitsLeft?: number;
+  totalMandatoryVisits?: number;
   creditsDeducted: number;
   remainingCredits: number;
   onViewPass: () => void;
@@ -40,6 +43,9 @@ export default function BookingConfirmedModal({
   gymImage,
   timeSlot,
   dateStr = "Today",
+  isMandatoryVisit = false,
+  mandatoryVisitsLeft,
+  totalMandatoryVisits = 10,
   creditsDeducted,
   remainingCredits,
   onViewPass,
@@ -71,6 +77,8 @@ export default function BookingConfirmedModal({
   }));
 
   if (!visible) return null;
+
+  const isMandatory = isMandatoryVisit || creditsDeducted === 0;
 
   return (
     <Modal
@@ -114,8 +122,16 @@ export default function BookingConfirmedModal({
 
               <View style={styles.gymInfo}>
                 <View style={styles.badgeRow}>
-                  <View style={styles.confirmedBadge}>
-                    <Text style={styles.confirmedBadgeText}>ACTIVE PASS</Text>
+                  <View style={[
+                    styles.confirmedBadge,
+                    isMandatory ? { backgroundColor: "#DCFCE7", borderColor: "#86EFAC" } : { backgroundColor: "#FEF3C7", borderColor: "#FCD34D" }
+                  ]}>
+                    <Text style={[
+                      styles.confirmedBadgeText,
+                      isMandatory ? { color: "#166534" } : { color: "#B45309" }
+                    ]}>
+                      {isMandatory ? "MANDATORY PASS" : "CREDIT PASS"}
+                    </Text>
                   </View>
                   <Text style={styles.dateLabel}>{dateStr}</Text>
                 </View>
@@ -141,28 +157,47 @@ export default function BookingConfirmedModal({
               <View style={styles.detailColRight}>
                 <Text style={styles.detailLabel}>ENTRY METHOD</Text>
                 <View style={styles.detailValueRow}>
-                  <Ionicons name="qr-code-outline" size={14} color="#059669" />
-                  <Text style={[styles.detailValue, { color: "#059669" }]}>QR Check-In</Text>
+                  <Ionicons name="card-outline" size={14} color="#059669" />
+                  <Text style={[styles.detailValue, { color: "#059669" }]}>Pass at Desk</Text>
                 </View>
               </View>
             </View>
           </View>
 
-          {/* Credits Cut Info Banner */}
-          <View style={styles.creditsBanner}>
-            <View style={styles.creditDeductedRow}>
-              <View style={styles.lightningIconWrap}>
-                <Ionicons name="flash" size={14} color="#D97706" />
+          {/* Mandatory Visit vs Credit Deduction Banner */}
+          {isMandatory ? (
+            <View style={[styles.creditsBanner, { backgroundColor: "#ECFDF5", borderColor: "#A7F3D0" }]}>
+              <View style={styles.creditDeductedRow}>
+                <View style={[styles.lightningIconWrap, { backgroundColor: "#D1FAE5" }]}>
+                  <Ionicons name="shield-checkmark" size={14} color="#059669" />
+                </View>
+                <Text style={[styles.creditsDeductedText, { color: "#065F46" }]}>
+                  <Text style={[styles.boldDeduction, { color: "#047857" }]}>Included in Membership</Text> • 0 Credits
+                </Text>
               </View>
-              <Text style={styles.creditsDeductedText}>
-                <Text style={styles.boldDeduction}>{creditsDeducted} Credits</Text> deducted from your wallet
-              </Text>
+              <View style={[styles.remainingPill, { backgroundColor: "#FFFFFF", borderColor: "#A7F3D0" }]}>
+                <Text style={styles.remainingLabel}>Mandatory Visits Left: </Text>
+                <Text style={[styles.remainingVal, { color: "#059669" }]}>
+                  {mandatoryVisitsLeft !== undefined ? `${mandatoryVisitsLeft} of ${totalMandatoryVisits}` : "Active"}
+                </Text>
+              </View>
             </View>
-            <View style={styles.remainingPill}>
-              <Text style={styles.remainingLabel}>Remaining Balance: </Text>
-              <Text style={styles.remainingVal}>{remainingCredits} Credits</Text>
+          ) : (
+            <View style={styles.creditsBanner}>
+              <View style={styles.creditDeductedRow}>
+                <View style={styles.lightningIconWrap}>
+                  <Ionicons name="flash" size={14} color="#D97706" />
+                </View>
+                <Text style={styles.creditsDeductedText}>
+                  <Text style={styles.boldDeduction}>{creditsDeducted} Credits</Text> deducted from wallet
+                </Text>
+              </View>
+              <View style={styles.remainingPill}>
+                <Text style={styles.remainingLabel}>Remaining Balance: </Text>
+                <Text style={styles.remainingVal}>{remainingCredits} Credits</Text>
+              </View>
             </View>
-          </View>
+          )}
 
           {/* Action CTAs */}
           <View style={styles.actions}>
