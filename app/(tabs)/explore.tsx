@@ -12,21 +12,19 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { SwipeableTabScreen } from "@/components/SwipeableTabScreen";
 
 export default function ExploreScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
 
   const handleSearchSubmit = () => {
-    if (searchQuery.trim().length > 0) {
-      router.push(`/partner-gyms?q=${encodeURIComponent(searchQuery.trim())}` as any);
-    } else {
-      router.push("/partner-gyms" as any);
-    }
+    router.push("/partner-cities" as any);
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }} edges={["top"]}>
+    <SwipeableTabScreen currentTab="explore">
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }} edges={["top"]}>
       <StatusBar barStyle="dark-content" />
 
       {/* Top Header */}
@@ -98,7 +96,7 @@ export default function ExploreScreen() {
         <View style={styles.availableRow}>
           {/* Partner Gyms Card */}
           <Pressable 
-            onPress={() => router.push("/partner-gyms" as any)}
+            onPress={() => router.push("/partner-cities" as any)}
             style={styles.featureCard}
           >
             <View style={styles.partnerGymIconWrap}>
@@ -178,7 +176,8 @@ export default function ExploreScreen() {
           <Ionicons name="lock-closed-outline" size={20} color="#10B981" />
         </Pressable>
       </ScrollView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </SwipeableTabScreen>
   );
 }
 

@@ -16,6 +16,10 @@ import { useUserStore } from "@/store/useUserStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
 import { useGuestStore } from "@/store/useGuestStore";
 import { useBookingStore } from "@/store/useBookingStore";
+import BookingModal from "@/components/BookingModal";
+import BookingConfirmedModal from "@/components/BookingConfirmedModal";
+import { SwipeableTabScreen } from "@/components/SwipeableTabScreen";
+import { Alert } from "react-native";
 
 function BlinkingRedDot() {
   const opacity = useRef(new Animated.Value(1)).current;
@@ -81,12 +85,31 @@ export default function HomeScreen() {
   const { isGuest, hoursRemaining, checkExpiry, endGuestSession, selectedGymName, selectedGymId } = useGuestStore();
   const { bookingStatus, bookedGymName, bookedTime } = useBookingStore();
 
+  const [showBookingModal, setShowBookingModal] = React.useState(false);
+  const [showConfirmedModal, setShowConfirmedModal] = React.useState(false);
+  const [confirmedBookingData, setConfirmedBookingData] = React.useState<{
+    timeSlot: string;
+    isMandatoryVisit: boolean;
+    mandatoryVisitsLeft: number;
+    creditsDeducted: number;
+    remainingCredits: number;
+  } | null>(null);
+
   React.useEffect(() => {
     if (token) {
       useCreditsStore.getState().fetchWallet(token);
       useUserStore.getState().fetchProfile(token);
     }
   }, [token]);
+
+  const homeScrollRef = useRef<ScrollView>(null);
+  const guestScrollRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    // App restart / launch: Always reset Home scroll position to the top of the screen
+    homeScrollRef.current?.scrollTo({ y: 0, animated: false });
+    guestScrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, []);
 
   const resolvedGymName = (
     membershipInfo?.gymName && 
@@ -107,6 +130,61 @@ export default function HomeScreen() {
   const isExpiringSoon = isMembershipActive && daysRemaining <= 3 && daysRemaining > 0;
   const showRenewalAlert = isExpired || isExpiringSoon;
 
+  const handleOpenPrimaryBooking = () => {
+    if (bookingStatus !== "Not Booked") {
+      Alert.alert(
+        "Active Booking Exists",
+        "You already have an active gym booking today. Please complete or cancel it before booking another."
+      );
+      return;
+    }
+
+    if (visitsLeft === 0 && credits < 8) {
+      Alert.alert(
+        "Insufficient Credits",
+        `This booking requires 8 credits, but you currently have ${credits} credits. Please buy credits to continue.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Buy Credits", onPress: () => router.push("/credits") }
+        ]
+      );
+      return;
+    }
+
+    setShowBookingModal(true);
+  };
+
+  const handleConfirmPrimaryBooking = async (slotTime: string, dateIso?: string) => {
+    const isMandatory = visitsLeft > 0;
+    const effectiveCost = isMandatory ? 0 : 8;
+    const gymId = userPrimaryGymId || "primary_gym_default";
+    const dateToUse = dateIso || new Date().toISOString();
+
+    const success = await useBookingStore.getState().bookVisit(
+      gymId,
+      resolvedGymName,
+      dateToUse,
+      slotTime,
+      effectiveCost
+    );
+
+    if (success) {
+      const remainingCredits = useCreditsStore.getState().credits;
+      const updatedVisitsRemaining = useUserStore.getState().visitsRemaining;
+      setConfirmedBookingData({
+        timeSlot: slotTime,
+        isMandatoryVisit: isMandatory,
+        mandatoryVisitsLeft: updatedVisitsRemaining,
+        creditsDeducted: effectiveCost,
+        remainingCredits,
+      });
+      setShowBookingModal(false);
+      setShowConfirmedModal(true);
+    } else {
+      Alert.alert("Booking Error", "Unable to confirm booking. Please check your credit balance or connection.");
+    }
+  };
+
   React.useEffect(() => {
     if (isGuest && checkExpiry()) {
       router.replace("/guest-expired" as any);
@@ -115,7 +193,8 @@ export default function HomeScreen() {
 
   if (isGuest) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB" }} edges={["top"]}>
+      <SwipeableTabScreen currentTab="index">
+        <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB" }} edges={["top"]}>
         {/* Guest Header */}
         <View className="flex-row justify-between items-center px-5 pt-4 pb-3 bg-white border-b border-gray-100">
           <View>
@@ -139,6 +218,7 @@ export default function HomeScreen() {
         </View>
 
         <ScrollView 
+          ref={guestScrollRef}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100, paddingTop: 16 }}
         >
@@ -302,11 +382,13 @@ export default function HomeScreen() {
           </View>
         </ScrollView>
       </SafeAreaView>
+      </SwipeableTabScreen>
     );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB" }} edges={["top"]}>
+    <SwipeableTabScreen currentTab="index">
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB" }} edges={["top"]}>
       {/* Standard Header */}
       <View className="flex-row justify-between items-center px-5 pt-4 pb-4">
         <View>
@@ -336,6 +418,7 @@ export default function HomeScreen() {
       </View>
 
       <ScrollView 
+        ref={homeScrollRef}
         showsVerticalScrollIndicator={false}
         bounces={true}
         overScrollMode="never"
@@ -434,7 +517,7 @@ export default function HomeScreen() {
           </View>
 
           <Pressable 
-            onPress={() => router.push("/explore")}
+            onPress={handleOpenPrimaryBooking}
             className="bg-white rounded-2xl py-3.5 flex-row justify-center items-center shadow-sm active:opacity-90"
           >
             <Ionicons name="calendar-outline" size={18} color="#1F7A3E" className="mr-2" />
@@ -454,7 +537,7 @@ export default function HomeScreen() {
                 <Text className="text-sm text-gray-500 font-medium">No workout booked</Text>
               </View>
               <Pressable 
-                onPress={() => router.push("/explore")}
+                onPress={handleOpenPrimaryBooking}
                 className="bg-[#1F7A3E] px-4 py-2 rounded-xl active:opacity-90"
               >
                 <Text className="text-white font-bold text-xs">Book Visit</Text>
@@ -462,21 +545,49 @@ export default function HomeScreen() {
             </View>
           ) : bookingStatus === "Booked" ? (
             <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center">
+              <View className="flex-row items-center flex-1 mr-2">
                 <View className="w-10 h-10 rounded-full bg-[#E8F5E9] items-center justify-center mr-3">
                   <Ionicons name="checkmark-circle" size={20} color="#1F7A3E" />
                 </View>
-                <View>
+                <View className="flex-1">
                   <Text className="text-sm font-bold text-[#111827]">Workout Booked</Text>
-                  <Text className="text-xs text-gray-500">{bookedGymName} • {bookedTime || "Today"}</Text>
+                  <Text className="text-xs text-gray-500" numberOfLines={1}>{bookedGymName} • {bookedTime || "Today"}</Text>
                 </View>
               </View>
-              <Pressable 
-                onPress={() => router.push("/scan-modal" as any)}
-                className="bg-[#1F7A3E] px-4 py-2 rounded-xl active:opacity-90"
-              >
-                <Text className="text-white font-bold text-xs">View Pass</Text>
-              </Pressable>
+              <View className="flex-row items-center gap-x-2">
+                <Pressable 
+                  onPress={() => {
+                    Alert.alert(
+                      "Cancel Workout Booking?",
+                      `Are you sure you want to cancel your visit at ${bookedGymName || "the gym"}?\n\nYour visit or credits will be restored immediately.`,
+                      [
+                        { text: "Keep Booking", style: "cancel" },
+                        {
+                          text: "Yes, Cancel",
+                          style: "destructive",
+                          onPress: async () => {
+                            try {
+                              await useBookingStore.getState().cancelBooking();
+                              Alert.alert("Booking Cancelled", "Your booking has been cancelled and your visits / credits have been restored.");
+                            } catch (err: any) {
+                              Alert.alert("Error", err?.message || "Could not cancel booking.");
+                            }
+                          }
+                        }
+                      ]
+                    );
+                  }}
+                  className="bg-red-50 border border-red-200 px-2.5 py-2 rounded-xl active:opacity-80"
+                >
+                  <Text className="text-red-600 font-bold text-xs">Cancel</Text>
+                </Pressable>
+                <Pressable 
+                  onPress={() => router.push("/booking-pass" as any)}
+                  className="bg-[#1F7A3E] px-3.5 py-2 rounded-xl active:opacity-90"
+                >
+                  <Text className="text-white font-bold text-xs">View Pass</Text>
+                </Pressable>
+              </View>
             </View>
           ) : (
             <View className="flex-row items-center">
@@ -642,10 +753,9 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Motivation Quote Card */}
-        <Pressable 
-          onPress={() => router.push("/motivation" as any)}
-          className="bg-white rounded-[24px] p-5 mb-8 border border-black/5 shadow-sm active:opacity-95" 
+        {/* Motivation Quote Card (Display only - non-tappable) */}
+        <View 
+          className="bg-white rounded-[24px] p-5 mb-8 border border-black/5 shadow-sm" 
           style={styles.cardShadow}
         >
           <View className="flex-row items-center mb-2.5">
@@ -657,7 +767,7 @@ export default function HomeScreen() {
           <Text className="text-[#1F2520] text-[15px] font-bold italic leading-relaxed">
             "Consistency beats intensity. You've already outperformed the person who stayed home."
           </Text>
-        </Pressable>
+        </View>
 
         {/* More Coming Your Way — Premium Glassmorphism Locked Features */}
         <View className="mb-10">
@@ -760,7 +870,49 @@ export default function HomeScreen() {
         </View>
 
       </ScrollView>
-    </SafeAreaView>
+
+      {/* Primary Gym Booking Modal */}
+      <BookingModal
+        visible={showBookingModal}
+        onClose={() => setShowBookingModal(false)}
+        onConfirm={handleConfirmPrimaryBooking}
+        gym={{
+          id: userPrimaryGymId || "primary_gym_default",
+          name: resolvedGymName,
+          address: "Primary Gym (Home Base)",
+          cost: 8,
+        }}
+        isPrimaryGym={true}
+        visitsRemaining={visitsLeft}
+        mandatoryVisitsTotal={mandatoryVisits}
+        availableCredits={credits}
+      />
+
+      {/* Booking Confirmed Modal */}
+      {confirmedBookingData && (
+        <BookingConfirmedModal
+          visible={showConfirmedModal}
+          gymName={resolvedGymName}
+          gymAddress="Primary Gym (Home Base)"
+          timeSlot={confirmedBookingData.timeSlot}
+          isMandatoryVisit={confirmedBookingData.isMandatoryVisit}
+          mandatoryVisitsLeft={confirmedBookingData.mandatoryVisitsLeft}
+          totalMandatoryVisits={mandatoryVisits}
+          creditsDeducted={confirmedBookingData.creditsDeducted}
+          remainingCredits={confirmedBookingData.remainingCredits}
+          onViewPass={() => {
+            setShowConfirmedModal(false);
+            setConfirmedBookingData(null);
+            router.replace("/booking-pass" as any);
+          }}
+          onDone={() => {
+            setShowConfirmedModal(false);
+            setConfirmedBookingData(null);
+          }}
+        />
+      )}
+      </SafeAreaView>
+    </SwipeableTabScreen>
   );
 }
 
