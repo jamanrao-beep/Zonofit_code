@@ -10,9 +10,13 @@ export function GoogleAuthButton() {
     const onPress = async () => {
         setLoading(true);
         try {
-            await useAuthStore.getState().googleSignIn();
+            const res = await useAuthStore.getState().googleSignIn();
             if (useAuthStore.getState().isSignedIn) {
-                router.replace("/(tabs)");
+                if (res?.isOnboarded) {
+                    router.replace("/(tabs)");
+                } else {
+                    router.replace("/(auth)/profile-details");
+                }
             }
         } catch (err) {
             console.error("Google sign-in error", err);

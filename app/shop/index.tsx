@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { colors } from "@/constants/colors";
 import { useCartStore } from "@/store/useCartStore";
+import { useCreditsStore } from "@/store/useCreditsStore";
 import CartModal from "@/components/CartModal";
 import AddToCartConfirmModal, { AddedItemDetails } from "@/components/AddToCartConfirmModal";
 
@@ -77,6 +78,7 @@ export default function ShopHomeScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const cartCount = useCartStore((state) => state.getTotalItems());
   const addToCart = useCartStore((state) => state.addToCart);
+  const credits = useCreditsStore((state) => state.credits);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [addedItem, setAddedItem] = useState<AddedItemDetails | null>(null);
 
@@ -136,38 +138,166 @@ export default function ShopHomeScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false} bounces={true} overScrollMode="never" contentContainerStyle={{ paddingBottom: 100 }}>
         
-        {/* Banner */}
+        {/* Repurchase Gym Membership with Credits — Premium Minimal Card */}
         <View className="px-5 mb-8">
-          <View className="bg-[#111827] rounded-2xl overflow-hidden relative border border-gray-800">
-            {/* Dark background pattern/glow simulation */}
-            <View className="absolute inset-0 opacity-20">
-              <View className="absolute right-[-40px] top-[-40px] w-48 h-48 rounded-full bg-[#1F7A3E] blur-2xl" />
-            </View>
-            
-            <View className="p-5 pr-[140px]">
-              <View className="bg-white/10 self-start px-2 py-0.5 rounded mb-2 border border-white/10">
-                <Text className="text-white text-[9px] font-bold tracking-wider">LIMITED TIME OFFER</Text>
-              </View>
-              <Text className="text-white font-bold text-[18px] leading-tight mb-1">
-                Premium Nutrition
-              </Text>
-              <Text className="text-[#A7F3D0] font-extrabold text-[16px] mb-4">
-                Flat 15% OFF
-              </Text>
-              
-              <Pressable className="bg-white px-4 py-1.5 rounded-full self-start flex-row items-center active:bg-gray-200">
-                <Text className="text-black font-bold text-[11px] mr-1">Shop Now</Text>
-                <Ionicons name="chevron-forward" size={12} color="black" />
-              </Pressable>
-            </View>
-
-            {/* Simulated product image on the right */}
-            <Image 
-              source={{ uri: "https://images.unsplash.com/photo-1579722820308-d74e571900a9?auto=format&fit=crop&q=80&w=400" }} 
-              className="absolute right-4 bottom-[-10px] w-[110px] h-[130px] z-10"
-              resizeMode="contain"
+          <Pressable 
+            onPress={() => router.push("/partner-cities" as any)}
+            className="rounded-[24px] overflow-hidden relative active:opacity-95"
+            style={{
+              backgroundColor: "#F4FAF5",
+              borderWidth: 1,
+              borderColor: "rgba(31, 122, 62, 0.15)",
+              shadowColor: "#1F7A3E",
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.06,
+              shadowRadius: 12,
+              elevation: 2,
+            }}
+          >
+            {/* Subtle Ambient Decorative Circles */}
+            <View 
+              style={{
+                position: "absolute",
+                right: -25,
+                bottom: -25,
+                width: 160,
+                height: 160,
+                borderRadius: 80,
+                backgroundColor: "rgba(31, 122, 62, 0.07)",
+              }} 
             />
-          </View>
+
+            <View style={{ flexDirection: "row", padding: 18, minHeight: 180 }}>
+              {/* Left Column: Typography & Actions */}
+              <View style={{ flex: 1.2, paddingRight: 8, justifyContent: "space-between" }}>
+                <View>
+                  {/* Refined Pill Badge */}
+                  <View 
+                    style={{
+                      alignSelf: "flex-start",
+                      flexDirection: "row",
+                      alignItems: "center",
+                      backgroundColor: "rgba(31, 122, 62, 0.10)",
+                      paddingHorizontal: 8,
+                      paddingVertical: 3,
+                      borderRadius: 12,
+                      marginBottom: 8,
+                      gap: 4,
+                    }}
+                  >
+                    <Ionicons name="sparkles" size={10} color="#166534" />
+                    <Text style={{ fontSize: 9.5, fontWeight: "800", color: "#166534", letterSpacing: 0.4 }}>
+                      LOCK CREDITS • ZERO EXTRA CASH
+                    </Text>
+                  </View>
+
+                  {/* Clean Minimal Title */}
+                  <Text style={{ fontSize: 17, fontWeight: "800", color: "#0F172A", lineHeight: 22, letterSpacing: -0.3 }}>
+                    Repurchase Your{"\n"}Gym Membership
+                  </Text>
+                  <Text style={{ fontSize: 13, fontWeight: "700", color: "#166534", marginTop: 2, marginBottom: 5 }}>
+                    with Remaining Credits
+                  </Text>
+
+                  {/* Minimal Subtitle */}
+                  <Text style={{ fontSize: 11, color: "#64748B", lineHeight: 15, fontWeight: "500" }}>
+                    Use your credits to renew your membership and keep your streak going.
+                  </Text>
+                </View>
+
+                {/* Minimal Deep Emerald Pill Button */}
+                <Pressable
+                  onPress={() => router.push("/partner-cities" as any)}
+                  style={({ pressed }) => ({
+                    backgroundColor: "#166534",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    alignSelf: "flex-start",
+                    paddingHorizontal: 14,
+                    paddingVertical: 8.5,
+                    borderRadius: 20,
+                    marginTop: 10,
+                    gap: 6,
+                    opacity: pressed ? 0.88 : 1,
+                  })}
+                >
+                  <Text style={{ color: "#FFFFFF", fontSize: 12, fontWeight: "700" }}>
+                    View Gyms
+                  </Text>
+                  <Ionicons name="arrow-forward" size={13} color="#FFFFFF" />
+                </Pressable>
+              </View>
+
+              {/* Right Column: Premium Masked Photo + Floating Glass Chip */}
+              <View style={{ flex: 0.8, position: "relative", alignItems: "center", justifyContent: "flex-end" }}>
+                {/* Clean rounded photo frame */}
+                <View 
+                  style={{
+                    width: "100%",
+                    height: 150,
+                    borderRadius: 16,
+                    overflow: "hidden",
+                    backgroundColor: "#E2E8F0",
+                  }}
+                >
+                  <Image 
+                    source={{ uri: "https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?auto=format&fit=crop&q=80&w=400" }} 
+                    style={{ width: "100%", height: "100%" }}
+                    resizeMode="cover"
+                  />
+                  {/* Subtle vignette */}
+                  <View 
+                    style={{
+                      position: "absolute",
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      height: 40,
+                      backgroundColor: "rgba(15, 23, 42, 0.22)",
+                    }} 
+                  />
+                </View>
+
+                {/* Floating Glassmorphism Credit Badge */}
+                <View 
+                  style={{
+                    position: "absolute",
+                    bottom: 6,
+                    left: -14,
+                    right: 6,
+                    backgroundColor: "rgba(255, 255, 255, 0.94)",
+                    borderRadius: 13,
+                    paddingHorizontal: 9,
+                    paddingVertical: 6,
+                    borderWidth: 1,
+                    borderColor: "rgba(255, 255, 255, 0.9)",
+                    shadowColor: "#000",
+                    shadowOffset: { width: 0, height: 3 },
+                    shadowOpacity: 0.12,
+                    shadowRadius: 6,
+                    elevation: 3,
+                  }}
+                >
+                  <Text style={{ fontSize: 8.5, fontWeight: "600", color: "#64748B", marginBottom: 2 }}>
+                    Remaining Credits
+                  </Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+                      <Ionicons name="flash" size={12} color="#D97706" />
+                      <Text style={{ fontSize: 13, fontWeight: "800", color: "#0F172A" }}>
+                        {credits > 0 ? credits.toLocaleString() : "1,240"}
+                      </Text>
+                    </View>
+                    <View style={{ backgroundColor: "#DCFCE7", paddingHorizontal: 5, paddingVertical: 1.5, borderRadius: 6 }}>
+                      <Text style={{ fontSize: 8, fontWeight: "700", color: "#166534" }}>
+                        100% Free
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </View>
+          </Pressable>
         </View>
 
         {/* Categories */}
