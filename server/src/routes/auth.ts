@@ -280,9 +280,21 @@ router.post("/google", async (req: Request, res: Response): Promise<void> => {
 
     const token = signToken({ dbUserId: user.id, createdAt: Date.now() });
 
+    const hasMembership = !!user.membership;
+    const hasPrimaryGym = !!(user.membership && user.membership.primaryGymId);
+    const isOnboarded = !!(user.name && user.name !== "Google User" && user.name !== "ZonoFit Member" && hasPrimaryGym);
+
     res.json({
       token,
-      user: { id: user.id, username: user.name, phone: "", authMethod: "google" },
+      user: {
+        id: user.id,
+        username: user.name,
+        phone: user.phone || "",
+        authMethod: "google",
+        isOnboarded,
+        primaryGymId: user.membership?.primaryGymId || null,
+      },
+      isOnboarded,
     });
   } catch (err: any) {
     console.error("[Google Auth Error]", err);
