@@ -55,7 +55,16 @@ export default function OrderSummaryScreen() {
       
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
+        <Pressable 
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace("/onboarding/choose-gym");
+            }
+          }} 
+          style={styles.backButton}
+        >
           <Ionicons name="chevron-back" size={24} color="#111827" />
         </Pressable>
         <Text style={styles.headerTitle}>Order Summary</Text>

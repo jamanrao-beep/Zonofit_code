@@ -110,7 +110,16 @@ export default function SelectCityScreen() {
       
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
+        <Pressable 
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace("/(auth)/profile-details");
+            }
+          }} 
+          style={styles.backButton}
+        >
           <Ionicons name="chevron-back" size={24} color="#111827" />
         </Pressable>
         <Text style={styles.headerTitle}>Select City</Text>
