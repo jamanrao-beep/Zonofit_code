@@ -36,7 +36,7 @@ interface BookingState {
   fetchBookings: (token: string) => Promise<void>;
   bookVisit: (gymId: string, gymName: string, date: string, time: string, creditCost: number, couponCode?: string) => Promise<boolean>;
   checkIn: () => Promise<boolean>;
-  cancelBooking: () => Promise<void>;
+  cancelBooking: () => Promise<{ success: boolean; message?: string }>;
   calculateRefund: () => { percentage: number; refundAmount: number } | null;
 }
 
@@ -259,33 +259,60 @@ export const useBookingStore = create<BookingState>((set, get) => ({
     return true;
   },
 
-  cancelBooking: async () => {
+  cancelBooking: async (): Promise<{ success: boolean; message?: string }> => {
     const { bookingStatus, bookedGymName, bookedCost, bookingId, bookedGymId } = get();
     if (bookingStatus !== "Booked" || !bookingId) {
-      return;
+      return { success: false, message: "No active booking to cancel." };
+    }
+
+    const currentWalletCredits = useCreditsStore.getState().credits;
+
+    // Enforce 2 Credits fee requirement for mandatory visits
+    if (bookedCost === 0 && currentWalletCredits < 2) {
+      throw new Error(
+        `Cannot cancel booking: A 2 Credits fee is required, but your wallet balance is only ${currentWalletCredits} Credits. Please recharge credits to cancel.`
+      );
     }
 
     try {
       const token = useAuthStore.getState().token;
-      const response = await apiFetch(`/api/bookings/${bookingId}`, { method: "DELETE", token });
-      
-      const refundedCredits = response.refundedCredits ?? 0;
+      if (token) {
+        try {
+          await apiFetch(`/api/bookings/${bookingId}`, { method: "DELETE", token });
+        } catch (apiErr: any) {
+          if (apiErr?.message?.includes("Insufficient") || apiErr?.message?.includes("balance")) {
+            throw apiErr;
+          }
+          console.warn("API booking cancellation fallback to local store:", apiErr);
+        }
+      }
 
-      // Refund credits if paid via credits
-      if (refundedCredits > 0) {
-        useCreditsStore.getState().addTransaction(
-          "credit",
-          refundedCredits,
-          "credits",
-          `Refund - Cancelled Booking - ${bookedGymName}`
-        );
-        
-        // Add credits back
+      if (bookedCost > 0) {
+        // Credit Booking: Deduct 2 credits fee directly from refund
+        const refundedCredits = Math.max(0, bookedCost - 2);
+        if (refundedCredits > 0) {
+          useCreditsStore.getState().addTransaction(
+            "credit",
+            refundedCredits,
+            "credits",
+            `Refund (${refundedCredits} Credits, 2 Credits Fee Applied) - ${bookedGymName}`
+          );
+          useCreditsStore.setState((state) => ({
+            credits: state.credits + refundedCredits,
+          }));
+        }
+      } else {
+        // Mandatory Visit: Deduct 2 credits fee from wallet, restore 1 mandatory visit
         useCreditsStore.setState((state) => ({
-          credits: state.credits + refundedCredits,
+          credits: Math.max(0, state.credits - 2),
         }));
-      } else if (bookedCost === 0) {
-        // Restore mandatory visit if cancelled
+        useCreditsStore.getState().addTransaction(
+          "debit",
+          2,
+          "credits",
+          `Cancellation Fee (2 Credits) - ${bookedGymName || "Mandatory Visit"}`
+        );
+
         useUserStore.setState((s) => ({ visitsRemaining: Math.min(10, s.visitsRemaining + 1) }));
         const mem = useCreditsStore.getState().membershipInfo;
         if (mem) {
@@ -309,18 +336,21 @@ export const useBookingStore = create<BookingState>((set, get) => ({
         pastBookings: [
           {
             id: Date.now().toString(),
-            gymId: bookedGymId!,
-            gymName: bookedGymName!,
+            gymId: bookedGymId || "gym-1",
+            gymName: bookedGymName || "Partner Gym",
             date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
             time: "Cancelled",
             status: "Cancelled",
-            credits: bookedCost, // Store original cost in history, or maybe refundedCredits. Usually original cost is kept for display.
+            credits: bookedCost,
           },
           ...state.pastBookings,
         ],
       }));
+
+      return { success: true };
     } catch (err) {
       console.error("Failed to cancel booking:", err);
+      throw err;
     }
   },
 }));

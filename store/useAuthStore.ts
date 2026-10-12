@@ -5,16 +5,19 @@ import { useGuestStore } from "./useGuestStore";
 
 const TOKEN_KEY = "zonofit_auth_token";
 const SESSION_KEY = "zonofit_user_session";
+const ONBOARDED_KEY = "zonofit_is_onboarded";
 
 export interface User {
   id: string;
   username: string;
   phone: string;
   authMethod: "phone" | "google" | "apple";
+  email?: string;
   dob?: string;
   city?: string;
   primaryGym?: string;
   plan?: string;
+  isOnboarded?: boolean;
 }
 
 interface AuthState {
@@ -35,9 +38,10 @@ interface AuthState {
   initialize: () => Promise<void>;
   sendOTP: (phone: string) => Promise<void>;
   verifyOTP: (code: string) => Promise<boolean>;
-  updateProfile: (details: { name: string, dob?: string, referral?: string }) => Promise<void>;
+  updateProfile: (details: { name: string, dob?: string, email?: string, referral?: string }) => Promise<void>;
   completeOnboarding: (city: string, gymId: string, plan: string) => Promise<void>;
   googleSignIn: (email?: string, name?: string) => Promise<{ success: boolean; isOnboarded: boolean }>;
+  appleSignIn: (email?: string, name?: string) => Promise<{ success: boolean; isOnboarded: boolean }>;
   signOut: () => Promise<void>;
   setError: (msg: string | null) => void;
   setVerificationPhone: (phone: string) => void;
@@ -65,6 +69,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const token = await SecureStore.getItemAsync(TOKEN_KEY);
       const sessionStr = await SecureStore.getItemAsync(SESSION_KEY);
+      const storedOnboardedFlag = await SecureStore.getItemAsync(ONBOARDED_KEY);
       
       if (token && sessionStr) {
         let cachedUser: User;
@@ -76,23 +81,50 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           return;
         }
 
+        const isDefaultName = (n?: string) => !n || n === "Google User" || n === "ZonoFit Member";
+
         try {
           const freshData = await apiFetch("/api/users/me", { token });
+          
+          // Never overwrite a customized user name with default fallback
+          const resolvedUsername = !isDefaultName(freshData.name)
+            ? freshData.name
+            : (!isDefaultName(cachedUser.username) ? cachedUser.username : (freshData.name || cachedUser.username));
+
+          const resolvedPrimaryGym = freshData.primaryGymId || 
+            freshData.membership?.primaryGymId || 
+            freshData.membership?.gymId || 
+            cachedUser.primaryGym;
+
           const freshUser: User = {
             ...cachedUser,
             id: freshData.id,
-            username: freshData.name || cachedUser.username,
+            username: resolvedUsername,
             phone: freshData.phone || cachedUser.phone,
             city: freshData.city || cachedUser.city,
-            primaryGym: freshData.primaryGymId || freshData.membership?.gymId || cachedUser.primaryGym,
-            plan: freshData.membership?.plan || cachedUser.plan,
+            primaryGym: resolvedPrimaryGym,
+            plan: freshData.membership?.plan || freshData.membership?.planName || cachedUser.plan,
           };
-          const userIsOnboarded = !!(
+
+          const userIsOnboarded = storedOnboardedFlag === "true" || !!(
             freshUser.primaryGym &&
             freshUser.username &&
-            freshUser.username !== "Google User" &&
-            freshUser.username !== "ZonoFit Member"
+            !isDefaultName(freshUser.username)
           );
+
+          if (userIsOnboarded) {
+            await SecureStore.setItemAsync(ONBOARDED_KEY, "true");
+          }
+
+          // If cachedUser had real name but server had default name, sync to server in background
+          if (!isDefaultName(cachedUser.username) && isDefaultName(freshData.name)) {
+            apiFetch("/api/users/me", {
+              method: "PATCH",
+              token,
+              body: JSON.stringify({ name: cachedUser.username }),
+            }).catch(() => {});
+          }
+
           await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(freshUser));
           set({ user: freshUser, token, isSignedIn: true, isOnboarded: userIsOnboarded, isLoaded: true });
         } catch (err: any) {
@@ -106,11 +138,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             set({ isLoaded: true });
           } else {
             // Offline/Network issue: allow offline cached session
-            const cachedIsOnboarded = !!(
+            const cachedIsOnboarded = storedOnboardedFlag === "true" || !!(
               cachedUser.primaryGym &&
               cachedUser.username &&
-              cachedUser.username !== "Google User" &&
-              cachedUser.username !== "ZonoFit Member"
+              !isDefaultName(cachedUser.username)
             );
             set({ user: cachedUser, token, isSignedIn: true, isOnboarded: cachedIsOnboarded, isLoaded: true });
           }
@@ -211,13 +242,32 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       if (authToken && authUser) {
+        const currentUser = get().user;
+        if (currentUser && currentUser.username && currentUser.username !== "ZonoFit Member" && currentUser.username !== "Google User") {
+          authUser.username = currentUser.username;
+        }
+        if (currentUser?.city) authUser.city = currentUser.city;
+        if (currentUser?.primaryGym) authUser.primaryGym = currentUser.primaryGym;
+        if (currentUser?.plan) authUser.plan = currentUser.plan;
+
         await SecureStore.setItemAsync(TOKEN_KEY, authToken);
         await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(authUser));
+
+        // Sync verified phone to backend
+        try {
+          await apiFetch("/api/users/me", {
+            method: "PATCH",
+            token: authToken,
+            body: JSON.stringify({ phone }),
+          });
+        } catch {}
+
         set({
           user: authUser,
           token: authToken,
           loading: false,
           hasVerifiedOTP: true,
+          verificationPhone: phone,
         });
         return true;
       }
@@ -238,13 +288,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         id: existingUser?.id || "usr_" + Date.now(),
         username: details.name,
         phone: get().verificationPhone || existingUser?.phone || "",
+        email: details.email || existingUser?.email,
         authMethod: existingUser?.authMethod || "phone",
         dob: details.dob,
+        city: existingUser?.city,
+        primaryGym: existingUser?.primaryGym,
+        plan: existingUser?.plan,
       };
 
       const token = get().token;
       if (token) {
         await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(updatedUser));
+        try {
+          await apiFetch("/api/users/me", {
+            method: "PATCH",
+            token,
+            body: JSON.stringify({ name: details.name, phone: updatedUser.phone }),
+          });
+        } catch (apiErr) {
+          console.warn("[Auth] Failed to sync updated profile to backend:", apiErr);
+        }
       }
       
       set({ 
@@ -296,8 +359,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       
       if (token) {
         await SecureStore.setItemAsync(TOKEN_KEY, token);
+        try {
+          if (updatedUser.username && updatedUser.username !== "ZonoFit Member" && updatedUser.username !== "Google User") {
+            await apiFetch("/api/users/me", {
+              method: "PATCH",
+              token,
+              body: JSON.stringify({ name: updatedUser.username, phone: updatedUser.phone }),
+            });
+          }
+        } catch {}
       }
       await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(updatedUser));
+      await SecureStore.setItemAsync(ONBOARDED_KEY, "true");
       
       set({ 
         user: updatedUser,
@@ -307,16 +380,46 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isOnboarded: true 
       });
 
-      // Sync with useUserStore
+      // Sync with useUserStore & useCreditsStore
       try {
         const { useUserStore } = require("./useUserStore");
+        const { useCreditsStore } = require("./useCreditsStore");
+        const gymName = useGuestStore.getState().selectedGymName || useUserStore.getState().primaryGymName || "Being Fitness";
+        
         useUserStore.setState({
           name: updatedUser.username,
           primaryGymId: gymId,
-          primaryGymName: useGuestStore.getState().selectedGymName || "FitZone Pro",
-          planName: plan || "Quarterly",
+          primaryGymName: gymName,
+          planName: plan || "Monthly",
           membershipStatus: "Active",
+          visitsRemaining: 10,
         });
+
+        // Grant rest credits for the active membership
+        const restCredits = 80;
+        const currentCredits = useCreditsStore.getState().credits;
+        useCreditsStore.setState({
+          credits: Math.max(currentCredits, restCredits),
+          membershipInfo: {
+            status: "ACTIVE",
+            isExpired: false,
+            isExpiringSoon: false,
+            tier: "STARTER",
+            planName: plan || "Monthly",
+            gymName: gymName,
+            endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            daysRemaining: 30,
+            cycleNumber: 1,
+            maxCycles: 12,
+            cyclesRemaining: 11,
+            mandatoryVisits: 10,
+            completedVisits: 0,
+            mandatoryVisitsRemaining: 10,
+            canRepurchase: false,
+            canBuyAdditionalCredits: true,
+          },
+        });
+        useCreditsStore.getState().addTransaction("credit", restCredits, "credits", "Monthly Membership Activation - Rest Credits");
       } catch {}
 
       // Convert guest session if active per PRD Section 14
@@ -351,11 +454,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
         if (data.token) {
           authToken = data.token;
-          isOnboarded = data.isOnboarded || false;
+          const storedOnboardedFlag = await SecureStore.getItemAsync(ONBOARDED_KEY);
+          isOnboarded = data.isOnboarded || storedOnboardedFlag === "true" || false;
           authUser = {
             id: data.user?.id || "usr_" + Date.now(),
             username: data.user?.username || name,
             phone: data.user?.phone || "",
+            email: email,
             authMethod: "google",
             city: data.user?.city,
             primaryGym: data.user?.primaryGymId,
@@ -371,9 +476,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           id: "usr_" + Date.now(),
           username: name,
           phone: "",
+          email: email,
           authMethod: "google",
         };
-        isOnboarded = false;
+        const storedOnboardedFlag = await SecureStore.getItemAsync(ONBOARDED_KEY);
+        isOnboarded = storedOnboardedFlag === "true" || false;
+      }
+
+      if (isOnboarded) {
+        await SecureStore.setItemAsync(ONBOARDED_KEY, "true");
       }
 
       await SecureStore.setItemAsync(TOKEN_KEY, authToken);
@@ -405,12 +516,94 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
+  appleSignIn: async (customEmail?: string, customName?: string) => {
+    set({ loading: true, error: null });
+    try {
+      const email = customEmail?.trim().toLowerCase() || `apple_user_${Date.now()}@privaterelay.appleid.com`;
+      const name = customName?.trim() || "Apple User";
+
+      let authToken: string | null = null;
+      let authUser: User | null = null;
+      let isOnboarded = false;
+
+      try {
+        const data = await apiFetch("/api/auth/google", {
+          method: "POST",
+          body: JSON.stringify({
+            email,
+            name,
+          }),
+        });
+
+        if (data.token) {
+          authToken = data.token;
+          const storedOnboardedFlag = await SecureStore.getItemAsync(ONBOARDED_KEY);
+          isOnboarded = data.isOnboarded || storedOnboardedFlag === "true" || false;
+          authUser = {
+            id: data.user?.id || "usr_" + Date.now(),
+            username: data.user?.username || name,
+            phone: data.user?.phone || "",
+            authMethod: "apple",
+            city: data.user?.city,
+            primaryGym: data.user?.primaryGymId,
+          };
+        }
+      } catch (apiErr) {
+        console.warn("[Auth] Apple signin warning, falling back to local session:", apiErr);
+      }
+
+      if (!authToken || !authUser) {
+        authToken = "mock_jwt_apple_" + Date.now();
+        authUser = {
+          id: "usr_" + Date.now(),
+          username: name,
+          phone: "",
+          authMethod: "apple",
+        };
+        const storedOnboardedFlag = await SecureStore.getItemAsync(ONBOARDED_KEY);
+        isOnboarded = storedOnboardedFlag === "true" || false;
+      }
+
+      if (isOnboarded) {
+        await SecureStore.setItemAsync(ONBOARDED_KEY, "true");
+      }
+
+      await SecureStore.setItemAsync(TOKEN_KEY, authToken);
+      await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(authUser));
+
+      set({
+        user: authUser,
+        token: authToken,
+        loading: false,
+        isSignedIn: true,
+        isOnboarded,
+        hasVerifiedOTP: true,
+      });
+
+      if (authUser.username && authUser.username !== "Apple User") {
+        try {
+          const { useUserStore } = require("./useUserStore");
+          useUserStore.setState({ name: authUser.username });
+        } catch {}
+      }
+
+      await useGuestStore.getState().convertGuest();
+      return { success: true, isOnboarded };
+    } catch (err: any) {
+      set({ loading: false, error: err.message || "Apple sign-in failed." });
+      throw err;
+    }
+  },
+
   signOut: async () => {
     try {
       await SecureStore.deleteItemAsync(TOKEN_KEY);
     } catch {}
     try {
       await SecureStore.deleteItemAsync(SESSION_KEY);
+    } catch {}
+    try {
+      await SecureStore.deleteItemAsync(ONBOARDED_KEY);
     } catch {}
     try {
       await SecureStore.deleteItemAsync("zonofit_guest_session");

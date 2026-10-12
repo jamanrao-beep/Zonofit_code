@@ -132,7 +132,7 @@ export const useGuestStore = create<GuestState>((set, get) => ({
 
     try {
       const { useUserStore } = require("./useUserStore");
-      useUserStore.getState().setPrimaryGym(gymId, gymName || "FitZone Pro");
+      useUserStore.getState().setPrimaryGym(gymId, gymName || "Being Fitness");
     } catch {}
   },
 

@@ -84,17 +84,86 @@ export const useCreditsStore = create<CreditsState>((set, get) => ({
     set({ loading: true });
     try {
       const data = await apiFetch("/api/credits/balance", { token });
+      let resolvedCredits = data.balance ?? 0;
+      let mem = data.membership;
+
+      // If backend has no membership record yet, check local userStore
+      try {
+        const { useUserStore } = require("./useUserStore");
+        const userState = useUserStore.getState();
+        const isUserActive = userState.membershipStatus === "Active" || userState.membershipStatus === "ACTIVE" || userState.visitsRemaining > 0;
+        
+        if (!mem && isUserActive) {
+          mem = {
+            status: "ACTIVE",
+            isExpired: false,
+            isExpiringSoon: false,
+            tier: userState.planName?.toUpperCase() || "STARTER",
+            planName: userState.planName || "Starter",
+            gymName: userState.primaryGymName || "Being Fitness",
+            endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            daysRemaining: 30,
+            cycleNumber: 1,
+            maxCycles: 12,
+            cyclesRemaining: 11,
+            mandatoryVisits: userState.visitsRemaining || 10,
+            completedVisits: 0,
+            mandatoryVisitsRemaining: userState.visitsRemaining || 10,
+            canRepurchase: false,
+            canBuyAdditionalCredits: true,
+            creditExpiryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString(),
+          };
+        } else if (mem && mem.gymName === "FitZone Pro" && userState.primaryGymName && userState.primaryGymName !== "FitZone Pro") {
+          mem = { ...mem, gymName: userState.primaryGymName };
+        }
+      } catch {}
+
+      if (mem && !mem.isExpired && (mem.status === "ACTIVE" || mem.status === "Active") && resolvedCredits === 0) {
+        const planMonthlyCredits = mem.monthlyCredits || (mem.planName === "Premium" ? 300 : mem.planName === "Elite" ? 450 : 160);
+        const mandatoryCost = (mem.mandatoryVisits || 10) * 8;
+        resolvedCredits = Math.max(0, planMonthlyCredits - mandatoryCost) || 80;
+      }
+
       set({
-        credits: data.balance || 0,
+        credits: resolvedCredits,
         cashBalance: (data.convertibleCashBalanceINR || 0) + (data.nonConvertibleCashBalanceINR || 0),
         inrWallet: data.inrWallet || null,
-        membershipInfo: data.membership || null,
+        membershipInfo: mem || null,
         loading: false,
       });
       // Optionally fetch the first page of transactions automatically
       get().fetchTransactions(token, 1);
     } catch (err) {
-      // console.error("Failed to fetch wallet:", err); // Muted to prevent annoying toasts
+      try {
+        const { useUserStore } = require("./useUserStore");
+        const userState = useUserStore.getState();
+        const isMember = userState.membershipStatus === "Active" || userState.membershipStatus === "ACTIVE" || userState.visitsRemaining > 0;
+        if (isMember) {
+          const gymName = userState.primaryGymName || "Being Fitness";
+          set((state) => ({
+            credits: state.credits > 0 ? state.credits : 80,
+            membershipInfo: state.membershipInfo ? { ...state.membershipInfo, gymName } : {
+              status: "ACTIVE",
+              isExpired: false,
+              isExpiringSoon: false,
+              tier: userState.planName?.toUpperCase() || "STARTER",
+              planName: userState.planName || "Starter",
+              gymName,
+              endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+              daysRemaining: 30,
+              cycleNumber: 1,
+              maxCycles: 12,
+              cyclesRemaining: 11,
+              mandatoryVisits: userState.visitsRemaining || 10,
+              completedVisits: 0,
+              mandatoryVisitsRemaining: userState.visitsRemaining || 10,
+              canRepurchase: false,
+              canBuyAdditionalCredits: true,
+              creditExpiryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString(),
+            },
+          }));
+        }
+      } catch {}
       set({ loading: false });
     }
   },

@@ -45,11 +45,11 @@ export const useUserStore = create<UserState>((set) => ({
   visitsRemaining: 10,
   membershipStatus: "No Active Membership",
   planName: "Starter",
-  primaryGymId: "83431d3a-313a-450c-b78e-62732160b6ef",
-  primaryGymName: "FitZone Pro",
+  primaryGymId: "gym-being-fit",
+  primaryGymName: "Being Fitness",
   membershipExpiry: "N/A",
   currentMonth: 1,
-  totalMonths: 1,
+  totalMonths: 12,
   identityStage: "New Member",
   progressPercentage: 0,
   nextMilestone: "First Visit",
@@ -59,7 +59,20 @@ export const useUserStore = create<UserState>((set) => ({
   loading: false,
   memberSince: "Recently",
 
-  setPrimaryGym: (gymId: string, gymName: string) => set({ primaryGymId: gymId, primaryGymName: gymName }),
+  setPrimaryGym: (gymId: string, gymName: string) => {
+    set({ primaryGymId: gymId, primaryGymName: gymName });
+    try {
+      const { useCreditsStore } = require("./useCreditsStore");
+      const currentMem = useCreditsStore.getState().membershipInfo;
+      if (currentMem) {
+        useCreditsStore.setState({
+          membershipInfo: { ...currentMem, gymName }
+        });
+      }
+      const { useGuestStore } = require("./useGuestStore");
+      useGuestStore.getState().selectGym(gymId, gymName);
+    } catch {}
+  },
 
   reset: () => set({
     name: "Member",
@@ -69,11 +82,11 @@ export const useUserStore = create<UserState>((set) => ({
     visitsRemaining: 10,
     membershipStatus: "No Active Membership",
     planName: "Starter",
-    primaryGymId: "83431d3a-313a-450c-b78e-62732160b6ef",
-    primaryGymName: "FitZone Pro",
+    primaryGymId: "gym-being-fit",
+    primaryGymName: "Being Fitness",
     membershipExpiry: "N/A",
     currentMonth: 1,
-    totalMonths: 1,
+    totalMonths: 12,
     identityStage: "New Member",
     progressPercentage: 0,
     nextMilestone: "First Visit",
@@ -100,18 +113,28 @@ export const useUserStore = create<UserState>((set) => ({
       const fetchedGymName = membership?.gymName || membership?.primaryGym?.name || data.primaryGym?.name || data.primaryGymName;
       const fetchedGymId = membership?.primaryGymId || membership?.primaryGym?.id || data.primaryGymId;
 
-      set((state) => ({
-        name: data.name || "Member",
-        email: data.email || "",
-        phone: data.phone || null,
-        avatarUrl: finalAvatarUrl,
-        visitsRemaining: membership?.primaryGymVisits || plan?.visitsPerMonth || (membership ? 10 : state.visitsRemaining),
-        membershipStatus: membership ? membership.status : "No Active Membership",
-        planName: plan?.name || (membership ? "Starter" : state.planName),
-        primaryGymId: fetchedGymId || state.primaryGymId,
-        primaryGymName: fetchedGymName || state.primaryGymName,
+      set((state) => {
+        const resolvedName = (fetchedGymName && fetchedGymName !== "FitZone Pro") 
+          ? fetchedGymName 
+          : (state.primaryGymName && state.primaryGymName !== "FitZone Pro" ? state.primaryGymName : "Being Fitness");
+        const resolvedId = (fetchedGymId && fetchedGymId !== "83431d3a-313a-450c-b78e-62732160b6ef")
+          ? fetchedGymId
+          : (state.primaryGymId || "gym-being-fit");
+
+        return {
+          name: data.name || "Member",
+          email: data.email || "",
+          phone: data.phone || null,
+          avatarUrl: finalAvatarUrl,
+          visitsRemaining: membership?.primaryGymVisits || plan?.visitsPerMonth || (membership ? 10 : state.visitsRemaining),
+          membershipStatus: membership ? membership.status : "No Active Membership",
+          planName: plan?.name || (membership ? "Starter" : state.planName),
+          primaryGymId: resolvedId,
+          primaryGymName: resolvedName,
         membershipExpiry: membership ? new Date(membership.endDate).toLocaleDateString() : "N/A",
         // Stats from backend
+        currentMonth: membership?.cycleNumber ?? 1,
+        totalMonths: membership?.maxCycles ?? 12,
         streak: data.progress?.streak ?? 0,
         totalWorkouts: data.progress?.totalWorkouts ?? 0,
         trainingHours: data.progress?.trainingHours ?? 0,
@@ -119,8 +142,9 @@ export const useUserStore = create<UserState>((set) => ({
         memberSince: membership?.startDate 
           ? new Date(membership.startDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) 
           : (data.createdAt ? new Date(data.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : "Recently"),
-        loading: false
-      }));
+          loading: false,
+        };
+      });
     } catch (err: any) {
       console.warn("Failed to fetch user profile:", err?.message || err);
       set({ loading: false });
