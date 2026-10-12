@@ -16,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { useAddressStore, Address, DeliveryInstructions } from "@/store/useAddressStore";
+import { useAuthStore } from "@/store/useAuthStore";
 
 const INDIAN_STATES = [
   "Andhra Pradesh",
@@ -89,13 +90,18 @@ export default function DeliveryAddressModal({
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
 
-  // Load existing or default address on open
+  // Load existing or default address on open, prefilled with user account details
   useEffect(() => {
     if (visible) {
       const target = initialAddress || getSelectedAddress();
+      const currentUser = useAuthStore.getState().user;
+      const isPlaceholderName = (n?: string) => !n || n === "Google User" || n === "ZonoFit Member";
+      const validUserName = (!isPlaceholderName(currentUser?.username) ? currentUser?.username : "") || "";
+      const validUserPhone = currentUser?.phone || "";
+
       if (target) {
-        setFullName(target.fullName || "");
-        setPhoneNumber(target.phoneNumber || "");
+        setFullName(target.fullName || validUserName || "");
+        setPhoneNumber(target.phoneNumber || validUserPhone || "");
         setFlatHouse(target.flatHouse || "");
         setAreaStreet(target.areaStreet || "");
         setLandmark(target.landmark || "");
@@ -107,8 +113,8 @@ export default function DeliveryAddressModal({
           setDeliveryInstructions(target.deliveryInstructions);
         }
       } else {
-        setFullName("");
-        setPhoneNumber("");
+        setFullName(validUserName || "");
+        setPhoneNumber(validUserPhone || "");
         setFlatHouse("");
         setAreaStreet("");
         setLandmark("");
@@ -237,6 +243,20 @@ export default function DeliveryAddressModal({
         isDefault,
         deliveryInstructions,
       });
+    }
+
+    // Sync full name & phone number to user profile if not already set
+    const currentUser = useAuthStore.getState().user;
+    if (phoneNumber.trim() && (!currentUser?.phone || currentUser.phone.length < 10)) {
+      useAuthStore.getState().setVerificationPhone(phoneNumber.trim());
+      if (currentUser) {
+        useAuthStore.setState({
+          user: { ...currentUser, phone: phoneNumber.trim() }
+        });
+      }
+    }
+    if (fullName.trim() && (!currentUser?.username || currentUser.username === "ZonoFit Member" || currentUser.username === "Google User")) {
+      useAuthStore.getState().updateProfile({ name: fullName.trim() });
     }
 
     if (onSelectAddress) {

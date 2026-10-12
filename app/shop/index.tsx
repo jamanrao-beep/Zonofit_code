@@ -15,6 +15,9 @@ import { useRouter } from "expo-router";
 import { colors } from "@/constants/colors";
 import { useCartStore } from "@/store/useCartStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
+import { useAuthStore } from "@/store/useAuthStore";
+import { useGuestStore } from "@/store/useGuestStore";
+import { useUserStore } from "@/store/useUserStore";
 import CartModal from "@/components/CartModal";
 import AddToCartConfirmModal, { AddedItemDetails } from "@/components/AddToCartConfirmModal";
 
@@ -79,6 +82,11 @@ export default function ShopHomeScreen() {
   const cartCount = useCartStore((state) => state.getTotalItems());
   const addToCart = useCartStore((state) => state.addToCart);
   const credits = useCreditsStore((state) => state.credits);
+  const user = useAuthStore((state) => state.user);
+  const primaryGymName = useUserStore((state) => state.primaryGymName);
+  const membershipGymName = useCreditsStore((state) => state.membershipInfo?.gymName);
+  const selectedGymName = useGuestStore((state) => state.selectedGymName);
+  const primaryGym = primaryGymName || membershipGymName || user?.primaryGym || selectedGymName || "Being Fitness";
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [addedItem, setAddedItem] = useState<AddedItemDetails | null>(null);
 
@@ -108,7 +116,10 @@ export default function ShopHomeScreen() {
           </View>
         </View>
         <View className="flex-row items-center pt-2">
-          <Pressable onPress={() => Alert.alert("Saved Items", "Your saved wishlist items will appear here.")} className="mr-5">
+          <Pressable onPress={() => router.push("/shop/orders" as any)} className="mr-4">
+            <Ionicons name="receipt-outline" size={23} color="#111827" />
+          </Pressable>
+          <Pressable onPress={() => Alert.alert("Saved Items", "Your saved wishlist items will appear here.")} className="mr-4">
             <Ionicons name="heart-outline" size={24} color="#111827" />
           </Pressable>
           <Pressable className="relative" onPress={() => setIsCartOpen(true)}>
@@ -140,9 +151,8 @@ export default function ShopHomeScreen() {
         
         {/* Repurchase Gym Membership with Credits — Premium Minimal Card */}
         <View className="px-5 mb-8">
-          <Pressable 
-            onPress={() => router.push("/partner-cities" as any)}
-            className="rounded-[24px] overflow-hidden relative active:opacity-95"
+          <View 
+            className="rounded-[24px] overflow-hidden relative"
             style={{
               backgroundColor: "#F4FAF5",
               borderWidth: 1,
@@ -152,6 +162,7 @@ export default function ShopHomeScreen() {
               shadowOpacity: 0.06,
               shadowRadius: 12,
               elevation: 2,
+              padding: 18,
             }}
           >
             {/* Subtle Ambient Decorative Circles */}
@@ -167,137 +178,94 @@ export default function ShopHomeScreen() {
               }} 
             />
 
-            <View style={{ flexDirection: "row", padding: 18, minHeight: 180 }}>
-              {/* Left Column: Typography & Actions */}
-              <View style={{ flex: 1.2, paddingRight: 8, justifyContent: "space-between" }}>
-                <View>
-                  {/* Refined Pill Badge */}
-                  <View 
-                    style={{
-                      alignSelf: "flex-start",
-                      flexDirection: "row",
-                      alignItems: "center",
-                      backgroundColor: "rgba(31, 122, 62, 0.10)",
-                      paddingHorizontal: 8,
-                      paddingVertical: 3,
-                      borderRadius: 12,
-                      marginBottom: 8,
-                      gap: 4,
-                    }}
-                  >
-                    <Ionicons name="sparkles" size={10} color="#166534" />
-                    <Text style={{ fontSize: 9.5, fontWeight: "800", color: "#166534", letterSpacing: 0.4 }}>
-                      LOCK CREDITS • ZERO EXTRA CASH
-                    </Text>
-                  </View>
+            {/* Pill Badge */}
+            <View 
+              style={{
+                alignSelf: "flex-start",
+                flexDirection: "row",
+                alignItems: "center",
+                backgroundColor: "rgba(31, 122, 62, 0.12)",
+                paddingHorizontal: 9,
+                paddingVertical: 3.5,
+                borderRadius: 12,
+                marginBottom: 10,
+                gap: 5,
+              }}
+            >
+              <Text style={{ fontSize: 10 }}>🌱</Text>
+              <Text style={{ fontSize: 10, fontWeight: "800", color: "#166534", letterSpacing: 0.5 }}>
+                YOUR PRIMARY GYM
+              </Text>
+            </View>
 
-                  {/* Clean Minimal Title */}
-                  <Text style={{ fontSize: 17, fontWeight: "800", color: "#0F172A", lineHeight: 22, letterSpacing: -0.3 }}>
-                    Repurchase Your{"\n"}Gym Membership
-                  </Text>
-                  <Text style={{ fontSize: 13, fontWeight: "700", color: "#166534", marginTop: 2, marginBottom: 5 }}>
-                    with Remaining Credits
-                  </Text>
-
-                  {/* Minimal Subtitle */}
-                  <Text style={{ fontSize: 11, color: "#64748B", lineHeight: 15, fontWeight: "500" }}>
-                    Use your credits to renew your membership and keep your streak going.
-                  </Text>
-                </View>
-
-                {/* Minimal Deep Emerald Pill Button */}
-                <Pressable
-                  onPress={() => router.push("/partner-cities" as any)}
-                  style={({ pressed }) => ({
-                    backgroundColor: "#166534",
-                    flexDirection: "row",
-                    alignItems: "center",
-                    alignSelf: "flex-start",
-                    paddingHorizontal: 14,
-                    paddingVertical: 8.5,
-                    borderRadius: 20,
-                    marginTop: 10,
-                    gap: 6,
-                    opacity: pressed ? 0.88 : 1,
-                  })}
-                >
-                  <Text style={{ color: "#FFFFFF", fontSize: 12, fontWeight: "700" }}>
-                    View Gyms
-                  </Text>
-                  <Ionicons name="arrow-forward" size={13} color="#FFFFFF" />
-                </Pressable>
-              </View>
-
-              {/* Right Column: Premium Masked Photo + Floating Glass Chip */}
-              <View style={{ flex: 0.8, position: "relative", alignItems: "center", justifyContent: "flex-end" }}>
-                {/* Clean rounded photo frame */}
-                <View 
-                  style={{
-                    width: "100%",
-                    height: 150,
-                    borderRadius: 16,
-                    overflow: "hidden",
-                    backgroundColor: "#E2E8F0",
-                  }}
-                >
-                  <Image 
-                    source={{ uri: "https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?auto=format&fit=crop&q=80&w=400" }} 
-                    style={{ width: "100%", height: "100%" }}
-                    resizeMode="cover"
-                  />
-                  {/* Subtle vignette */}
-                  <View 
-                    style={{
-                      position: "absolute",
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      height: 40,
-                      backgroundColor: "rgba(15, 23, 42, 0.22)",
-                    }} 
-                  />
-                </View>
-
-                {/* Floating Glassmorphism Credit Badge */}
-                <View 
-                  style={{
-                    position: "absolute",
-                    bottom: 6,
-                    left: -14,
-                    right: 6,
-                    backgroundColor: "rgba(255, 255, 255, 0.94)",
-                    borderRadius: 13,
-                    paddingHorizontal: 9,
-                    paddingVertical: 6,
-                    borderWidth: 1,
-                    borderColor: "rgba(255, 255, 255, 0.9)",
-                    shadowColor: "#000",
-                    shadowOffset: { width: 0, height: 3 },
-                    shadowOpacity: 0.12,
-                    shadowRadius: 6,
-                    elevation: 3,
-                  }}
-                >
-                  <Text style={{ fontSize: 8.5, fontWeight: "600", color: "#64748B", marginBottom: 2 }}>
-                    Remaining Credits
-                  </Text>
-                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
-                      <Ionicons name="flash" size={12} color="#D97706" />
-                      <Text style={{ fontSize: 13, fontWeight: "800", color: "#0F172A" }}>
-                        {credits > 0 ? credits.toLocaleString() : "1,240"}
-                      </Text>
-                    </View>
-                    <View style={{ backgroundColor: "#DCFCE7", paddingHorizontal: 5, paddingVertical: 1.5, borderRadius: 6 }}>
-                      <Text style={{ fontSize: 8, fontWeight: "700", color: "#166534" }}>
-                        100% Free
-                      </Text>
-                    </View>
-                  </View>
-                </View>
+            {/* Adjusted Headline with Primary Gym Name */}
+            <View style={{ marginBottom: 6 }}>
+              <Text style={{ fontSize: 19, fontWeight: "800", color: "#0F172A", lineHeight: 25, letterSpacing: -0.4 }}>
+                Repurchase Your Membership
+              </Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 3 }}>
+                <Text style={{ fontSize: 16.5, fontWeight: "800", color: "#166534" }}>
+                  at {primaryGym}
+                </Text>
+                <Ionicons name="checkmark-circle" size={16} color="#16A34A" />
               </View>
             </View>
-          </Pressable>
+
+            {/* Subtitle */}
+            <Text style={{ fontSize: 12, color: "#64748B", lineHeight: 17, fontWeight: "500", marginBottom: 16 }}>
+              Keep your progress going with {primaryGym}. Use your remaining credits to renew your monthly plan.
+            </Text>
+
+            {/* Bottom Actions Row */}
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              {/* Left Column: Your Credits Pill */}
+              <Pressable
+                onPress={() => router.push("/credits" as any)}
+                style={({ pressed }) => ({
+                  flexDirection: "row",
+                  alignItems: "center",
+                  backgroundColor: "#FFFFFF",
+                  borderRadius: 14,
+                  paddingHorizontal: 13,
+                  paddingVertical: 8.5,
+                  borderWidth: 1,
+                  borderColor: "rgba(31, 122, 62, 0.18)",
+                  gap: 8,
+                  opacity: pressed ? 0.85 : 1,
+                })}
+              >
+                <Ionicons name="wallet-outline" size={18} color="#166534" />
+                <View>
+                  <Text style={{ fontSize: 9.5, fontWeight: "600", color: "#64748B" }}>Your Credits</Text>
+                  <Text style={{ fontSize: 15, fontWeight: "800", color: "#0F172A" }}>
+                    {credits > 0 ? credits : 28}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={13} color="#9CA3AF" />
+              </Pressable>
+
+              {/* View Details Button */}
+              <Pressable
+                onPress={() => router.push("/onboarding/order-summary?mode=repurchase" as any)}
+                style={({ pressed }) => ({
+                  backgroundColor: "#166534",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  paddingHorizontal: 18,
+                  paddingVertical: 10.5,
+                  borderRadius: 22,
+                  gap: 6,
+                  opacity: pressed ? 0.88 : 1,
+                })}
+              >
+                <Text style={{ color: "#FFFFFF", fontSize: 13, fontWeight: "700" }}>
+                  View Details
+                </Text>
+                <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
+              </Pressable>
+            </View>
+          </View>
         </View>
 
         {/* Categories */}

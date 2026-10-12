@@ -6,12 +6,14 @@ import {
   Pressable, 
   Image, 
   StatusBar,
-  Alert
+  Alert,
+  Share
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useCartStore } from "@/store/useCartStore";
+import { useCreditsStore } from "@/store/useCreditsStore";
 import CartModal from "@/components/CartModal";
 import AddToCartConfirmModal from "@/components/AddToCartConfirmModal";
 
@@ -73,6 +75,11 @@ export default function ProductDetailScreen() {
   const productId = typeof id === 'string' ? id : "prod_1";
   const catalogItem = PRODUCT_CATALOG[productId] || PRODUCT_CATALOG["prod_1"];
 
+  const insets = useSafeAreaInsets();
+  const credits = useCreditsStore((state) => state.credits);
+  const inrWallet = useCreditsStore((state) => state.inrWallet);
+  const cashBalance = inrWallet?.balanceINR || 0;
+
   const [selectedFlavour, setSelectedFlavour] = useState(catalogItem.flavours[0]);
   const [selectedSize, setSelectedSize] = useState(catalogItem.sizes[0]);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -106,6 +113,46 @@ export default function ProductDetailScreen() {
     setShowAddedModal(true);
   };
 
+  const handleShowWalletInfo = () => {
+    const savings = Math.max(0, product.price - product.discountedPrice);
+    Alert.alert(
+      "ZonoFit Wallet Discount",
+      `Save ₹${savings.toLocaleString()} on this product using your ZonoFit Wallet!\n\n• Available Credits: ${credits} Credits (1 Cr = ₹10)\n• INR Wallet Balance: ₹${cashBalance}\n\nYour available wallet credits & cash balance are automatically applied at checkout when you proceed to Buy Now or Cart.`,
+      [
+        { text: "Close", style: "cancel" },
+        { 
+          text: "Buy with Wallet", 
+          onPress: () => {
+            handleAddToCart();
+            setIsCartOpen(true);
+          } 
+        }
+      ]
+    );
+  };
+
+  const handleMoreOptions = () => {
+    Alert.alert(
+      product.name,
+      `${product.brand} • ${product.variant}`,
+      [
+        {
+          text: "Share Product",
+          onPress: () => {
+            Share.share({
+              message: `Check out ${product.name} (${product.variant}) on ZonoFit Shop for ₹${product.price}!`,
+            }).catch(() => {});
+          },
+        },
+        {
+          text: "Add to Wishlist",
+          onPress: () => Alert.alert("Saved", "Product added to your wishlist."),
+        },
+        { text: "Cancel", style: "cancel" },
+      ]
+    );
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }} edges={["top"]}>
       <StatusBar barStyle="dark-content" />
@@ -130,7 +177,12 @@ export default function ProductDetailScreen() {
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} bounces={true} overScrollMode="never" contentContainerStyle={{ paddingBottom: 160 }}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        bounces={true} 
+        overScrollMode="never" 
+        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) + 110 }}
+      >
         
         {/* Product Images Section */}
         <View className="flex-row px-5 py-4 h-[320px]">
@@ -166,7 +218,9 @@ export default function ProductDetailScreen() {
         <View className="px-5 mt-2">
           <View className="flex-row justify-between items-start">
             <Text className="text-[#6B7280] text-[12px] font-medium mb-1">{product.brand}</Text>
-            <Ionicons name="ellipsis-vertical" size={16} color="#6B7280" />
+            <Pressable onPress={handleMoreOptions} hitSlop={10} className="p-1 -mr-1">
+              <Ionicons name="ellipsis-vertical" size={18} color="#6B7280" />
+            </Pressable>
           </View>
           <Text className="text-[#111827] text-[20px] font-bold leading-tight mb-1">{product.name}</Text>
           <Text className="text-[#6B7280] text-[12px] mb-2">{product.variant}</Text>
@@ -187,8 +241,16 @@ export default function ProductDetailScreen() {
           </View>
 
           {/* Wallet Discount Banner */}
-          <Pressable className="bg-[#F3FAF4] p-3 rounded-xl flex-row justify-between items-center border border-[#1F7A3E]/20 mb-4 active:opacity-80">
-            <Text className="text-[#166534] text-[12px] font-bold">Get it for ₹{product.discountedPrice.toLocaleString()} with Wallet</Text>
+          <Pressable 
+            onPress={handleShowWalletInfo}
+            className="bg-[#F3FAF4] p-3 rounded-xl flex-row justify-between items-center border border-[#1F7A3E]/20 mb-4 active:opacity-80"
+          >
+            <View className="flex-row items-center flex-1 pr-2">
+              <Ionicons name="sparkles" size={13} color="#166534" className="mr-1.5" />
+              <Text className="text-[#166534] text-[12px] font-bold">
+                Get it for ₹{product.discountedPrice.toLocaleString()} with Wallet
+              </Text>
+            </View>
             <Ionicons name="chevron-forward" size={16} color="#166534" />
           </Pressable>
 
@@ -260,7 +322,12 @@ export default function ProductDetailScreen() {
       </ScrollView>
 
       {/* Fixed Bottom Action Bar */}
-      <View className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-5 shadow-lg flex-row items-center justify-between z-20">
+      <View 
+        className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-5 pt-3.5 shadow-lg flex-row items-center justify-between z-20"
+        style={{
+          paddingBottom: Math.max(insets.bottom, 16) + 8,
+        }}
+      >
         <View className="flex-1 mr-4">
           <Text className="text-[#111827] text-[20px] font-black leading-tight">₹{product.price.toLocaleString()}</Text>
           <Text className="text-[#166534] text-[10px] font-bold">Get it for ₹{product.discountedPrice.toLocaleString()}</Text>
@@ -271,8 +338,8 @@ export default function ProductDetailScreen() {
             onPress={handleAddToCart}
             className="flex-1 bg-[#1F7A3E] py-3 rounded-xl flex-row items-center justify-center active:opacity-90 shadow-sm"
           >
-            <Ionicons name="cart-outline" size={16} color="white" className="mr-1.5" />
-            <Text className="text-white font-bold text-[13px] ml-1">Add to Cart</Text>
+            <Ionicons name="cart-outline" size={16} color="white" />
+            <Text className="text-white font-bold text-[13px] ml-1.5">Add to Cart</Text>
           </Pressable>
           
           <Pressable 
