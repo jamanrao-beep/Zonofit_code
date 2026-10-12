@@ -52,9 +52,6 @@ export default function GymDetailScreen() {
   const { token } = useAuthStore();
   const insets = useSafeAreaInsets();
   const [activeImage, setActiveImage] = useState(0);
-  const [isFavorite, setIsFavorite] = useState(false);
-  const [favoritesCount, setFavoritesCount] = useState(0);
-  const [favoriteLoading, setFavoriteLoading] = useState(false);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [showConfirmedModal, setShowConfirmedModal] = useState(false);
   const [confirmedBookingData, setConfirmedBookingData] = useState<{
@@ -64,63 +61,6 @@ export default function GymDetailScreen() {
     creditsDeducted: number;
     remainingCredits: number;
   } | null>(null);
-
-  // Fetch saved/favorite status from database on mount
-  useEffect(() => {
-    if (!token || isGuest || !id) return;
-    (async () => {
-      try {
-        const data = await apiFetch(`/api/gyms/${id}/favorite`, { token });
-        setIsFavorite(data.isSaved);
-        if (typeof data.favoritesCount === "number") {
-          setFavoritesCount(data.favoritesCount);
-        }
-      } catch (e) {
-        // Silently fail — default to not favorited
-      }
-    })();
-  }, [id, token, isGuest]);
-
-  const handleToggleFavorite = async () => {
-    if (isGuest) {
-      Alert.alert(
-        "Account Required",
-        "Create an account to save your favorite gyms.",
-        [
-          { text: "Cancel", style: "cancel" },
-          { 
-            text: "Create Account", 
-            onPress: async () => {
-              await endGuestSession();
-              router.replace("/(auth)/create-account");
-            } 
-          }
-        ]
-      );
-      return;
-    }
-    if (!token || favoriteLoading) return;
-    setFavoriteLoading(true);
-    // Optimistic update
-    const wasFavorite = isFavorite;
-    const prevCount = favoritesCount;
-    setIsFavorite(!wasFavorite);
-    setFavoritesCount(wasFavorite ? Math.max(0, prevCount - 1) : prevCount + 1);
-    try {
-      const data = await apiFetch(`/api/gyms/${id}/favorite`, { method: "POST", token });
-      setIsFavorite(data.isSaved);
-      if (typeof data.favoritesCount === "number") {
-        setFavoritesCount(data.favoritesCount);
-      }
-    } catch (e) {
-      // Revert on failure
-      setIsFavorite(wasFavorite);
-      setFavoritesCount(prevCount);
-      Alert.alert("Error", "Could not update favorite status.");
-    } finally {
-      setFavoriteLoading(false);
-    }
-  };
 
   // Find gym in fallback dataset if available
   const matchedGym = FALLBACK_NETWORK_GYMS.find(g => g.id === id);
@@ -232,7 +172,7 @@ export default function GymDetailScreen() {
           </ScrollView>
 
           {/* Top Actions */}
-          <View style={{ position: 'absolute', top: Math.max(insets.top, 40), left: 16, right: 16, flexDirection: 'row', justifyContent: 'space-between' }}>
+          <View style={{ position: 'absolute', top: Math.max(insets.top, 40), left: 16, right: 16, flexDirection: 'row', justifyContent: 'flex-start' }}>
             <Pressable 
               onPress={() => {
                 if (isFromOnboarding) {
@@ -250,22 +190,6 @@ export default function GymDetailScreen() {
             >
               <Ionicons name="arrow-back" size={20} color="#000" />
             </Pressable>
-            <Pressable 
-              onPress={handleToggleFavorite}
-              style={[
-                styles.iconButton, 
-                favoritesCount > 0 && { width: 'auto', minWidth: 44, paddingHorizontal: 10, flexDirection: 'row', gap: 4 },
-                favoriteLoading && { opacity: 0.5 }
-              ]}
-              disabled={favoriteLoading}
-            >
-              <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={20} color={isFavorite ? "#EF4444" : "#000"} />
-              {favoritesCount > 0 && (
-                <Text style={{ fontSize: 13, fontWeight: '700', color: isFavorite ? "#EF4444" : "#111827" }}>
-                  {favoritesCount}
-                </Text>
-              )}
-            </Pressable>
           </View>
 
           {/* Pagination Dots */}
@@ -279,13 +203,39 @@ export default function GymDetailScreen() {
         <View style={{ padding: 16 }}>
           {/* Title Section */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-            <Text style={{ fontSize: 24, fontWeight: '800', color: '#111827', letterSpacing: -0.5 }}>{GYM_DATA.name}</Text>
-            {GYM_DATA.isPartner && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0FDF4', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 16 }}>
-                <Ionicons name="shield-checkmark" size={12} color="#16A34A" />
-                <Text style={{ fontSize: 11, fontWeight: '700', color: '#16A34A', marginLeft: 4 }}>Partner Gym</Text>
-              </View>
-            )}
+            <View style={{ flex: 1, marginRight: 8 }}>
+              <Text style={{ fontSize: 24, fontWeight: '800', color: '#111827', letterSpacing: -0.5 }}>{GYM_DATA.name}</Text>
+              {isPrimaryGym && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                  <View style={{ backgroundColor: '#1F7A3E', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 }}>
+                    <Text style={{ fontSize: 10, fontWeight: '800', color: '#FFF' }}>PRIMARY GYM</Text>
+                  </View>
+                </View>
+              )}
+            </View>
+            <View style={{ alignItems: 'flex-end', gap: 6 }}>
+              {GYM_DATA.isPartner && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0FDF4', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 16 }}>
+                  <Ionicons name="shield-checkmark" size={12} color="#16A34A" />
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: '#16A34A', marginLeft: 4 }}>Partner Gym</Text>
+                </View>
+              )}
+              {!isPrimaryGym && (
+                <Pressable
+                  onPress={() => {
+                    useUserStore.getState().setPrimaryGym(GYM_DATA.id, GYM_DATA.name);
+                    useGuestStore.getState().selectGym(GYM_DATA.id, GYM_DATA.name);
+                    useCreditsStore.setState((s) => ({
+                      membershipInfo: s.membershipInfo ? { ...s.membershipInfo, gymName: GYM_DATA.name } : null,
+                    }));
+                    Alert.alert("Primary Gym Set", `${GYM_DATA.name} has been set as your Primary Gym.`);
+                  }}
+                  style={{ backgroundColor: '#ECFDF5', borderWidth: 1, borderColor: '#A7F3D0', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}
+                >
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: '#1F7A3E' }}>Set as Primary</Text>
+                </Pressable>
+              )}
+            </View>
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
@@ -369,7 +319,7 @@ export default function GymDetailScreen() {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 16, paddingRight: 16, paddingBottom: 16 }}>
               <View style={styles.ruleItem}>
                 <View style={styles.ruleIconWrapper}>
-                  <Ionicons name="qr-code-outline" size={22} color="#4B5563" />
+                  <Ionicons name="id-card-outline" size={22} color="#4B5563" />
                 </View>
                 <Text style={styles.ruleText}>Carry your{'\n'}ZonoFit booking</Text>
               </View>
@@ -476,7 +426,15 @@ export default function GymDetailScreen() {
           onPress={() => {
             selectGym(GYM_DATA.id, GYM_DATA.name);
             useAuthStore.getState().setIsViewingOnboardingGym(false);
-            router.push('/onboarding/order-summary' as any);
+            router.push({
+              pathname: '/onboarding/order-summary',
+              params: {
+                mode: 'purchase',
+                isFirstTime: 'true',
+                gymId: GYM_DATA.id,
+                gymName: GYM_DATA.name,
+              },
+            } as any);
           }}
         >
           <Text style={{ color: 'white', fontSize: 16, fontWeight: '700', marginRight: 8 }}>Next</Text>

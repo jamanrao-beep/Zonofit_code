@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useBookingStore } from "@/store/useBookingStore";
+import { useCreditsStore } from "@/store/useCreditsStore";
 
 
 
@@ -36,20 +37,46 @@ export default function BookingHistoryScreen() {
   const { pastBookings, bookingStatus, bookedGymName, bookedTime, cancelBooking } = useBookingStore();
 
   const handleCancel = () => {
+    const bookedCost = useBookingStore.getState().bookedCost;
+    const isMandatory = bookedCost === 0 || bookedCost === undefined;
+    const currentCredits = useCreditsStore.getState().credits;
+
+    if (isMandatory && currentCredits < 2) {
+      Alert.alert(
+        "Cannot Cancel Booking",
+        `Cancelling a mandatory visit requires a flat 2 Credits fee, but your wallet balance is only ${currentCredits} Credits.\n\nPlease buy credits to cancel this booking.`,
+        [
+          { text: "OK", style: "cancel" },
+          { text: "Buy Credits", onPress: () => router.push("/credits") }
+        ]
+      );
+      return;
+    }
+
+    const refundAmount = Math.max(0, (bookedCost || 8) - 2);
+    const confirmMessage = isMandatory
+      ? `Cancelling this booking will incur a flat 2 Credits fee from your wallet.\n\nYour 1 mandatory visit will be restored.\n\nDo you want to proceed?`
+      : `Cancelling this booking will incur a flat 2 Credits fee.\n\nYou will receive a refund of ${refundAmount} Credits to your wallet.\n\nDo you want to proceed?`;
+
     Alert.alert(
       "Cancel Workout Booking?",
-      `Are you sure you want to cancel your visit at ${bookedGymName || "the gym"}?\n\nYour visit or credits will be restored immediately.`,
+      confirmMessage,
       [
-        { text: "Keep Booking", style: "cancel" },
+        { text: "No", style: "cancel" },
         {
           text: "Yes, Cancel",
           style: "destructive",
           onPress: async () => {
             try {
               await cancelBooking();
-              Alert.alert("Booking Cancelled", "Your booking has been cancelled and your visits / credits have been restored.");
+              Alert.alert(
+                "Booking Cancelled", 
+                isMandatory
+                  ? "Your booking was cancelled. 1 mandatory visit has been restored and 2 credits were deducted."
+                  : `Your booking was cancelled. ${refundAmount} credits were refunded to your wallet (2 credits fee applied).`
+              );
             } catch (err: any) {
-              Alert.alert("Error", err?.message || "Could not cancel booking.");
+              Alert.alert("Cancellation Failed", err?.message || "Could not cancel booking.");
             }
           }
         }

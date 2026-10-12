@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Modal,
   View,
@@ -74,8 +74,50 @@ export default function BookingModal({
   }, []);
 
   const [selectedDateId, setSelectedDateId] = useState(dates[0]?.id || "");
-  const [selectedTime, setSelectedTime] = useState(TIME_SLOTS[3]); // default 5:00 PM
+
+  // Check if a time slot has already passed for the selected date (Today)
+  const isTimeSlotPassed = (slot: string, dateId: string) => {
+    const todayId = dates[0]?.id;
+    if (dateId !== todayId) return false;
+
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    const parts = slot.trim().split(" ");
+    if (parts.length < 2) return false;
+    const [time, period] = parts;
+    const timeParts = time.split(":").map(Number);
+    let hours = timeParts[0];
+    const minutes = timeParts[1] || 0;
+
+    if (period.toUpperCase() === "PM" && hours !== 12) hours += 12;
+    if (period.toUpperCase() === "AM" && hours === 12) hours = 0;
+    const slotMinutes = hours * 60 + minutes;
+
+    return slotMinutes <= currentMinutes;
+  };
+
+  const isToday = selectedDateId === dates[0]?.id;
+  const availableSlotsForDate = useMemo(() => {
+    return TIME_SLOTS.filter((s) => !isTimeSlotPassed(s, selectedDateId));
+  }, [selectedDateId, dates]);
+
+  const [selectedTime, setSelectedTime] = useState(() => {
+    const initialSlot = TIME_SLOTS.find((s) => !isTimeSlotPassed(s, dates[0]?.id || ""));
+    return initialSlot || TIME_SLOTS[3];
+  });
   const [showRulesModal, setShowRulesModal] = useState(false);
+
+  // When date changes, if currently selected slot has already passed, auto-select first available future slot
+  useEffect(() => {
+    if (isTimeSlotPassed(selectedTime, selectedDateId)) {
+      if (availableSlotsForDate.length > 0) {
+        setSelectedTime(availableSlotsForDate[0]);
+      } else {
+        setSelectedTime("");
+      }
+    }
+  }, [selectedDateId, availableSlotsForDate]);
 
   if (!visible || !gym) return null;
 
@@ -88,8 +130,10 @@ export default function BookingModal({
     ? cashBalance < cashCost
     : isCreditVisit && availableCredits < (gym.cost || 8);
 
+  const isCurrentTimePassed = !selectedTime || isTimeSlotPassed(selectedTime, selectedDateId);
+
   const handleConfirmPress = () => {
-    if (loading || hasInsufficientCredits) return;
+    if (loading || hasInsufficientCredits || isCurrentTimePassed) return;
     const dateObj = dates.find((d) => d.id === selectedDateId);
     onConfirm(selectedTime, dateObj?.iso);
   };
@@ -259,20 +303,47 @@ export default function BookingModal({
                 <Text style={styles.sectionHeader}>Select Time</Text>
                 <View style={styles.timeGrid}>
                   {TIME_SLOTS.map((slot) => {
+                    const isPassed = isTimeSlotPassed(slot, selectedDateId);
                     const isSelected = selectedTime === slot;
                     return (
                       <Pressable
                         key={slot}
-                        onPress={() => setSelectedTime(slot)}
-                        style={[styles.timeBtn, isSelected && styles.timeBtnActive]}
+                        disabled={isPassed}
+                        onPress={() => {
+                          if (!isPassed) setSelectedTime(slot);
+                        }}
+                        style={[
+                          styles.timeBtn,
+                          isSelected && styles.timeBtnActive,
+                          isPassed && styles.timeBtnDisabled,
+                        ]}
                       >
-                        <Text style={[styles.timeBtnText, isSelected && styles.timeBtnTextActive]}>
-                          {slot}
-                        </Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center" }}>
+                          {isPassed && (
+                            <Ionicons name="lock-closed" size={11} color="#9CA3AF" style={{ marginRight: 4 }} />
+                          )}
+                          <Text
+                            style={[
+                              styles.timeBtnText,
+                              isSelected && styles.timeBtnTextActive,
+                              isPassed && styles.timeBtnTextDisabled,
+                            ]}
+                          >
+                            {slot}
+                          </Text>
+                        </View>
                       </Pressable>
                     );
                   })}
                 </View>
+                {isToday && availableSlotsForDate.length === 0 && (
+                  <View style={styles.allPassedBanner}>
+                    <Ionicons name="time-outline" size={15} color="#B45309" />
+                    <Text style={styles.allPassedText}>
+                      All workout slots for today have passed. Please select tomorrow or an upcoming date.
+                    </Text>
+                  </View>
+                )}
               </View>
 
               {/* MANDATORY VISIT GREEN NOTICE (Mockup Screen 3 Notice) */}
@@ -319,9 +390,9 @@ export default function BookingModal({
                   </Pressable>
                 </View>
                 <View style={styles.rulePointsList}>
-                  <Text style={styles.rulePointLine}>• <Text style={styles.boldRule}>QR Check-in:</Text> Scan QR at desk within 15m of arrival</Text>
+                  <Text style={styles.rulePointLine}>• <Text style={styles.boldRule}>Desk Check-in:</Text> Show booking pass at front desk upon arrival</Text>
                   <Text style={styles.rulePointLine}>• <Text style={styles.boldRule}>1 Active Booking:</Text> Max 1 booking per day allowed</Text>
-                  <Text style={styles.rulePointLine}>• <Text style={styles.boldRule}>Cancellation:</Text> 100% refund up to 6 hrs prior</Text>
+                  <Text style={styles.rulePointLine}>• <Text style={styles.boldRule}>Cancellation:</Text> Flat 2 Credits fee applies upon cancellation</Text>
                   <Text style={styles.rulePointLine}>• <Text style={styles.boldRule}>Gym Protocol:</Text> Clean footwear & gym attire compulsory</Text>
                 </View>
               </View>
@@ -331,10 +402,10 @@ export default function BookingModal({
                 onPress={handleConfirmPress}
                 style={[
                   styles.primaryActionBtn,
-                  hasInsufficientCredits && styles.primaryActionBtnDisabled,
+                  (hasInsufficientCredits || isCurrentTimePassed) && styles.primaryActionBtnDisabled,
                   loading && { opacity: 0.75 },
                 ]}
-                disabled={loading || hasInsufficientCredits}
+                disabled={loading || hasInsufficientCredits || isCurrentTimePassed}
               >
                 {loading ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
@@ -377,12 +448,12 @@ export default function BookingModal({
             <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 380, marginTop: 14 }}>
               <View style={styles.fullRuleItem}>
                 <View style={styles.fullRuleIconWrap}>
-                  <Ionicons name="qr-code-outline" size={20} color="#1F7A3E" />
+                  <Ionicons name="id-card-outline" size={20} color="#1F7A3E" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.fullRuleHeading}>1. Mandatory QR Check-In</Text>
+                  <Text style={styles.fullRuleHeading}>1. Front Desk Check-In</Text>
                   <Text style={styles.fullRuleDesc}>
-                    When you arrive at the gym, open your active pass and scan the front desk QR code within 15 minutes of your arrival slot.
+                    When you arrive at the gym, present your active booking pass at the front desk for verification.
                   </Text>
                 </View>
               </View>
@@ -401,12 +472,12 @@ export default function BookingModal({
 
               <View style={styles.fullRuleItem}>
                 <View style={styles.fullRuleIconWrap}>
-                  <Ionicons name="time-outline" size={20} color="#1F7A3E" />
+                  <Ionicons name="card-outline" size={20} color="#1F7A3E" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.fullRuleHeading}>3. 6-Hour Cancellation Window</Text>
+                  <Text style={styles.fullRuleHeading}>3. Flat 2 Credits Cancellation Fee</Text>
                   <Text style={styles.fullRuleDesc}>
-                    Cancel at least 6 hours in advance for a 100% refund of your visit/credits. Cancellations within 6 hours are non-refundable.
+                    A flat 2 Credits cancellation fee applies. For credit bookings, 2 credits are deducted from the refund. For plan visits, 2 credits are deducted from your wallet balance (minimum 2 credits required to cancel).
                   </Text>
                 </View>
               </View>
@@ -726,6 +797,34 @@ const styles = StyleSheet.create({
   timeBtnTextActive: {
     color: "#1F7A3E",
     fontWeight: "800",
+  },
+  timeBtnDisabled: {
+    backgroundColor: "#F3F4F6",
+    borderColor: "#E5E7EB",
+    opacity: 0.55,
+  },
+  timeBtnTextDisabled: {
+    color: "#9CA3AF",
+    textDecorationLine: "line-through",
+    fontWeight: "500",
+  },
+  allPassedBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFBEB",
+    borderRadius: 12,
+    padding: 10,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: "#FEF3C7",
+    gap: 8,
+  },
+  allPassedText: {
+    fontSize: 11.5,
+    fontWeight: "600",
+    color: "#B45309",
+    flex: 1,
+    lineHeight: 16,
   },
 
   // Mandatory note

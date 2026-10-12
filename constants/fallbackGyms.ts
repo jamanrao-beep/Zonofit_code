@@ -31,7 +31,7 @@ export const DEFAULT_GYM_POLICIES: string[] = [
 ];
 
 export const CANCELLATION_POLICY_NOTE = 
-  "Cancel 6+ hours before your booking for full credit refund. Late cancellations may not be refundable.";
+  "Flat 2 Credits fee applies on cancellation. For credit bookings, 2 credits are deducted from the refund. For mandatory visits, 2 credits are charged from your wallet.";
 
 export interface PartnerCity {
   id: string;
