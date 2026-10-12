@@ -155,7 +155,7 @@ router.post(
         }),
       ]);
 
-      // Award 50 credits to referrer if this is their friend's first completed visit
+      // Award 5 credits to referrer if this is their friend's first completed visit
       let referrerIdToNotify: string | null = null;
       if (booking.user?.referredByUserId && booking.user.totalWorkouts === 0) {
         referrerIdToNotify = booking.user.referredByUserId;
@@ -165,15 +165,15 @@ router.post(
         if (referrerWallet) {
           await tx.creditWallet.update({
             where: { id: referrerWallet.id },
-            data: { balance: { increment: 50 } },
+            data: { balance: { increment: 5 } },
           });
           await tx.creditTransaction.create({
             data: {
               walletId: referrerWallet.id,
               userId: referrerIdToNotify,
               type: "BONUS",
-              amount: 50,
-              balanceAfter: referrerWallet.balance + 50,
+              amount: 5,
+              balanceAfter: referrerWallet.balance + 5,
               description: `Referral reward: ${booking.user?.name || "Friend"} completed their first gym visit!`,
             },
           });
@@ -195,7 +195,7 @@ router.post(
       sendPushNotification(
         result.referrerIdToNotify,
         "Referral Bonus! 🎁",
-        "You earned 50 credits! Your referred friend just completed their first workout."
+        "You earned 5 credits! Your referred friend just completed their first workout."
       ).catch(e => console.error(e));
     }
 

@@ -53,28 +53,62 @@ router.get(
       return;
     }
 
-    // If user's wallet has balance > 0, but user has never had any credit transactions or payments,
-    // it was from the test auto-grant on signup. Correct it to 0.
-    const transactionCount = await prisma.creditTransaction.count({
-      where: { userId: req.dbUserId! },
-    });
-    if (transactionCount === 0 && wallet.balance > 0) {
-      await prisma.creditWallet.update({
-        where: { id: wallet.id },
-        data: { balance: 0 },
+    const now = new Date();
+    const membership = wallet.user.membership;
+    const isExpired = membership ? (membership.endDate < now || membership.status === "EXPIRED") : true;
+
+    // Check if user has an active membership and should have rest credits from their plan
+    if (membership && !isExpired && membership.status === "ACTIVE") {
+      const planCredits = membership.plan?.monthlyCredits || 160;
+      const mandatoryVisits = membership.mandatoryVisits || 10;
+      const mandatoryCost = mandatoryVisits * 8;
+      const expectedRestCredits = Math.max(0, planCredits - mandatoryCost) || 80;
+
+      const debitCount = await prisma.creditTransaction.count({
+        where: { 
+          userId: req.dbUserId!,
+          amount: { lt: 0 }
+        },
       });
-      wallet.balance = 0;
+
+      // If user hasn't spent credits and wallet balance is 0, fulfill their rest credits from membership
+      if (wallet.balance === 0 && debitCount === 0 && expectedRestCredits > 0) {
+        await prisma.creditWallet.update({
+          where: { id: wallet.id },
+          data: { balance: expectedRestCredits },
+        });
+        await prisma.creditTransaction.create({
+          data: {
+            userId: req.dbUserId!,
+            walletId: wallet.id,
+            type: "MEMBERSHIP_GRANT",
+            amount: expectedRestCredits,
+            balanceAfter: expectedRestCredits,
+            description: `Membership Plan (${membership.plan?.name || "Active Plan"}) Rest Credits Granted`,
+          },
+        });
+        wallet.balance = expectedRestCredits;
+      }
+    } else {
+      // Only for non-members without transactions: fix test auto-grant
+      const transactionCount = await prisma.creditTransaction.count({
+        where: { userId: req.dbUserId! },
+      });
+      if (transactionCount === 0 && wallet.balance > 0) {
+        await prisma.creditWallet.update({
+          where: { id: wallet.id },
+          data: { balance: 0 },
+        });
+        wallet.balance = 0;
+      }
     }
 
-    const now = new Date();
     const convertibleCashINR = wallet.convertibleCashBalanceInPaise / 100;
     const isCashValid = !!(wallet.cashExpiryDate && wallet.cashExpiryDate > now && convertibleCashINR > 0);
     const inrWalletDaysRemaining = isCashValid
       ? Math.ceil((wallet.cashExpiryDate!.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
       : 0;
 
-    const membership = wallet.user.membership;
-    const isExpired = membership ? (membership.endDate < now || membership.status === "EXPIRED") : true;
     const daysRemaining = membership && !isExpired
       ? Math.ceil((membership.endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
       : 0;

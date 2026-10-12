@@ -357,79 +357,84 @@ router.delete(
       const timeUntilWorkoutHours = timeUntilWorkoutMs / (1000 * 60 * 60);
 
       const timeSinceBookingMs = now.getTime() - booking.createdAt.getTime();
-      const timeSinceBookingHours = timeSinceBookingMs / (1000 * 60 * 60);
-
-      let refundPercentage = 0;
-      let cancellationType: "EARLY" | "LATE" = "LATE";
-
-      if (timeUntilWorkoutHours > 6) {
-        // PRD Section 4 & 5: Early cancellation before 6 hours -> 80% credits returned, 20% cancellation charge
-        refundPercentage = 80;
-        cancellationType = "EARLY";
-      } else {
-        // PRD Section 4 & 6: Late cancellation at or after 6 hours -> 0% credits returned
-        refundPercentage = 0;
-        cancellationType = "LATE";
-      }
-
       await tx.booking.update({
         where: { id: booking.id },
         data: { status: "CANCELLED" },
       });
 
-      const refundedCredits = Math.floor(booking.creditsDeducted * (refundPercentage / 100));
+      let refundedCredits = 0;
       let newBalance = 0;
       const gymName = booking.gym.name;
 
-      if (refundedCredits > 0) {
-        const wallet = await tx.creditWallet.update({
+      const wallet = await tx.creditWallet.findUnique({
+        where: { userId: req.dbUserId! },
+      });
+      const currentBalance = wallet?.balance || 0;
+
+      if (booking.creditsDeducted > 0) {
+        // Credit booking: refund = booked - 2 credits fee
+        refundedCredits = Math.max(0, booking.creditsDeducted - 2);
+        if (refundedCredits > 0) {
+          const updatedWallet = await tx.creditWallet.update({
+            where: { userId: req.dbUserId! },
+            data: { balance: { increment: refundedCredits } },
+          });
+          newBalance = updatedWallet.balance;
+
+          await tx.creditTransaction.create({
+            data: {
+              userId: req.dbUserId!,
+              walletId: updatedWallet.id,
+              type: "REFUND",
+              amount: refundedCredits,
+              balanceAfter: updatedWallet.balance,
+              description: `Cancellation at ${gymName} — ${refundedCredits} credits refunded (2 credits cancellation fee deducted).`,
+              bookingId: booking.id,
+            },
+          });
+        } else {
+          newBalance = currentBalance;
+        }
+      } else {
+        // Mandatory visit (0 credits booked): 2 credits fee charged from wallet
+        if (currentBalance < 2) {
+          throw createError(
+            `Cannot cancel booking: A 2 Credits fee is required, but your wallet balance is only ${currentBalance} Credits.`,
+            400,
+            "InsufficientCredits"
+          );
+        }
+
+        const updatedWallet = await tx.creditWallet.update({
           where: { userId: req.dbUserId! },
-          data: { balance: { increment: refundedCredits } },
+          data: { balance: { decrement: 2 } },
         });
-        
-        newBalance = wallet.balance;
+        newBalance = updatedWallet.balance;
 
         await tx.creditTransaction.create({
           data: {
             userId: req.dbUserId!,
-            walletId: wallet.id,
-            type: "REFUND",
-            amount: refundedCredits,
-            balanceAfter: wallet.balance,
-            description: `Early cancellation at ${gymName} — 80% (${refundedCredits} credits) refunded. 20% cancellation fee.`,
+            walletId: updatedWallet.id,
+            type: "VISIT_SPEND",
+            amount: 2,
+            balanceAfter: updatedWallet.balance,
+            description: `Cancellation fee (2 credits) for mandatory visit at ${gymName}.`,
             bookingId: booking.id,
           },
         });
-      } else {
-        const walletRecord = await tx.creditWallet.findUnique({
-          where: { userId: req.dbUserId! },
-        });
-        newBalance = walletRecord?.balance || 0;
       }
 
-      return { refundedCredits, newBalance, cancellationType, gymName };
+      return { refundedCredits, newBalance, gymName };
     });
 
-    // Send notification per Notifications PRD Section 4.4 & 4.5
-    if (result.cancellationType === "EARLY") {
-      sendPushNotification(
-        req.dbUserId!,
-        "Booking Cancelled ℹ️",
-        `Your visit at ${result.gymName} was cancelled. ${result.refundedCredits} credits (80%) have been returned to your wallet.`
-      ).catch(e => console.error(e));
-    } else {
-      sendPushNotification(
-        req.dbUserId!,
-        "Late Cancellation ⚠️",
-        `Your visit at ${result.gymName} was cancelled within 6 hours. As per policy, 0 credits are refunded.`
-      ).catch(e => console.error(e));
-    }
+    sendPushNotification(
+      req.dbUserId!,
+      "Booking Cancelled ℹ️",
+      `Your visit at ${result.gymName} was cancelled with a 2 Credits fee applied.`
+    ).catch(e => console.error(e));
 
     res.json({
-      message: result.cancellationType === "EARLY" 
-        ? "Booking cancelled. 80% credits refunded." 
-        : "Late cancellation recorded. No credits refunded as cancellation was within 6 hours.",
-      cancellationType: result.cancellationType,
+      message: "Booking cancelled successfully with a 2 Credits fee applied.",
       refundedCredits: result.refundedCredits,
       newCreditBalance: result.newBalance,
     });
