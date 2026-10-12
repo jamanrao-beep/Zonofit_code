@@ -35,7 +35,7 @@ export default function AddToCartConfirmModal({
   onViewCart,
   onContinueShopping,
 }: AddToCartConfirmModalProps) {
-  // Moving color pulse / glow animation
+  // Gentle moving color pulse / glow animation
   const scaleGlow = useSharedValue(1);
   const opacityGlow = useSharedValue(0.4);
   const spinVal = useSharedValue(0);
@@ -44,22 +44,22 @@ export default function AddToCartConfirmModal({
     if (visible) {
       scaleGlow.value = withRepeat(
         withSequence(
-          withTiming(1.2, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
-          withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.ease) })
+          withTiming(1.12, { duration: 2200, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1, { duration: 2200, easing: Easing.inOut(Easing.ease) })
         ),
         -1,
         true
       );
       opacityGlow.value = withRepeat(
         withSequence(
-          withTiming(0.85, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0.3, { duration: 1000, easing: Easing.inOut(Easing.ease) })
+          withTiming(0.65, { duration: 2200, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0.25, { duration: 2200, easing: Easing.inOut(Easing.ease) })
         ),
         -1,
         true
       );
       spinVal.value = withRepeat(
-        withTiming(360, { duration: 6000, easing: Easing.linear }),
+        withTiming(360, { duration: 12000, easing: Easing.linear }),
         -1,
         false
       );
@@ -85,20 +85,20 @@ export default function AddToCartConfirmModal({
     <Modal
       visible={visible}
       transparent
-      animationType="none"
+      animationType="fade"
       onRequestClose={onContinueShopping}
     >
       <View style={styles.overlay}>
         <Animated.View
-          entering={FadeIn.duration(180)}
-          exiting={FadeOut.duration(180)}
+          entering={FadeIn.duration(300)}
+          exiting={FadeOut.duration(250)}
           style={StyleSheet.absoluteFill}
         >
           <Pressable style={styles.backdrop} onPress={onContinueShopping} />
         </Animated.View>
 
         <Animated.View
-          entering={SlideInUp.springify().damping(18)}
+          entering={FadeIn.duration(350)}
           style={styles.card}
         >
           {/* Top Badge: Moving Color Ring + Checkmark */}

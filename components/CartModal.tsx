@@ -302,24 +302,55 @@ export default function CartModal({ visible, onClose }: CartModalProps) {
                       </Pressable>
                     </View>
                     <View className="flex-row justify-between items-center">
-                      <View className="flex-row items-center bg-white rounded-lg px-2 py-0.5 border border-blue-200">
+                      <View className="flex-row items-center bg-white rounded-xl px-2 py-1 border border-blue-200">
+                        <Pressable 
+                          onPress={() => setCreditsToUse(Math.max(0, creditsToUse - 10))}
+                          className="w-7 h-7 items-center justify-center rounded-lg bg-blue-50 active:bg-blue-100 mr-1"
+                        >
+                          <Text className="text-[10px] font-bold text-blue-700">-10</Text>
+                        </Pressable>
                         <Pressable 
                           onPress={() => setCreditsToUse(Math.max(0, creditsToUse - 1))}
-                          className="w-7 h-7 items-center justify-center"
+                          className="w-7 h-7 items-center justify-center mr-1"
                         >
                           <Ionicons name="remove" size={14} color="#1D4ED8" />
                         </Pressable>
-                        <Text className="text-xs font-bold text-blue-900 px-2 min-w-[28px] text-center">{creditsToUse}</Text>
+                        <TextInput
+                          keyboardType="number-pad"
+                          value={String(creditsToUse)}
+                          onChangeText={(text) => {
+                            const cleaned = text.replace(/[^0-9]/g, "");
+                            if (!cleaned) {
+                              setCreditsToUse(0);
+                            } else {
+                              const num = parseInt(cleaned, 10);
+                              setCreditsToUse(Math.min(maxCreditsAllowed, Math.max(0, num)));
+                            }
+                          }}
+                          selectTextOnFocus
+                          style={{ minWidth: 42, textAlign: "center", fontWeight: "800", color: "#1E3A8A", fontSize: 14, paddingVertical: 2 }}
+                        />
                         <Pressable 
                           onPress={() => setCreditsToUse(Math.min(maxCreditsAllowed, creditsToUse + 1))}
-                          className="w-7 h-7 items-center justify-center"
+                          className="w-7 h-7 items-center justify-center ml-1"
                         >
                           <Ionicons name="add" size={14} color="#1D4ED8" />
                         </Pressable>
+                        <Pressable 
+                          onPress={() => setCreditsToUse(Math.min(maxCreditsAllowed, creditsToUse + 10))}
+                          className="w-7 h-7 items-center justify-center rounded-lg bg-blue-50 active:bg-blue-100 ml-1"
+                        >
+                          <Text className="text-[10px] font-bold text-blue-700">+10</Text>
+                        </Pressable>
                       </View>
-                      <Text className="text-xs font-bold text-blue-700">
-                        {creditsValueUsed > 0 ? `-₹${creditsValueUsed}` : "₹0"}
-                      </Text>
+                      <View className="items-end">
+                        <Text className="text-sm font-black text-blue-700">
+                          {creditsValueUsed > 0 ? `-₹${creditsValueUsed}` : "₹0"}
+                        </Text>
+                        <Text className="text-[10px] text-blue-500 font-semibold">
+                          Max: {maxCreditsAllowed} Cr
+                        </Text>
+                      </View>
                     </View>
                   </View>
                 )}
