@@ -9,6 +9,7 @@ import {
   Modal,
   Linking,
   Alert,
+  TextInput,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -17,8 +18,10 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { useGuestStore } from "@/store/useGuestStore";
 import { useAddressStore } from "@/store/useAddressStore";
 
+export type OptionId = "new" | "other_gym" | "other_platform" | "returning" | "beginner";
+
 interface OptionItem {
-  id: "new" | "returning" | "beginner";
+  id: OptionId;
   num: number;
   title: string;
   badge: string;
@@ -36,8 +39,26 @@ const ELIGIBILITY_OPTIONS: OptionItem[] = [
     bullets: ["First-time member", "New to this gym"],
   },
   {
-    id: "returning",
+    id: "other_gym",
     num: 2,
+    title: "Member of another gym",
+    badge: "OTHER GYM",
+    description:
+      "You are or were previously a member at another local gym (not in the ZonoFit network) and are switching or joining ZonoFit.",
+    bullets: ["Trained at a non-partner gym", "Switching to ZonoFit"],
+  },
+  {
+    id: "other_platform",
+    num: 3,
+    title: "Member of another fitness app",
+    badge: "FITNESS PASS",
+    description:
+      "You currently or previously held a multi-gym pass or subscription on another fitness network app or pass platform.",
+    bullets: ["Multi-gym pass user", "Switching to ZonoFit network"],
+  },
+  {
+    id: "returning",
+    num: 4,
     title: "Returning after a long break",
     badge: "12+ MONTHS",
     description:
@@ -46,8 +67,8 @@ const ELIGIBILITY_OPTIONS: OptionItem[] = [
   },
   {
     id: "beginner",
-    num: 3,
-    title: "Recent beginner",
+    num: 5,
+    title: "Recent beginner at this gym",
     badge: "WITHIN 3 MONTHS",
     description:
       "You joined this gym within the last 3 months and are still considered a beginner at this gym.",
@@ -65,7 +86,9 @@ export default function EligibilityScreen() {
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
 
   // Step 2 State
-  const [selectedOptionId, setSelectedOptionId] = useState<"new" | "returning" | "beginner">("new");
+  const [selectedOptionId, setSelectedOptionId] = useState<OptionId>("new");
+  const [previousGymName, setPreviousGymName] = useState("");
+  const [previousPlatformName, setPreviousPlatformName] = useState("");
 
   // Step 3 State: 3 mandatory checkboxes
   const [check1, setCheck1] = useState(false);
@@ -107,8 +130,11 @@ export default function EligibilityScreen() {
     }
 
     const city = selectedAddress?.city || "Bangalore";
-    const selectedGymId = useGuestStore.getState().selectedGymId || "g1";
-    await completeOnboarding(city, selectedGymId, "Quarterly");
+    const selectedGymId = useGuestStore.getState().selectedGymId || "gym-being-fit";
+    await completeOnboarding(city, selectedGymId, "Monthly");
+    if (router.canGoBack()) {
+      router.dismissAll();
+    }
     router.replace("/onboarding/welcome");
   };
 
@@ -205,9 +231,9 @@ export default function EligibilityScreen() {
                 at this gym.
               </Text>
               <Text style={styles.warningParagraph}>
-                If your eligibility information is later found to be incorrect, your ZonoFit
-                membership may be affected and any refund will be processed according to ZonoFit's
-                Refund Policy.
+                If incorrect information is found regarding your membership status and you have been
+                a member of this particular ZonoFit partner gym, only 50% of the amount will be
+                refunded within 3 to 5 business days.
               </Text>
 
               <Pressable
@@ -295,6 +321,38 @@ export default function EligibilityScreen() {
                         </View>
                       ))}
                     </View>
+
+                    {/* Inline Input for other_gym */}
+                    {isSelected && opt.id === "other_gym" && (
+                      <View style={styles.inlineInputBox}>
+                        <Text style={styles.inlineInputLabel}>
+                          Which gym did you train at before?
+                        </Text>
+                        <TextInput
+                          style={styles.inlineTextInput}
+                          placeholder="e.g. Gold's Gym, Anytime Fitness, Local Gym"
+                          placeholderTextColor="#9CA3AF"
+                          value={previousGymName}
+                          onChangeText={setPreviousGymName}
+                        />
+                      </View>
+                    )}
+
+                    {/* Inline Input for other_platform */}
+                    {isSelected && opt.id === "other_platform" && (
+                      <View style={styles.inlineInputBox}>
+                        <Text style={styles.inlineInputLabel}>
+                          Which fitness pass app or platform? (Optional)
+                        </Text>
+                        <TextInput
+                          style={styles.inlineTextInput}
+                          placeholder="e.g. Multi-gym pass app, corporate fitness pass"
+                          placeholderTextColor="#9CA3AF"
+                          value={previousPlatformName}
+                          onChangeText={setPreviousPlatformName}
+                        />
+                      </View>
+                    )}
                   </Pressable>
                 );
               })}
@@ -353,6 +411,22 @@ export default function EligibilityScreen() {
                   <Text style={styles.selectedSummaryDesc}>
                     {selectedOption.description}
                   </Text>
+                  {selectedOption.id === "other_gym" && previousGymName.trim().length > 0 && (
+                    <View style={styles.selectedExtraTag}>
+                      <Ionicons name="barbell-outline" size={14} color="#16A34A" />
+                      <Text style={styles.selectedExtraTagText}>
+                        Previous Gym: {previousGymName.trim()}
+                      </Text>
+                    </View>
+                  )}
+                  {selectedOption.id === "other_platform" && previousPlatformName.trim().length > 0 && (
+                    <View style={styles.selectedExtraTag}>
+                      <Ionicons name="apps-outline" size={14} color="#16A34A" />
+                      <Text style={styles.selectedExtraTagText}>
+                        Previous Pass / Network: {previousPlatformName.trim()}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               </View>
             </View>
@@ -391,8 +465,9 @@ export default function EligibilityScreen() {
                   {check3 && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
                 </View>
                 <Text style={styles.checkboxItemText}>
-                  I understand that if my information is found to be incorrect, my membership may be
-                  affected and any refund will be subject to the Refund Policy.
+                  I understand that if incorrect information is found regarding my membership status
+                  and I have been a member of this particular ZonoFit partner gym, only 50% of the
+                  amount will be refunded within 3 to 5 business days.
                 </Text>
               </Pressable>
             </View>
@@ -404,11 +479,9 @@ export default function EligibilityScreen() {
                 <Text style={styles.redWarningTitle}>What if I don't meet the criteria?</Text>
               </View>
               <Text style={styles.redWarningText}>
-                Your eligibility may be verified with the gym. If you are found to be ineligible
-                after purchase, your membership may be cancelled or restricted.
-              </Text>
-              <Text style={[styles.redWarningText, { marginTop: 6 }]}>
-                Any applicable refund will be calculated according to ZonoFit's Refund Policy.
+                Your eligibility may be verified with the gym. If incorrect information is found
+                regarding your membership status and you have been a member of this ZonoFit partner
+                gym, only 50% of the amount will be refunded within 3 to 5 business days.
               </Text>
 
               <Pressable
@@ -540,16 +613,15 @@ export default function EligibilityScreen() {
 
               <Text style={styles.modalSectionTitle}>2. Ineligibility & Cancellation</Text>
               <Text style={styles.modalText}>
-                If a user is found to hold an active traditional membership or does not meet the
-                selected eligibility criteria (e.g. was an active member within the last 12 months),
-                the membership will be adjusted or refunded subject to partner validation.
+                If incorrect information is found regarding your membership status and you have been
+                an active or previous member of that particular ZonoFit partner gym, the membership
+                will be cancelled and only 50% of the amount will be refunded within 3 to 5 business days.
               </Text>
 
               <Text style={styles.modalSectionTitle}>3. Processing Refunds</Text>
               <Text style={styles.modalText}>
-                Refunds for verified ineligible sign-ups will be credited back to the original
-                payment method or credit wallet in accordance with standard settlement timelines
-                (typically 3–5 business days).
+                Refunds for verified ineligible sign-ups (50% refundable amount) will be credited back
+                to the original payment method within 3 to 5 business days.
               </Text>
             </ScrollView>
 
@@ -932,6 +1004,31 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
 
+  // Inline input for other gym & platform
+  inlineInputBox: {
+    marginTop: 12,
+    marginLeft: 36,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#DCFCE7",
+  },
+  inlineInputLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#166534",
+    marginBottom: 6,
+  },
+  inlineTextInput: {
+    height: 44,
+    borderWidth: 1.5,
+    borderColor: "#A7F3D0",
+    borderRadius: 10,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 12,
+    fontSize: 13.5,
+    color: "#111827",
+  },
+
   // Contact Gym Box
   contactGymBox: {
     backgroundColor: "#FFFBEB",
@@ -1015,6 +1112,22 @@ const styles = StyleSheet.create({
     color: "#4B5563",
     marginTop: 2,
     lineHeight: 18,
+  },
+  selectedExtraTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#DCFCE7",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    marginTop: 8,
+    alignSelf: "flex-start",
+    gap: 5,
+  },
+  selectedExtraTagText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#166534",
   },
 
   // Responsibility Section

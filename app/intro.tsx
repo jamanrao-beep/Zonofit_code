@@ -725,15 +725,16 @@ const styles = StyleSheet.create({
   slide: {
     flex: 1,
     paddingHorizontal: 24,
-    justifyContent: "space-between",
-    paddingTop: 20,
-    paddingBottom: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingBottom: 24,
   },
   illContainer: {
-    height: 310,
+    height: 280,
     justifyContent: "center",
     alignItems: "center",
     position: "relative",
+    marginBottom: 16,
   },
   ambientGlow: {
     position: "absolute",
@@ -989,7 +990,7 @@ const styles = StyleSheet.create({
   checklistGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    marginTop: 18,
+    marginTop: 12,
     gap: 10,
     justifyContent: "center",
   },
@@ -1065,7 +1066,7 @@ const styles = StyleSheet.create({
   textBlock: {
     alignItems: "center",
     paddingHorizontal: 12,
-    marginTop: 10,
+    marginTop: 0,
   },
   headline: {
     fontSize: 27,
@@ -1095,7 +1096,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 6,
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 16,
   },
   dot: {
     height: 6,

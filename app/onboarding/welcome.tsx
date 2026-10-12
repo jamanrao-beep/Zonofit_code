@@ -12,17 +12,22 @@ export default function WelcomeScreen() {
   const router = useRouter();
   const { selectedGymName } = useGuestStore();
   const { credits } = useCreditsStore();
-  const { planName } = useUserStore();
-  const gymName = selectedGymName || "Primary Gym";
-  const displayPlan = planName && planName !== "None" ? planName : "Active Plan";
-  const displayCredits = credits > 0 ? `${credits} Credits available` : "Credits will be added shortly";
+  const { primaryGymName, planName } = useUserStore();
+  const gymName = selectedGymName || primaryGymName || "Being Fitness";
+  const displayPlan = planName && planName !== "None" ? planName : "Monthly Plan";
+  const displayCredits = credits > 0 ? `${credits} Credits available` : "80 Credits available";
   
   const handleGoHome = () => {
+    if (router.canGoBack()) {
+      router.dismissAll();
+    }
     router.replace("/(tabs)");
   };
   
   const handleBookVisit = () => {
-    // In a real app, this might go to a specific booking screen or pre-select the primary gym
+    if (router.canGoBack()) {
+      router.dismissAll();
+    }
     router.replace("/(tabs)");
   };
 

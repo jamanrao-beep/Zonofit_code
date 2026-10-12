@@ -1,23 +1,45 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView, StatusBar, Alert } from "react-native";
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  Pressable, 
+  ScrollView, 
+  StatusBar, 
+  Alert, 
+  Switch, 
+  Image,
+  ActivityIndicator 
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useGuestStore } from "@/store/useGuestStore";
 import { useAddressStore } from "@/store/useAddressStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
+import { useUserStore } from "@/store/useUserStore";
 import DeliveryAddressModal from "@/components/DeliveryAddressModal";
 
 export default function OrderSummaryScreen() {
   const router = useRouter();
-  const { completeOnboarding, loading, token } = useAuthStore();
-  const { selectedGymName } = useGuestStore();
-  const { inrWallet, fetchWallet } = useCreditsStore();
+  const params = useLocalSearchParams<{ 
+    mode?: string; 
+    isFirstTime?: string;
+    gymName?: string;
+    gymId?: string;
+  }>();
+
+  const { completeOnboarding, loading, token, user, isOnboarded } = useAuthStore();
+  const { selectedGymName, selectedGymId } = useGuestStore();
+  const { primaryGymName } = useUserStore();
+  const { credits, inrWallet, membershipInfo, fetchWallet } = useCreditsStore();
   const { getSelectedAddress } = useAddressStore();
   const selectedAddress = getSelectedAddress();
 
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  const [useCredits, setUseCredits] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     if (token) {
@@ -25,12 +47,37 @@ export default function OrderSummaryScreen() {
     }
   }, [token]);
 
-  const basePrice = 3999;
-  const gst = 420;
-  const subtotalWithGst = basePrice + gst;
-  const hasInrWallet = !!(inrWallet && inrWallet.isValid && inrWallet.balanceINR > 0);
-  const walletDeduction = hasInrWallet ? Math.min(inrWallet!.balanceINR, subtotalWithGst) : 0;
-  const payableAmount = Math.max(0, subtotalWithGst - walletDeduction);
+  // Determine if the user is purchasing for the first time or repurchasing
+  const isExplicitRepurchase = params.mode === "repurchase";
+  const isExplicitPurchase = params.mode === "purchase" || params.isFirstTime === "true";
+  const isRepurchaseMode = isExplicitRepurchase || (!isExplicitPurchase && Boolean(isOnboarded && user?.isOnboarded));
+  const isFirstTime = !isRepurchaseMode;
+
+  // Gym display details
+  const displayGymName = params.gymName || primaryGymName || user?.primaryGym || selectedGymName || "Being Fitness";
+  const gymInitial = displayGymName.trim().charAt(0).toUpperCase() || "B";
+  const gymLocation = selectedAddress?.city ? `${selectedAddress.city} • 1.2 km` : "Udaipur • 1.2 km";
+
+  // Financial values matching the spec
+  const membershipTotal = 3000;
+  const mandatoryVisitsCost = 1200;
+  const mandatoryVisitsCount = 10;
+  const mandatoryVisitPerUnit = 120;
+  const walletCreditsValue = 1800;
+  const walletCreditsCount = 180;
+
+  // Previous credits calculation
+  // First-time users have 0 previous credits
+  // Repurchase users can apply their available credits with 20% conversion cut (₹8/credit)
+  const availableCredits = isFirstTime 
+    ? 0 
+    : (credits > 0 ? credits : (inrWallet ? Math.round(inrWallet.balanceINR / 8) : 28));
+  
+  // 1 credit = ₹10, after 20% cut = ₹8 per credit
+  // e.g. 28 credits * ₹10 * 0.8 = ₹224
+  const creditDiscountINR = Math.round(availableCredits * 10 * 0.8);
+  const effectiveCreditDeduction = (!isFirstTime && useCredits && availableCredits > 0) ? creditDiscountINR : 0;
+  const finalPayableAmount = Math.max(0, membershipTotal - effectiveCreditDeduction);
 
   const handleProceed = async () => {
     if (!selectedAddress) {
@@ -45,15 +92,53 @@ export default function OrderSummaryScreen() {
       return;
     }
 
-    // Navigate to the 3-step Eligibility Verification flow before payment
-    router.push("/onboarding/eligibility" as any);
+    if (isFirstTime) {
+      // First-time registration flow: Proceed to Eligibility Verification
+      router.push("/onboarding/eligibility" as any);
+    } else {
+      // Repurchase flow: Direct confirmation & activation
+      setIsProcessing(true);
+      try {
+        Alert.alert(
+          "Confirm Repurchase",
+          `Proceed to pay ₹${finalPayableAmount.toLocaleString("en-IN")} for your Monthly Membership at ${displayGymName}?`,
+          [
+            { text: "Cancel", style: "cancel", onPress: () => setIsProcessing(false) },
+            {
+              text: "Proceed",
+              onPress: async () => {
+                try {
+                  const city = selectedAddress?.city || "Udaipur";
+                  const gymId = params.gymId || selectedGymId || "g1";
+                  await completeOnboarding(city, gymId, "Monthly");
+                  if (token) {
+                    await fetchWallet(token);
+                  }
+                  Alert.alert(
+                    "Membership Repurchased!",
+                    `Your monthly membership at ${displayGymName} has been activated. 10 mandatory visits and 180 wallet credits are ready.`,
+                    [{ text: "Go to Home", onPress: () => router.replace("/(tabs)") }]
+                  );
+                } catch (e) {
+                  Alert.alert("Repurchase Error", "Could not complete repurchase. Please try again.");
+                } finally {
+                  setIsProcessing(false);
+                }
+              }
+            }
+          ]
+        );
+      } catch (err) {
+        setIsProcessing(false);
+      }
+    }
   };
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <StatusBar barStyle="dark-content" />
-      
-      {/* Header */}
+
+      {/* Header with Dynamic Title based on First-Time Purchase vs Repurchase */}
       <View style={styles.header}>
         <Pressable 
           onPress={() => {
@@ -64,164 +149,292 @@ export default function OrderSummaryScreen() {
             }
           }} 
           style={styles.backButton}
+          hitSlop={10}
         >
-          <Ionicons name="chevron-back" size={24} color="#111827" />
+          <Ionicons name="arrow-back" size={22} color="#111827" />
         </Pressable>
-        <Text style={styles.headerTitle}>Order Summary</Text>
-        <View style={{ width: 40 }} />
+        <View style={styles.headerTextContainer}>
+          <Text style={styles.headerTitle}>
+            {isFirstTime ? "Purchase Membership" : "Repurchase Membership"}
+          </Text>
+          <Text style={styles.headerSubtitle}>
+            {isFirstTime 
+              ? "Your gym. Your routine. Start your journey." 
+              : "Your gym. Your routine. Keep going."}
+          </Text>
+        </View>
+        <View style={{ width: 36 }} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-        
-        {/* Selections */}
-        <View style={styles.card}>
-          <View style={styles.row}>
-            <View>
-              <Text style={styles.label}>Primary Gym</Text>
-              <Text style={styles.value}>{selectedGymName || "Selected Primary Gym"}</Text>
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* Gym Card (Clean Card with Primary Gym Name - No Image Banner) */}
+        <View style={styles.gymCard}>
+          <View style={styles.gymInfoRow}>
+            <View style={styles.gymMonogram}>
+              <Text style={styles.gymMonogramText}>{gymInitial}</Text>
             </View>
-            <Pressable onPress={() => router.back()}>
-              <Text style={styles.editText}>Edit</Text>
-            </Pressable>
-          </View>
-          
-          <View style={styles.divider} />
-          
-          <View style={styles.row}>
-            <View>
-              <Text style={styles.label}>Plan</Text>
-              <Text style={styles.value}>Quarterly - 3 Months</Text>
+
+            <View style={styles.gymTextDetails}>
+              <View style={styles.gymNameRow}>
+                <Text style={styles.gymNameText} numberOfLines={1}>
+                  {displayGymName}
+                </Text>
+                <Ionicons 
+                  name="checkmark-circle" 
+                  size={16} 
+                  color="#16A34A" 
+                  style={{ marginLeft: 4 }} 
+                />
+              </View>
+              <Text style={styles.gymLocationText}>
+                📍 {gymLocation}
+              </Text>
             </View>
-            <Pressable onPress={() => Alert.alert("Membership Plan", "You are enrolled in the Quarterly 3-Month Plan with network gym access. You can modify your plan preferences in Settings after activation.")}>
-              <Text style={styles.editText}>Edit</Text>
-            </Pressable>
+
+            <View style={styles.primaryBadge}>
+              <Text style={styles.primaryBadgeText}>Your Primary Gym</Text>
+            </View>
           </View>
         </View>
 
-        {/* Delivery Address Section */}
-        <View style={styles.card}>
-          <View style={styles.row}>
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <Ionicons name="location-sharp" size={18} color="#1F7A3E" style={{ marginRight: 6 }} />
-              <Text style={styles.sectionHeaderTitle}>Delivery & Billing Address</Text>
+        {/* Plan Header Card */}
+        <View style={styles.planCard}>
+          <View style={styles.planHeaderRow}>
+            <View>
+              <Text style={styles.planTitle}>Monthly Membership</Text>
+              <Text style={styles.planPrice}>₹3,000</Text>
             </View>
-            <Pressable onPress={() => setIsAddressModalOpen(true)}>
-              <Text style={styles.editText}>{selectedAddress ? "Change" : "+ Add"}</Text>
-            </Pressable>
+            <View style={styles.durationBadge}>
+              <Text style={styles.durationBadgeText}>1 Month</Text>
+            </View>
           </View>
+          <Text style={styles.planSubtitle}>
+            {isFirstTime 
+              ? "Your gym. Your progress. Start your fitness experience." 
+              : "Your gym. Your progress. Same great experience."}
+          </Text>
+        </View>
+
+        {/* Breakdown Section: Mandatory Visits + Wallet Credits */}
+        <View style={styles.breakdownSection}>
+          <Text style={styles.sectionTitle}>How your membership breaks down</Text>
+
+          <View style={styles.breakdownCard}>
+            {/* Mandatory Visits Row */}
+            <View style={styles.breakdownRow}>
+              <View style={styles.iconBox}>
+                <Ionicons name="calendar-outline" size={20} color="#166534" />
+              </View>
+              <View style={styles.breakdownDetails}>
+                <Text style={styles.breakdownItemTitle}>Mandatory Visits</Text>
+                <Text style={styles.breakdownItemSub}>
+                  {mandatoryVisitsCount} visits (per month)
+                </Text>
+              </View>
+              <View style={styles.breakdownPriceCol}>
+                <Text style={styles.breakdownItemPrice}>
+                  ₹{mandatoryVisitsCost.toLocaleString("en-IN")}
+                </Text>
+                <Text style={styles.breakdownPriceSub}>
+                  (₹{mandatoryVisitPerUnit} per visit)
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.divider} />
+
+            {/* Wallet Credits Row */}
+            <View style={styles.breakdownRow}>
+              <View style={styles.iconBox}>
+                <Ionicons name="wallet-outline" size={20} color="#166534" />
+              </View>
+              <View style={styles.breakdownDetails}>
+                <Text style={styles.breakdownItemTitle}>Wallet Credits</Text>
+                <Text style={styles.breakdownItemSub}>
+                  {walletCreditsCount} credits (added to your wallet)
+                </Text>
+              </View>
+              <View style={styles.breakdownPriceCol}>
+                <Text style={styles.breakdownItemPrice}>
+                  ₹{walletCreditsValue.toLocaleString("en-IN")}
+                </Text>
+                <Text style={styles.breakdownPriceSub}>(₹10 per credit)</Text>
+              </View>
+            </View>
+
+            <View style={styles.divider} />
+
+            {/* Total Value Row */}
+            <View style={styles.totalValueRow}>
+              <Text style={styles.totalValueLabel}>Total Membership Value</Text>
+              <Text style={styles.totalValueAmount}>
+                ₹{membershipTotal.toLocaleString("en-IN")}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* 
+          ========================================================================
+          "USE YOUR PREVIOUS CREDITS" SECTION:
+          Only visible when repurchasing and the user actually has unused credits!
+          Hidden for first-time registration because a new user has 0 previous credits.
+          ========================================================================
+        */}
+        {!isFirstTime && availableCredits > 0 && (
+          <View style={styles.previousCreditsCard}>
+            <View style={styles.previousCreditsHeaderRow}>
+              <View style={styles.creditsIconBox}>
+                <Ionicons name="wallet-outline" size={20} color="#166534" />
+              </View>
+              <View style={styles.previousCreditsTextCol}>
+                <Text style={styles.previousCreditsTitle}>Use your previous credits</Text>
+                <Text style={styles.previousCreditsSub}>
+                  Apply your existing wallet credits to reduce the amount you need to pay.
+                </Text>
+              </View>
+              <Switch
+                value={useCredits}
+                onValueChange={setUseCredits}
+                trackColor={{ false: "#E5E7EB", true: "#1F7A3E" }}
+                thumbColor="#FFFFFF"
+                ios_backgroundColor="#E5E7EB"
+              />
+            </View>
+
+            {useCredits && (
+              <View style={styles.creditsSubCard}>
+                <View style={styles.creditsSubCol}>
+                  <Text style={styles.creditsSubLabel}>Available Credits</Text>
+                  <Text style={styles.creditsSubValue}>{availableCredits} credits</Text>
+                </View>
+
+                <View style={styles.creditsVerticalDivider} />
+
+                <View style={styles.creditsSubCol}>
+                  <Text style={styles.creditsSubLabel}>Credit Value (after 20% cut)</Text>
+                  <Text style={styles.creditsSubValue}>₹{creditDiscountINR}</Text>
+                  <Text style={styles.creditsFormulaText}>
+                    ({availableCredits} × ₹10 × 80%)
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Pricing Summary Calculation */}
+        <View style={styles.pricingSummaryCard}>
+          <View style={styles.priceRow}>
+            <Text style={styles.priceRowLabel}>Membership Total</Text>
+            <Text style={styles.priceRowValue}>₹{membershipTotal.toLocaleString("en-IN")}</Text>
+          </View>
+
+          {!isFirstTime && effectiveCreditDeduction > 0 && (
+            <View style={styles.priceRow}>
+              <Text style={styles.creditDeductionLabel}>Less: Credit Amount</Text>
+              <Text style={styles.creditDeductionValue}>
+                - ₹{effectiveCreditDeduction.toLocaleString("en-IN")}
+              </Text>
+            </View>
+          )}
 
           <View style={styles.divider} />
 
+          <View style={styles.payNowRow}>
+            <Text style={styles.payNowLabel}>You Pay Now</Text>
+            <Text style={styles.payNowAmount}>
+              ₹{finalPayableAmount.toLocaleString("en-IN")}
+            </Text>
+          </View>
+        </View>
+
+        {/* Info Note Callout */}
+        <View style={styles.infoCallout}>
+          <Ionicons 
+            name="information-circle-outline" 
+            size={18} 
+            color="#6B7280" 
+            style={{ marginRight: 8, marginTop: 1 }} 
+          />
+          <Text style={styles.infoCalloutText}>
+            {isFirstTime
+              ? "Mandatory visits and wallet credits are separate benefits. 10 mandatory visits and 180 wallet credits will be credited to your account upon purchase."
+              : "Mandatory visits and wallet credits are separate benefits. Using credits only reduces your payable amount. Your 10 mandatory visits will still be added to your account."}
+          </Text>
+        </View>
+
+        {/* Delivery & Billing Address Card */}
+        <View style={styles.addressCard}>
+          <View style={styles.addressHeaderRow}>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Ionicons name="location-sharp" size={17} color="#1F7A3E" style={{ marginRight: 6 }} />
+              <Text style={styles.addressSectionTitle}>Delivery & Billing Address</Text>
+            </View>
+            <Pressable onPress={() => setIsAddressModalOpen(true)} hitSlop={8}>
+              <Text style={styles.addressActionText}>
+                {selectedAddress ? "Change" : "+ Add"}
+              </Text>
+            </Pressable>
+          </View>
+
           {selectedAddress ? (
-            <View>
-              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
-                <Text style={styles.addressName}>{selectedAddress.fullName}</Text>
+            <View style={styles.selectedAddressContainer}>
+              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 3 }}>
+                <Text style={styles.addressNameText}>{selectedAddress.fullName}</Text>
                 <View style={styles.defaultBadge}>
                   <Text style={styles.defaultBadgeText}>Default</Text>
                 </View>
               </View>
-              <Text style={styles.addressPhone}>+91 {selectedAddress.phoneNumber}</Text>
-              <Text style={styles.addressText}>
+              <Text style={styles.addressPhoneText}>+91 {selectedAddress.phoneNumber}</Text>
+              <Text style={styles.addressBodyText}>
                 {selectedAddress.flatHouse}, {selectedAddress.areaStreet}
               </Text>
               {selectedAddress.landmark ? (
-                <Text style={styles.addressLandmark}>Landmark: {selectedAddress.landmark}</Text>
+                <Text style={styles.addressLandmarkText}>
+                  Landmark: {selectedAddress.landmark}
+                </Text>
               ) : null}
-              <Text style={styles.addressLocation}>
+              <Text style={styles.addressCityText}>
                 {selectedAddress.city}, {selectedAddress.state} - {selectedAddress.pincode}
               </Text>
-
-              {selectedAddress.deliveryInstructions?.instructionsText ? (
-                <View style={styles.instructionsBadge}>
-                  <Ionicons name="information-circle-outline" size={14} color="#065F46" />
-                  <Text style={styles.instructionsBadgeText} numberOfLines={1}>
-                    {selectedAddress.deliveryInstructions.instructionsText}
-                  </Text>
-                </View>
-              ) : null}
             </View>
           ) : (
             <Pressable
-              style={styles.addAddressPrompt}
+              style={styles.addAddressBox}
               onPress={() => setIsAddressModalOpen(true)}
             >
-              <Ionicons name="add-circle-outline" size={24} color="#1F7A3E" />
+              <Ionicons name="add-circle-outline" size={20} color="#1F7A3E" />
               <Text style={styles.addAddressPromptText}>Add your delivery address</Text>
             </Pressable>
           )}
         </View>
-
-        {/* Pricing */}
-        <View style={styles.card}>
-          <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>Subtotal</Text>
-            <Text style={styles.priceValue}>₹{basePrice.toLocaleString("en-IN")}</Text>
-          </View>
-          <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>GST (18%)</Text>
-            <Text style={styles.priceValue}>₹{gst.toLocaleString("en-IN")}</Text>
-          </View>
-
-          {hasInrWallet && walletDeduction > 0 && (
-            <View style={styles.priceRow}>
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <Ionicons name="wallet-outline" size={15} color="#1F7A3E" style={{ marginRight: 6 }} />
-                <Text style={[styles.priceLabel, { color: "#1F7A3E", fontWeight: "600" }]}>INR Wallet Auto-Deduction</Text>
-              </View>
-              <Text style={[styles.priceValue, { color: "#1F7A3E", fontWeight: "700" }]}>
-                -₹{walletDeduction.toLocaleString("en-IN")}
-              </Text>
-            </View>
-          )}
-          
-          <View style={styles.divider} />
-          
-          <View style={styles.priceRow}>
-            <Text style={styles.totalLabel}>Amount Payable</Text>
-            <Text style={styles.totalValue}>₹{payableAmount.toLocaleString("en-IN")}</Text>
-          </View>
-
-          {hasInrWallet && walletDeduction > 0 && (
-            <View style={{ marginTop: 10, padding: 8, backgroundColor: "#E8F5E9", borderRadius: 8, flexDirection: "row", alignItems: "center" }}>
-              <Ionicons name="sparkles" size={14} color="#1F7A3E" />
-              <Text style={{ fontSize: 11, color: "#1F7A3E", fontWeight: "600", marginLeft: 6, flex: 1 }}>
-                ₹{walletDeduction} automatically applied from your temporary INR wallet (no toggle needed).
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* Included benefits */}
-        <View style={styles.benefitsContainer}>
-          <Text style={styles.benefitsTitle}>Included with your membership:</Text>
-          
-          <View style={styles.benefitRow}>
-            <Ionicons name="checkmark-circle" size={20} color="#1F7A3E" />
-            <Text style={styles.benefitText}>Multiple check-ins</Text>
-          </View>
-          
-          <View style={styles.benefitRow}>
-            <Ionicons name="checkmark-circle" size={20} color="#1F7A3E" />
-            <Text style={styles.benefitText}>Partner gym access</Text>
-          </View>
-          
-          <View style={styles.benefitRow}>
-            <Ionicons name="checkmark-circle" size={20} color="#1F7A3E" />
-            <Text style={styles.benefitText}>Flexible cancellations</Text>
-          </View>
-        </View>
-
       </ScrollView>
 
-      {/* Footer */}
-      <View style={styles.footer}>
+      {/* Bottom Sticky Action Footer */}
+      <View style={styles.bottomFooter}>
         <Pressable 
-          style={[styles.primaryButton, loading && styles.primaryButtonDisabled]} 
+          style={[styles.proceedButton, (loading || isProcessing) && styles.proceedButtonDisabled]} 
           onPress={handleProceed}
-          disabled={loading}
+          disabled={loading || isProcessing}
         >
-          <Text style={styles.primaryButtonText}>{loading ? "Processing..." : "Proceed to Payment"}</Text>
+          {loading || isProcessing ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <View style={styles.proceedButtonContent}>
+              <Text style={styles.proceedButtonText}>Proceed to Pay</Text>
+              <Ionicons name="arrow-forward" size={18} color="#FFFFFF" style={{ marginLeft: 6 }} />
+            </View>
+          )}
         </Pressable>
+
+        <View style={styles.securityRow}>
+          <Ionicons name="lock-closed" size={12} color="#6B7280" />
+          <Text style={styles.securityText}>Secure & 5% GST included</Text>
+        </View>
       </View>
 
       {/* Delivery Address Modal */}
@@ -237,125 +450,402 @@ export default function OrderSummaryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: "#F8FAF8",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 24,
-    height: 56,
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 12,
     backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
     borderColor: "#F3F4F6",
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: "center",
-    marginLeft: -8,
+    alignItems: "center",
+  },
+  headerTextContainer: {
+    alignItems: "center",
+    flex: 1,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: "700",
+    fontSize: 17,
+    fontWeight: "800",
     color: "#111827",
+    letterSpacing: -0.3,
   },
-  content: {
-    padding: 24,
+  headerSubtitle: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginTop: 2,
+    fontWeight: "500",
   },
-  card: {
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 32,
+  },
+  gymCard: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
+    borderRadius: 20,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: "#E5E7EB",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.04,
     shadowRadius: 8,
     elevation: 2,
+    padding: 16,
   },
-  row: {
+  primaryBadge: {
+    backgroundColor: "#ECFDF5",
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#A7F3D0",
+  },
+  primaryBadgeText: {
+    fontSize: 10.5,
+    fontWeight: "700",
+    color: "#166534",
+  },
+  gymInfoRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
   },
-  label: {
-    fontSize: 13,
+  gymMonogram: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#1F7A3E",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  gymMonogramText: {
+    color: "#FFFFFF",
+    fontSize: 20,
+    fontWeight: "900",
+  },
+  gymTextDetails: {
+    flex: 1,
+  },
+  gymNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  gymNameText: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#111827",
+  },
+  gymLocationText: {
+    fontSize: 12.5,
     color: "#6B7280",
-    marginBottom: 4,
+    marginTop: 2,
     fontWeight: "500",
   },
-  value: {
-    fontSize: 16,
+  planCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  planHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  planTitle: {
+    fontSize: 14,
     fontWeight: "700",
     color: "#111827",
   },
-  editText: {
+  planPrice: {
+    fontSize: 28,
+    fontWeight: "900",
+    color: "#111827",
+    letterSpacing: -0.5,
+    marginTop: 2,
+  },
+  durationBadge: {
+    backgroundColor: "#F0FDF4",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#DCFCE7",
+  },
+  durationBadgeText: {
+    fontSize: 11.5,
+    fontWeight: "800",
+    color: "#166534",
+  },
+  planSubtitle: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginTop: 8,
+    fontWeight: "500",
+  },
+  breakdownSection: {
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#111827",
+    marginBottom: 10,
+    letterSpacing: -0.2,
+  },
+  breakdownCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  breakdownRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 4,
+  },
+  iconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: "#F0FDF4",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: "#DCFCE7",
+  },
+  breakdownDetails: {
+    flex: 1,
+  },
+  breakdownItemTitle: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#1F7A3E",
+    color: "#111827",
+  },
+  breakdownItemSub: {
+    fontSize: 11.5,
+    color: "#6B7280",
+    marginTop: 2,
+    fontWeight: "500",
+  },
+  breakdownPriceCol: {
+    alignItems: "flex-end",
+  },
+  breakdownItemPrice: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#111827",
+  },
+  breakdownPriceSub: {
+    fontSize: 11,
+    color: "#6B7280",
+    marginTop: 2,
+    fontWeight: "500",
   },
   divider: {
     height: 1,
     backgroundColor: "#F3F4F6",
-    marginVertical: 16,
+    marginVertical: 12,
+  },
+  totalValueRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingTop: 2,
+  },
+  totalValueLabel: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  totalValueAmount: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#111827",
+  },
+  previousCreditsCard: {
+    backgroundColor: "#F0FDF4",
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1.5,
+    borderColor: "#22C55E",
+  },
+  previousCreditsHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  creditsIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: "#DCFCE7",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  previousCreditsTextCol: {
+    flex: 1,
+    paddingRight: 8,
+  },
+  previousCreditsTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#111827",
+  },
+  previousCreditsSub: {
+    fontSize: 11,
+    color: "#4B5563",
+    marginTop: 2,
+    lineHeight: 15,
+  },
+  creditsSubCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    padding: 12,
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#DCFCE7",
+  },
+  creditsSubCol: {
+    flex: 1,
+  },
+  creditsSubLabel: {
+    fontSize: 11,
+    color: "#6B7280",
+    fontWeight: "600",
+  },
+  creditsSubValue: {
+    fontSize: 15,
+    fontWeight: "900",
+    color: "#111827",
+    marginTop: 3,
+  },
+  creditsFormulaText: {
+    fontSize: 10,
+    color: "#9CA3AF",
+    marginTop: 2,
+  },
+  creditsVerticalDivider: {
+    width: 1,
+    height: 36,
+    backgroundColor: "#E5E7EB",
+    marginHorizontal: 10,
+  },
+  pricingSummaryCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
   },
   priceRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 8,
   },
-  priceLabel: {
-    fontSize: 15,
-    color: "#4B5563",
-    fontWeight: "500",
-  },
-  priceValue: {
-    fontSize: 15,
-    color: "#111827",
+  priceRowLabel: {
+    fontSize: 14,
+    color: "#6B7280",
     fontWeight: "600",
   },
-  totalLabel: {
-    fontSize: 18,
-    fontWeight: "800",
+  priceRowValue: {
+    fontSize: 14,
     color: "#111827",
-  },
-  totalValue: {
-    fontSize: 24,
-    fontWeight: "800",
-    color: "#1F7A3E",
-  },
-  benefitsContainer: {
-    paddingHorizontal: 8,
-  },
-  benefitsTitle: {
-    fontSize: 16,
     fontWeight: "700",
+  },
+  creditDeductionLabel: {
+    fontSize: 14,
+    color: "#374151",
+    fontWeight: "600",
+  },
+  creditDeductionValue: {
+    fontSize: 14,
+    color: "#16A34A",
+    fontWeight: "800",
+  },
+  payNowRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingTop: 4,
+  },
+  payNowLabel: {
+    fontSize: 16,
+    fontWeight: "900",
     color: "#111827",
+  },
+  payNowAmount: {
+    fontSize: 24,
+    fontWeight: "900",
+    color: "#166534",
+    letterSpacing: -0.3,
+  },
+  infoCallout: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: "#F3F4F6",
+    borderRadius: 14,
+    padding: 12,
     marginBottom: 16,
   },
-  benefitRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  benefitText: {
-    fontSize: 15,
+  infoCalloutText: {
+    flex: 1,
+    fontSize: 11.5,
     color: "#4B5563",
-    marginLeft: 12,
+    lineHeight: 16,
     fontWeight: "500",
   },
-  sectionHeaderTitle: {
-    fontSize: 15,
-    fontWeight: "700",
+  addressCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  addressHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  addressSectionTitle: {
+    fontSize: 14,
+    fontWeight: "800",
     color: "#111827",
   },
-  addressName: {
-    fontSize: 15,
+  addressActionText: {
+    fontSize: 13,
     fontWeight: "700",
+    color: "#1F7A3E",
+  },
+  selectedAddressContainer: {
+    paddingTop: 4,
+  },
+  addressNameText: {
+    fontSize: 14,
+    fontWeight: "800",
     color: "#111827",
     marginRight: 8,
   },
@@ -369,55 +859,37 @@ const styles = StyleSheet.create({
   },
   defaultBadgeText: {
     fontSize: 10,
-    fontWeight: "700",
+    fontWeight: "800",
     color: "#16A34A",
   },
-  addressPhone: {
-    fontSize: 13,
+  addressPhoneText: {
+    fontSize: 12,
     fontWeight: "600",
     color: "#4B5563",
     marginTop: 2,
-    marginBottom: 4,
+    marginBottom: 3,
   },
-  addressText: {
-    fontSize: 14,
-    color: "#374151",
-    lineHeight: 20,
-  },
-  addressLandmark: {
+  addressBodyText: {
     fontSize: 13,
+    color: "#374151",
+    lineHeight: 18,
+  },
+  addressLandmarkText: {
+    fontSize: 12,
     color: "#6B7280",
     marginTop: 2,
   },
-  addressLocation: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#1F2937",
-    marginTop: 4,
-  },
-  instructionsBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F0FDF4",
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 8,
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: "#BBF7D0",
-  },
-  instructionsBadgeText: {
+  addressCityText: {
     fontSize: 12,
-    color: "#166534",
-    fontWeight: "500",
-    marginLeft: 6,
-    flex: 1,
+    fontWeight: "700",
+    color: "#1F2937",
+    marginTop: 3,
   },
-  addAddressPrompt: {
+  addAddressBox: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderWidth: 1,
     borderColor: "#D1D5DB",
     borderStyle: "dashed",
@@ -425,31 +897,55 @@ const styles = StyleSheet.create({
     backgroundColor: "#F9FAFB",
   },
   addAddressPromptText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "700",
     color: "#1F7A3E",
-    marginLeft: 8,
+    marginLeft: 6,
   },
-  footer: {
-    padding: 24,
+  bottomFooter: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 8,
     backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
     borderColor: "#F3F4F6",
   },
-  primaryButton: {
-    height: 56,
-    backgroundColor: "#1F7A3E",
-    borderRadius: 16,
+  proceedButton: {
+    height: 52,
+    backgroundColor: "#166534",
+    borderRadius: 26,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#166534",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  proceedButtonDisabled: {
+    opacity: 0.6,
+  },
+  proceedButtonContent: {
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
   },
-  primaryButtonDisabled: {
-    opacity: 0.5,
-  },
-  primaryButtonText: {
+  proceedButtonText: {
     fontSize: 16,
-    fontWeight: "700",
+    fontWeight: "800",
     color: "#FFFFFF",
+    letterSpacing: -0.2,
+  },
+  securityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 8,
+    gap: 4,
+  },
+  securityText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#6B7280",
   },
 });
-
