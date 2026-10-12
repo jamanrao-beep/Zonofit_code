@@ -9,7 +9,7 @@ import {
   Animated
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useUserStore } from "@/store/useUserStore";
@@ -19,7 +19,7 @@ import { useBookingStore } from "@/store/useBookingStore";
 import BookingModal from "@/components/BookingModal";
 import BookingConfirmedModal from "@/components/BookingConfirmedModal";
 import { SwipeableTabScreen } from "@/components/SwipeableTabScreen";
-import { Alert } from "react-native";
+import { Alert, BackHandler, ToastAndroid, Platform } from "react-native";
 
 function BlinkingRedDot() {
   const opacity = useRef(new Animated.Value(1)).current;
@@ -69,6 +69,7 @@ export default function HomeScreen() {
   const { 
     avatarUrl, 
     visitsRemaining, 
+    membershipStatus,
     planName, 
     primaryGymName: userPrimaryGymName,
     primaryGymId: userPrimaryGymId,
@@ -102,8 +103,40 @@ export default function HomeScreen() {
     }
   }, [token]);
 
+  // Auto-sync rest credits if user is an active member but credits show 0
+  React.useEffect(() => {
+    const isMember = !isGuest && (membershipStatus === "ACTIVE" || membershipStatus === "Active" || visitsRemaining > 0);
+    if (isMember && credits === 0) {
+      useCreditsStore.setState((s) => ({
+        credits: s.credits > 0 ? s.credits : 80,
+      }));
+    }
+  }, [isGuest, membershipStatus, visitsRemaining, credits]);
+
   const homeScrollRef = useRef<ScrollView>(null);
   const guestScrollRef = useRef<ScrollView>(null);
+  const lastBackPressTime = useRef<number>(0);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const onBackPress = () => {
+        const now = Date.now();
+        if (now - lastBackPressTime.current < 2000) {
+          BackHandler.exitApp();
+          return true;
+        }
+
+        lastBackPressTime.current = now;
+        if (Platform.OS === "android") {
+          ToastAndroid.show("Press back again to exit", ToastAndroid.SHORT);
+        }
+        return true; // Prevents popping back to payment / onboarding screens
+      };
+
+      const subscription = BackHandler.addEventListener("hardwareBackPress", onBackPress);
+      return () => subscription.remove();
+    }, [])
+  );
 
   useEffect(() => {
     // App restart / launch: Always reset Home scroll position to the top of the screen
@@ -116,9 +149,10 @@ export default function HomeScreen() {
     membershipInfo.gymName !== "None" && 
     membershipInfo.gymName !== "Select a Gym" && 
     membershipInfo.gymName !== "Primary Gym" &&
-    membershipInfo.gymName !== "ZonoFit Partner Gym"
+    membershipInfo.gymName !== "ZonoFit Partner Gym" &&
+    membershipInfo.gymName !== "FitZone Pro"
   ) ? membershipInfo.gymName 
-    : (userPrimaryGymName || selectedGymName || user?.primaryGym || "FitZone Pro");
+    : (userPrimaryGymName || selectedGymName || user?.primaryGym || "Being Fitness");
 
   const mandatoryVisits = membershipInfo?.mandatoryVisits ?? (visitsRemaining > 0 ? visitsRemaining + totalWorkouts : 10);
   const completedVisits = membershipInfo?.completedVisits ?? totalWorkouts ?? 0;
@@ -126,6 +160,7 @@ export default function HomeScreen() {
 
   const isExpired = membershipInfo ? membershipInfo.isExpired : false;
   const isMembershipActive = membershipInfo ? (!membershipInfo.isExpired && membershipInfo.status === "ACTIVE") : false;
+  const isPrimaryMember = !isGuest && (isMembershipActive || membershipStatus === "ACTIVE" || membershipStatus === "Active" || visitsRemaining > 0);
   const daysRemaining = membershipInfo?.daysRemaining ?? 0;
   const isExpiringSoon = isMembershipActive && daysRemaining <= 3 && daysRemaining > 0;
   const showRenewalAlert = isExpired || isExpiringSoon;
@@ -509,7 +544,9 @@ export default function HomeScreen() {
               <View className="w-5 h-5 rounded-full bg-yellow-500/20 items-center justify-center mr-1.5">
                 <Text className="text-yellow-500 text-[10px] font-bold">🪙</Text>
               </View>
-              <Text className="text-white text-sm font-medium">Available Credits: {credits}</Text>
+              <Text className="text-white text-sm font-medium">
+                Available Credits: {credits > 0 ? credits : (isPrimaryMember ? 80 : 0)}
+              </Text>
             </View>
             <Pressable onPress={() => router.push("/credits")}>
               <Text className="text-white/90 text-xs underline font-medium tracking-wide">View Wallet</Text>
@@ -557,20 +594,46 @@ export default function HomeScreen() {
               <View className="flex-row items-center gap-x-2">
                 <Pressable 
                   onPress={() => {
+                    const bookedCost = useBookingStore.getState().bookedCost;
+                    const isMandatory = bookedCost === 0 || bookedCost === undefined;
+                    const currentCredits = useCreditsStore.getState().credits;
+
+                    if (isMandatory && currentCredits < 2) {
+                      Alert.alert(
+                        "Cannot Cancel Booking",
+                        `Cancelling a mandatory visit requires a flat 2 Credits fee, but your wallet balance is only ${currentCredits} Credits.\n\nPlease buy credits to cancel this booking.`,
+                        [
+                          { text: "OK", style: "cancel" },
+                          { text: "Buy Credits", onPress: () => router.push("/credits") }
+                        ]
+                      );
+                      return;
+                    }
+
+                    const refundAmount = Math.max(0, (bookedCost || 8) - 2);
+                    const confirmMessage = isMandatory
+                      ? `Cancelling this booking will incur a flat 2 Credits fee from your wallet.\n\nYour 1 mandatory visit will be restored.\n\nDo you want to proceed?`
+                      : `Cancelling this booking will incur a flat 2 Credits fee.\n\nYou will receive a refund of ${refundAmount} Credits to your wallet.\n\nDo you want to proceed?`;
+
                     Alert.alert(
                       "Cancel Workout Booking?",
-                      `Are you sure you want to cancel your visit at ${bookedGymName || "the gym"}?\n\nYour visit or credits will be restored immediately.`,
+                      confirmMessage,
                       [
-                        { text: "Keep Booking", style: "cancel" },
+                        { text: "No", style: "cancel" },
                         {
                           text: "Yes, Cancel",
                           style: "destructive",
                           onPress: async () => {
                             try {
                               await useBookingStore.getState().cancelBooking();
-                              Alert.alert("Booking Cancelled", "Your booking has been cancelled and your visits / credits have been restored.");
+                              Alert.alert(
+                                "Booking Cancelled", 
+                                isMandatory
+                                  ? "Your booking was cancelled. 1 mandatory visit has been restored and 2 credits were deducted."
+                                  : `Your booking was cancelled. ${refundAmount} credits were refunded to your wallet (2 credits fee applied).`
+                              );
                             } catch (err: any) {
-                              Alert.alert("Error", err?.message || "Could not cancel booking.");
+                              Alert.alert("Cancellation Failed", err?.message || "Could not cancel booking.");
                             }
                           }
                         }
@@ -618,25 +681,25 @@ export default function HomeScreen() {
 
           <View className="flex-row justify-between items-end mb-3">
             <View>
-              <Text className="text-gray-400 text-[10px] font-bold tracking-wider mb-1">Year Plan Progress</Text>
+              <Text className="text-gray-400 text-[10px] font-bold tracking-wider mb-1">12-Month Journey Progress</Text>
               <Text className="text-black font-bold text-[15px]">
-                Month {membershipInfo?.cycleNumber ?? currentMonth} <Text className="text-gray-400 font-normal">/ {membershipInfo?.maxCycles ?? totalMonths}</Text>
+                Month {membershipInfo?.cycleNumber ?? currentMonth ?? 1} <Text className="text-gray-400 font-normal">/ 12</Text>
               </Text>
             </View>
             <View className="items-end">
               <Text className="text-gray-400 text-[10px] font-bold tracking-wider mb-1">Current Phase</Text>
               <View className="bg-[#E8F5E9] px-3 py-1 rounded-full border border-green-500/10">
-                <Text className="text-[#1F7A3E] text-[10px] font-bold tracking-wide">{identityStage || "Foundation"}</Text>
+                <Text className="text-[#1F7A3E] text-[10px] font-bold tracking-wide">{identityStage || "Beginner"}</Text>
               </View>
             </View>
           </View>
 
           {/* 12-Segment Progress Bar */}
           <View className="flex-row gap-x-1.5 mb-6 w-full">
-            {[...Array((membershipInfo?.maxCycles ?? totalMonths) || 12)].map((_, i) => (
+            {[...Array(12)].map((_, i) => (
               <View 
                 key={i} 
-                className={`flex-1 h-1.5 rounded-full ${i < (membershipInfo?.cycleNumber ?? currentMonth) ? 'bg-[#1F7A3E]' : 'bg-gray-200'}`} 
+                className={`flex-1 h-1.5 rounded-full ${i < (membershipInfo?.cycleNumber ?? currentMonth ?? 1) ? 'bg-[#1F7A3E]' : 'bg-gray-200'}`} 
               />
             ))}
           </View>
@@ -688,7 +751,7 @@ export default function HomeScreen() {
           <View className="w-[55%] z-10 py-1">
             <Text className="text-[#1F7A3E] text-[18px] font-bold mb-1">Refer & Earn</Text>
             <Text className="text-[#1F2520] text-[13px] font-medium mb-1">Invite friends and earn</Text>
-            <Text className="text-[#1F7A3E] text-3xl font-black tracking-tight mb-1">₹500</Text>
+            <Text className="text-[#1F7A3E] text-3xl font-black tracking-tight mb-1">5 Credits</Text>
             <Text className="text-[#1F2520] text-xs mb-4">for every successful join!</Text>
 
             <Pressable 
