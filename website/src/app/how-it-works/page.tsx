@@ -20,8 +20,8 @@ export default function HowItWorksPage() {
     },
     {
       icon: ScanLine,
-      title: "3. Book & Scan",
-      description: "Found the perfect spot? Book your visit with a tap. When you arrive, just scan the QR code at the front desk to check in.",
+      title: "3. Book & Check In",
+      description: "Found the perfect spot? Book your visit with a tap. When you arrive, just show your digital booking pass at the front desk to check in.",
       color: "bg-purple-100 text-purple-600"
     },
     {

@@ -9,7 +9,8 @@ import {
   ZONOFIT_TERMS_AND_CONDITIONS,
   ZONOFIT_REFUND_POLICY,
   ZONOFIT_DISCLAIMER,
-  ZONOFIT_GYM_PARTNER_AGREEMENT
+  ZONOFIT_GYM_PARTNER_AGREEMENT,
+  ZONOFIT_FAQ
 } from "@/constants/legalContent";
 
 const STATIC_LEGAL_CONTENT: Record<string, string> = {
@@ -24,6 +25,10 @@ const STATIC_LEGAL_CONTENT: Record<string, string> = {
   health_disclaimer: ZONOFIT_DISCLAIMER,
   gym_partner_agreement: ZONOFIT_GYM_PARTNER_AGREEMENT,
   partner_agreement: ZONOFIT_GYM_PARTNER_AGREEMENT,
+  faq_general: ZONOFIT_FAQ,
+  faq: ZONOFIT_FAQ,
+  faq_all: ZONOFIT_FAQ,
+  general_faq: ZONOFIT_FAQ,
 };
 
 export default function ContentScreen() {
@@ -80,7 +85,7 @@ export default function ContentScreen() {
                         <Ionicons name="arrow-back" size={20} color="#111827" />
                     </Pressable>
                     <Text className="text-lg font-black text-gray-900" numberOfLines={1}>
-                        {title || (type === "privacy_policy" ? "Privacy Policy" : type === "terms_and_conditions" ? "Terms & Conditions" : (type === "refund_policy" || type === "refund") ? "Refund & Cancellation" : (type === "gym_partner_agreement" || type === "partner_agreement") ? "Gym Partner Agreement" : "Information")}
+                        {title || (type === "privacy_policy" ? "Privacy Policy" : type === "terms_and_conditions" ? "Terms & Conditions" : (type === "refund_policy" || type === "refund") ? "Refund & Cancellation" : (type === "gym_partner_agreement" || type === "partner_agreement") ? "Gym Partner Agreement" : (type?.includes("faq")) ? "Frequently Asked Questions" : "Information")}
                     </Text>
                 </View>
 

@@ -267,7 +267,7 @@ Eligibility may be verified through information provided by the user, the gym, a
 
 An existing active member of a participating gym may not use ZonoFit to bypass that gym's normal membership arrangements.
 
-Providing false information about eligibility may result in cancellation, credit penalties, suspension or termination.
+Providing false or incorrect information about membership status if you have been a member of that particular gym will result in membership cancellation, and only 50% of the amount will be refunded within 3 to 5 business days.
 
 7. Gym Booking
 
@@ -920,6 +920,125 @@ For Gym Partner
 Name: ______________________________
 Signature: __________________________
 Date: ______________________________`;
+
+export const ZONOFIT_FAQ = `ZONOFIT — FREQUENTLY ASKED QUESTIONS (FAQ)
+
+1. About ZonoFit
+
+1. What is ZonoFit?
+ZonoFit makes gym access more flexible. Choose your primary gym, follow your monthly plan, and use your remaining credits for eligible gym visits and other available benefits.
+
+2. How does ZonoFit work?
+Choose your primary gym, purchase a one-month plan, complete your included mandatory visits, and use your remaining credits for additional eligible gym bookings and other available purchases.
+
+3. Can I use ZonoFit if I already have a gym membership?
+Yes. Existing gym members can also use ZonoFit, subject to the applicable plan and booking rules.
+
+4. Is ZonoFit a gym?
+No. ZonoFit connects users with partner gyms and eligible benefits through its platform.
+
+2. Plans and Primary Gym
+
+5. What is a primary gym?
+Your primary gym is the gym you select for your monthly plan. A fixed portion of your plan value is allocated toward mandatory visits at this gym.
+
+6. Why isn't my entire membership amount adjustable at the primary gym?
+Part of your plan is dedicated to your primary gym visits, while the remaining value is provided as credits for flexible use across eligible gyms and available benefits.
+
+7. How long is a plan valid?
+Standard plans are valid for one month (30 days) from the date of activation.
+
+8. Can I change my primary gym during an active month?
+Primary gym changes are generally not permitted during an active plan period.
+
+9. What happens if my primary gym is closed temporarily?
+If access is unavailable due to circumstances beyond your control, please contact support for eligible resolution.
+
+3. Mandatory Visits and Check-ins
+
+10. What are mandatory visits?
+Mandatory visits are the primary gym visits included with your monthly plan.
+
+11. Why do I need to complete mandatory visits first?
+Mandatory visits help build a consistent workout habit at your primary gym before you unlock broader flexibility.
+
+12. How do I check in at the gym?
+Check-ins are completed using the ZonoFit app through available methods such as QR scan or one-time verification code.
+
+13. Can someone else use my check-in or visit?
+No. Plans and check-ins are personal and non-transferable.
+
+14. What if I forget to check in?
+A visit is only counted if a valid check-in is recorded through the app.
+
+4. Credits and Bookings
+
+15. What are credits?
+Credits are the flexible balance you receive with your plan to book eligible visits or access other available options.
+
+16. What is the value of 1 credit?
+For eligible gym bookings, 1 credit is generally equivalent to ₹10 in platform value. Value outside gym usage may vary.
+
+17. Can I book visits at other partner gyms?
+Yes. After completing your included mandatory visits, you can use your credits to book eligible visits at other partner gyms.
+
+18. Can I buy additional credits?
+Yes. You can purchase additional credits while your plan is active.
+
+19. Do credits expire?
+Credits remain valid during your active plan month. Unused credits may be converted into a spendable cash balance valid for an additional 15 days, after which any remaining balance is forfeited to ₹0.
+
+20. Can I cancel a gym booking?
+Bookings may be cancelled subject to the applicable cancellation window shown in the app.
+
+21. What happens if I miss a booked session?
+Missed bookings without timely cancellation may result in credit deduction.
+
+5. Marketplace and Non-Gym Usage
+
+22. Can I use credits to buy products or services?
+Yes. Where available, remaining credits or converted wallet balances may be used toward eligible marketplace purchases.
+
+23. What is the credit value for products or services?
+For eligible non-gym purchases, credit redemption is calculated at the applicable rate shown at checkout (typically 1 credit = ₹8).
+
+24. Are marketplace orders delivered to my gym or home?
+Delivery options are displayed during checkout depending on the product and seller.
+
+25. Can I return a marketplace order?
+Returns are subject to the applicable seller and product return policy shown at the time of purchase.
+
+6. Renewals and Cancellations
+
+26. Does my plan renew automatically?
+Plans may renew based on your account settings and available payment methods.
+
+27. What happens if I don't renew my plan?
+If a plan is not renewed, unused credits convert to an INR wallet balance valid for 15 days, after which unspent balances expire to ₹0.
+
+28. Can I pause my plan?
+Plan pause options may be available for eligible requests subject to support approval.
+
+29. Can I get a refund if I stop using ZonoFit?
+Refunds are subject to our Refund Policy. Generally, partially used plans or completed visits are not refundable. If false information was provided regarding existing membership status, only up to 50% may be refunded within 3 to 5 business days upon verification.
+
+7. Other
+
+30. Is there an age requirement to use ZonoFit?
+Users must meet the minimum age requirement applicable to partner gyms, typically 18 years or older (or with parental consent where permitted).
+
+31. What should I do if a partner gym denies access?
+Please contact ZonoFit support immediately through the app with your booking details.
+
+32. How can a gym become a ZonoFit partner?
+Gyms can apply through the ZonoFit partner portal or contact our onboarding team.
+
+33. How do I contact support?
+You can reach our team through the in-app Help & Support section or by email at support@zonofit.com.
+
+34. Where can I read the full terms?
+Our complete Terms and Conditions, Privacy Policy, and Refund Policy are accessible anytime in the app under Profile > Legal & Policies.`;
+
 
 
 
