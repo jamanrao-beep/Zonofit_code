@@ -8,6 +8,14 @@ import { useGuestStore } from "@/store/useGuestStore";
 
 const GYMS = [
   {
+    id: "gym-being-fit",
+    name: "Being Fitness",
+    rating: "4.9",
+    distance: "1.2 km away",
+    area: "Fatehpura, Udaipur",
+    image: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&q=80&w=400",
+  },
+  {
     id: "g1",
     name: "FitZone Pro",
     rating: "4.8",

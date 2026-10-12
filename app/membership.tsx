@@ -136,29 +136,7 @@ export default function MembershipScreen() {
   };
 
   const handleRenew = () => {
-    if (!currentPlan) return;
-    Alert.alert(
-      "Renew Membership",
-      `Renew your ${currentPlan.name} plan for ₹${currentPlan.priceINR}?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Renew Now",
-          onPress: async () => {
-            const result = await updatePlan(currentPlan.id, currentPlan.priceInPaise);
-            if (result.success) {
-              Alert.alert("Success", `Your ${currentPlan.name} membership has been renewed successfully!`);
-              if (token) {
-                useCreditsStore.getState().fetchWallet(token);
-                useUserStore.getState().fetchProfile(token);
-              }
-            } else {
-              Alert.alert("Renewal Failed", result.message || "An error occurred.");
-            }
-          },
-        },
-      ]
-    );
+    router.push("/onboarding/order-summary?mode=repurchase" as any);
   };
 
   return (
