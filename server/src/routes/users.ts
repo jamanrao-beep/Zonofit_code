@@ -93,7 +93,7 @@ router.get(
             })
         ]);
 
-        const creditsEarned = completedReferrals * 50;
+        const creditsEarned = completedReferrals * 5;
 
         res.json({
             id: user.id,
@@ -125,8 +125,12 @@ router.get(
                     endDate: user.membership.endDate,
                     monthlyCredits: user.membership.plan?.monthlyCredits || 0,
                     primaryGymId: user.membership.primaryGymId,
-                    gymName: user.membership.primaryGym?.name || "FitZone Pro",
+                    gymName: user.membership.primaryGym?.name || "Being Fitness",
                     primaryGymVisits: user.membership.primaryGymVisits || 10,
+                    cycleNumber: user.membership.cycleNumber || 1,
+                    maxCycles: (user.membership as any).maxCycles || 12,
+                    mandatoryVisits: user.membership.mandatoryVisits || 10,
+                    completedVisits: user.membership.completedVisits || 0,
                 }
                 : null,
             stats: {
@@ -137,7 +141,7 @@ router.get(
                 code: userReferralCode,
                 friendsJoined,
                 creditsEarned,
-                rewardAmount: 50,
+                rewardAmount: 5,
             },
         });
     }
@@ -189,8 +193,8 @@ router.get(
             res.json({
                 referralCode,
                 friendsJoined,
-                creditsEarned: completedReferrals * 50,
-                rewardAmount: 50
+                creditsEarned: completedReferrals * 5,
+                rewardAmount: 5
             });
         } catch (err: any) {
             console.error("Failed to fetch referral info:", err);
