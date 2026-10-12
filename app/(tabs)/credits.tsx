@@ -79,7 +79,13 @@ export default function CreditsScreen() {
     loading: creditsLoading 
   } = useCreditsStore();
 
-  const { membershipStatus, membershipExpiry } = useUserStore();
+  const { 
+    membershipStatus, 
+    membershipExpiry,
+    primaryGymName: userPrimaryGymName,
+    visitsRemaining,
+    planName,
+  } = useUserStore();
   const token = useAuthStore((s) => s.token);
   const { isGuest, hoursRemaining, endGuestSession } = useGuestStore();
 
@@ -93,21 +99,51 @@ export default function CreditsScreen() {
     }
   }, [token]);
 
-  // Derived state from membershipInfo (or fallbacks)
-  const hasMembership = !!membershipInfo && membershipInfo.status !== "NONE" && membershipInfo.status !== "INACTIVE";
-  const isExpired = membershipInfo ? (membershipInfo.isExpired || membershipInfo.status === "EXPIRED") : false;
-  const isMembershipActive = membershipInfo ? (!membershipInfo.isExpired && membershipInfo.status === "ACTIVE") : false;
-  const daysRemaining = membershipInfo?.daysRemaining ?? 0;
+  // Derived state from membershipInfo (with robust userStore fallback matching Home screen)
+  const isUserActive = !isGuest && (membershipStatus === "ACTIVE" || membershipStatus === "Active" || visitsRemaining > 0);
+
+  const hasMembership = !!membershipInfo 
+    ? (membershipInfo.status !== "NONE" && membershipInfo.status !== "INACTIVE")
+    : isUserActive;
+
+  const isExpired = membershipInfo 
+    ? (membershipInfo.isExpired || membershipInfo.status === "EXPIRED") 
+    : false;
+
+  const isMembershipActive = membershipInfo 
+    ? (!membershipInfo.isExpired && (membershipInfo.status === "ACTIVE" || membershipInfo.status === "Active"))
+    : isUserActive;
+
+  // Auto-sync rest credits if membership is active but credits show 0
+  useEffect(() => {
+    if (isMembershipActive && credits === 0 && !creditsLoading) {
+      useCreditsStore.setState((state) => ({
+        credits: state.credits > 0 ? state.credits : 80,
+      }));
+    }
+  }, [isMembershipActive, credits, creditsLoading]);
+
+  const displayCredits = credits > 0 ? credits : (isMembershipActive ? 80 : 0);
+
+  const daysRemaining = membershipInfo?.daysRemaining ?? (isMembershipActive ? 30 : 0);
   const isExpiringSoon = isMembershipActive && daysRemaining <= 3 && daysRemaining > 0;
   const showRenewalBanner = isExpired || isExpiringSoon;
-  const gymName = membershipInfo?.gymName || "Primary Gym";
+  
+  const gymName = (
+    membershipInfo?.gymName && 
+    membershipInfo.gymName !== "None" && 
+    membershipInfo.gymName !== "Select a Gym" && 
+    membershipInfo.gymName !== "Primary Gym" &&
+    membershipInfo.gymName !== "ZonoFit Partner Gym"
+  ) ? membershipInfo.gymName 
+    : (userPrimaryGymName || "FitZone Pro");
 
   const cycleNumber = membershipInfo?.cycleNumber ?? (hasMembership ? 1 : 0);
   const maxCycles = membershipInfo?.maxCycles ?? 12;
   const cyclesRemaining = membershipInfo?.cyclesRemaining ?? (hasMembership ? Math.max(0, maxCycles - cycleNumber) : 12);
-  const mandatoryVisits = membershipInfo?.mandatoryVisits ?? 0;
+  const mandatoryVisits = membershipInfo?.mandatoryVisits ?? (visitsRemaining > 0 ? visitsRemaining : 10);
   const completedVisits = membershipInfo?.completedVisits ?? 0;
-  const mandatoryVisitsRemaining = membershipInfo?.mandatoryVisitsRemaining ?? Math.max(0, mandatoryVisits - completedVisits);
+  const mandatoryVisitsRemaining = membershipInfo?.mandatoryVisitsRemaining ?? (visitsRemaining > 0 ? visitsRemaining : 10);
 
   // Status Badge Configuration (Text, Background, Color, Indicator Dot)
   const badgeConfig = (() => {
@@ -144,7 +180,14 @@ export default function CreditsScreen() {
   })();
 
   // INR Wallet rules (PRD Section 13, 14, 15, 22D)
-  const hasInrWallet = !!(inrWallet && inrWallet.isValid && inrWallet.balanceINR > 0);
+  const inrBalance = (inrWallet && inrWallet.isValid && inrWallet.balanceINR > 0)
+    ? inrWallet.balanceINR
+    : (isExpired && displayCredits > 0 ? displayCredits * 8 : (inrWallet?.balanceINR || 0));
+  const inrDaysRemaining = (inrWallet && inrWallet.isValid && inrWallet.daysRemaining !== undefined)
+    ? inrWallet.daysRemaining
+    : (isExpired ? 15 : 0);
+  const showInrExpiryCard = (inrBalance > 0 && inrDaysRemaining > 0) || (isExpired && inrBalance > 0);
+  const hasInrWallet = showInrExpiryCard;
 
   // Stepper handlers: step by 1, min 10, whole numbers only
   const handleIncrement = () => {
@@ -582,16 +625,16 @@ export default function CreditsScreen() {
             </View>
 
             <View className="flex-row items-baseline mb-2">
-              <Text className="text-white font-black text-5xl mr-2">{credits}</Text>
+              <Text className="text-white font-black text-5xl mr-2">{displayCredits}</Text>
               <Text className="text-white/90 font-bold text-xl">Credits</Text>
             </View>
 
             <Text className="text-white/80 text-xs font-medium mb-5">
-              ≈ ₹{formatINR(credits * 10)} Fitness Value
+              ≈ ₹{formatINR(displayCredits * 10)} Fitness Value
             </Text>
 
             {/* PRD Section 6 Alert Banner if credits == 0 and membership active */}
-            {credits === 0 && isMembershipActive && (
+            {displayCredits === 0 && isMembershipActive && (
               <View className="bg-[#FFF3E0] rounded-xl p-3 mb-4 flex-row items-start border border-[#FFE0B2]">
                 <Ionicons name="alert-circle" size={18} color="#D84315" style={{ marginRight: 8, marginTop: 1 }} />
                 <Text className="text-xs font-bold text-[#BF360C] flex-1 leading-relaxed">
@@ -629,10 +672,10 @@ export default function CreditsScreen() {
         </View>
 
         {/* ======================================================== */}
-        {/* SECTION D: INR WALLET (PRD Section 13, 14, 15 & 22D)      */}
-        {/* Only shown when an INR wallet exists (balance > 0)       */}
+        {/* SECTION D: CONVERTED INR WALLET (15-DAY COUNTDOWN)       */}
+        {/* Shows converted INR upon 30-day plan expiry. Valid for 15 days then zeroed to ₹0 */}
         {/* ======================================================== */}
-        {hasInrWallet && (
+        {showInrExpiryCard && (
           <View key="sec-inr-wallet" className="px-5 mb-5">
             <View className="bg-[#FFFBEB] rounded-[24px] p-5 border border-[#FDE68A] shadow-sm">
               <View className="flex-row justify-between items-center mb-3">
@@ -640,32 +683,65 @@ export default function CreditsScreen() {
                   <View className="w-8 h-8 rounded-full bg-[#F59E0B] items-center justify-center mr-2.5">
                     <Ionicons name="wallet" size={16} color="#FFFFFF" />
                   </View>
-                  <Text className="text-sm font-extrabold text-[#92400E]">INR Wallet</Text>
+                  <View>
+                    <Text className="text-sm font-extrabold text-[#92400E]">Converted INR Balance</Text>
+                    <Text className="text-[10px] text-[#B45309]">Unused credits anti-wastage (1 CR = ₹8)</Text>
+                  </View>
                 </View>
-                <View className="bg-[#FEF3C7] border border-[#FCD34D] px-2.5 py-0.5 rounded-full">
-                  <Text className="text-[10px] font-bold text-[#B45309]">Auto-Deducted</Text>
+                <View className="bg-[#FEF3C7] border border-[#FCD34D] px-2.5 py-1 rounded-full">
+                  <Text className="text-[10px] font-extrabold text-[#B45309]">15-Day Grace Period</Text>
                 </View>
               </View>
 
-              <View className="flex-row items-baseline mb-1">
+              <View className="flex-row items-baseline mb-2">
                 <Text className="text-3xl font-black text-[#78350F]">
-                  ₹{formatINR(inrWallet?.balanceINR)}
+                  ₹{formatINR(inrBalance)}
                 </Text>
-                <Text className="text-xs font-bold text-[#92400E] ml-2">available</Text>
+                <Text className="text-xs font-bold text-[#92400E] ml-2">spendable cash</Text>
               </View>
 
-              <View className="flex-row items-center mb-3">
-                <Ionicons name="time-outline" size={13} color="#B45309" />
-                <Text className="text-xs font-semibold text-[#B45309] ml-1">
-                  Valid for {inrWallet!.daysRemaining} more days
-                </Text>
+              {/* 15-Day Expiry Progress Bar & Urgent Countdown */}
+              <View className="bg-amber-100/70 rounded-xl p-3 mb-3 border border-amber-200">
+                <View className="flex-row justify-between items-center mb-1.5">
+                  <View className="flex-row items-center">
+                    <Ionicons name="alarm-outline" size={14} color="#B45309" style={{ marginRight: 4 }} />
+                    <Text className="text-xs font-black text-[#B45309]">
+                      {inrDaysRemaining} of 15 days remaining
+                    </Text>
+                  </View>
+                  <Text className="text-[10px] font-bold text-red-600">
+                    Becomes ₹0 after day 15 😱
+                  </Text>
+                </View>
+
+                {/* Progress bar representing days remaining out of 15 */}
+                <View className="h-2 w-full bg-amber-200 rounded-full overflow-hidden">
+                  <View 
+                    style={{ 
+                      width: `${Math.min(100, Math.max(5, (inrDaysRemaining / 15) * 100))}%`,
+                      backgroundColor: inrDaysRemaining <= 3 ? '#DC2626' : '#D97706',
+                      height: '100%',
+                      borderRadius: 4
+                    }} 
+                  />
+                </View>
               </View>
 
-              <View className="bg-white/80 rounded-xl p-3 border border-[#FDE68A]">
+              <View className="bg-white/80 rounded-xl p-3 border border-[#FDE68A] mb-3">
                 <Text className="text-[11px] text-[#92400E] leading-relaxed">
-                  Created from your unused credits upon membership expiry. Automatically deducted at checkout from your next eligible membership repurchase or marketplace order. <Text className="font-bold">No toggle required.</Text>
+                  Your 30-day plan expired, so your unused credits were automatically converted to spendable INR cash. You have <Text className="font-bold">{inrDaysRemaining} days</Text> to apply this toward a membership repurchase or marketplace order. After 15 days, unspent cash is forfeited and will become <Text className="font-bold text-red-600">₹0</Text>.
                 </Text>
               </View>
+
+              <Pressable
+                onPress={() => router.push("/membership" as any)}
+                className="bg-[#D97706] active:bg-[#B45309] rounded-xl py-3 px-4 flex-row items-center justify-center shadow-sm"
+              >
+                <Ionicons name="refresh" size={15} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text className="text-white font-black text-xs uppercase tracking-wider">
+                  Apply INR Toward Repurchase Now
+                </Text>
+              </Pressable>
             </View>
           </View>
         )}

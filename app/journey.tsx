@@ -281,57 +281,76 @@ export default function JourneyScreen() {
 
           {/* Your Journey Path */}
           <View style={{ backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#F3F4F6', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>Your 12-Month Journey Path</Text>
+              <View style={{ backgroundColor: '#F0FDF4', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: '#1F7A3E' }}>Month {cycleMonth} of {cycleTotalMonths}</Text>
+              </View>
             </View>
             
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative' }}>
-              {/* Connecting line */}
-              <View style={{ position: 'absolute', top: 16, left: 16, right: 16, height: 2, backgroundColor: '#E5E7EB', zIndex: 0 }} />
-              <View style={{ position: 'absolute', top: 16, left: 16, width: `${Math.min(100, Math.max(5, (cycleMonth / 6) * 100))}%`, height: 2, backgroundColor: '#4C9A2A', zIndex: 1 }} />
-              
-              {[
-                { m: 1, label: "Start", target: "10 visits/month", focus: "Foundation habit: show up regularly at your home gym." },
-                { m: 2, label: "Build", target: "10 visits/month", focus: "Consistency building: establish your weekly schedule." },
-                { m: 3, label: "Habit", target: "10 visits/month", focus: "Automatic routine: working out becomes second nature." },
-                { m: 4, label: "Consistency", target: "12 visits/month", focus: "Expanding frequency: start exploring network partner gyms." },
-                { m: 5, label: "Lifestyle", target: "15 visits/month", focus: "Identity transformation: fitness is who you are." },
-                { m: 6, label: "Stronger", target: "15 visits/month", focus: "Peak performance: solid habit & community participation." },
-              ].map(({ m, label, target, focus }) => {
-                const isCompleted = cycleMonth > m;
-                const isCurrent = cycleMonth === m;
-                return (
-                  <Pressable 
-                    key={m} 
-                    onPress={() => Alert.alert(`Month ${m} — ${label}`, `Target: ${target}\nFocus: ${focus}`)}
-                    style={{ alignItems: 'center', zIndex: 2 }}
-                  >
-                    <View style={{ 
-                      width: isCurrent ? 36 : 32, 
-                      height: isCurrent ? 36 : 32, 
-                      borderRadius: isCurrent ? 18 : 16, 
-                      backgroundColor: isCompleted ? '#4C9A2A' : isCurrent ? 'white' : '#F3F4F6', 
-                      justifyContent: 'center', 
-                      alignItems: 'center', 
-                      marginBottom: isCurrent ? 6 : 8, 
-                      borderWidth: isCurrent ? 2 : 0, 
-                      borderColor: '#4C9A2A' 
-                    }}>
-                      {isCompleted ? (
-                        <Ionicons name="checkmark" size={16} color="white" />
-                      ) : (
-                        <Text style={{ fontSize: 11, fontWeight: '700', color: isCurrent ? '#4C9A2A' : '#6B7280' }}>
-                          M{m}
-                        </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 8, paddingHorizontal: 4 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', position: 'relative' }}>
+                {/* Connecting line */}
+                <View style={{ position: 'absolute', top: 18, left: 20, right: 20, height: 3, backgroundColor: '#E5E7EB', zIndex: 0 }} />
+                <View style={{ position: 'absolute', top: 18, left: 20, width: `${Math.min(100, Math.max(3, ((cycleMonth - 1) / 11) * 100))}%`, height: 3, backgroundColor: '#4C9A2A', zIndex: 1 }} />
+                
+                {[
+                  { m: 1, label: "Start", target: "10 visits", focus: "Foundation habit: show up regularly at your primary gym." },
+                  { m: 2, label: "Build", target: "10 visits", focus: "Consistency building: establish your weekly schedule." },
+                  { m: 3, label: "Habit", target: "10 visits", focus: "Automatic routine: working out becomes second nature." },
+                  { m: 4, label: "Momentum", target: "10-12 visits", focus: "Expanding frequency: start exploring network partner gyms." },
+                  { m: 5, label: "Discipline", target: "10-12 visits", focus: "Identity transformation: fitness is who you are." },
+                  { m: 6, label: "Strength", target: "12-15 visits", focus: "Half-year milestone: peak consistency & habit lock-in." },
+                  { m: 7, label: "Power", target: "12-15 visits", focus: "Advanced stamina: challenge new workout disciplines." },
+                  { m: 8, label: "Rhythm", target: "12-15 visits", focus: "Unbreakable streak: fitness effortless & integrated." },
+                  { m: 9, label: "Drive", target: "12-15 visits", focus: "High performance: building strength and resilience." },
+                  { m: 10, label: "Lifestyle", target: "12-15 visits", focus: "Mastery phase: living the athletic mindset." },
+                  { m: 11, label: "Peak", target: "12-15 visits", focus: "Peak condition: finishing the transformation strong." },
+                  { m: 12, label: "Champion", target: "12-15 visits", focus: "1-Year Transformation Complete: Champion level fitness participant." },
+                ].map(({ m, label, target, focus }) => {
+                  const isCompleted = cycleMonth > m;
+                  const isCurrent = cycleMonth === m;
+                  return (
+                    <Pressable 
+                      key={m} 
+                      onPress={() => Alert.alert(`Month ${m} — ${label}`, `Target: ${target}\nFocus: ${focus}${isCurrent ? '\n\n👉 Your Current Month' : isCompleted ? '\n\n✅ Completed' : ''}`)}
+                      style={{ alignItems: 'center', zIndex: 2, marginRight: 22, width: 54 }}
+                    >
+                      <View style={{ 
+                        width: isCurrent ? 38 : 34, 
+                        height: isCurrent ? 38 : 34, 
+                        borderRadius: 19, 
+                        backgroundColor: isCompleted ? '#4C9A2A' : isCurrent ? 'white' : '#F3F4F6', 
+                        justifyContent: 'center', 
+                        alignItems: 'center', 
+                        marginBottom: 6, 
+                        borderWidth: isCurrent ? 2.5 : 0, 
+                        borderColor: '#4C9A2A',
+                        shadowColor: isCurrent ? '#4C9A2A' : '#000',
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: isCurrent ? 0.3 : 0.05,
+                        shadowRadius: 4,
+                        elevation: isCurrent ? 3 : 1,
+                      }}>
+                        {isCompleted ? (
+                          <Ionicons name="checkmark" size={17} color="white" />
+                        ) : (
+                          <Text style={{ fontSize: 11, fontWeight: '800', color: isCurrent ? '#4C9A2A' : '#6B7280' }}>
+                            M{m}
+                          </Text>
+                        )}
+                      </View>
+                      <Text style={{ fontSize: 10, fontWeight: isCurrent ? '800' : '600', color: isCurrent ? '#4C9A2A' : '#6B7280', textAlign: 'center' }}>
+                        {label}
+                      </Text>
+                      {isCurrent && (
+                        <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#4C9A2A', marginTop: 3 }} />
                       )}
-                    </View>
-                    <Text style={{ fontSize: 10, fontWeight: isCurrent ? '700' : '500', color: isCurrent ? '#4C9A2A' : '#6B7280' }}>
-                      {label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </ScrollView>
           </View>
 
           {/* Recent Activity */}

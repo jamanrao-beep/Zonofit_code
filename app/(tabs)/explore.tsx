@@ -34,13 +34,13 @@ export default function ExploreScreen() {
           <Text style={styles.headerSubtitle}>Find experiences, products & more</Text>
         </View>
 
-        {/* Circular Action/Settings Button */}
+        {/* Circular Action/Notifications Button */}
         <Pressable 
           onPress={() => router.push("/notifications" as any)}
           style={styles.circleBtn}
           hitSlop={8}
         >
-          <Ionicons name="settings-outline" size={20} color="#4B5563" />
+          <Ionicons name="notifications-outline" size={20} color="#4B5563" />
           <View style={styles.circleBadgeDot} />
         </Pressable>
       </View>

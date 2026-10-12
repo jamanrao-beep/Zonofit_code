@@ -237,6 +237,11 @@ export default function ProfileScreen() {
                         value={`${credits} Credits`}
                         onPress={() => router.push("/credits")}
                     />
+                    <NavRow
+                        icon="receipt-long"
+                        label="My Orders"
+                        onPress={() => router.push("/shop/orders" as any)}
+                    />
                 </View>
 
                 {/* Growth Section */}
@@ -256,7 +261,7 @@ export default function ProfileScreen() {
                             </View>
                         </View>
                         <View className="px-2.5 py-1 rounded-full border" style={{ backgroundColor: 'rgba(11, 110, 79, 0.1)', borderColor: 'rgba(11, 110, 79, 0.2)' }}>
-                            <Text className="text-[10px] font-bold" style={{ color: colors.green }}>+50 Credits</Text>
+                            <Text className="text-[10px] font-bold" style={{ color: colors.green }}>+5 Credits</Text>
                         </View>
                     </Pressable>
                 </View>

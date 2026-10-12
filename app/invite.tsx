@@ -102,10 +102,10 @@ export default function InviteScreen() {
             <Ionicons name="gift" size={64} color="#6BCB77" />
           </View>
           <Text className="text-2xl font-black text-[#1F2520] text-center mb-2">
-            Refer & Get 50
+            Refer & Get 5 Credits
           </Text>
           <Text className="text-center text-[#6B756E] px-4 leading-relaxed">
-            Invite friends to ZonoFit. You get 50 credits when they complete their first visit!
+            Invite friends to ZonoFit. You get 5 credits when they complete their first visit!
           </Text>
         </View>
 
@@ -165,7 +165,7 @@ export default function InviteScreen() {
             <View className="w-8 h-8 rounded-full bg-[#F5F7F4] items-center justify-center">
               <Text className="font-bold text-[#1F2520]">3</Text>
             </View>
-            <Text className="flex-1 text-sm text-[#4A5043]">You get 50 credits after their first visit</Text>
+            <Text className="flex-1 text-sm text-[#4A5043]">You get 5 credits after their first visit</Text>
           </View>
         </View>
 
