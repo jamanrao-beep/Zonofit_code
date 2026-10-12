@@ -53,16 +53,25 @@ function AuthGate() {
     if (!isSignedIn && !isGuest && !inAuthGroup && !inGuestExpired) {
       router.replace("/(auth)/create-account" as any);
     } else if (isSignedIn && !isGuest) {
+      const user = useAuthStore.getState().user;
+      const hasPhone = !!(user?.phone && user.phone.trim().length >= 10);
+
+      // Mobile number is strictly mandatory before login can complete
+      if (!hasPhone) {
+        if (secondSegment !== "verify-number") {
+          router.replace("/(auth)/verify-number" as any);
+        }
+        return;
+      }
+
       if (isOnboarded) {
         // Fully onboarded user shouldn't be in auth screens
         if (inAuthGroup) {
           router.replace("/(tabs)");
         }
       } else {
-        // Signed in but onboarding is NOT completed:
-        // Must complete profile details & gym selection before entering tabs!
+        // Signed in with verified phone, but profile/gym onboarding not finished
         if (inTabs) {
-          const user = useAuthStore.getState().user;
           const needsProfile = !user?.username || user.username === "ZonoFit Member" || user.username === "Google User";
           if (needsProfile) {
             router.replace("/(auth)/profile-details" as any);
@@ -70,11 +79,10 @@ function AuthGate() {
             router.replace("/onboarding/select-city" as any);
           }
         } else if (inAuthGroup) {
-          // If already signed in, don't let them stay on login / verify screens; forward to profile details
-          if (secondSegment === "create-account" || secondSegment === "verify-number") {
+          if (secondSegment === "create-account") {
             router.replace("/(auth)/profile-details" as any);
           }
-          // On profile-details: DO NOT redirect away! Allow them to enter their details.
+          // On profile-details or verify-number: DO NOT redirect away!
         }
       }
     }

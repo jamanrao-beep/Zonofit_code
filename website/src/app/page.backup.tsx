@@ -925,7 +925,7 @@ export default function LandingPage() {
                 { category: 'Credits', q: 'How is my credit amount calculated?', a: "For every unused visit from your monthly commitment, the equivalent value is converted into credits. For example, 1 Credit equals ₹10 towards fitness access." },
                 { category: 'Membership', q: 'Do I have to choose one gym?', a: "You select a Primary Gym as your home base for your monthly visit commitment. However, your membership gives you the flexibility to explore the entire partner network using your credits." },
                 { category: 'Membership', q: 'Can I cancel?', a: "We offer maximum flexibility. You can cancel your membership at the end of your billing cycle. Unused credits remain active until 15 days after your membership expiration." },
-                { category: 'Membership', q: 'How does check-in work?', a: "It's fully digital. Simply open the ZonoFit app, generate your secure digital pass or QR code, and show it at the partner gym's front desk for a seamless entry." },
+                { category: 'Membership', q: 'How does check-in work?', a: "It's fully digital. Simply open the ZonoFit app, open your active booking pass, and show it at the partner gym's front desk for a seamless entry." },
                 { category: 'Partners', q: 'Can my gym join ZonoFit?', a: "Absolutely. We are constantly expanding our network. Gym owners can apply through our Partner Dashboard to monetize unused capacity and reach new members." }
               ]
                 .filter(item => faqCategory === 'All' || item.category === faqCategory)
