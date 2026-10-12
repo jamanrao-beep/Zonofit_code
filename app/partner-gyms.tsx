@@ -58,13 +58,11 @@ export default function PartnerGymsScreen() {
   const [searchQuery, setSearchQuery] = useState(params.q || "");
   const [searchOpen, setSearchOpen] = useState(!!params.q);
   const [currentPage, setCurrentPage] = useState(0);
-  const [favoriteGymIds, setFavoriteGymIds] = useState<Set<string>>(new Set());
 
   // Filter Bar States (matching screenshot)
   const [selectedSort, setSelectedSort] = useState<"distance" | "rating" | "default">("default");
   const [filterRating4Plus, setFilterRating4Plus] = useState(false);
   const [filterOpenNow, setFilterOpenNow] = useState(false);
-  const [filterFavoritesOnly, setFilterFavoritesOnly] = useState(false);
   const [selectedArea, setSelectedArea] = useState(isUdaipur ? "Rao Ji Ka Hata" : selectedCity);
 
   // Booking Modal State
@@ -83,7 +81,7 @@ export default function PartnerGymsScreen() {
     remainingCredits: number;
   } | null>(null);
 
-  // Load gyms & favorites on mount
+  // Load gyms on mount
   useEffect(() => {
     let isMounted = true;
     async function loadGyms() {
@@ -129,20 +127,7 @@ export default function PartnerGymsScreen() {
       }
     }
 
-    async function loadFavorites() {
-      if (!token || isGuest) return;
-      try {
-        const data = await apiFetch("/api/gyms/favorites", { token, silent: true });
-        if (isMounted && Array.isArray(data?.favoriteGymIds)) {
-          setFavoriteGymIds(new Set(data.favoriteGymIds));
-        } else if (isMounted && Array.isArray(data?.savedGyms)) {
-          setFavoriteGymIds(new Set(data.savedGyms.map((g: any) => g.id)));
-        }
-      } catch {}
-    }
-
     loadGyms();
-    loadFavorites();
 
     return () => {
       isMounted = false;
@@ -164,40 +149,9 @@ export default function PartnerGymsScreen() {
   useEffect(() => {
     setCurrentPage(0);
     scrollRef.current?.scrollTo({ y: 0, animated: false });
-  }, [searchQuery, selectedSort, filterRating4Plus, filterOpenNow, filterFavoritesOnly, params.city]);
+  }, [searchQuery, selectedSort, filterRating4Plus, filterOpenNow, params.city]);
 
-  const handleToggleFavorite = async (gymId: string) => {
-    if (isGuest) {
-      Alert.alert(
-        "Account Required",
-        "Sign in or create a full ZonoFit account to save your favorite gyms.",
-        [
-          { text: "Cancel", style: "cancel" },
-          { 
-            text: "Create Account", 
-            onPress: async () => {
-              await endGuestSession();
-              router.replace("/(auth)/create-account");
-            } 
-          }
-        ]
-      );
-      return;
-    }
 
-    setFavoriteGymIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(gymId)) next.delete(gymId);
-      else next.add(gymId);
-      return next;
-    });
-
-    if (token) {
-      try {
-        await apiFetch(`/api/gyms/${gymId}/favorite`, { method: "POST", token });
-      } catch {}
-    }
-  };
 
   const handleOpenBooking = (gym: Gym) => {
     if (isGuest) {
@@ -300,12 +254,14 @@ export default function PartnerGymsScreen() {
   };
 
   // Primary Gym
+  const userPrimaryName = useUserStore((s) => s.primaryGymName);
   const primaryGymName = (
     membershipInfo?.gymName && 
     membershipInfo.gymName !== "Select a Gym" && 
     membershipInfo.gymName !== "Primary Gym" &&
-    membershipInfo.gymName !== "ZonoFit Partner Gym"
-  ) ? membershipInfo.gymName : (selectedGymName || user?.primaryGym || null);
+    membershipInfo.gymName !== "ZonoFit Partner Gym" &&
+    membershipInfo.gymName !== "FitZone Pro"
+  ) ? membershipInfo.gymName : (userPrimaryName || selectedGymName || user?.primaryGym || "Being Fitness");
 
   const primaryGym = useMemo(() => {
     if (gyms.length === 0) return null;
@@ -362,11 +318,6 @@ export default function PartnerGymsScreen() {
       result = result.filter((g) => g.rating >= 4.0);
     }
 
-    // Favorites only
-    if (filterFavoritesOnly) {
-      result = result.filter((g) => favoriteGymIds.has(g.id));
-    }
-
     // Sort
     if (selectedSort === "distance") {
       result.sort((a, b) => a.distance - b.distance);
@@ -375,7 +326,7 @@ export default function PartnerGymsScreen() {
     }
 
     return result;
-  }, [gyms, selectedCity, searchQuery, filterRating4Plus, filterFavoritesOnly, selectedSort, favoriteGymIds]);
+  }, [gyms, selectedCity, searchQuery, filterRating4Plus, selectedSort]);
 
   // STRICTLY 5 GYMS PER PAGE
   const totalPages = Math.max(1, Math.ceil(filteredGyms.length / GYMS_PER_PAGE));
@@ -391,16 +342,7 @@ export default function PartnerGymsScreen() {
     }
   };
 
-  // Ambience Gyms Curated List
-  const ambienceGyms = useMemo(() => {
-    return gyms.filter(g => g.ambience || g.rating >= 4.8).slice(0, 5);
-  }, [gyms]);
 
-  // Ranked Gyms (1, 2, 3)
-  const rankedGyms = useMemo(() => {
-    const sorted = [...gyms].sort((a, b) => (b.reviewCount || 0) - (a.reviewCount || 0));
-    return sorted.slice(0, 3);
-  }, [gyms]);
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -526,17 +468,6 @@ export default function PartnerGymsScreen() {
             </Text>
           </Pressable>
 
-          {/* Favorites Heart Pill */}
-          <Pressable 
-            onPress={() => setFilterFavoritesOnly(prev => !prev)}
-            style={[styles.filterChipIconOnly, filterFavoritesOnly && styles.filterChipActive]}
-          >
-            <Ionicons 
-              name={filterFavoritesOnly ? "heart" : "heart-outline"} 
-              size={15} 
-              color={filterFavoritesOnly ? "#EF4444" : "#4B5563"} 
-            />
-          </Pressable>
         </ScrollView>
       </View>
 
@@ -612,7 +543,6 @@ export default function PartnerGymsScreen() {
               onPress={() => {
                 setSearchQuery("");
                 setFilterRating4Plus(false);
-                setFilterFavoritesOnly(false);
                 setSelectedSort("default");
               }}
               style={styles.resetFiltersBtn}
@@ -623,12 +553,10 @@ export default function PartnerGymsScreen() {
         ) : (
           <View>
             {/* RENDER THE 5 GYMS FOR CURRENT PAGE */}
-            {paginatedGyms.map((gym, index) => {
-              const isFav = favoriteGymIds.has(gym.id);
+            {paginatedGyms.map((gym) => {
               return (
-                <React.Fragment key={gym.id}>
-                  {/* Gym Card matching screenshot */}
-                  <Pressable
+                <Pressable
+                  key={gym.id}
                     onPress={() => {
                       if (isUdaipur) {
                         Alert.alert(
@@ -653,21 +581,6 @@ export default function PartnerGymsScreen() {
                         style={styles.gymImage}
                         resizeMode="cover"
                       />
-                      {/* Favorite Button on top-right */}
-                      <Pressable
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          handleToggleFavorite(gym.id);
-                        }}
-                        style={styles.favIconBtn}
-                        hitSlop={8}
-                      >
-                        <Ionicons 
-                          name={isFav ? "heart" : "heart-outline"} 
-                          size={20} 
-                          color={isFav ? "#EF4444" : "#FFFFFF"} 
-                        />
-                      </Pressable>
                     </View>
 
                     {/* Bottom Strip: Circular Logo + Checkmark + Info */}
@@ -733,105 +646,8 @@ export default function PartnerGymsScreen() {
                       )}
                     </View>
                   </Pressable>
-
-                  {/* ─── In-Feed Section 1: "Centres with amazing ambience 🪄" (Shown on page 1 after item 3) ─── */}
-                  {currentPage === 0 && index === 2 && (
-                    <View style={styles.ambienceSection}>
-                      <View style={styles.sectionHeaderRow}>
-                        <Text style={styles.sectionTitle}>
-                          Centres with amazing <Text style={{ color: "#7C3AED" }}>ambience 🪄</Text>
-                        </Text>
-                      </View>
-                      <ScrollView 
-                        horizontal 
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.horizontalScrollContent}
-                      >
-                        {ambienceGyms.map((aGym) => (
-                          <Pressable
-                            key={`ambience-${aGym.id}`}
-                            onPress={() => router.push(`/gym/${aGym.id}` as any)}
-                            style={styles.ambienceCard}
-                          >
-                            <Image 
-                              source={{ uri: aGym.image }} 
-                              style={styles.ambienceCardImg}
-                              resizeMode="cover"
-                            />
-                            <View style={styles.ambienceCardBody}>
-                              <View style={styles.ambienceLogoRow}>
-                                <Image source={{ uri: aGym.logo || aGym.image }} style={styles.ambienceLogo} />
-                                <View style={{ flex: 1, marginLeft: 8 }}>
-                                  <Text style={styles.ambienceGymName} numberOfLines={1}>
-                                    {aGym.name}
-                                  </Text>
-                                  <Text style={styles.ambienceGymSub} numberOfLines={1}>
-                                    {aGym.address} • {aGym.distance.toFixed(2)} km
-                                  </Text>
-                                </View>
-                              </View>
-                              <View style={styles.ambienceRatingRow}>
-                                <Ionicons name="star" size={11} color="#F59E0B" />
-                                <Text style={styles.ambienceRatingText}>{aGym.rating.toFixed(1)}</Text>
-                                <Text style={styles.ambienceReviewsText}>({aGym.reviewCount || 50})</Text>
-                              </View>
-                            </View>
-                          </Pressable>
-                        ))}
-                      </ScrollView>
-                    </View>
-                  )}
-                </React.Fragment>
               );
             })}
-
-            {/* ─── In-Feed Section 2: "Most visited gym in Rao Ji Ka Hata" (Shown on page 1 after item 5) ─── */}
-            {currentPage === 0 && (
-              <View style={styles.mostVisitedSection}>
-                <View style={styles.sectionHeaderRow}>
-                  <Text style={styles.sectionTitle}>
-                    Most visited gym in {selectedArea}
-                  </Text>
-                </View>
-                <ScrollView 
-                  horizontal 
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.horizontalScrollContent}
-                >
-                  {rankedGyms.map((rGym, rIdx) => {
-                    const rankNum = rIdx + 1;
-                    const rankColor = rankNum === 1 ? "#EF4444" : rankNum === 2 ? "#F97316" : "#10B981";
-                    return (
-                      <Pressable
-                        key={`ranked-${rGym.id}`}
-                        onPress={() => router.push(`/gym/${rGym.id}` as any)}
-                        style={styles.rankedCard}
-                      >
-                        {/* Huge outline rank number badge */}
-                        <Text style={[styles.rankBigNumber, { color: rankColor }]}>
-                          {rankNum}
-                        </Text>
-                        
-                        <View style={styles.rankedCardInner}>
-                          <Image source={{ uri: rGym.image }} style={styles.rankedImg} resizeMode="cover" />
-                          <View style={styles.rankedBody}>
-                            <View style={styles.rankedLogoWrap}>
-                              <Image source={{ uri: rGym.logo || rGym.image }} style={styles.rankedLogo} />
-                            </View>
-                            <Text style={styles.rankedName} numberOfLines={1}>{rGym.name}</Text>
-                            <View style={styles.rankedRatingRow}>
-                              <Ionicons name="star" size={11} color="#F59E0B" />
-                              <Text style={styles.rankedRatingText}>{rGym.rating.toFixed(1)}</Text>
-                              <Text style={styles.rankedReviewsText}>({rGym.reviewCount || 1})</Text>
-                            </View>
-                          </View>
-                        </View>
-                      </Pressable>
-                    );
-                  })}
-                </ScrollView>
-              </View>
-            )}
 
             {/* ─── STRICT 5 PER PAGE PAGINATION CONTROLS ─── */}
             <View style={styles.paginationBox}>

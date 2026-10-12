@@ -42,7 +42,7 @@ export default function GuestExpiredScreen() {
           </View>
           <View style={styles.infoRow}>
             <Ionicons name="checkmark-circle" size={18} color="#1F7A3E" />
-            <Text style={styles.infoText}>Book visits and verify workouts with QR</Text>
+            <Text style={styles.infoText}>Book visits and verify workouts at front desk</Text>
           </View>
           <View style={styles.infoRow}>
             <Ionicons name="checkmark-circle" size={18} color="#1F7A3E" />
