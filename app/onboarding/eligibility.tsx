@@ -21,7 +21,7 @@ import { useUserStore } from "@/store/useUserStore";
 import { useAddressStore } from "@/store/useAddressStore";
 import { FALLBACK_NETWORK_GYMS } from "@/constants/fallbackGyms";
 
-export type OptionId = "new" | "other_gym" | "other_platform" | "returning" | "beginner";
+export type OptionId = "new" | "other_gym" | "other_platform" | "returning";
 
 interface OptionItem {
   id: OptionId;
@@ -67,15 +67,6 @@ const ELIGIBILITY_OPTIONS: OptionItem[] = [
     description:
       "You previously worked out at this gym, but your membership expired at least 12 months ago and you have not taken a new membership since.",
     bullets: ["Membership expired 12+ months ago", "No active/recent membership"],
-  },
-  {
-    id: "beginner",
-    num: 5,
-    title: "Recent beginner at this gym",
-    badge: "WITHIN 3 MONTHS",
-    description:
-      "You joined this gym within the last 3 months and are still considered a beginner at this gym.",
-    bullets: ["Joined within the last 3 months", "Beginner at this gym"],
   },
 ];
 
