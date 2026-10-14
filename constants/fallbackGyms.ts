@@ -81,8 +81,7 @@ export const PARTNER_CITIES: PartnerCity[] = [
     name: "Udaipur",
     state: "Rajasthan",
     centresCount: 10,
-    isRestrictedHomeCity: true,
-    tagline: "Home City • 🔒 Primary Gym Restricted",
+    tagline: "Panchwati, Sukher, Shobhagpura, Madhuban",
     image: "https://images.unsplash.com/photo-1615836245337-f5b9b2303f10?auto=format&fit=crop&q=80&w=600",
   },
   {
