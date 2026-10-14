@@ -222,15 +222,9 @@ export default function ProfileScreen() {
                     />
                 </View>
 
-                {/* Membership Section */}
-                <Text className="text-xs font-bold uppercase tracking-wider mb-2.5 ml-6" style={{ color: colors.muted }}>Membership</Text>
+                {/* Wallet & Orders Section */}
+                <Text className="text-xs font-bold uppercase tracking-wider mb-2.5 ml-6" style={{ color: colors.muted }}>Wallet & Orders</Text>
                 <View className="mx-5 rounded-[24px] px-4 border shadow-sm mb-4" style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}>
-                    <NavRow
-                        icon="card-membership"
-                        label="My Membership"
-                        value={membershipStatus === "ACTIVE" ? `Month ${currentMonth || 1} of 12` : "No Active Plan"}
-                        onPress={() => router.push("/membership")}
-                    />
                     <NavRow
                         icon="account-balance-wallet"
                         label="Credits & Wallet"

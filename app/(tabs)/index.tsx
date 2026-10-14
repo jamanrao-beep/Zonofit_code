@@ -448,7 +448,7 @@ export default function HomeScreen() {
                 </Text>
               </View>
               <Pressable
-                onPress={() => router.push("/membership")}
+                onPress={() => router.push("/onboarding/order-summary?mode=repurchase" as any)}
                 className="bg-red-600 active:bg-red-700 rounded-xl px-3 py-1.5 flex-row items-center shadow-sm"
               >
                 <Text className="text-white font-extrabold text-[11px] uppercase tracking-wider">Renew Now</Text>

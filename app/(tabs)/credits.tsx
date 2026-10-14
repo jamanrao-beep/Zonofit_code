@@ -432,7 +432,7 @@ export default function CreditsScreen() {
               </Text>
 
               <Pressable
-                onPress={() => router.push("/membership" as any)}
+                onPress={() => router.push("/onboarding/order-summary?mode=repurchase" as any)}
                 className="bg-red-600 active:bg-red-700 rounded-xl py-3 px-4 flex-row items-center justify-center shadow-sm"
               >
                 <Ionicons name="refresh" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
@@ -464,7 +464,7 @@ export default function CreditsScreen() {
               </Text>
 
               <Pressable
-                onPress={() => router.push("/membership" as any)}
+                onPress={() => router.push("/onboarding/order-summary?mode=repurchase" as any)}
                 className="bg-[#1F7A3E] active:bg-[#186031] rounded-xl py-3 px-4 flex-row items-center justify-center shadow-sm"
               >
                 <Ionicons name="card-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
@@ -563,7 +563,7 @@ export default function CreditsScreen() {
 
             {showRenewalBanner ? (
               <Pressable
-                onPress={() => router.push("/membership" as any)}
+                onPress={() => router.push("/onboarding/order-summary?mode=repurchase" as any)}
                 className="mt-4 bg-red-600 active:bg-red-700 rounded-2xl py-3 px-4 flex-row items-center justify-center shadow-sm"
               >
                 <Ionicons name="refresh" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
@@ -573,7 +573,7 @@ export default function CreditsScreen() {
               </Pressable>
             ) : !isMembershipActive && (
               <Pressable
-                onPress={() => router.push("/membership" as any)}
+                onPress={() => router.push("/onboarding/order-summary?mode=repurchase" as any)}
                 className="mt-4 bg-[#1F7A3E] active:bg-[#186031] rounded-2xl py-3 px-4 flex-row items-center justify-center shadow-sm"
               >
                 <Ionicons name="sparkles" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
@@ -627,7 +627,7 @@ export default function CreditsScreen() {
                 if (isMembershipActive) {
                   router.push("/top-up-credits" as any);
                 } else {
-                  router.push("/membership" as any);
+                  router.push("/onboarding/order-summary?mode=repurchase" as any);
                 }
               }}
               className="bg-white rounded-2xl py-3.5 px-4 items-center justify-center flex-row shadow-sm active:bg-gray-100"
@@ -712,7 +712,7 @@ export default function CreditsScreen() {
               </View>
 
               <Pressable
-                onPress={() => router.push("/membership" as any)}
+                onPress={() => router.push("/onboarding/order-summary?mode=repurchase" as any)}
                 className="bg-[#D97706] active:bg-[#B45309] rounded-xl py-3 px-4 flex-row items-center justify-center shadow-sm"
               >
                 <Ionicons name="refresh" size={15} color="#FFFFFF" style={{ marginRight: 6 }} />
@@ -837,7 +837,7 @@ export default function CreditsScreen() {
                     "Additional credits can only be purchased while your membership is active. Would you like to explore membership plans?",
                     [
                       { text: "Cancel", style: "cancel" },
-                      { text: "Explore Plans", onPress: () => router.push("/membership" as any) },
+                      { text: "Explore Plans", onPress: () => router.push("/onboarding/order-summary?mode=repurchase" as any) },
                     ]
                   );
                 } else {
@@ -875,7 +875,7 @@ export default function CreditsScreen() {
 
             {!isMembershipActive && (
               <Pressable
-                onPress={() => router.push("/membership" as any)}
+                onPress={() => router.push("/onboarding/order-summary?mode=repurchase" as any)}
                 className="mt-3 items-center"
               >
                 <Text className="text-xs font-bold text-[#1F7A3E]">

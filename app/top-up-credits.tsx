@@ -281,7 +281,7 @@ export default function TopUpCreditsScreen() {
                 "Additional credits can only be purchased while your membership is active. Would you like to explore membership plans?",
                 [
                   { text: "Cancel", style: "cancel" },
-                  { text: "Explore Plans", onPress: () => router.push("/membership" as any) },
+                  { text: "Explore Plans", onPress: () => router.push("/onboarding/order-summary?mode=repurchase" as any) },
                 ]
               );
             } else {
@@ -322,7 +322,7 @@ export default function TopUpCreditsScreen() {
 
         {!isMembershipActive && (
           <Pressable
-            onPress={() => router.push("/membership" as any)}
+            onPress={() => router.push("/onboarding/order-summary?mode=repurchase" as any)}
             className="mt-3.5 items-center"
           >
             <Text className="text-xs font-bold text-[#1F7A3E]">
