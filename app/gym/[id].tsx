@@ -45,11 +45,14 @@ export default function GymDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const isFromOnboarding = useAuthStore(state => state.isViewingOnboardingGym);
-  const { isGuest, selectGym, endGuestSession } = useGuestStore();
-  const { bookVisit, bookingStatus } = useBookingStore();
-  const { credits, membershipInfo, cashBalance } = useCreditsStore();
-  const { primaryGymId, visitsRemaining } = useUserStore();
-  const { token } = useAuthStore();
+  const isGuest = useGuestStore(state => state.isGuest);
+  const selectGym = useGuestStore(state => state.selectGym);
+  const endGuestSession = useGuestStore(state => state.endGuestSession);
+  const bookVisit = useBookingStore(state => state.bookVisit);
+  const bookingStatus = useBookingStore(state => state.bookingStatus);
+  const credits = useCreditsStore(state => state.credits);
+  const primaryGymId = useUserStore(state => state.primaryGymId);
+  const visitsRemaining = useUserStore(state => state.visitsRemaining);
   const insets = useSafeAreaInsets();
   const [activeImage, setActiveImage] = useState(0);
   const [showBookingModal, setShowBookingModal] = useState(false);
@@ -205,7 +208,7 @@ export default function GymDetailScreen() {
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
             <View style={{ flex: 1, marginRight: 8 }}>
               <Text style={{ fontSize: 24, fontWeight: '800', color: '#111827', letterSpacing: -0.5 }}>{GYM_DATA.name}</Text>
-              {isPrimaryGym && (
+              {!isFromOnboarding && isPrimaryGym && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
                   <View style={{ backgroundColor: '#1F7A3E', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 }}>
                     <Text style={{ fontSize: 10, fontWeight: '800', color: '#FFF' }}>PRIMARY GYM</Text>
@@ -220,14 +223,10 @@ export default function GymDetailScreen() {
                   <Text style={{ fontSize: 11, fontWeight: '700', color: '#16A34A', marginLeft: 4 }}>Partner Gym</Text>
                 </View>
               )}
-              {!isPrimaryGym && (
+              {!isFromOnboarding && !isPrimaryGym && (
                 <Pressable
                   onPress={() => {
                     useUserStore.getState().setPrimaryGym(GYM_DATA.id, GYM_DATA.name);
-                    useGuestStore.getState().selectGym(GYM_DATA.id, GYM_DATA.name);
-                    useCreditsStore.setState((s) => ({
-                      membershipInfo: s.membershipInfo ? { ...s.membershipInfo, gymName: GYM_DATA.name } : null,
-                    }));
                     Alert.alert("Primary Gym Set", `${GYM_DATA.name} has been set as your Primary Gym.`);
                   }}
                   style={{ backgroundColor: '#ECFDF5', borderWidth: 1, borderColor: '#A7F3D0', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}

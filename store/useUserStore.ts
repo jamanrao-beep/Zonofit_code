@@ -60,17 +60,23 @@ export const useUserStore = create<UserState>((set, get) => ({
   memberSince: "Recently",
 
   setPrimaryGym: (gymId: string, gymName: string) => {
+    const current = get();
+    if (current.primaryGymId === gymId && current.primaryGymName === gymName) {
+      return;
+    }
     set({ primaryGymId: gymId, primaryGymName: gymName });
     try {
       const { useCreditsStore } = require("./useCreditsStore");
       const currentMem = useCreditsStore.getState().membershipInfo;
-      if (currentMem) {
+      if (currentMem && currentMem.gymName !== gymName) {
         useCreditsStore.setState({
           membershipInfo: { ...currentMem, gymName }
         });
       }
       const { useGuestStore } = require("./useGuestStore");
-      useGuestStore.getState().selectGym(gymId, gymName);
+      if (useGuestStore.getState().selectedGymId !== gymId) {
+        useGuestStore.getState().selectGym(gymId, gymName);
+      }
     } catch {}
   },
 
