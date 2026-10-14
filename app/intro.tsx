@@ -60,51 +60,52 @@ function Slide1Illustration() {
   // Gentle floating for the orbiting life pills
   const pillStyle1 = useAnimatedStyle(() => ({
     transform: [
-      { translateX: Math.cos(angle.value + Math.PI / 4) * 6 },
-      { translateY: Math.sin(angle.value + Math.PI / 4) * 6 },
+      { translateX: Math.cos(angle.value + Math.PI / 4) * 4 },
+      { translateY: Math.sin(angle.value + Math.PI / 4) * 4 },
     ],
   }));
 
   const pillStyle2 = useAnimatedStyle(() => ({
     transform: [
-      { translateX: Math.cos(angle.value + (3 * Math.PI) / 4) * 6 },
-      { translateY: Math.sin(angle.value + (3 * Math.PI) / 4) * 6 },
+      { translateX: Math.cos(angle.value + (3 * Math.PI) / 4) * 4 },
+      { translateY: Math.sin(angle.value + (3 * Math.PI) / 4) * 4 },
     ],
   }));
 
   const pillStyle3 = useAnimatedStyle(() => ({
     transform: [
-      { translateX: Math.cos(angle.value + (5 * Math.PI) / 4) * 6 },
-      { translateY: Math.sin(angle.value + (5 * Math.PI) / 4) * 6 },
+      { translateX: Math.cos(angle.value + (5 * Math.PI) / 4) * 4 },
+      { translateY: Math.sin(angle.value + (5 * Math.PI) / 4) * 4 },
     ],
   }));
 
   const pillStyle4 = useAnimatedStyle(() => ({
     transform: [
-      { translateX: Math.cos(angle.value + (7 * Math.PI) / 4) * 6 },
-      { translateY: Math.sin(angle.value + (7 * Math.PI) / 4) * 6 },
+      { translateX: Math.cos(angle.value + (7 * Math.PI) / 4) * 4 },
+      { translateY: Math.sin(angle.value + (7 * Math.PI) / 4) * 4 },
     ],
   }));
 
   return (
     <View style={styles.illContainer}>
-      {/* Soft ambient background glow */}
-      <View style={styles.ambientGlow} />
-
-      {/* Floating Life Category Pills */}
-      <Animated.View style={[styles.floatingPill, { top: 25, left: 35 }, pillStyle1]}>
+      {/* Floating Life Category Pills - Staggered 4-Quadrant Placement */}
+      {/* Top-Left: Work */}
+      <Animated.View style={[styles.floatingPill, { top: 20, left: 16 }, pillStyle1]}>
         <Text style={styles.floatingPillText}>Work</Text>
       </Animated.View>
 
-      <Animated.View style={[styles.floatingPill, { top: 40, right: 35 }, pillStyle2]}>
+      {/* Mid-Right: Study */}
+      <Animated.View style={[styles.floatingPill, { top: 72, right: 16 }, pillStyle2]}>
         <Text style={styles.floatingPillText}>Study</Text>
       </Animated.View>
 
-      <Animated.View style={[styles.floatingPill, { bottom: 45, left: 40 }, pillStyle3]}>
+      {/* Mid-Left: Family */}
+      <Animated.View style={[styles.floatingPill, { bottom: 74, left: 18 }, pillStyle3]}>
         <Text style={styles.floatingPillText}>Family</Text>
       </Animated.View>
 
-      <Animated.View style={[styles.floatingPill, { bottom: 30, right: 40 }, pillStyle4]}>
+      {/* Bottom-Right: Travel */}
+      <Animated.View style={[styles.floatingPill, { bottom: 20, right: 18 }, pillStyle4]}>
         <Text style={styles.floatingPillText}>Travel</Text>
       </Animated.View>
 
@@ -730,21 +731,14 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   illContainer: {
-    height: 280,
+    width: "100%",
+    maxWidth: 320,
+    height: 290,
     justifyContent: "center",
     alignItems: "center",
     position: "relative",
     marginBottom: 16,
   },
-  ambientGlow: {
-    position: "absolute",
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    backgroundColor: "rgba(240, 253, 244, 0.7)",
-  },
-
-  // Slide 1: Animated Man
   manWrapper: {
     width: 170,
     height: 230,
@@ -764,17 +758,17 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
     borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.04)",
+    borderColor: "rgba(0,0,0,0.06)",
     zIndex: 20,
   },
   floatingPillText: {
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: "600",
-    color: "#475569",
+    color: "#334155",
   },
 
   // Slide 2: Comparison Cards
