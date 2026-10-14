@@ -739,6 +739,13 @@ const styles = StyleSheet.create({
     position: "relative",
     marginBottom: 16,
   },
+  ambientGlow: {
+    position: "absolute",
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: "rgba(220, 252, 231, 0.35)",
+  },
   manWrapper: {
     width: 170,
     height: 230,

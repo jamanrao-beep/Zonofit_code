@@ -10,13 +10,16 @@ import {
   Linking,
   Alert,
   TextInput,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useGuestStore } from "@/store/useGuestStore";
+import { useUserStore } from "@/store/useUserStore";
 import { useAddressStore } from "@/store/useAddressStore";
+import { FALLBACK_NETWORK_GYMS } from "@/constants/fallbackGyms";
 
 export type OptionId = "new" | "other_gym" | "other_platform" | "returning" | "beginner";
 
@@ -78,9 +81,34 @@ const ELIGIBILITY_OPTIONS: OptionItem[] = [
 
 export default function EligibilityScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    gymId?: string;
+    gymName?: string;
+    city?: string;
+    address?: string;
+  }>();
+
   const { completeOnboarding, loading } = useAuthStore();
   const { getSelectedAddress } = useAddressStore();
   const selectedAddress = getSelectedAddress();
+
+  const selectedGymId = useGuestStore(state => state.selectedGymId);
+  const selectedGymName = useGuestStore(state => state.selectedGymName);
+  const primaryGymId = useUserStore(state => state.primaryGymId);
+  const primaryGymName = useUserStore(state => state.primaryGymName);
+
+  const currentGymId = params.gymId || selectedGymId || primaryGymId;
+  const matchedGym = FALLBACK_NETWORK_GYMS.find(g => 
+    (currentGymId && g.id === currentGymId) || 
+    (params.gymName && g.name.toLowerCase() === params.gymName.toLowerCase()) ||
+    (selectedGymName && g.name.toLowerCase() === selectedGymName.toLowerCase()) ||
+    (primaryGymName && g.name.toLowerCase() === primaryGymName.toLowerCase())
+  );
+
+  const displayGymName = params.gymName || matchedGym?.name || selectedGymName || primaryGymName || "Being Fit Fitness";
+  const displayLocation = params.address || matchedGym?.address || (matchedGym?.city ? `${matchedGym.city}, Rajasthan` : (params.city ? `${params.city}, Rajasthan` : "Udaipur, Rajasthan"));
+  const displayInitial = displayGymName.trim().charAt(0).toUpperCase() || "Z";
+  const displayImage = matchedGym?.image || null;
 
   // Current Step: 1 | 2 | 3
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
@@ -129,9 +157,9 @@ export default function EligibilityScreen() {
       return;
     }
 
-    const city = selectedAddress?.city || "Bangalore";
-    const selectedGymId = useGuestStore.getState().selectedGymId || "gym-being-fit";
-    await completeOnboarding(city, selectedGymId, "Monthly");
+    const city = selectedAddress?.city || params.city || matchedGym?.city || "Udaipur";
+    const targetGymId = currentGymId || "gym-being-fit";
+    await completeOnboarding(city, targetGymId, "Monthly");
     if (router.canGoBack()) {
       router.dismissAll();
     }
@@ -186,19 +214,23 @@ export default function EligibilityScreen() {
             <View style={styles.gymCard}>
               <Text style={styles.gymCardSectionLabel}>Selected Gym</Text>
               <View style={styles.gymCardRow}>
-                <View style={styles.gymLogoBadge}>
-                  <Text style={styles.gymLogoText}>A</Text>
-                </View>
+                {displayImage ? (
+                  <Image source={{ uri: displayImage }} style={styles.gymImageThumb} resizeMode="cover" />
+                ) : (
+                  <View style={styles.gymLogoBadge}>
+                    <Text style={styles.gymLogoText}>{displayInitial}</Text>
+                  </View>
+                )}
                 <View style={{ flex: 1, marginLeft: 12 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center" }}>
-                    <Text style={styles.gymName}>Gym A</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+                    <Text style={styles.gymName} numberOfLines={1}>{displayGymName}</Text>
                     <View style={styles.primaryBadge}>
                       <Text style={styles.primaryBadgeText}>Primary Gym</Text>
                     </View>
                   </View>
                   <View style={{ flexDirection: "row", alignItems: "center", marginTop: 4 }}>
                     <Ionicons name="location-outline" size={14} color="#6B7280" />
-                    <Text style={styles.gymLocation}>Udaipur, Rajasthan</Text>
+                    <Text style={styles.gymLocation} numberOfLines={1}>{displayLocation}</Text>
                   </View>
                 </View>
               </View>
@@ -797,6 +829,12 @@ const styles = StyleSheet.create({
   gymCardRow: {
     flexDirection: "row",
     alignItems: "center",
+  },
+  gymImageThumb: {
+    width: 46,
+    height: 46,
+    borderRadius: 10,
+    backgroundColor: "#F3F4F6",
   },
   gymLogoBadge: {
     width: 44,
