@@ -59,6 +59,9 @@ export default function GymDetailScreen() {
   const bookVisit = useBookingStore(state => state.bookVisit);
   const bookingStatus = useBookingStore(state => state.bookingStatus);
   const credits = useCreditsStore(state => state.credits);
+  const membershipInfo = useCreditsStore(state => state.membershipInfo);
+  const inrWallet = useCreditsStore(state => state.inrWallet);
+  const cashBalance = inrWallet?.balanceINR ?? 0;
   const primaryGymId = useUserStore(state => state.primaryGymId);
   const visitsRemaining = useUserStore(state => state.visitsRemaining);
   const insets = useSafeAreaInsets();

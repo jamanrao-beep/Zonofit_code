@@ -20,6 +20,7 @@ import { useAddressStore } from "@/store/useAddressStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
 import { useUserStore } from "@/store/useUserStore";
 import DeliveryAddressModal from "@/components/DeliveryAddressModal";
+import { FALLBACK_NETWORK_GYMS } from "@/constants/fallbackGyms";
 
 export default function OrderSummaryScreen() {
   const router = useRouter();
@@ -32,7 +33,7 @@ export default function OrderSummaryScreen() {
 
   const { completeOnboarding, loading, token, user, isOnboarded } = useAuthStore();
   const { selectedGymName, selectedGymId } = useGuestStore();
-  const { primaryGymName } = useUserStore();
+  const { primaryGymName, primaryGymId } = useUserStore();
   const { credits, inrWallet, membershipInfo, fetchWallet } = useCreditsStore();
   const { getSelectedAddress } = useAddressStore();
   const selectedAddress = getSelectedAddress();
@@ -54,9 +55,16 @@ export default function OrderSummaryScreen() {
   const isFirstTime = !isRepurchaseMode;
 
   // Gym display details
-  const displayGymName = params.gymName || primaryGymName || user?.primaryGym || selectedGymName || "Being Fitness";
+  const currentGymId = params.gymId || selectedGymId || primaryGymId;
+  const matchedGym = FALLBACK_NETWORK_GYMS.find(g => 
+    (currentGymId && g.id === currentGymId) ||
+    (params.gymName && g.name.toLowerCase() === params.gymName.toLowerCase()) ||
+    (selectedGymName && g.name.toLowerCase() === selectedGymName.toLowerCase())
+  );
+  const displayGymName = params.gymName || matchedGym?.name || primaryGymName || user?.primaryGym || selectedGymName || "Being Fit Fitness";
   const gymInitial = displayGymName.trim().charAt(0).toUpperCase() || "B";
-  const gymLocation = selectedAddress?.city ? `${selectedAddress.city} • 1.2 km` : "Udaipur • 1.2 km";
+  const gymLocation = matchedGym?.address || (selectedAddress?.city ? `${selectedAddress.city} • 1.2 km` : "Sukher, Udaipur • 1.2 km");
+  const gymImage = matchedGym?.image || null;
 
   // Financial values matching the spec
   const membershipTotal = 3000;
@@ -93,8 +101,16 @@ export default function OrderSummaryScreen() {
     }
 
     if (isFirstTime) {
-      // First-time registration flow: Proceed to Eligibility Verification
-      router.push("/onboarding/eligibility" as any);
+      // First-time registration flow: Proceed to Eligibility Verification with gym params
+      router.push({
+        pathname: "/onboarding/eligibility",
+        params: {
+          gymId: params.gymId || matchedGym?.id || selectedGymId || primaryGymId || "",
+          gymName: displayGymName,
+          city: selectedAddress?.city || matchedGym?.city || "Udaipur",
+          address: gymLocation,
+        },
+      } as any);
     } else {
       // Repurchase flow: Direct confirmation & activation
       setIsProcessing(true);
@@ -173,9 +189,13 @@ export default function OrderSummaryScreen() {
         {/* Gym Card (Clean Card with Primary Gym Name - No Image Banner) */}
         <View style={styles.gymCard}>
           <View style={styles.gymInfoRow}>
-            <View style={styles.gymMonogram}>
-              <Text style={styles.gymMonogramText}>{gymInitial}</Text>
-            </View>
+            {gymImage ? (
+              <Image source={{ uri: gymImage }} style={styles.gymImageThumb} resizeMode="cover" />
+            ) : (
+              <View style={styles.gymMonogram}>
+                <Text style={styles.gymMonogramText}>{gymInitial}</Text>
+              </View>
+            )}
 
             <View style={styles.gymTextDetails}>
               <View style={styles.gymNameRow}>
@@ -520,6 +540,13 @@ const styles = StyleSheet.create({
   gymInfoRow: {
     flexDirection: "row",
     alignItems: "center",
+  },
+  gymImageThumb: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "#F3F4F6",
+    marginRight: 12,
   },
   gymMonogram: {
     width: 44,
