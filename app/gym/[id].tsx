@@ -43,7 +43,15 @@ const DEFAULT_GYM_DATA = {
 
 export default function GymDetailScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const params = useLocalSearchParams<{
+    id: string;
+    name?: string;
+    rating?: string;
+    distance?: string;
+    image?: string;
+    address?: string;
+  }>();
+  const id = params.id;
   const isFromOnboarding = useAuthStore(state => state.isViewingOnboardingGym);
   const isGuest = useGuestStore(state => state.isGuest);
   const selectGym = useGuestStore(state => state.selectGym);
@@ -65,16 +73,29 @@ export default function GymDetailScreen() {
     remainingCredits: number;
   } | null>(null);
 
-  // Find gym in fallback dataset if available
-  const matchedGym = FALLBACK_NETWORK_GYMS.find(g => g.id === id);
+  // Find gym in fallback dataset if available by id or by name
+  const matchedGym = FALLBACK_NETWORK_GYMS.find(g => 
+    g.id === id || 
+    (params.name && g.name.toLowerCase() === params.name.toLowerCase()) ||
+    (id && g.id.toLowerCase().includes(id.toLowerCase()))
+  );
+
+  const gymName = params.name || matchedGym?.name || DEFAULT_GYM_DATA.name;
+  const gymRating = params.rating ? parseFloat(params.rating) : (matchedGym?.rating || DEFAULT_GYM_DATA.rating);
+  const gymDistance = params.distance 
+    ? (params.distance.includes("km") ? params.distance : `${params.distance} km away`) 
+    : (matchedGym ? `${matchedGym.distance} km away` : DEFAULT_GYM_DATA.distance);
+  const gymImage = params.image || matchedGym?.image || DEFAULT_GYM_DATA.images[0];
+
   const GYM_DATA = {
     ...DEFAULT_GYM_DATA,
-    id: id || DEFAULT_GYM_DATA.id,
-    name: matchedGym?.name || DEFAULT_GYM_DATA.name,
-    rating: matchedGym?.rating || DEFAULT_GYM_DATA.rating,
-    distance: matchedGym ? `${matchedGym.distance} km away` : DEFAULT_GYM_DATA.distance,
+    id: id || matchedGym?.id || DEFAULT_GYM_DATA.id,
+    name: gymName,
+    rating: gymRating,
+    distance: gymDistance,
     credits: matchedGym?.cost || DEFAULT_GYM_DATA.credits,
-    images: matchedGym?.image ? [matchedGym.image, ...DEFAULT_GYM_DATA.images.slice(1)] : DEFAULT_GYM_DATA.images,
+    images: [gymImage, ...DEFAULT_GYM_DATA.images.slice(1)],
+    about: matchedGym?.policies ? matchedGym.policies.join(" ") : DEFAULT_GYM_DATA.about,
   };
 
   const isPrimaryGym = Boolean(primaryGymId && (primaryGymId === id || primaryGymId === matchedGym?.id));
