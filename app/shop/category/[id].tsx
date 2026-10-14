@@ -68,6 +68,20 @@ export default function CategoryScreen() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [addedItem, setAddedItem] = useState<AddedItemDetails | null>(null);
 
+  const filteredProducts = PRODUCTS.filter((prod) => {
+    const q = searchQuery.trim().toLowerCase();
+    const matchesSearch = !q || 
+      prod.name.toLowerCase().includes(q) ||
+      prod.brand.toLowerCase().includes(q) ||
+      prod.variant.toLowerCase().includes(q);
+      
+    const matchesFilter = activeFilter === "All" || 
+      prod.name.toLowerCase().includes(activeFilter.toLowerCase()) ||
+      prod.variant.toLowerCase().includes(activeFilter.toLowerCase());
+      
+    return matchesSearch && matchesFilter;
+  });
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }} edges={["top"]}>
       <StatusBar barStyle="dark-content" />
@@ -109,30 +123,29 @@ export default function CategoryScreen() {
               onChangeText={setSearchQuery}
               className="flex-1 ml-2 text-[13px] font-medium text-black h-full"
             />
+            {searchQuery.length > 0 && (
+              <Pressable onPress={() => setSearchQuery("")} hitSlop={8}>
+                <Ionicons name="close-circle" size={16} color="#9CA3AF" />
+              </Pressable>
+            )}
           </View>
         </View>
 
-        {/* Filters */}
-        <View className="px-5 mb-6 flex-row items-center">
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-1 mr-3">
+        {/* Categories Horizontal Bar (No complex filter modal) */}
+        <View className="px-5 mb-6">
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: 10 }}>
             {FILTERS.map((filter) => (
               <Pressable
                 key={filter}
                 onPress={() => setActiveFilter(filter)}
-                className={`px-4 py-1.5 rounded-full mr-2 ${activeFilter === filter ? 'bg-[#1F7A3E]' : 'bg-transparent'}`}
+                className={`px-4 py-2 rounded-full mr-2 ${activeFilter === filter ? 'bg-[#1F7A3E]' : 'bg-[#F3F4F6]'}`}
               >
-                <Text className={`text-[12px] font-bold ${activeFilter === filter ? 'text-white' : 'text-gray-500'}`}>
+                <Text className={`text-[12px] font-bold ${activeFilter === filter ? 'text-white' : 'text-[#374151]'}`}>
                   {filter}
                 </Text>
               </Pressable>
             ))}
           </ScrollView>
-          <Pressable 
-            onPress={() => router.push("/shop/filter" as any)}
-            className="w-[34px] h-[34px] items-center justify-center bg-gray-50 rounded-lg border border-gray-200 shadow-sm active:bg-gray-100"
-          >
-            <Ionicons name="options-outline" size={18} color="#111827" />
-          </Pressable>
         </View>
 
         {/* Wallet Banner */}
@@ -150,14 +163,13 @@ export default function CategoryScreen() {
         {/* Product Grid */}
         <View className="px-5">
           <View className="flex-row justify-between items-center mb-4">
-            <Text className="text-[16px] font-bold text-[#111827]">Best Sellers</Text>
-            <Pressable>
-              <Text className="text-[#1F7A3E] font-bold text-[12px]">View All</Text>
-            </Pressable>
+            <Text className="text-[16px] font-bold text-[#111827]">
+              {activeFilter === "All" ? "Best Sellers" : `${activeFilter} Products`} ({filteredProducts.length})
+            </Text>
           </View>
 
           <View className="flex-row flex-wrap justify-between">
-            {PRODUCTS.map((prod) => (
+            {filteredProducts.map((prod) => (
               <View 
                 key={prod.id} 
                 className="w-[48%] bg-white border border-gray-200 rounded-2xl p-3 mb-4 shadow-sm justify-between"
@@ -224,6 +236,14 @@ export default function CategoryScreen() {
                 </Pressable>
               </View>
             ))}
+
+            {filteredProducts.length === 0 && (
+              <View className="w-full py-12 items-center justify-center">
+                <Ionicons name="search-outline" size={40} color="#9CA3AF" />
+                <Text className="text-gray-700 font-bold text-base mt-3">No products found</Text>
+                <Text className="text-gray-400 text-xs mt-1">Try another category or clear search</Text>
+              </View>
+            )}
           </View>
         </View>
 
