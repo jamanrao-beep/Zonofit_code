@@ -99,7 +99,7 @@ export default function VerifyNumberScreen() {
     return (
       <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
         <StatusBar barStyle="dark-content" />
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.content}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.content}>
           <View>
             <Pressable onPress={() => router.back()} style={styles.backButton}>
               <Ionicons name="chevron-back" size={24} color="#111827" />
@@ -124,11 +124,12 @@ export default function VerifyNumberScreen() {
                 style={styles.input}
                 placeholder="10-digit mobile number"
                 placeholderTextColor="#9CA3AF"
-                keyboardType="phone-pad"
+                keyboardType={Platform.OS === "ios" ? "number-pad" : "numeric"}
                 value={phone}
                 onChangeText={(t) => setPhone(t.replace(/[^0-9]/g, ""))}
                 maxLength={10}
                 autoFocus
+                showSoftInputOnFocus={true}
               />
             </View>
 
@@ -157,7 +158,7 @@ export default function VerifyNumberScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <StatusBar barStyle="dark-content" />
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.content}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.content}>
         <View>
           <Pressable onPress={() => setStep("phone")} style={styles.backButton}>
             <Ionicons name="chevron-back" size={24} color="#111827" />

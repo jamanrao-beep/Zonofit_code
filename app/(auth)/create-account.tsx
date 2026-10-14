@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { 
   View, 
   Text, 
@@ -35,6 +35,7 @@ export default function CreateAccountScreen() {
   const [phone, setPhone] = useState("");
   const [phoneFocused, setPhoneFocused] = useState(false);
   const [otpSending, setOtpSending] = useState(false);
+  const phoneInputRef = useRef<TextInput>(null);
 
   const sendOTP = useAuthStore(state => state.sendOTP);
   const googleSignIn = useAuthStore(state => state.googleSignIn);
@@ -227,13 +228,13 @@ export default function CreateAccountScreen() {
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <StatusBar barStyle="dark-content" />
       <KeyboardAvoidingView 
-        behavior={Platform.OS === "ios" ? "padding" : "height"} 
+        behavior={Platform.OS === "ios" ? "padding" : undefined} 
         style={{ flex: 1 }}
       >
         <ScrollView 
           contentContainerStyle={styles.scrollContent} 
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="always"
         >
           {/* Top bar with mode switcher & tour */}
           <View style={styles.topBar}>
@@ -289,16 +290,24 @@ export default function CreateAccountScreen() {
           {/* HERO SECTION: MOBILE NUMBER LOGIN (PRIORITIZED #1)       */}
           {/* ======================================================== */}
           <View style={styles.phoneSection}>
-            <View style={[styles.phoneInputCard, phoneFocused && styles.phoneInputCardFocused]}>
-              <View style={styles.countryCodeBadge}>
+            <Pressable 
+              style={[styles.phoneInputCard, phoneFocused && styles.phoneInputCardFocused]}
+              onPress={() => phoneInputRef.current?.focus()}
+              accessible={false}
+            >
+              <Pressable 
+                style={styles.countryCodeBadge}
+                onPress={() => phoneInputRef.current?.focus()}
+              >
                 <Text style={styles.flagEmoji}>🇮🇳</Text>
                 <Text style={styles.countryCodeText}>+91</Text>
-              </View>
+              </Pressable>
               <TextInput
+                ref={phoneInputRef}
                 style={styles.phoneInput}
                 placeholder="Enter 10-digit mobile number"
                 placeholderTextColor="#9CA3AF"
-                keyboardType="phone-pad"
+                keyboardType={Platform.OS === "ios" ? "number-pad" : "numeric"}
                 maxLength={10}
                 value={phone}
                 onChangeText={(text) => setPhone(text.replace(/[^0-9]/g, ""))}
@@ -306,13 +315,16 @@ export default function CreateAccountScreen() {
                 onBlur={() => setPhoneFocused(false)}
                 returnKeyType="done"
                 onSubmitEditing={handlePhoneSubmit}
+                showSoftInputOnFocus={true}
+                editable={!otpSending}
+                autoCorrect={false}
               />
               {phone.length > 0 && (
                 <Pressable onPress={() => setPhone("")} style={styles.clearBtn} hitSlop={10}>
                   <Ionicons name="close-circle" size={18} color="#9CA3AF" />
                 </Pressable>
               )}
-            </View>
+            </Pressable>
 
             {/* Primary Hero Button: Continue with OTP */}
             <Pressable 
@@ -783,6 +795,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#111827",
+    paddingVertical: 0,
   },
   clearBtn: {
     padding: 4,
