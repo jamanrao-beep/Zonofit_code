@@ -22,35 +22,13 @@ import { SwipeableTabScreen } from "@/components/SwipeableTabScreen";
 import { Alert, BackHandler, ToastAndroid, Platform } from "react-native";
 
 function BlinkingRedDot() {
-  const opacity = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, {
-          toValue: 0.15,
-          duration: 450,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 450,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    animation.start();
-    return () => animation.stop();
-  }, [opacity]);
-
   return (
-    <Animated.View
+    <View
       style={{
         width: 8,
         height: 8,
         borderRadius: 4,
         backgroundColor: '#DC2626',
-        opacity,
       }}
     />
   );
@@ -106,12 +84,10 @@ export default function HomeScreen() {
   // Auto-sync rest credits if user is an active member but credits show 0
   React.useEffect(() => {
     const isMember = !isGuest && (membershipStatus === "ACTIVE" || membershipStatus === "Active" || visitsRemaining > 0);
-    if (isMember && credits === 0) {
-      useCreditsStore.setState((s) => ({
-        credits: s.credits > 0 ? s.credits : 80,
-      }));
+    if (isMember && useCreditsStore.getState().credits === 0) {
+      useCreditsStore.setState({ credits: 80 });
     }
-  }, [isGuest, membershipStatus, visitsRemaining, credits]);
+  }, [isGuest, membershipStatus, visitsRemaining]);
 
   const homeScrollRef = useRef<ScrollView>(null);
   const guestScrollRef = useRef<ScrollView>(null);
