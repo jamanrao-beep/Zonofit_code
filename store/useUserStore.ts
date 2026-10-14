@@ -37,14 +37,14 @@ interface UserState {
   reset: () => void;
 }
 
-export const useUserStore = create<UserState>((set) => ({
+export const useUserStore = create<UserState>((set, get) => ({
   name: "Member",
   email: "",
   phone: null,
   avatarUrl: null,
   visitsRemaining: 10,
   membershipStatus: "No Active Membership",
-  planName: "Starter",
+  planName: "Monthly Membership",
   primaryGymId: "gym-being-fit",
   primaryGymName: "Being Fitness",
   membershipExpiry: "N/A",
@@ -81,7 +81,7 @@ export const useUserStore = create<UserState>((set) => ({
     avatarUrl: null,
     visitsRemaining: 10,
     membershipStatus: "No Active Membership",
-    planName: "Starter",
+    planName: "Monthly Membership",
     primaryGymId: "gym-being-fit",
     primaryGymName: "Being Fitness",
     membershipExpiry: "N/A",
@@ -128,7 +128,7 @@ export const useUserStore = create<UserState>((set) => ({
           avatarUrl: finalAvatarUrl,
           visitsRemaining: membership?.primaryGymVisits || plan?.visitsPerMonth || (membership ? 10 : state.visitsRemaining),
           membershipStatus: membership ? membership.status : "No Active Membership",
-          planName: plan?.name || (membership ? "Starter" : state.planName),
+          planName: plan?.name || (membership ? "Monthly Membership" : state.planName),
           primaryGymId: resolvedId,
           primaryGymName: resolvedName,
         membershipExpiry: membership ? new Date(membership.endDate).toLocaleDateString() : "N/A",
@@ -168,39 +168,19 @@ export const useUserStore = create<UserState>((set) => ({
   })),
 
   updatePlan: async (planId: string, amountPaidPaise: number, primaryGymId?: string) => {
-    // Determine plan metadata
-    let planName = "Starter";
-    let monthlyCredits = 160;
-    let visits = 10;
-
-    const lower = (planId || "").toLowerCase();
-    if (lower.includes("elite")) {
-      planName = "Elite";
-      monthlyCredits = 450;
-      visits = 25;
-    } else if (lower.includes("premium")) {
-      planName = "Premium";
-      monthlyCredits = 300;
-      visits = 18;
-    } else {
-      planName = "Starter";
-      monthlyCredits = 160;
-      visits = 10;
-    }
-
-    const PLAN_UUID_MAP: Record<string, string> = {
-      starter: "755fb72b-6174-44a9-9456-e4747dc46095",
-      premium: "51ce9651-698c-429c-b7ba-6f07f7b2c5aa",
-      elite: "3f941562-f0a3-41da-9c4e-0374203e4810",
-    };
+    // Single common monthly membership
+    const planName = "Monthly Membership";
+    const monthlyCredits = 160;
+    const currentCycle = get().currentMonth || 1;
+    const visits = currentCycle <= 4 ? 10 : 15;
 
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(planId || "");
-    const resolvedPlanId = isUuid ? planId : (PLAN_UUID_MAP[planName.toLowerCase()] || "755fb72b-6174-44a9-9456-e4747dc46095");
+    const resolvedPlanId = isUuid ? planId : "755fb72b-6174-44a9-9456-e4747dc46095";
     const resolvedGymId = primaryGymId || "83431d3a-313a-450c-b78e-62732160b6ef";
 
     const resolvedAmount = (typeof amountPaidPaise === "number" && amountPaidPaise > 0)
       ? amountPaidPaise
-      : (monthlyCredits === 450 ? 499900 : monthlyCredits === 300 ? 349900 : 199900);
+      : 199900;
 
     try {
       const token = useAuthStore.getState().token;

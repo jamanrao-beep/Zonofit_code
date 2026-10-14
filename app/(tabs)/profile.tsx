@@ -16,7 +16,7 @@ export default function ProfileScreen() {
     const { user, isLoaded, signOut } = useAuthStore();
     const router = useRouter();
 
-    const { planName, membershipStatus, streak, totalWorkouts, avatarUrl, uploadAvatar, memberSince, identityStage } = useUserStore();
+    const { planName, membershipStatus, streak, totalWorkouts, avatarUrl, uploadAvatar, memberSince, identityStage, currentMonth } = useUserStore();
     const { credits } = useCreditsStore();
     const { isGuest, getHoursRemaining, endGuestSession } = useGuestStore();
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -228,7 +228,7 @@ export default function ProfileScreen() {
                     <NavRow
                         icon="card-membership"
                         label="My Membership"
-                        value={planName}
+                        value={membershipStatus === "ACTIVE" ? `Month ${currentMonth || 1} of 12` : "No Active Plan"}
                         onPress={() => router.push("/membership")}
                     />
                     <NavRow
