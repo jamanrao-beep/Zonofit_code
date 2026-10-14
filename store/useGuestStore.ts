@@ -110,7 +110,11 @@ export const useGuestStore = create<GuestState>((set, get) => ({
   },
 
   selectGym: async (gymId: string, gymName?: string) => {
-    const { session } = get();
+    const { session, selectedGymId, selectedGymName } = get();
+    if (selectedGymId === gymId && (!gymName || selectedGymName === gymName)) {
+      return;
+    }
+
     if (session) {
       const updated: GuestSession = {
         ...session,
@@ -132,7 +136,9 @@ export const useGuestStore = create<GuestState>((set, get) => ({
 
     try {
       const { useUserStore } = require("./useUserStore");
-      useUserStore.getState().setPrimaryGym(gymId, gymName || "Being Fitness");
+      if (useUserStore.getState().primaryGymId !== gymId) {
+        useUserStore.getState().setPrimaryGym(gymId, gymName || "Being Fitness");
+      }
     } catch {}
   },
 
