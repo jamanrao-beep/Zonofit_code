@@ -58,7 +58,7 @@ router.get(
     const cycleNumber = membership.cycleNumber || 1;
     const maxCycles = 12;
     const cyclesRemaining = Math.max(0, maxCycles - cycleNumber);
-    const mandatoryVisits = membership.mandatoryVisits || 10;
+    const mandatoryVisits = membership.mandatoryVisits || (cycleNumber <= 4 ? 10 : 15);
     const completedVisits = membership.completedVisits || 0;
     const mandatoryVisitsRemaining = Math.max(0, mandatoryVisits - completedVisits);
 
@@ -162,7 +162,8 @@ router.post(
           if (!gymPlan) throw createError("Gym Plan not found.", 404, "PlanNotFound");
           gym = gymPlan.gym;
           
-          const cutDays = gymPlan.initialCutoffDays || 10;
+          // Common membership rule: First 4 months = 10 days cut, Months 5 to 12 = 15 days cut
+          const cutDays = nextCycleNumber <= 4 ? 10 : 15;
           initialVisits = cutDays;
           const netCreditDays = Math.max(0, 30 - cutDays);
           remainingCreditsToAdd = netCreditDays * (gym.creditCost || 8);
@@ -221,17 +222,19 @@ router.post(
             });
           }
 
-          const settings = await getSystemSettings();
-          initialVisits = settings.initialVisitCut || 10;
+          // Single common membership rule:
+          // Months 1 to 4: first 10 days credits are cut (10 mandatory visits)
+          // Months 5 to 12: first 15 days credits are cut (15 mandatory visits)
+          initialVisits = nextCycleNumber <= 4 ? 10 : 15;
           const gymCreditCost = gym.creditCost || 8;
           let initialCreditsCost = gymCreditCost * initialVisits;
 
-          if (initialCreditsCost > plan.monthlyCredits) {
-            initialVisits = Math.max(5, Math.floor(plan.monthlyCredits / gymCreditCost));
-            initialCreditsCost = Math.min(plan.monthlyCredits, gymCreditCost * initialVisits);
+          const totalMonthlyCredits = plan.monthlyCredits || 160;
+          if (initialCreditsCost > totalMonthlyCredits) {
+            initialCreditsCost = totalMonthlyCredits;
           }
 
-          remainingCreditsToAdd = Math.max(0, plan.monthlyCredits - initialCreditsCost);
+          remainingCreditsToAdd = Math.max(0, totalMonthlyCredits - initialCreditsCost);
           endDate = new Date(baseDate.getTime() + (plan.durationDays || 30) * 24 * 60 * 60 * 1000);
         }
 

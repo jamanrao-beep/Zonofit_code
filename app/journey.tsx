@@ -295,18 +295,18 @@ export default function JourneyScreen() {
                 <View style={{ position: 'absolute', top: 18, left: 20, width: `${Math.min(100, Math.max(3, ((cycleMonth - 1) / 11) * 100))}%`, height: 3, backgroundColor: '#4C9A2A', zIndex: 1 }} />
                 
                 {[
-                  { m: 1, label: "Start", target: "10 visits", focus: "Foundation habit: show up regularly at your primary gym." },
-                  { m: 2, label: "Build", target: "10 visits", focus: "Consistency building: establish your weekly schedule." },
-                  { m: 3, label: "Habit", target: "10 visits", focus: "Automatic routine: working out becomes second nature." },
-                  { m: 4, label: "Momentum", target: "10-12 visits", focus: "Expanding frequency: start exploring network partner gyms." },
-                  { m: 5, label: "Discipline", target: "10-12 visits", focus: "Identity transformation: fitness is who you are." },
-                  { m: 6, label: "Strength", target: "12-15 visits", focus: "Half-year milestone: peak consistency & habit lock-in." },
-                  { m: 7, label: "Power", target: "12-15 visits", focus: "Advanced stamina: challenge new workout disciplines." },
-                  { m: 8, label: "Rhythm", target: "12-15 visits", focus: "Unbreakable streak: fitness effortless & integrated." },
-                  { m: 9, label: "Drive", target: "12-15 visits", focus: "High performance: building strength and resilience." },
-                  { m: 10, label: "Lifestyle", target: "12-15 visits", focus: "Mastery phase: living the athletic mindset." },
-                  { m: 11, label: "Peak", target: "12-15 visits", focus: "Peak condition: finishing the transformation strong." },
-                  { m: 12, label: "Champion", target: "12-15 visits", focus: "1-Year Transformation Complete: Champion level fitness participant." },
+                  { m: 1, label: "Start", target: "10 visits cut", focus: "Foundation habit: show up regularly at your primary gym." },
+                  { m: 2, label: "Build", target: "10 visits cut", focus: "Consistency building: establish your weekly schedule." },
+                  { m: 3, label: "Habit", target: "10 visits cut", focus: "Automatic routine: working out becomes second nature." },
+                  { m: 4, label: "Momentum", target: "10 visits cut", focus: "Expanding frequency: start exploring network partner gyms." },
+                  { m: 5, label: "Discipline", target: "15 visits cut", focus: "Progression phase: deeper consistency at primary gym." },
+                  { m: 6, label: "Strength", target: "15 visits cut", focus: "Half-year milestone: peak consistency & habit lock-in." },
+                  { m: 7, label: "Power", target: "15 visits cut", focus: "Advanced stamina: challenge new workout disciplines." },
+                  { m: 8, label: "Rhythm", target: "15 visits cut", focus: "Unbreakable streak: fitness effortless & integrated." },
+                  { m: 9, label: "Drive", target: "15 visits cut", focus: "High performance: building strength and resilience." },
+                  { m: 10, label: "Lifestyle", target: "15 visits cut", focus: "Mastery phase: living the athletic mindset." },
+                  { m: 11, label: "Peak", target: "15 visits cut", focus: "Peak condition: finishing the transformation strong." },
+                  { m: 12, label: "Champion", target: "15 visits cut", focus: "1-Year Transformation Complete: Champion level fitness participant." },
                 ].map(({ m, label, target, focus }) => {
                   const isCompleted = cycleMonth > m;
                   const isCurrent = cycleMonth === m;

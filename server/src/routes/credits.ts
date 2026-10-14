@@ -60,9 +60,10 @@ router.get(
     // Check if user has an active membership and should have rest credits from their plan
     if (membership && !isExpired && membership.status === "ACTIVE") {
       const planCredits = membership.plan?.monthlyCredits || 160;
-      const mandatoryVisits = membership.mandatoryVisits || 10;
+      const cycleNum = membership.cycleNumber || 1;
+      const mandatoryVisits = membership.mandatoryVisits || (cycleNum <= 4 ? 10 : 15);
       const mandatoryCost = mandatoryVisits * 8;
-      const expectedRestCredits = Math.max(0, planCredits - mandatoryCost) || 80;
+      const expectedRestCredits = Math.max(0, planCredits - mandatoryCost) || (cycleNum <= 4 ? 80 : 40);
 
       const debitCount = await prisma.creditTransaction.count({
         where: { 

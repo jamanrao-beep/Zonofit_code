@@ -126,10 +126,10 @@ router.get(
                     monthlyCredits: user.membership.plan?.monthlyCredits || 0,
                     primaryGymId: user.membership.primaryGymId,
                     gymName: user.membership.primaryGym?.name || "Being Fitness",
-                    primaryGymVisits: user.membership.primaryGymVisits || 10,
+                    primaryGymVisits: user.membership.primaryGymVisits || ((user.membership.cycleNumber || 1) <= 4 ? 10 : 15),
                     cycleNumber: user.membership.cycleNumber || 1,
                     maxCycles: (user.membership as any).maxCycles || 12,
-                    mandatoryVisits: user.membership.mandatoryVisits || 10,
+                    mandatoryVisits: user.membership.mandatoryVisits || ((user.membership.cycleNumber || 1) <= 4 ? 10 : 15),
                     completedVisits: user.membership.completedVisits || 0,
                 }
                 : null,
