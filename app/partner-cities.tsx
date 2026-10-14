@@ -88,61 +88,44 @@ export default function PartnerCitiesScreen() {
         <Text style={styles.sectionHeading}>PARTNER NETWORK CITIES</Text>
 
         <View style={styles.citiesList}>
-          {filteredCities.map((city) => {
-            const isUdaipur = city.name.toLowerCase() === "udaipur";
+          {filteredCities.map((city) => (
+            <Pressable
+              key={city.id}
+              onPress={() => handleSelectCity(city)}
+              style={styles.cityCard}
+            >
+              {/* City Photo Thumbnail */}
+              <Image
+                source={{ uri: city.image }}
+                style={styles.cityThumb}
+                resizeMode="cover"
+              />
 
-            return (
-              <Pressable
-                key={city.id}
-                onPress={() => handleSelectCity(city)}
-                style={styles.cityCard}
-              >
-                {/* City Photo Thumbnail */}
-                <Image
-                  source={{ uri: city.image }}
-                  style={styles.cityThumb}
-                  resizeMode="cover"
-                />
-
-                {/* City Info */}
-                <View style={styles.cityInfoWrap}>
-                  <View style={styles.cityNameRow}>
-                    <Text style={styles.cityName}>{city.name}</Text>
-                    {isUdaipur ? (
-                      <View style={styles.restrictedBadge}>
-                        <Ionicons name="lock-closed" size={11} color="#DC2626" />
-                        <Text style={styles.restrictedBadgeText}>Restricted</Text>
-                      </View>
-                    ) : (
-                      <View style={styles.activeBadge}>
-                        <Ionicons name="flash" size={11} color="#1F7A3E" />
-                        <Text style={styles.activeBadgeText}>Credits</Text>
-                      </View>
-                    )}
+              {/* City Info */}
+              <View style={styles.cityInfoWrap}>
+                <View style={styles.cityNameRow}>
+                  <Text style={styles.cityName}>{city.name}</Text>
+                  <View style={styles.activeBadge}>
+                    <Ionicons name="flash" size={11} color="#1F7A3E" />
+                    <Text style={styles.activeBadgeText}>Credits</Text>
                   </View>
-
-                  <Text style={styles.cityState}>
-                    {city.state} • {city.centresCount}+ Centres
-                  </Text>
-
-                  <Text
-                    style={[
-                      styles.cityTagline,
-                      isUdaipur && styles.cityTaglineRestricted,
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {city.tagline}
-                  </Text>
                 </View>
 
-                {/* Arrow */}
-                <View style={styles.arrowWrap}>
-                  <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-                </View>
-              </Pressable>
-            );
-          })}
+                <Text style={styles.cityState}>
+                  {city.state} • {city.centresCount}+ Centres
+                </Text>
+
+                <Text style={styles.cityTagline} numberOfLines={1}>
+                  {city.tagline}
+                </Text>
+              </View>
+
+              {/* Arrow */}
+              <View style={styles.arrowWrap}>
+                <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+              </View>
+            </Pressable>
+          ))}
         </View>
 
         {filteredCities.length === 0 && (
