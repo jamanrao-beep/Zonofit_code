@@ -73,10 +73,6 @@ export const useUserStore = create<UserState>((set, get) => ({
           membershipInfo: { ...currentMem, gymName }
         });
       }
-      const { useGuestStore } = require("./useGuestStore");
-      if (useGuestStore.getState().selectedGymId !== gymId) {
-        useGuestStore.getState().selectGym(gymId, gymName);
-      }
     } catch {}
   },
 

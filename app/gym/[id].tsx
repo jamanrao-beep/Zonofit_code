@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, ScrollView, Image, Pressable, Dimensions, StatusBar, StyleSheet, Platform, Alert } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
@@ -90,7 +90,7 @@ export default function GymDetailScreen() {
     : (matchedGym ? `${matchedGym.distance} km away` : DEFAULT_GYM_DATA.distance);
   const gymImage = params.image || matchedGym?.image || DEFAULT_GYM_DATA.images[0];
 
-  const GYM_DATA = {
+  const GYM_DATA = useMemo(() => ({
     ...DEFAULT_GYM_DATA,
     id: id || matchedGym?.id || DEFAULT_GYM_DATA.id,
     name: gymName,
@@ -99,7 +99,7 @@ export default function GymDetailScreen() {
     credits: matchedGym?.cost || DEFAULT_GYM_DATA.credits,
     images: [gymImage, ...DEFAULT_GYM_DATA.images.slice(1)],
     about: matchedGym?.policies ? matchedGym.policies.join(" ") : DEFAULT_GYM_DATA.about,
-  };
+  }), [id, matchedGym, gymName, gymRating, gymDistance, gymImage]);
 
   const isPrimaryGym = Boolean(primaryGymId && (primaryGymId === id || primaryGymId === matchedGym?.id));
   const isMandatoryVisit = isPrimaryGym && visitsRemaining > 0;
@@ -190,7 +190,10 @@ export default function GymDetailScreen() {
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
-            onScroll={(e) => setActiveImage(Math.round(e.nativeEvent.contentOffset.x / width))}
+            onScroll={(e) => {
+              const newIndex = Math.round(e.nativeEvent.contentOffset.x / width);
+              setActiveImage((prev) => (prev !== newIndex ? newIndex : prev));
+            }}
             scrollEventThrottle={16}
           >
             {GYM_DATA.images.map((img, idx) => (

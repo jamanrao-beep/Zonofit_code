@@ -133,13 +133,6 @@ export const useGuestStore = create<GuestState>((set, get) => ({
         selectedGymName: gymName || null,
       });
     }
-
-    try {
-      const { useUserStore } = require("./useUserStore");
-      if (useUserStore.getState().primaryGymId !== gymId) {
-        useUserStore.getState().setPrimaryGym(gymId, gymName || "Being Fitness");
-      }
-    } catch {}
   },
 
   convertGuest: async () => {
