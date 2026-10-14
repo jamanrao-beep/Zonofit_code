@@ -1,56 +1,47 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { View, Text, StyleSheet, Pressable, TextInput, ScrollView, Image, StatusBar } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useGuestStore } from "@/store/useGuestStore";
-
-const GYMS = [
-  {
-    id: "gym-being-fit",
-    name: "Being Fitness",
-    rating: "4.9",
-    distance: "1.2 km away",
-    area: "Fatehpura, Udaipur",
-    image: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&q=80&w=400",
-  },
-  {
-    id: "g1",
-    name: "FitZone Pro",
-    rating: "4.8",
-    distance: "1.8 km away",
-    area: "Sukher, Udaipur",
-    image: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&q=80&w=400",
-  },
-  {
-    id: "g2",
-    name: "PowerHouse Elite",
-    rating: "4.9",
-    distance: "2.5 km away",
-    area: "Shobhagpura, Udaipur",
-    image: "https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?auto=format&fit=crop&q=80&w=400",
-  },
-  {
-    id: "g3",
-    name: "Iron Paradise",
-    rating: "4.7",
-    distance: "3.2 km away",
-    area: "Celebration Mall Rd, Udaipur",
-    image: "https://images.unsplash.com/photo-1540497077202-7c8a3999166f?auto=format&fit=crop&q=80&w=400",
-  },
-];
+import { FALLBACK_NETWORK_GYMS, NetworkGym } from "@/constants/fallbackGyms";
 
 export default function ChooseGymScreen() {
   const router = useRouter();
   const [search, setSearch] = useState("");
 
-  const handleSelectGym = (gymId: string) => {
-    const gym = GYMS.find(g => g.id === gymId);
-    useGuestStore.getState().selectGym(gymId, gym?.name);
+  // Load real network gyms (Udaipur partner gyms prioritized for home city)
+  const gymsList = useMemo(() => {
+    const udaipurGyms = FALLBACK_NETWORK_GYMS.filter(g => g.city === "Udaipur" || !g.city);
+    return udaipurGyms.length > 0 ? udaipurGyms : FALLBACK_NETWORK_GYMS;
+  }, []);
+
+  const filteredGyms = useMemo(() => {
+    if (!search.trim()) return gymsList;
+    const q = search.toLowerCase().trim();
+    return gymsList.filter(gym => 
+      gym.name.toLowerCase().includes(q) ||
+      gym.address.toLowerCase().includes(q) ||
+      (gym.city && gym.city.toLowerCase().includes(q)) ||
+      (gym.tags && gym.tags.some(t => t.toLowerCase().includes(q)))
+    );
+  }, [gymsList, search]);
+
+  const handleSelectGym = (gym: NetworkGym) => {
+    useGuestStore.getState().selectGym(gym.id, gym.name);
     // Navigate to gym details page in onboarding mode
     useAuthStore.getState().setIsViewingOnboardingGym(true);
-    router.push(`/gym/${gymId}` as any);
+    router.push({
+      pathname: `/gym/${gym.id}`,
+      params: {
+        name: gym.name,
+        rating: String(gym.rating),
+        distance: String(gym.distance),
+        image: gym.image,
+        address: gym.address,
+      }
+    } as any);
   };
 
   return (
@@ -68,6 +59,7 @@ export default function ChooseGymScreen() {
             }
           }} 
           style={styles.backButton}
+          hitSlop={10}
         >
           <Ionicons name="chevron-back" size={24} color="#111827" />
         </Pressable>
@@ -78,61 +70,80 @@ export default function ChooseGymScreen() {
 
       <View style={styles.content}>
         <Text style={styles.title}>Choose Your Primary Gym</Text>
-        <Text style={styles.subtitle}>Your Primary Gym is where you'll complete most of your workouts.</Text>
+        <Text style={styles.subtitle}>
+          Your Primary Gym is where you'll complete your included monthly workouts.
+        </Text>
 
         {/* Search Bar */}
         <View style={styles.searchContainer}>
           <Ionicons name="search-outline" size={20} color="#9CA3AF" />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search gyms..."
+            placeholder="Search by gym name, area, facility..."
             placeholderTextColor="#9CA3AF"
             value={search}
             onChangeText={setSearch}
+            clearButtonMode="while-editing"
           />
-          <View style={styles.filterButton}>
-            <Ionicons name="options" size={20} color="#111827" />
-          </View>
+          {search.length > 0 && (
+            <Pressable onPress={() => setSearch("")} hitSlop={8} style={{ marginRight: 6 }}>
+              <Ionicons name="close-circle" size={18} color="#9CA3AF" />
+            </Pressable>
+          )}
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.listContainer}>
-          {GYMS.map((gym) => (
-            <View key={gym.id} style={styles.gymCard}>
-              <Image source={{ uri: gym.image }} style={styles.gymImage} />
+          {filteredGyms.map((gym) => (
+            <Pressable 
+              key={gym.id} 
+              style={({ pressed }) => [
+                styles.gymCard,
+                pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] }
+              ]}
+              onPress={() => handleSelectGym(gym)}
+            >
+              <Image source={{ uri: gym.image }} style={styles.gymImage} resizeMode="cover" />
               
               <View style={styles.gymInfo}>
                 <View style={styles.gymHeader}>
                   <Text style={styles.gymName} numberOfLines={1}>{gym.name}</Text>
                   <View style={styles.ratingBadge}>
-                    <Ionicons name="star" size={12} color="#F59E0B" />
-                    <Text style={styles.ratingText}>{gym.rating}</Text>
+                    <Ionicons name="star" size={11} color="#D97706" />
+                    <Text style={styles.ratingText}>{Number(gym.rating).toFixed(1)}</Text>
                   </View>
                 </View>
                 
-                <Text style={styles.gymLocation}>
-                  {gym.distance} • {gym.area}
-                </Text>
+                <View style={styles.locationRow}>
+                  <Ionicons name="location-outline" size={12} color="#6B7280" />
+                  <Text style={styles.gymLocation} numberOfLines={1}>
+                    {typeof gym.distance === 'number' ? `${gym.distance} km away` : gym.distance} • {gym.address}
+                  </Text>
+                </View>
                 
                 <View style={styles.gymFooter}>
                   <View style={styles.tagsContainer}>
-                    <View style={styles.tag}>
-                      <Text style={styles.tagText}>Cardio</Text>
-                    </View>
-                    <View style={styles.tag}>
-                      <Text style={styles.tagText}>Strength</Text>
-                    </View>
+                    {gym.tags.slice(0, 2).map((tag, idx) => (
+                      <View key={idx} style={styles.tag}>
+                        <Text style={styles.tagText}>{tag}</Text>
+                      </View>
+                    ))}
                   </View>
                   
-                  <Pressable 
-                    style={styles.selectButton}
-                    onPress={() => handleSelectGym(gym.id)}
-                  >
+                  <View style={styles.selectButton}>
                     <Text style={styles.selectButtonText}>Select</Text>
-                  </Pressable>
+                  </View>
                 </View>
               </View>
-            </View>
+            </Pressable>
           ))}
+
+          {filteredGyms.length === 0 && (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="barbell-outline" size={42} color="#9CA3AF" />
+              <Text style={styles.emptyTitle}>No gyms found</Text>
+              <Text style={styles.emptySubtitle}>Try searching for another area or keyword</Text>
+            </View>
+          )}
         </ScrollView>
       </View>
     </SafeAreaView>
@@ -147,22 +158,21 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 24,
-    height: 56,
+    paddingHorizontal: 20,
+    height: 52,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     justifyContent: "center",
-    marginLeft: -8,
   },
   progressBarContainer: {
     flex: 1,
     height: 4,
     backgroundColor: "#F3F4F6",
     borderRadius: 2,
-    marginLeft: 16,
-    marginRight: 32,
+    marginLeft: 12,
+    marginRight: 24,
     overflow: "hidden",
   },
   progressBar: {
@@ -172,20 +182,21 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 16,
+    paddingHorizontal: 20,
+    paddingTop: 12,
   },
   title: {
     fontSize: 24,
     fontWeight: "800",
     color: "#111827",
-    marginBottom: 8,
+    marginBottom: 6,
+    letterSpacing: -0.4,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 13.5,
     color: "#6B7280",
-    marginBottom: 24,
-    lineHeight: 20,
+    marginBottom: 18,
+    lineHeight: 19,
   },
   searchContainer: {
     flexDirection: "row",
@@ -193,20 +204,17 @@ const styles = StyleSheet.create({
     backgroundColor: "#F9FAFB",
     borderWidth: 1,
     borderColor: "#E5E7EB",
-    borderRadius: 16,
-    height: 52,
-    paddingHorizontal: 16,
-    marginBottom: 24,
+    borderRadius: 14,
+    height: 48,
+    paddingHorizontal: 14,
+    marginBottom: 16,
   },
   searchInput: {
     flex: 1,
-    marginLeft: 12,
-    fontSize: 15,
+    marginLeft: 10,
+    fontSize: 14.5,
     color: "#111827",
     fontWeight: "500",
-  },
-  filterButton: {
-    padding: 8,
   },
   listContainer: {
     paddingBottom: 40,
@@ -217,55 +225,64 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: "#E5E7EB",
-    marginBottom: 16,
+    marginBottom: 14,
     overflow: "hidden",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
     elevation: 2,
   },
   gymImage: {
-    width: 100,
+    width: 104,
     height: "100%",
     backgroundColor: "#F3F4F6",
   },
   gymInfo: {
     flex: 1,
-    padding: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    justifyContent: "space-between",
   },
   gymHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
     marginBottom: 4,
   },
   gymName: {
-    fontSize: 16,
+    fontSize: 15.5,
     fontWeight: "800",
     color: "#111827",
     flex: 1,
-    marginRight: 8,
+    marginRight: 6,
+    letterSpacing: -0.2,
   },
   ratingBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFFBEB",
+    backgroundColor: "#FEF3C7",
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: 6,
+    gap: 2,
   },
   ratingText: {
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 11.5,
+    fontWeight: "800",
     color: "#D97706",
-    marginLeft: 4,
+  },
+  locationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    marginBottom: 10,
   },
   gymLocation: {
     fontSize: 12,
     color: "#6B7280",
     fontWeight: "500",
-    marginBottom: 12,
+    flex: 1,
   },
   gymFooter: {
     flexDirection: "row",
@@ -274,28 +291,43 @@ const styles = StyleSheet.create({
   },
   tagsContainer: {
     flexDirection: "row",
-    gap: 6,
+    gap: 5,
   },
   tag: {
     backgroundColor: "#F3F4F6",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
   tagText: {
-    fontSize: 10,
+    fontSize: 10.5,
     fontWeight: "600",
     color: "#4B5563",
   },
   selectButton: {
     backgroundColor: "#1F7A3E",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
     borderRadius: 8,
   },
   selectButtonText: {
     fontSize: 12,
     fontWeight: "700",
     color: "#FFFFFF",
+  },
+  emptyContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 40,
+    gap: 8,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#374151",
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    color: "#9CA3AF",
   },
 });
