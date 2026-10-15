@@ -210,7 +210,7 @@ export default function OrderSummaryScreen() {
           <View style={styles.planHeaderRow}>
             <View>
               <Text style={styles.planTitle}>Monthly Membership</Text>
-              <Text style={styles.planPrice}>₹3,000</Text>
+              <Text style={styles.planPrice}>₹{membershipTotal.toLocaleString("en-IN")}</Text>
             </View>
             <View style={styles.durationBadge}>
               <Text style={styles.durationBadgeText}>1 Month</Text>
