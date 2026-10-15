@@ -36,8 +36,9 @@ interface AuthState {
 
   // Actions
   initialize: () => Promise<void>;
-  sendOTP: (phone: string) => Promise<void>;
-  verifyOTP: (code: string) => Promise<boolean>;
+  sendOTP: (phone: string, isSignIn?: boolean) => Promise<void>;
+  verifyOTP: (code: string, isSignIn?: boolean) => Promise<boolean>;
+  checkUserExists: (phone?: string, email?: string) => Promise<{ exists: boolean; phoneExists: boolean; emailExists: boolean; isOnboarded: boolean; user?: any }>;
   updateProfile: (details: { name: string, dob?: string, email?: string, referral?: string }) => Promise<void>;
   completeOnboarding: (city: string, gymId: string, plan: string) => Promise<void>;
   googleSignIn: (email?: string, name?: string) => Promise<{ success: boolean; isOnboarded: boolean }>;
@@ -154,18 +155,38 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  sendOTP: async (phone) => {
+  checkUserExists: async (phone?: string, email?: string) => {
+    try {
+      const data = await apiFetch("/api/auth/check-user", {
+        method: "POST",
+        body: JSON.stringify({ phone, email }),
+      });
+      return {
+        exists: !!data?.exists,
+        phoneExists: !!data?.phoneExists,
+        emailExists: !!data?.emailExists,
+        isOnboarded: !!data?.isOnboarded,
+        user: data?.user || null,
+      };
+    } catch {
+      return { exists: false, phoneExists: false, emailExists: false, isOnboarded: false, user: null };
+    }
+  },
+
+  sendOTP: async (phone, isSignIn = false) => {
     set({ loading: true, error: null, verificationPhone: phone });
     try {
+      const cleanPhone = phone.replace(/[^0-9]/g, "").slice(-10);
       try {
-        let res = await apiFetch("/api/auth/signup", {
-          method: "POST",
-          body: JSON.stringify({ username: "ZonoFit Member", phone }),
-        });
-        if (res.error === "PhoneAlreadyRegistered" || res.message?.includes("already registered")) {
-          res = await apiFetch("/api/auth/signin", {
+        if (isSignIn) {
+          await apiFetch("/api/auth/signin", {
             method: "POST",
-            body: JSON.stringify({ phone }),
+            body: JSON.stringify({ phone: cleanPhone }),
+          });
+        } else {
+          await apiFetch("/api/auth/signup", {
+            method: "POST",
+            body: JSON.stringify({ username: "ZonoFit Member", phone: cleanPhone }),
           });
         }
       } catch (apiErr: any) {
@@ -174,10 +195,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ loading: false });
     } catch (err: any) {
       set({ loading: false, error: err.message || "Failed to send OTP." });
+      throw err;
     }
   },
 
-  verifyOTP: async (code) => {
+  verifyOTP: async (code, isSignIn = false) => {
     set({ loading: true, error: null });
     const phone = get().verificationPhone?.trim();
     if (!phone) {
@@ -187,6 +209,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       let authToken: string | null = null;
       let authUser: User | null = null;
+      let isOnboarded = false;
 
       try {
         const data = await apiFetch("/api/auth/verify", {
@@ -194,18 +217,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           body: JSON.stringify({
             phone,
             code,
-            isSignIn: false,
+            isSignIn,
             username: "ZonoFit Member",
           }),
         });
 
         if (data.token) {
           authToken = data.token;
+          isOnboarded = Boolean(data.isOnboarded || data.user?.isOnboarded);
           authUser = {
             id: data.user?.id || "usr_" + Date.now(),
-            username: data.user?.username || "ZonoFit Member",
+            username: data.user?.username || (isSignIn ? "Member" : "ZonoFit Member"),
             phone,
+            email: data.user?.email,
             authMethod: "phone",
+            isOnboarded,
           };
         }
       } catch (verifyErr) {
@@ -218,11 +244,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             });
             if (googleRes.token) {
               authToken = googleRes.token;
+              isOnboarded = Boolean(googleRes.user?.isOnboarded);
               authUser = {
                 id: googleRes.user?.id || "usr_" + Date.now(),
-                username: "ZonoFit Member",
+                username: googleRes.user?.name || "ZonoFit Member",
                 phone,
+                email: googleRes.user?.email,
                 authMethod: "phone",
+                isOnboarded,
               };
             }
           } catch {
@@ -233,6 +262,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               username: "ZonoFit Member",
               phone,
               authMethod: "phone",
+              isOnboarded: false,
             };
           }
         } else {
@@ -252,6 +282,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
         await SecureStore.setItemAsync(TOKEN_KEY, authToken);
         await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(authUser));
+        if (isOnboarded) {
+          await SecureStore.setItemAsync(ONBOARDED_KEY, "true");
+        }
 
         // Sync verified phone to backend
         try {
@@ -268,6 +301,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           loading: false,
           hasVerifiedOTP: true,
           verificationPhone: phone,
+          isOnboarded,
+          isSignedIn: true,
         });
         return true;
       }
@@ -395,8 +430,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           visitsRemaining: 10,
         });
 
-        // Grant rest credits for the active membership
-        const restCredits = 80;
+        // Grant rest credits for the active membership (Formula: (Price - MandatoryVisitsCost) / 10 => (3000 - 1200) / 10 = 180 credits)
+        const restCredits = 180;
         const currentCredits = useCreditsStore.getState().credits;
         useCreditsStore.setState({
           credits: Math.max(currentCredits, restCredits),

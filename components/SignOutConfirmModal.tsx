@@ -26,48 +26,37 @@ export default function SignOutConfirmModal({
   onConfirm,
   onCancel,
 }: SignOutConfirmModalProps) {
-  // Moving color pulse / breathing animation
+  // Gentle, calm pulse animation like checkout
   const pulseScale = useSharedValue(1);
-  const glowOpacity = useSharedValue(0.4);
-  const rotateVal = useSharedValue(0);
+  const glowOpacity = useSharedValue(0.35);
 
   useEffect(() => {
     if (visible) {
       pulseScale.value = withRepeat(
         withSequence(
-          withTiming(1.15, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
-          withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) })
+          withTiming(1.06, { duration: 2400, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1, { duration: 2400, easing: Easing.inOut(Easing.ease) })
         ),
         -1,
         true
       );
       glowOpacity.value = withRepeat(
         withSequence(
-          withTiming(0.85, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0.35, { duration: 1200, easing: Easing.inOut(Easing.ease) })
+          withTiming(0.55, { duration: 2400, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0.2, { duration: 2400, easing: Easing.inOut(Easing.ease) })
         ),
         -1,
         true
       );
-      rotateVal.value = withRepeat(
-        withTiming(360, { duration: 8000, easing: Easing.linear }),
-        -1,
-        false
-      );
     } else {
       pulseScale.value = 1;
-      glowOpacity.value = 0.4;
-      rotateVal.value = 0;
+      glowOpacity.value = 0.35;
     }
   }, [visible]);
 
   const animatedGlowStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pulseScale.value }],
     opacity: glowOpacity.value,
-  }));
-
-  const animatedRingStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${rotateVal.value}deg` }],
   }));
 
   if (!visible) return null;
@@ -104,12 +93,11 @@ export default function SignOutConfirmModal({
                 animatedGlowStyle,
               ]}
             />
-            {/* Rotating Decorative Border Ring */}
-            <Animated.View
+            {/* Subtle Decorative Border Ring */}
+            <View
               style={[
                 styles.rotatingRing,
                 isGuest ? styles.guestRotatingRing : styles.signOutRotatingRing,
-                animatedRingStyle,
               ]}
             />
             {/* Center Icon Badge */}

@@ -150,11 +150,19 @@ export default function EligibilityScreen() {
 
     const city = selectedAddress?.city || params.city || matchedGym?.city || "Udaipur";
     const targetGymId = currentGymId || "gym-being-fit";
-    await completeOnboarding(city, targetGymId, "Monthly");
-    if (router.canGoBack()) {
-      router.dismissAll();
-    }
-    router.replace("/onboarding/welcome");
+    
+    // Eligibility completed! Now proceed to final onboarding step: Order Summary & Purchase Membership
+    router.push({
+      pathname: "/onboarding/order-summary",
+      params: {
+        mode: "purchase",
+        isFirstTime: "true",
+        gymId: targetGymId,
+        gymName: displayGymName,
+        city: city,
+        address: displayLocation,
+      },
+    } as any);
   };
 
   const isAllChecked = check1 && check2 && check3;

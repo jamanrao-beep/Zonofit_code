@@ -15,7 +15,7 @@ export default function WelcomeScreen() {
   const { primaryGymName, planName } = useUserStore();
   const gymName = selectedGymName || primaryGymName || "Being Fitness";
   const displayPlan = planName && planName !== "None" ? planName : "Monthly Plan";
-  const displayCredits = credits > 0 ? `${credits} Credits available` : "80 Credits available";
+  const displayCredits = credits > 0 ? `${credits} Credits available` : "180 Credits available";
   
   const handleGoHome = () => {
     if (router.canGoBack()) {

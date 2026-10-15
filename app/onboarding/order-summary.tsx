@@ -29,6 +29,10 @@ export default function OrderSummaryScreen() {
     isFirstTime?: string;
     gymName?: string;
     gymId?: string;
+    price?: string;
+    mandatoryVisits?: string;
+    city?: string;
+    address?: string;
   }>();
 
   const { completeOnboarding, loading, token, user, isOnboarded } = useAuthStore();
@@ -66,13 +70,13 @@ export default function OrderSummaryScreen() {
   const gymLocation = matchedGym?.address || (selectedAddress?.city ? `${selectedAddress.city} • 1.2 km` : "Sukher, Udaipur • 1.2 km");
   const gymImage = matchedGym?.image || null;
 
-  // Financial values matching the spec
-  const membershipTotal = 3000;
-  const mandatoryVisitsCost = 1200;
-  const mandatoryVisitsCount = 10;
+  // Dynamic formula calculation for any membership price
+  const membershipTotal = params.price ? Number(params.price) : 3000;
+  const mandatoryVisitsCount = params.mandatoryVisits ? Number(params.mandatoryVisits) : 10;
   const mandatoryVisitPerUnit = 120;
-  const walletCreditsValue = 1800;
-  const walletCreditsCount = 180;
+  const mandatoryVisitsCost = mandatoryVisitsCount * mandatoryVisitPerUnit;
+  const walletCreditsValue = Math.max(0, membershipTotal - mandatoryVisitsCost);
+  const walletCreditsCount = Math.round(walletCreditsValue / 10);
 
   // Previous credits calculation
   // First-time users have 0 previous credits
@@ -100,53 +104,23 @@ export default function OrderSummaryScreen() {
       return;
     }
 
-    if (isFirstTime) {
-      // First-time registration flow: Proceed to Eligibility Verification with gym params
-      router.push({
-        pathname: "/onboarding/eligibility",
-        params: {
-          gymId: params.gymId || matchedGym?.id || selectedGymId || primaryGymId || "",
-          gymName: displayGymName,
-          city: selectedAddress?.city || matchedGym?.city || "Udaipur",
-          address: gymLocation,
-        },
-      } as any);
-    } else {
-      // Repurchase flow: Direct confirmation & activation
-      setIsProcessing(true);
-      try {
-        Alert.alert(
-          "Confirm Repurchase",
-          `Proceed to pay ₹${finalPayableAmount.toLocaleString("en-IN")} for your Monthly Membership at ${displayGymName}?`,
-          [
-            { text: "Cancel", style: "cancel", onPress: () => setIsProcessing(false) },
-            {
-              text: "Proceed",
-              onPress: async () => {
-                try {
-                  const city = selectedAddress?.city || "Udaipur";
-                  const gymId = params.gymId || selectedGymId || "g1";
-                  await completeOnboarding(city, gymId, "Monthly");
-                  if (token) {
-                    await fetchWallet(token);
-                  }
-                  Alert.alert(
-                    "Membership Repurchased!",
-                    `Your monthly membership at ${displayGymName} has been activated. 10 mandatory visits and 180 wallet credits are ready.`,
-                    [{ text: "Go to Home", onPress: () => router.replace("/(tabs)") }]
-                  );
-                } catch (e) {
-                  Alert.alert("Repurchase Error", "Could not complete repurchase. Please try again.");
-                } finally {
-                  setIsProcessing(false);
-                }
-              }
-            }
-          ]
-        );
-      } catch (err) {
-        setIsProcessing(false);
+    // This is the FINAL step of onboarding: process payment, activate membership, and show success!
+    setIsProcessing(true);
+    try {
+      const city = selectedAddress?.city || params.city || matchedGym?.city || "Udaipur";
+      const targetGymId = params.gymId || currentGymId || "gym-being-fit";
+
+      await completeOnboarding(city, targetGymId, "Monthly");
+      if (token) {
+        await fetchWallet(token);
       }
+      
+      // Navigate to Payment Success / Welcome Screen
+      router.replace("/onboarding/welcome");
+    } catch (e: any) {
+      Alert.alert("Payment Error", e?.message || "Could not complete payment. Please try again.");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -382,8 +356,8 @@ export default function OrderSummaryScreen() {
           />
           <Text style={styles.infoCalloutText}>
             {isFirstTime
-              ? "Mandatory visits and wallet credits are separate benefits. 10 mandatory visits and 180 wallet credits will be credited to your account upon purchase."
-              : "Mandatory visits and wallet credits are separate benefits. Using credits only reduces your payable amount. Your 10 mandatory visits will still be added to your account."}
+              ? `Mandatory visits and wallet credits are separate benefits. ${mandatoryVisitsCount} mandatory visits and ${walletCreditsCount} wallet credits will be credited to your account upon purchase.`
+              : `Mandatory visits and wallet credits are separate benefits. Using credits only reduces your payable amount. Your ${mandatoryVisitsCount} mandatory visits will still be added to your account.`}
           </Text>
         </View>
 

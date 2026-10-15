@@ -119,9 +119,10 @@ export const useCreditsStore = create<CreditsState>((set, get) => ({
       } catch {}
 
       if (mem && !mem.isExpired && (mem.status === "ACTIVE" || mem.status === "Active") && resolvedCredits === 0) {
-        const planMonthlyCredits = mem.monthlyCredits || (mem.planName === "Premium" ? 300 : mem.planName === "Elite" ? 450 : 160);
-        const mandatoryCost = (mem.mandatoryVisits || 10) * 8;
-        resolvedCredits = Math.max(0, planMonthlyCredits - mandatoryCost) || 80;
+        const planPrice = mem.price || 3000;
+        const mandatoryVisits = mem.mandatoryVisits || 10;
+        const mandatoryCost = mandatoryVisits * 120;
+        resolvedCredits = Math.max(0, Math.round((planPrice - mandatoryCost) / 10)) || 180;
       }
 
       set({
@@ -141,7 +142,7 @@ export const useCreditsStore = create<CreditsState>((set, get) => ({
         if (isMember) {
           const gymName = userState.primaryGymName || "Being Fitness";
           set((state) => ({
-            credits: state.credits > 0 ? state.credits : 80,
+            credits: state.credits > 0 ? state.credits : 180,
             membershipInfo: state.membershipInfo ? { ...state.membershipInfo, gymName } : {
               status: "ACTIVE",
               isExpired: false,

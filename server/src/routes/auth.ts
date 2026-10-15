@@ -90,6 +90,56 @@ router.post(
   }
 );
 
+// POST /api/auth/check-user
+router.post(
+  "/check-user",
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { phone, email } = req.body || {};
+      const cleanPhone = typeof phone === "string" ? phone.replace(/[^0-9]/g, "").slice(-10) : "";
+      const cleanEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+
+      let phoneUser = null;
+      if (cleanPhone && cleanPhone.length === 10) {
+        phoneUser = await prisma.user.findFirst({
+          where: { phone: { contains: cleanPhone } },
+          select: { id: true, name: true, phone: true, email: true },
+        });
+      }
+
+      let emailUser = null;
+      if (cleanEmail && cleanEmail.includes("@")) {
+        emailUser = await prisma.user.findUnique({
+          where: { email: cleanEmail },
+          select: { id: true, name: true, phone: true, email: true },
+        });
+      }
+
+      const matchedUser = phoneUser || emailUser;
+      const exists = !!matchedUser;
+      const isOnboarded = !!(matchedUser && matchedUser.name && matchedUser.name !== "ZonoFit Member");
+
+      res.json({
+        exists,
+        phoneExists: !!phoneUser,
+        emailExists: !!emailUser,
+        isOnboarded,
+        user: matchedUser
+          ? {
+              id: matchedUser.id,
+              name: matchedUser.name,
+              phone: matchedUser.phone,
+              email: matchedUser.email,
+              isOnboarded,
+            }
+          : null,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: "CheckUserFailed", message: err.message });
+    }
+  }
+);
+
 // POST /api/auth/verify
 router.post(
   "/verify",
@@ -202,14 +252,19 @@ router.post(
       createdAt: Date.now(),
     });
 
+    const isOnboarded = !!(user.name && user.name !== "ZonoFit Member");
+
     res.json({
       token,
       user: {
         id: user.id,
         username: user.name,
         phone: user.phone,
+        email: user.email,
         authMethod: "phone",
+        isOnboarded,
       },
+      isOnboarded,
     });
   }
 );

@@ -50,7 +50,7 @@ export default function VerifyNumberScreen() {
   const handleSendOTP = async () => {
     const clean = phone.replace(/[^0-9]/g, "");
     if (clean.length !== 10) return;
-    await sendOTP(clean);
+    await sendOTP(clean, isSignIn);
     setCountdown(30);
     setOtpCode("");
     setStep("otp");
@@ -63,7 +63,7 @@ export default function VerifyNumberScreen() {
     if (countdown > 0) return;
     const clean = phone.replace(/[^0-9]/g, "") || verificationPhone;
     if (clean) {
-      await sendOTP(clean);
+      await sendOTP(clean, isSignIn);
       setCountdown(30);
       setOtpCode("");
       setTimeout(() => {
@@ -76,7 +76,7 @@ export default function VerifyNumberScreen() {
     const code = codeToVerify || otpCode;
     if (code.length < 4) return;
     
-    const success = await verifyOTP(code);
+    const success = await verifyOTP(code, isSignIn);
     if (success) {
       const { isOnboarded } = useAuthStore.getState();
       if (isOnboarded) {
