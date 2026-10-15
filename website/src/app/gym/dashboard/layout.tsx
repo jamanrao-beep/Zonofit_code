@@ -23,7 +23,6 @@ export default function GymDashboardLayout({
     { name: "Home", href: "/gym/dashboard", icon: LayoutDashboard },
     { name: "Members", href: "/gym/dashboard/members", icon: Users },
     { name: "Payouts & Earnings", href: "/gym/dashboard/payouts", icon: IndianRupee },
-    { name: "Offers & Campaigns", href: "/gym/dashboard/offers", icon: Tag },
     { name: "Performance Analytics", href: "/gym/dashboard/analytics", icon: LineChart },
   ];
 
