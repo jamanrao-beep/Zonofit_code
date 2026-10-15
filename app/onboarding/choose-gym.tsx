@@ -99,45 +99,71 @@ export default function ChooseGymScreen() {
               key={gym.id} 
               style={({ pressed }) => [
                 styles.gymCard,
-                pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] }
+                pressed && { opacity: 0.95, transform: [{ scale: 0.995 }] }
               ]}
               onPress={() => handleSelectGym(gym)}
             >
-              <Image source={{ uri: gym.image }} style={styles.gymImage} resizeMode="cover" />
+              {/* Big Gym Photo */}
+              <View style={styles.gymImageWrap}>
+                <Image 
+                  source={{ uri: gym.image }} 
+                  style={styles.gymImage} 
+                  resizeMode="cover" 
+                />
+                {gym.isBestValue && (
+                  <View style={styles.topBadge}>
+                    <Text style={styles.topBadgeText}>Best Value</Text>
+                  </View>
+                )}
+                {gym.isPremium && (
+                  <View style={[styles.topBadge, { backgroundColor: '#FEF3C7' }]}>
+                    <Text style={[styles.topBadgeText, { color: '#B45309' }]}>Premium</Text>
+                  </View>
+                )}
+              </View>
               
-              <View style={styles.gymInfo}>
-                <View style={styles.gymHeader}>
-                  <Text style={styles.gymName} numberOfLines={1}>{gym.name}</Text>
-                  <View style={styles.ratingBadge}>
-                    <Ionicons name="star" size={11} color="#D97706" />
-                    <Text style={styles.ratingText}>{Number(gym.rating).toFixed(1)}</Text>
+              {/* Bottom Strip: Circular Logo + Blue Verified Checkmark + Info + Select Pill */}
+              <View style={styles.gymBottomInfo}>
+                {/* Logo with Blue Verified Checkmark */}
+                <View style={styles.logoWrap}>
+                  <Image 
+                    source={{ uri: gym.logo || gym.image }} 
+                    style={styles.logoImg} 
+                    resizeMode="cover" 
+                  />
+                  <View style={styles.blueCheckBadge}>
+                    <Ionicons name="checkmark-circle" size={14} color="#2563EB" />
                   </View>
                 </View>
-                
-                <View style={styles.locationRow}>
-                  <Ionicons name="location-outline" size={12} color="#6B7280" />
-                  <Text style={styles.gymLocation} numberOfLines={1}>
-                    {typeof gym.distance === 'number' ? `${gym.distance} km away` : gym.distance} • {gym.address}
+
+                {/* Name & Details */}
+                <View style={styles.gymTextDetails}>
+                  <Text style={styles.gymNameText} numberOfLines={1}>
+                    {gym.name}
                   </Text>
+                  <Text style={styles.gymLocationText} numberOfLines={1}>
+                    {gym.address} • {typeof gym.distance === 'number' ? `${gym.distance.toFixed(2)} km` : gym.distance}
+                  </Text>
+                  <View style={styles.ratingRow}>
+                    <Ionicons name="star" size={12} color="#F59E0B" />
+                    <Text style={styles.ratingScoreText}>
+                      {gym.rating?.toFixed(1) || "4.8"}
+                    </Text>
+                    <Text style={styles.reviewCountText}>
+                      ({gym.reviewCount || 50})
+                    </Text>
+                  </View>
                 </View>
-                
-                <View style={styles.gymFooter}>
-                  <View style={styles.tagsContainer}>
-                    <View style={[styles.tag, { backgroundColor: '#E8F5E9', borderColor: '#C8E6C9', borderWidth: 1 }]}>
-                      <Text style={[styles.tagText, { color: '#1F7A3E', fontWeight: '800' }]}>
-                        ₹{(gym.membershipPrice || 3000).toLocaleString('en-IN')}/mo
-                      </Text>
-                    </View>
-                    {gym.tags.slice(0, 1).map((tag, idx) => (
-                      <View key={idx} style={styles.tag}>
-                        <Text style={styles.tagText}>{tag}</Text>
-                      </View>
-                    ))}
+
+                {/* Right Action: Select Pill with Monthly Price */}
+                <View style={styles.actionWrap}>
+                  <View style={styles.selectPillBtn}>
+                    <Text style={styles.selectPillText}>Select</Text>
+                    <Ionicons name="chevron-forward" size={12} color="#166534" />
                   </View>
-                  
-                  <View style={styles.selectButton}>
-                    <Text style={styles.selectButtonText}>Select</Text>
-                  </View>
+                  <Text style={styles.priceSubtitle}>
+                    ₹{(gym.membershipPrice || 3000).toLocaleString('en-IN')}/mo
+                  </Text>
                 </View>
               </View>
             </Pressable>
@@ -226,100 +252,123 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   gymCard: {
-    flexDirection: "row",
     backgroundColor: "#FFFFFF",
-    borderRadius: 16,
+    borderRadius: 20,
+    marginBottom: 16,
+    overflow: "hidden",
     borderWidth: 1,
     borderColor: "#E5E7EB",
-    marginBottom: 14,
-    overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  gymImageWrap: {
+    width: "100%",
+    height: 185,
+    backgroundColor: "#E2E8F0",
+    position: "relative",
   },
   gymImage: {
-    width: 104,
+    width: "100%",
     height: "100%",
-    backgroundColor: "#F3F4F6",
   },
-  gymInfo: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    justifyContent: "space-between",
+  topBadge: {
+    position: "absolute",
+    top: 12,
+    left: 12,
+    backgroundColor: "#DCFCE7",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.6)",
   },
-  gymHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 4,
-  },
-  gymName: {
-    fontSize: 15.5,
+  topBadgeText: {
+    fontSize: 10.5,
     fontWeight: "800",
-    color: "#111827",
+    color: "#166534",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  gymBottomInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 14,
+    backgroundColor: "#FFFFFF",
+  },
+  logoWrap: {
+    position: "relative",
+    width: 46,
+    height: 46,
+  },
+  logoImg: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: "#F1F5F9",
+  },
+  blueCheckBadge: {
+    position: "absolute",
+    bottom: -2,
+    right: -2,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 8,
+  },
+  gymTextDetails: {
     flex: 1,
-    marginRight: 6,
+    marginLeft: 12,
+    marginRight: 8,
+  },
+  gymNameText: {
+    fontSize: 15.5,
+    fontWeight: "700",
+    color: "#0F172A",
     letterSpacing: -0.2,
   },
-  ratingBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FEF3C7",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    gap: 2,
+  gymLocationText: {
+    fontSize: 12,
+    color: "#64748B",
+    marginTop: 2,
   },
-  ratingText: {
-    fontSize: 11.5,
-    fontWeight: "800",
-    color: "#D97706",
-  },
-  locationRow: {
+  ratingRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
-    marginBottom: 10,
+    marginTop: 3,
   },
-  gymLocation: {
-    fontSize: 12,
-    color: "#6B7280",
-    fontWeight: "500",
-    flex: 1,
-  },
-  gymFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  tagsContainer: {
-    flexDirection: "row",
-    gap: 5,
-  },
-  tag: {
-    backgroundColor: "#F3F4F6",
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  tagText: {
-    fontSize: 10.5,
-    fontWeight: "600",
-    color: "#4B5563",
-  },
-  selectButton: {
-    backgroundColor: "#1F7A3E",
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  selectButtonText: {
+  ratingScoreText: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: "#0F172A",
+  },
+  reviewCountText: {
+    fontSize: 11,
+    color: "#64748B",
+  },
+  actionWrap: {
+    alignItems: "flex-end",
+    gap: 4,
+  },
+  selectPillBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#DCFCE7",
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+    borderRadius: 16,
+    gap: 4,
+  },
+  selectPillText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#166534",
+  },
+  priceSubtitle: {
+    fontSize: 11.5,
+    fontWeight: "800",
+    color: "#1F7A3E",
   },
   emptyContainer: {
     alignItems: "center",
