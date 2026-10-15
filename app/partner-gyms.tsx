@@ -90,28 +90,33 @@ export default function PartnerGymsScreen() {
         const data = await apiFetch("/api/gyms", token ? { token } : undefined);
         const gymsData = data?.gyms || [];
         if (isMounted && gymsData.length > 0) {
-          const formattedGyms: Gym[] = gymsData.map((g: any, index: number) => ({
-            id: g.id,
-            name: g.name,
-            address: g.address || g.city || "Udaipur",
-            rating: g.rating || (4.6 + (index % 4) * 0.1),
-            distance: g.distanceKm || (0.8 + index * 0.4),
-            cost: g.creditCost || 8,
-            slots: g.totalSlots || 20,
-            image: g.imageUrls?.[0] || FALLBACK_NETWORK_GYMS[index % FALLBACK_NETWORK_GYMS.length]?.image,
-            logo: FALLBACK_NETWORK_GYMS[index % FALLBACK_NETWORK_GYMS.length]?.logo || g.imageUrls?.[0],
-            tags: Array.isArray(g.facilities) && g.facilities.length > 0 ? g.facilities : ["Strength", "Cardio", "Lockers"],
-            type: g.facilities?.includes("Turf") ? "turf" : g.facilities?.includes("Swimming") ? "sports" : "gym",
-            isPremium: g.category === "PREMIUM" || index === 2,
-            isBeginnerFriendly: true,
-            isBestValue: (g.creditCost || 8) <= 6,
-            isNearPrimary: false,
-            isVerified: true,
-            reviewCount: 50 + (index * 19),
-            openStatus: "Open Now",
-            ambience: index % 2 === 1,
-            rank: index < 3 ? index + 1 : undefined,
-          }));
+          const formattedGyms: Gym[] = gymsData.map((g: any, index: number) => {
+            const fallbackMatch = FALLBACK_NETWORK_GYMS.find(fb => fb.id === g.id || fb.name.toLowerCase() === g.name?.toLowerCase());
+            return {
+              id: g.id,
+              name: g.name,
+              address: g.address || g.city || "Udaipur",
+              city: g.city || fallbackMatch?.city || "Udaipur",
+              rating: g.rating || (4.6 + (index % 4) * 0.1),
+              distance: g.distanceKm || fallbackMatch?.distance || (0.8 + index * 0.4),
+              cost: g.creditCost || fallbackMatch?.cost || 8,
+              slots: g.totalSlots || 20,
+              image: g.imageUrls?.[0] || fallbackMatch?.image || FALLBACK_NETWORK_GYMS[index % FALLBACK_NETWORK_GYMS.length]?.image,
+              logo: fallbackMatch?.logo || FALLBACK_NETWORK_GYMS[index % FALLBACK_NETWORK_GYMS.length]?.logo || g.imageUrls?.[0],
+              tags: Array.isArray(g.facilities) && g.facilities.length > 0 ? g.facilities : (fallbackMatch?.tags || ["Strength", "Cardio", "Lockers"]),
+              type: g.facilities?.includes("Turf") ? "turf" : g.facilities?.includes("Swimming") ? "sports" : "gym",
+              isPremium: g.category === "PREMIUM" || fallbackMatch?.isPremium || index === 2,
+              isBeginnerFriendly: true,
+              isBestValue: (g.creditCost || 8) <= 6 || fallbackMatch?.isBestValue,
+              isNearPrimary: false,
+              isVerified: true,
+              reviewCount: g.totalRatings || fallbackMatch?.reviewCount || 50 + (index * 19),
+              membershipPrice: g.monthlyPrice || fallbackMatch?.membershipPrice || 3000,
+              openStatus: "Open Now",
+              ambience: index % 2 === 1,
+              rank: index < 3 ? index + 1 : undefined,
+            };
+          });
           const combined = [
             ...formattedGyms,
             ...FALLBACK_NETWORK_GYMS.filter(fb => !formattedGyms.some(fg => fg.id === fb.id))

@@ -77,6 +77,7 @@ export default function EligibilityScreen() {
     gymName?: string;
     city?: string;
     address?: string;
+    price?: string;
   }>();
 
   const { completeOnboarding, loading } = useAuthStore();
@@ -161,6 +162,7 @@ export default function EligibilityScreen() {
         gymName: displayGymName,
         city: city,
         address: displayLocation,
+        price: params.price || String(matchedGym?.membershipPrice || 3000),
       },
     } as any);
   };

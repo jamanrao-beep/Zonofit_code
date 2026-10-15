@@ -40,6 +40,7 @@ router.get(
             membership: {
               include: { 
                 plan: true,
+                gymPlan: true,
                 primaryGym: { select: { id: true, name: true, city: true, address: true } }
               },
             },
@@ -59,11 +60,13 @@ router.get(
 
     // Check if user has an active membership and should have rest credits from their plan
     if (membership && !isExpired && membership.status === "ACTIVE") {
-      const planCredits = membership.plan?.monthlyCredits || 160;
       const cycleNum = membership.cycleNumber || 1;
       const mandatoryVisits = membership.mandatoryVisits || (cycleNum <= 4 ? 10 : 15);
-      const mandatoryCost = mandatoryVisits * 8;
-      const expectedRestCredits = Math.max(0, planCredits - mandatoryCost) || (cycleNum <= 4 ? 80 : 40);
+      const mAny = membership as any;
+      const gymPrice = (mAny.gymPlan ? (mAny.gymPlan.priceInPaise / 100) : (mAny.plan ? (mAny.plan.priceInPaise / 100) : 3000));
+      const perVisitCost = Math.round(gymPrice * 0.04);
+      const mandatoryCost = mandatoryVisits * perVisitCost;
+      const expectedRestCredits = Math.max(0, Math.round((gymPrice - mandatoryCost) / 10));
 
       const debitCount = await prisma.creditTransaction.count({
         where: { 

@@ -21,6 +21,7 @@ import { useCreditsStore } from "@/store/useCreditsStore";
 import { useUserStore } from "@/store/useUserStore";
 import DeliveryAddressModal from "@/components/DeliveryAddressModal";
 import { FALLBACK_NETWORK_GYMS } from "@/constants/fallbackGyms";
+import { calculateMembershipBreakdown } from "@/constants/credits";
 
 export default function OrderSummaryScreen() {
   const router = useRouter();
@@ -70,10 +71,14 @@ export default function OrderSummaryScreen() {
   const gymLocation = matchedGym?.address || (selectedAddress?.city ? `${selectedAddress.city} • 1.2 km` : "Sukher, Udaipur • 1.2 km");
   const gymImage = matchedGym?.image || null;
 
-  // Dynamic formula calculation for any membership price
-  const membershipTotal = params.price ? Number(params.price) : 3000;
-  const mandatoryVisitsCount = params.mandatoryVisits ? Number(params.mandatoryVisits) : 10;
-  const mandatoryVisitPerUnit = 120;
+  // Dynamic formula calculation for any membership price and cycle
+  // Months 1-4: 10 mandatory visits | Months 5-12: 15 mandatory visits
+  const currentCycle = isFirstTime ? 1 : ((membershipInfo?.cycleNumber || 1) + (isRepurchaseMode ? 1 : 0));
+  const gymPrice = params.price ? Number(params.price) : (matchedGym?.membershipPrice || 3000);
+  const breakdown = calculateMembershipBreakdown(gymPrice, currentCycle);
+  const membershipTotal = breakdown.membershipTotal;
+  const mandatoryVisitsCount = params.mandatoryVisits ? Number(params.mandatoryVisits) : breakdown.mandatoryVisitsCount;
+  const mandatoryVisitPerUnit = breakdown.mandatoryVisitPerUnit;
   const mandatoryVisitsCost = mandatoryVisitsCount * mandatoryVisitPerUnit;
   const walletCreditsValue = Math.max(0, membershipTotal - mandatoryVisitsCost);
   const walletCreditsCount = Math.round(walletCreditsValue / 10);
@@ -110,7 +115,13 @@ export default function OrderSummaryScreen() {
       const city = selectedAddress?.city || params.city || matchedGym?.city || "Udaipur";
       const targetGymId = params.gymId || currentGymId || "gym-being-fit";
 
-      await completeOnboarding(city, targetGymId, "Monthly");
+      await completeOnboarding(city, targetGymId, "Monthly", {
+        price: membershipTotal,
+        visits: mandatoryVisitsCount,
+        credits: walletCreditsCount,
+        gymName: displayGymName,
+        cycleNumber: currentCycle,
+      });
       if (token) {
         await fetchWallet(token);
       }
