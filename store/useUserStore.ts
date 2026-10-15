@@ -137,10 +137,10 @@ export const useUserStore = create<UserState>((set, get) => ({
         // Stats from backend
         currentMonth: membership?.cycleNumber ?? 1,
         totalMonths: membership?.maxCycles ?? 12,
-        streak: data.progress?.streak ?? 0,
-        totalWorkouts: data.progress?.totalWorkouts ?? 0,
-        trainingHours: data.progress?.trainingHours ?? 0,
-        identityStage: data.progress?.identityStage ?? "Starter",
+        streak: Math.max(state.streak, data.progress?.streak ?? 0),
+        totalWorkouts: Math.max(state.totalWorkouts, data.progress?.totalWorkouts ?? 0),
+        trainingHours: Math.max(state.trainingHours, data.progress?.trainingHours ?? 0),
+        identityStage: data.progress?.identityStage || state.identityStage || "Starter",
         memberSince: membership?.startDate 
           ? new Date(membership.startDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) 
           : (data.createdAt ? new Date(data.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : "Recently"),
