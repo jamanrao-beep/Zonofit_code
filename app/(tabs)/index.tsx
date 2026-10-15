@@ -22,6 +22,8 @@ import BookingModal from "@/components/BookingModal";
 import BookingConfirmedModal from "@/components/BookingConfirmedModal";
 import { SwipeableTabScreen } from "@/components/SwipeableTabScreen";
 import { Alert, BackHandler, ToastAndroid, Platform } from "react-native";
+import { FALLBACK_NETWORK_GYMS } from "@/constants/fallbackGyms";
+import { calculateMembershipBreakdown, CREDIT_FITNESS_VALUE } from "@/constants/credits";
 
 function BlinkingRedDot() {
   return (
@@ -86,13 +88,19 @@ export default function HomeScreen() {
     }
   }, [token]);
 
-  // Auto-sync rest credits if user is an active member but credits show 0
+  // Auto-sync rest credits if user is an active member but credits show 0 and no transactions exist
   React.useEffect(() => {
     const isMember = !isGuest && (membershipStatus === "ACTIVE" || membershipStatus === "Active" || visitsRemaining > 0);
     if (isMember && useCreditsStore.getState().credits === 0) {
-      useCreditsStore.setState({ credits: 180 });
+      const txs = useCreditsStore.getState().transactions;
+      if (txs.length === 0) {
+        const gymLookup = FALLBACK_NETWORK_GYMS.find(g => g.name === resolvedGymName || g.id === userPrimaryGymId);
+        const gymPrice = gymLookup?.membershipPrice || 3000;
+        const breakdown = calculateMembershipBreakdown(gymPrice, cycleNum);
+        useCreditsStore.setState({ credits: breakdown.walletCreditsCount });
+      }
     }
-  }, [isGuest, membershipStatus, visitsRemaining]);
+  }, [isGuest, membershipStatus, visitsRemaining, resolvedGymName, userPrimaryGymId, cycleNum]);
 
   const homeScrollRef = useRef<ScrollView>(null);
   const guestScrollRef = useRef<ScrollView>(null);
@@ -709,13 +717,13 @@ export default function HomeScreen() {
             <View className="flex-1 pl-2">
               <Text className="text-gray-400 text-[10px] tracking-wide mb-1">Value Protected</Text>
               <Text className="text-[#1F7A3E] text-xl font-bold">
-                ₹{((credits > 0 ? credits : (isPrimaryMember ? 180 : 0)) * 10).toLocaleString()}
+                ₹{(credits * CREDIT_FITNESS_VALUE).toLocaleString()}
               </Text>
             </View>
 
             <Pressable 
               onPress={() => {
-                const val = (credits > 0 ? credits : (isPrimaryMember ? 180 : 0)) * 10;
+                const val = credits * CREDIT_FITNESS_VALUE;
                 Alert.alert(
                   "Value Protected from Wastage 🐷",
                   `In traditional gym memberships, unused days are 100% wasted.\n\nIn ZonoFit, your ₹${val.toLocaleString()} unused fitness value stays protected in your wallet and rolls over or converts to cash at month end!`

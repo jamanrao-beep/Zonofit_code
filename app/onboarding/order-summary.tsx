@@ -21,7 +21,7 @@ import { useCreditsStore } from "@/store/useCreditsStore";
 import { useUserStore } from "@/store/useUserStore";
 import DeliveryAddressModal from "@/components/DeliveryAddressModal";
 import { FALLBACK_NETWORK_GYMS } from "@/constants/fallbackGyms";
-import { calculateMembershipBreakdown } from "@/constants/credits";
+import { calculateMembershipBreakdown, CREDIT_CASH_VALUE, CREDIT_FITNESS_VALUE } from "@/constants/credits";
 
 export default function OrderSummaryScreen() {
   const router = useRouter();
@@ -93,11 +93,11 @@ export default function OrderSummaryScreen() {
   // Repurchase users can apply their available credits with 20% conversion cut (₹8/credit)
   const availableCredits = isFirstTime 
     ? 0 
-    : (credits > 0 ? credits : (inrWallet ? Math.round(inrWallet.balanceINR / 8) : 28));
+    : (credits > 0 ? credits : (inrWallet ? Math.round(inrWallet.balanceINR / CREDIT_CASH_VALUE) : 0));
   
   // 1 credit = ₹10, after 20% cut = ₹8 per credit
-  // e.g. 28 credits * ₹10 * 0.8 = ₹224
-  const creditDiscountINR = Math.round(availableCredits * 10 * 0.8);
+  // e.g. 120 credits * ₹8 = ₹960 discount
+  const creditDiscountINR = availableCredits * CREDIT_CASH_VALUE;
   const effectiveCreditDeduction = (!isFirstTime && useCredits && availableCredits > 0) ? creditDiscountINR : 0;
   const finalPayableAmount = Math.max(0, membershipTotal - effectiveCreditDeduction);
 
