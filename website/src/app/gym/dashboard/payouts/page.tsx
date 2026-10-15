@@ -29,7 +29,13 @@ export default function PayoutsPage() {
   }, []);
 
   const handleRequestPayout = async () => {
-    const amountStr = prompt("Enter amount to request (in INR):", "1000");
+    const available = data?.pendingPayout || data?.earningsThisMonth || 0;
+    if (available <= 0) {
+      alert("No unsettled earnings available for payout yet. Payouts are generated automatically based on verified completed visits.");
+      return;
+    }
+
+    const amountStr = prompt(`Enter amount to request (Max: ₹${available.toLocaleString()}):`, available.toString());
     if (!amountStr) return;
     const amountPaise = parseInt(amountStr) * 100;
     if (isNaN(amountPaise) || amountPaise <= 0) return alert("Invalid amount");
@@ -37,7 +43,7 @@ export default function PayoutsPage() {
     setRequesting(true);
     try {
       const token = localStorage.getItem("zonofit_portal_token");
-      await fetch("/api/gyms/payouts/request", {
+      const res = await fetch("/api/gyms/payouts/request", {
         method: "POST",
         headers: { 
           "Authorization": `Bearer ${token}`,
@@ -45,11 +51,15 @@ export default function PayoutsPage() {
         },
         body: JSON.stringify({ amountPaise })
       });
+      const resJson = await res.json();
+      if (!res.ok) {
+        throw new Error(resJson.message || "Failed to request payout");
+      }
       alert("Payout requested successfully!");
       fetchPayouts();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("Failed to request payout");
+      alert(err.message || "Failed to request payout");
     } finally {
       setRequesting(false);
     }
@@ -82,12 +92,12 @@ export default function PayoutsPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
               <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
                 <h3 className="text-sm font-bold text-gray-500 uppercase mb-2">Pending Payout</h3>
-                <div className="text-4xl font-black text-black">â‚¹{data?.pendingPayout || 0}</div>
+                <div className="text-4xl font-black text-black">₹{data?.pendingPayout?.toLocaleString() || 0}</div>
                 <div className="text-sm font-medium text-gray-400 mt-2">Next settlement in 7 days</div>
               </div>
               <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
                 <h3 className="text-sm font-bold text-gray-500 uppercase mb-2">Total Earnings (This Month)</h3>
-                <div className="text-4xl font-black text-black">â‚¹{data?.earningsThisMonth || 0}</div>
+                <div className="text-4xl font-black text-black">₹{data?.earningsThisMonth?.toLocaleString() || 0}</div>
                 <div className="text-sm font-medium text-emerald-600 mt-2">Based on completed visits</div>
               </div>
               <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
