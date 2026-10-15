@@ -1,16 +1,16 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-primary: #4EA02B;
-  --color-primary-dark: #3d8120;
-  --color-background: #F2F2F7;
-  --color-foreground: #111111;
+  --color-primary: #1F7A3E;
+  --color-primary-dark: #165A2E;
+  --color-background: #F8FAFC;
+  --color-foreground: #0F172A;
   
-  /* Additional ZonoFit Brand Colors */
-  --color-brand-green: #39FF14;
-  --color-brand-lime: #D9FF5C;
-  --color-brand-coral: #FF6B6B;
-  --color-brand-amber: #FFB020;
+  /* Additional ZonoFit Brand Colors - Premium Emerald Palette */
+  --color-brand-green: #0B6E4F;
+  --color-brand-lime: #10B981;
+  --color-brand-coral: #EF4444;
+  --color-brand-amber: #F59E0B;
   
   /* Surface colors */
   --color-surface: #FFFFFF;
@@ -71,15 +71,15 @@ body {
 }
 
 .emerald-glow {
-  box-shadow: 0 10px 30px 0 rgba(57, 255, 20, 0.6);
+  box-shadow: 0 8px 24px 0 rgba(11, 110, 79, 0.2);
 }
 
 .emerald-glow-sm {
-  box-shadow: 0 4px 10px 0 rgba(57, 255, 20, 0.4);
+  box-shadow: 0 4px 12px 0 rgba(11, 110, 79, 0.15);
 }
 
 .neon-glow-sm {
-  box-shadow: 0 4px 10px 0 rgba(217, 255, 92, 0.8);
+  box-shadow: 0 4px 12px 0 rgba(16, 185, 129, 0.2);
 }
 
 .amber-glow-sm {
