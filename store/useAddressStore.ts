@@ -1,4 +1,30 @@
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+import * as SecureStore from "expo-secure-store";
+
+const secureStorage = {
+  getItem: async (name: string): Promise<string | null> => {
+    try {
+      return await SecureStore.getItemAsync(name);
+    } catch {
+      return null;
+    }
+  },
+  setItem: async (name: string, value: string): Promise<void> => {
+    try {
+      await SecureStore.setItemAsync(name, value);
+    } catch (e) {
+      console.warn("SecureStore setItem failed:", e);
+    }
+  },
+  removeItem: async (name: string): Promise<void> => {
+    try {
+      await SecureStore.deleteItemAsync(name);
+    } catch (e) {
+      console.warn("SecureStore deleteItem failed:", e);
+    }
+  },
+};
 
 export interface DeliveryInstructions {
   type?: "door" | "security" | "call_first" | "custom";
@@ -41,9 +67,11 @@ interface AddressState {
 
 const INITIAL_ADDRESSES: Address[] = [];
 
-export const useAddressStore = create<AddressState>((set, get) => ({
-  addresses: INITIAL_ADDRESSES,
-  selectedAddressId: null,
+export const useAddressStore = create<AddressState>()(
+  persist(
+    (set, get) => ({
+      addresses: INITIAL_ADDRESSES,
+      selectedAddressId: null,
 
   addAddress: (newAddrData) => {
     const newId = "addr_" + Date.now();
@@ -121,4 +149,10 @@ export const useAddressStore = create<AddressState>((set, get) => ({
     const state = get();
     return state.addresses.find((a) => a.isDefault) || state.addresses[0] || null;
   },
-}));
+}),
+    {
+      name: "zonofit_delivery_addresses",
+      storage: createJSONStorage(() => secureStorage),
+    }
+  )
+);
