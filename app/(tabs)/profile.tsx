@@ -22,6 +22,7 @@ export default function ProfileScreen() {
     const { isGuest, getHoursRemaining, endGuestSession } = useGuestStore();
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
     const [showSignOutModal, setShowSignOutModal] = useState(false);
+    const [isSigningOut, setIsSigningOut] = useState(false);
 
     const pickImage = async () => {
         if (isGuest) {
@@ -54,17 +55,21 @@ export default function ProfileScreen() {
     }
 
     const handleConfirmSignOut = async () => {
-        setShowSignOutModal(false);
+        setIsSigningOut(true);
         try {
             if (isGuest) {
                 await endGuestSession();
             } else {
                 await signOut();
             }
+            setShowSignOutModal(false);
             router.replace("/intro" as any);
         } catch (err) {
             console.warn("Sign out handler:", err);
+            setShowSignOutModal(false);
             router.replace("/intro" as any);
+        } finally {
+            setIsSigningOut(false);
         }
     };
 
@@ -366,6 +371,7 @@ export default function ProfileScreen() {
             <SignOutConfirmModal
                 visible={showSignOutModal}
                 isGuest={isGuest}
+                loading={isSigningOut}
                 onConfirm={handleConfirmSignOut}
                 onCancel={() => setShowSignOutModal(false)}
             />

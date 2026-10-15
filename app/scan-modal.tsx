@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, Pressable, Alert } from "react-native";
+import { View, Text, StyleSheet, Pressable, Alert, ActivityIndicator } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Location from "expo-location";
 import { useBookingStore } from "@/store/useBookingStore";
@@ -263,8 +263,9 @@ export default function ScanModal() {
 
         <View className="mb-12 items-center">
           {verifying ? (
-            <View className="bg-black/60 px-6 py-3 rounded-full flex-row items-center">
-              <Text className="text-white font-bold ml-2">Verifying Location...</Text>
+            <View className="bg-black/80 px-6 py-3 rounded-full flex-row items-center border border-white/20">
+              <ActivityIndicator size="small" color="#FFFFFF" />
+              <Text className="text-white font-bold ml-2.5">Verifying Location & QR...</Text>
             </View>
           ) : (
             <Pressable 
