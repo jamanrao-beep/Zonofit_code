@@ -81,8 +81,13 @@ export default function EligibilityScreen() {
   }>();
 
   const { completeOnboarding, loading } = useAuthStore();
-  const { getSelectedAddress } = useAddressStore();
-  const selectedAddress = getSelectedAddress();
+  const selectedAddress = useAddressStore((state) => {
+    if (state.selectedAddressId) {
+      const found = state.addresses.find((a) => a.id === state.selectedAddressId);
+      if (found) return found;
+    }
+    return state.addresses.find((a) => a.isDefault) || state.addresses[0] || null;
+  });
 
   const selectedGymId = useGuestStore(state => state.selectedGymId);
   const selectedGymName = useGuestStore(state => state.selectedGymName);

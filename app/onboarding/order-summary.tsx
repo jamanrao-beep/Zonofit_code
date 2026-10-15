@@ -40,8 +40,13 @@ export default function OrderSummaryScreen() {
   const { selectedGymName, selectedGymId } = useGuestStore();
   const { primaryGymName, primaryGymId } = useUserStore();
   const { credits, inrWallet, membershipInfo, fetchWallet } = useCreditsStore();
-  const { getSelectedAddress } = useAddressStore();
-  const selectedAddress = getSelectedAddress();
+  const selectedAddress = useAddressStore((state) => {
+    if (state.selectedAddressId) {
+      const found = state.addresses.find((a) => a.id === state.selectedAddressId);
+      if (found) return found;
+    }
+    return state.addresses.find((a) => a.isDefault) || state.addresses[0] || null;
+  });
 
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [useCredits, setUseCredits] = useState(true);
