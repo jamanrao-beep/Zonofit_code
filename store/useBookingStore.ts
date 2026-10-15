@@ -142,7 +142,7 @@ export const useBookingStore = create<BookingState>((set, get) => ({
   },
 
   bookVisit: async (gymId, gymName, date, time, creditCost, couponCode) => {
-    if (get().bookingStatus !== "Not Booked") {
+    if (get().loading || get().bookingStatus !== "Not Booked") {
       return false;
     }
 
@@ -151,6 +151,8 @@ export const useBookingStore = create<BookingState>((set, get) => ({
       console.warn("[Booking] Insufficient credits:", { availableCredits, creditCost });
       return false;
     }
+
+    set({ loading: true });
 
     try {
       const token = useAuthStore.getState().token;
@@ -217,6 +219,8 @@ export const useBookingStore = create<BookingState>((set, get) => ({
     } catch (err) {
       console.error("Failed to book visit:", err);
       return false;
+    } finally {
+      set({ loading: false });
     }
   },
 

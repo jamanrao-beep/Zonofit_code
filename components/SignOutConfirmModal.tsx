@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { View, Text, Modal, Pressable, StyleSheet } from "react-native";
+import { View, Text, Modal, Pressable, StyleSheet, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, {
   useSharedValue,
@@ -16,6 +16,7 @@ import Animated, {
 interface SignOutConfirmModalProps {
   visible: boolean;
   isGuest?: boolean;
+  loading?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -23,6 +24,7 @@ interface SignOutConfirmModalProps {
 export default function SignOutConfirmModal({
   visible,
   isGuest = false,
+  loading = false,
   onConfirm,
   onCancel,
 }: SignOutConfirmModalProps) {
@@ -141,21 +143,28 @@ export default function SignOutConfirmModal({
 
             <Pressable
               onPress={onConfirm}
+              disabled={loading}
               style={({ pressed }) => [
                 styles.confirmButton,
                 isGuest ? styles.guestConfirmButton : styles.signOutConfirmButton,
-                pressed && { opacity: 0.9 },
+                (pressed || loading) && { opacity: 0.85 },
               ]}
             >
-              <Ionicons
-                name={isGuest ? "exit-outline" : "power-outline"}
-                size={16}
-                color="white"
-                style={{ marginRight: 6 }}
-              />
-              <Text style={styles.confirmText}>
-                {isGuest ? "Exit Mode" : "Yes, Sign Out"}
-              </Text>
+              {loading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons
+                    name={isGuest ? "exit-outline" : "power-outline"}
+                    size={16}
+                    color="white"
+                    style={{ marginRight: 6 }}
+                  />
+                  <Text style={styles.confirmText}>
+                    {isGuest ? "Exit Mode" : "Yes, Sign Out"}
+                  </Text>
+                </>
+              )}
             </Pressable>
           </View>
         </Animated.View>

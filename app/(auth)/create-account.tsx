@@ -247,50 +247,55 @@ export default function CreateAccountScreen() {
     }
     const derivedName = customGoogleName.trim() || trimmed.split("@")[0].replace(/[._]/g, " ");
 
-    const isSignIn = mode === "signin";
-    const checkResult = await useAuthStore.getState().checkUserExists(undefined, trimmed);
+    setGoogleLoading(true);
+    try {
+      const isSignIn = mode === "signin";
+      const checkResult = await useAuthStore.getState().checkUserExists(undefined, trimmed);
 
-    // If signup mode but email already registered
-    if (!isSignIn && checkResult.emailExists) {
-      Alert.alert(
-        "Account Already Exists",
-        `An account with email ${trimmed} is already registered.\n\nPlease Sign In to continue.`,
-        [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: "Sign In Instead",
-            onPress: () => {
-              setMode("signin");
-              handleSelectGoogleAccount(trimmed, derivedName);
+      // If signup mode but email already registered
+      if (!isSignIn && checkResult.emailExists) {
+        Alert.alert(
+          "Account Already Exists",
+          `An account with email ${trimmed} is already registered.\n\nPlease Sign In to continue.`,
+          [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Sign In Instead",
+              onPress: () => {
+                setMode("signin");
+                handleSelectGoogleAccount(trimmed, derivedName);
+              },
             },
-          },
-        ]
-      );
-      return;
-    }
+          ]
+        );
+        return;
+      }
 
-    // If signin mode but email not registered
-    if (isSignIn && !checkResult.emailExists) {
-      Alert.alert(
-        "Account Not Found",
-        `No account found with email ${trimmed}.\n\nPlease create an account to get started.`,
-        [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: "Create Account",
-            onPress: () => {
-              setMode("signup");
-              handleSelectGoogleAccount(trimmed, derivedName);
+      // If signin mode but email not registered
+      if (isSignIn && !checkResult.emailExists) {
+        Alert.alert(
+          "Account Not Found",
+          `No account found with email ${trimmed}.\n\nPlease create an account to get started.`,
+          [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Create Account",
+              onPress: () => {
+                setMode("signup");
+                handleSelectGoogleAccount(trimmed, derivedName);
+              },
             },
-          },
-        ]
-      );
-      return;
-    }
+          ]
+        );
+        return;
+      }
 
-    await handleSelectGoogleAccount(trimmed, derivedName);
-    setCustomGoogleEmail("");
-    setCustomGoogleName("");
+      await handleSelectGoogleAccount(trimmed, derivedName);
+      setCustomGoogleEmail("");
+      setCustomGoogleName("");
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   const handleAppleSignInPress = () => {
@@ -711,11 +716,17 @@ export default function CreateAccountScreen() {
 
                   <Pressable 
                     onPress={handleConfirmCustomGoogleEmail}
-                    style={[styles.googleNextBtn, !customGoogleEmail.trim() && { opacity: 0.5 }]}
-                    disabled={!customGoogleEmail.trim()}
+                    style={[styles.googleNextBtn, (!customGoogleEmail.trim() || googleLoading) && { opacity: 0.6 }]}
+                    disabled={!customGoogleEmail.trim() || googleLoading}
                   >
-                    <Text style={styles.googleNextBtnText}>Continue</Text>
-                    <Ionicons name="arrow-forward" size={15} color="#FFFFFF" style={{ marginLeft: 4 }} />
+                    {googleLoading ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <>
+                        <Text style={styles.googleNextBtnText}>Continue</Text>
+                        <Ionicons name="arrow-forward" size={15} color="#FFFFFF" style={{ marginLeft: 4 }} />
+                      </>
+                    )}
                   </Pressable>
                 </View>
               </View>

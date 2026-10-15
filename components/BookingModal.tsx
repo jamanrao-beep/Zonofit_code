@@ -133,11 +133,17 @@ export default function BookingModal({
     : isCreditVisit && availableCredits < (gym.cost || 8);
 
   const isCurrentTimePassed = !selectedTime || isTimeSlotPassed(selectedTime, selectedDateId);
+  const [internalLoading, setInternalLoading] = useState(false);
 
-  const handleConfirmPress = () => {
-    if (loading || hasInsufficientCredits || isCurrentTimePassed) return;
+  const handleConfirmPress = async () => {
+    if (loading || internalLoading || hasInsufficientCredits || isCurrentTimePassed) return;
     const dateObj = dates.find((d) => d.id === selectedDateId);
-    onConfirm(selectedTime, dateObj?.iso);
+    setInternalLoading(true);
+    try {
+      await onConfirm(selectedTime, dateObj?.iso);
+    } finally {
+      setInternalLoading(false);
+    }
   };
 
   return (
@@ -405,12 +411,15 @@ export default function BookingModal({
                 style={[
                   styles.primaryActionBtn,
                   (hasInsufficientCredits || isCurrentTimePassed) && styles.primaryActionBtnDisabled,
-                  loading && { opacity: 0.75 },
+                  (loading || internalLoading) && { opacity: 0.75 },
                 ]}
-                disabled={loading || hasInsufficientCredits || isCurrentTimePassed}
+                disabled={loading || internalLoading || hasInsufficientCredits || isCurrentTimePassed}
               >
-                {loading ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                {(loading || internalLoading) ? (
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <Text style={styles.primaryActionBtnText}>Confirming Booking...</Text>
+                  </View>
                 ) : (
                   <Text style={styles.primaryActionBtnText}>
                     {isPrimaryGym
