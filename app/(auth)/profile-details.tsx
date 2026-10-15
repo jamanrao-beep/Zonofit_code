@@ -439,9 +439,14 @@ export default function ProfileDetailsScreen() {
           onPress={handleContinue}
           disabled={!name.trim() || !dob.trim() || loading}
         >
-          <Text style={styles.primaryButtonText}>
-            {loading ? "Saving Profile..." : "Continue"}
-          </Text>
+          {loading ? (
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center" }}>
+              <ActivityIndicator size="small" color="#FFFFFF" style={{ marginRight: 8 }} />
+              <Text style={styles.primaryButtonText}>Saving Profile...</Text>
+            </View>
+          ) : (
+            <Text style={styles.primaryButtonText}>Continue</Text>
+          )}
         </Pressable>
       </KeyboardAvoidingView>
 
