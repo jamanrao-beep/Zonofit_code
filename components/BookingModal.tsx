@@ -109,6 +109,7 @@ export default function BookingModal({
     return initialSlot || TIME_SLOTS[3];
   });
   const [showRulesModal, setShowRulesModal] = useState(false);
+  const [internalLoading, setInternalLoading] = useState(false);
 
   // When date changes, if currently selected slot has already passed, auto-select first available future slot
   useEffect(() => {
@@ -120,6 +121,12 @@ export default function BookingModal({
       }
     }
   }, [selectedDateId, availableSlotsForDate]);
+
+  useEffect(() => {
+    if (!visible) {
+      setInternalLoading(false);
+    }
+  }, [visible]);
 
   if (!visible || !gym) return null;
 
@@ -133,7 +140,6 @@ export default function BookingModal({
     : isCreditVisit && availableCredits < (gym.cost || 8);
 
   const isCurrentTimePassed = !selectedTime || isTimeSlotPassed(selectedTime, selectedDateId);
-  const [internalLoading, setInternalLoading] = useState(false);
 
   const handleConfirmPress = async () => {
     if (loading || internalLoading || hasInsufficientCredits || isCurrentTimePassed) return;
@@ -141,6 +147,8 @@ export default function BookingModal({
     setInternalLoading(true);
     try {
       await onConfirm(selectedTime, dateObj?.iso);
+    } catch (err) {
+      console.error("Booking confirm error:", err);
     } finally {
       setInternalLoading(false);
     }

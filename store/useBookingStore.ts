@@ -193,7 +193,15 @@ export const useBookingStore = create<BookingState>()(
     try {
       const token = useAuthStore.getState().token;
       let bookingId = "bk_" + Date.now();
-      let visitDateIso = new Date(date).toISOString();
+      let visitDateIso = new Date().toISOString();
+      try {
+        if (date) {
+          const parsed = new Date(date);
+          if (!isNaN(parsed.getTime())) {
+            visitDateIso = parsed.toISOString();
+          }
+        }
+      } catch {}
       let deductedCost = creditCost;
 
       if (token) {
