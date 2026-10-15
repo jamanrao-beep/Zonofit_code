@@ -11,7 +11,7 @@ import {
   StyleSheet,
   Animated
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useCreditsStore } from "@/store/useCreditsStore";
 import { useUserStore } from "@/store/useUserStore";
@@ -45,6 +45,7 @@ const formatINR = (n: number | undefined | null) => {
 
 export default function CreditsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
 
   const { 
@@ -286,7 +287,7 @@ export default function CreditsScreen() {
           </View>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20, paddingBottom: 100 }}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20, paddingBottom: 140 + insets.bottom }}>
           {/* Guest Locked Hero Card */}
           <View style={{ backgroundColor: '#1F7A3E', borderRadius: 26, padding: 24, marginBottom: 24, position: 'relative', overflow: 'hidden' }}>
             <View style={{ position: "absolute", top: -30, right: -30, width: 140, height: 140, borderRadius: 70, backgroundColor: "rgba(255,255,255,0.08)" }} />
@@ -396,7 +397,7 @@ export default function CreditsScreen() {
       <ScrollView 
         ref={scrollRef}
         showsVerticalScrollIndicator={false} 
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{ paddingBottom: 140 + insets.bottom }}
       >
         {/* ======================================================== */}
         {/* MEMBERSHIP EXPIRY / RENEWAL ALERT BANNER                  */}

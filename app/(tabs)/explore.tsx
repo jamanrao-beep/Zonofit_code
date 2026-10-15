@@ -9,13 +9,14 @@ import {
   StatusBar,
   StyleSheet 
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { SwipeableTabScreen } from "@/components/SwipeableTabScreen";
 
 export default function ExploreScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState("");
 
   const handleSearchSubmit = () => {
@@ -47,7 +48,7 @@ export default function ExploreScreen() {
 
       <ScrollView 
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 110 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 140 + insets.bottom }}
       >
         {/* Search Bar */}
         <View style={styles.searchWrap}>
