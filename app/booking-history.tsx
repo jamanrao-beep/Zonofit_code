@@ -175,8 +175,8 @@ export default function BookingHistoryScreen() {
             <View className="w-[1px] bg-white/20 mx-3" />
             <View className="items-center flex-1">
               <Text className="text-white/75 text-[10px] font-semibold uppercase tracking-wider">Saved</Text>
-              <Text className="text-white text-3xl font-black mt-0.5">₹{totalCreditsUsed * 10 - totalCreditsUsed * 6}</Text>
-              <Text className="text-white/70 text-[10px] mt-0.5">vs Pay-Per-Visit</Text>
+              <Text className="text-white text-3xl font-black mt-0.5">₹{(completedCount * 200).toLocaleString("en-IN")}</Text>
+              <Text className="text-white/70 text-[10px] mt-0.5">vs Day Pass</Text>
             </View>
           </View>
         </View>

@@ -121,9 +121,9 @@ export default function CreditsScreen() {
   const maxCycles = membershipInfo?.maxCycles ?? 12;
   const cyclesRemaining = membershipInfo?.cyclesRemaining ?? (hasMembership ? Math.max(0, maxCycles - cycleNumber) : 12);
   const defaultMandatory = cycleNumber >= 5 ? 15 : 10;
-  const mandatoryVisits = membershipInfo?.mandatoryVisits ?? (visitsRemaining > 0 ? visitsRemaining : defaultMandatory);
+  const mandatoryVisits = membershipInfo?.mandatoryVisits ?? defaultMandatory;
   const completedVisits = membershipInfo?.completedVisits ?? 0;
-  const mandatoryVisitsRemaining = membershipInfo?.mandatoryVisitsRemaining ?? (visitsRemaining > 0 ? visitsRemaining : defaultMandatory);
+  const mandatoryVisitsRemaining = membershipInfo?.mandatoryVisitsRemaining ?? (visitsRemaining > 0 ? visitsRemaining : Math.max(0, mandatoryVisits - completedVisits));
 
   // Status Badge Configuration (Text, Background, Color, Indicator Dot)
   const badgeConfig = (() => {

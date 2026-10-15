@@ -35,7 +35,6 @@ export default function JourneyScreen() {
   const completedPastCount = pastBookings.filter(b => b.status === "Completed" || b.status === "Checked In").length;
   const visitsCompleted = Math.max(
     membershipInfo?.completedVisits || 0,
-    totalWorkouts || 0,
     completedPastCount,
     checkedInToday
   );
