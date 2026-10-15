@@ -6,7 +6,9 @@ import {
   Pressable, 
   Image,
   StyleSheet,
-  Animated
+  Animated,
+  Modal,
+  ActivityIndicator
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -63,8 +65,9 @@ export default function HomeScreen() {
   } = useUserStore();
   const { credits, membershipInfo } = useCreditsStore();
   const { isGuest, hoursRemaining, checkExpiry, endGuestSession, selectedGymName, selectedGymId } = useGuestStore();
-  const { bookingStatus, bookedGymName, bookedTime } = useBookingStore();
+  const { bookingStatus, bookedGymName, bookedTime, isCancelling } = useBookingStore();
 
+  const [isCancellingTodayBooking, setIsCancellingTodayBooking] = React.useState(false);
   const [showBookingModal, setShowBookingModal] = React.useState(false);
   const [showConfirmedModal, setShowConfirmedModal] = React.useState(false);
   const [confirmedBookingData, setConfirmedBookingData] = React.useState<{
@@ -568,9 +571,12 @@ export default function HomeScreen() {
                   <Text className="text-xs text-gray-500" numberOfLines={1}>{bookedGymName} • {bookedTime || "Today"}</Text>
                 </View>
               </View>
+
               <View className="flex-row items-center gap-x-2">
                 <Pressable 
+                  disabled={isCancellingTodayBooking}
                   onPress={() => {
+                    if (isCancellingTodayBooking) return;
                     const bookedCost = useBookingStore.getState().bookedCost;
                     const isMandatory = bookedCost === 0 || bookedCost === undefined;
                     const currentCredits = useCreditsStore.getState().credits;
@@ -601,15 +607,18 @@ export default function HomeScreen() {
                           text: "Yes, Cancel",
                           style: "destructive",
                           onPress: async () => {
+                            setIsCancellingTodayBooking(true);
                             try {
                               await useBookingStore.getState().cancelBooking();
+                              setIsCancellingTodayBooking(false);
                               Alert.alert(
                                 "Booking Cancelled", 
                                 isMandatory
-                                  ? "Your booking was cancelled. 1 mandatory visit has been restored and 2 credits were deducted."
-                                  : `Your booking was cancelled. ${refundAmount} credits were refunded to your wallet (2 credits fee applied).`
+                                  ? "Your booking was cancelled. 1 mandatory visit has been restored and flat 2 credits were deducted."
+                                  : `Your booking was cancelled. ${refundAmount} credits were refunded to your wallet (flat 2 credits fee applied).`
                               );
                             } catch (err: any) {
+                              setIsCancellingTodayBooking(false);
                               Alert.alert("Cancellation Failed", err?.message || "Could not cancel booking.");
                             }
                           }
@@ -617,9 +626,13 @@ export default function HomeScreen() {
                       ]
                     );
                   }}
-                  className="bg-red-50 border border-red-200 px-2.5 py-2 rounded-xl active:opacity-80"
+                  className={`bg-red-50 border border-red-200 px-2.5 py-2 rounded-xl active:opacity-80 ${isCancellingTodayBooking ? "opacity-60" : ""}`}
                 >
-                  <Text className="text-red-600 font-bold text-xs">Cancel</Text>
+                  {isCancellingTodayBooking ? (
+                    <ActivityIndicator size="small" color="#DC2626" />
+                  ) : (
+                    <Text className="text-red-600 font-bold text-xs">Cancel</Text>
+                  )}
                 </Pressable>
                 <Pressable 
                   onPress={() => router.push("/booking-pass" as any)}
@@ -951,6 +964,21 @@ export default function HomeScreen() {
           }}
         />
       )}
+
+      {/* Cancellation Loading HUD */}
+      <Modal visible={isCancellingTodayBooking} transparent animationType="fade">
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.65)", alignItems: "center", justifyContent: "center", paddingHorizontal: 24 }}>
+          <View style={{ backgroundColor: "#FFFFFF", borderRadius: 24, padding: 24, alignItems: "center", width: "100%", maxWidth: 320, elevation: 12, shadowColor: "#000", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.25, shadowRadius: 16 }}>
+            <ActivityIndicator size="large" color="#1F7A3E" />
+            <Text style={{ fontSize: 17, fontWeight: "800", color: "#111827", marginTop: 16, textAlign: "center" }}>
+              Cancelling Workout...
+            </Text>
+            <Text style={{ fontSize: 12.5, color: "#6B7280", marginTop: 6, textAlign: "center", lineHeight: 18 }}>
+              Processing cancellation & flat 2 credits fee. Please wait...
+            </Text>
+          </View>
+        </View>
+      </Modal>
       </SafeAreaView>
     </SwipeableTabScreen>
   );
