@@ -743,4 +743,70 @@ router.post(
   }
 );
 
+// ─── POST /api/credits/deduct ─────────────────────────────────────────────────
+/**
+ * Deduct credits from user's wallet for cancellation fee, purchases, or services.
+ * Authoritative server deduction that persists to PostgreSQL DB.
+ */
+router.post(
+  "/deduct",
+  requireAuth,
+  [
+    body("credits").isInt({ min: 1 }).withMessage("Credits must be a positive integer."),
+    body("description").optional().isString(),
+  ],
+  async (req: Request, res: Response): Promise<void> => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      res.status(400).json({ error: "ValidationError", details: errors.array() });
+      return;
+    }
+
+    const { credits, description } = req.body;
+
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        const wallet = await tx.creditWallet.findUnique({
+          where: { userId: req.dbUserId! },
+        });
+
+        if (!wallet) {
+          throw createError("Wallet not found.", 404, "WalletNotFound");
+        }
+
+        if (wallet.balance < credits) {
+          throw createError(`Insufficient credits. Current balance: ${wallet.balance}`, 400, "InsufficientCredits");
+        }
+
+        const updatedWallet = await tx.creditWallet.update({
+          where: { id: wallet.id },
+          data: { balance: { decrement: credits } },
+        });
+
+        await tx.creditTransaction.create({
+          data: {
+            userId: req.dbUserId!,
+            walletId: wallet.id,
+            type: "VISIT_SPEND",
+            amount: -credits,
+            balanceAfter: updatedWallet.balance,
+            description: description || `Fee / Credit Deduction (${credits} Credits)`,
+          },
+        });
+
+        return updatedWallet;
+      });
+
+      res.json({
+        success: true,
+        newBalance: result.balance,
+        message: `Successfully deducted ${credits} credits.`,
+      });
+    } catch (err: any) {
+      console.error("Deduct credits failed:", err);
+      res.status(err.statusCode || 500).json({ error: err.message || "Failed to deduct credits" });
+    }
+  }
+);
+
 export default router;

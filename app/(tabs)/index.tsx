@@ -134,9 +134,10 @@ export default function HomeScreen() {
   ) ? membershipInfo.gymName 
     : (userPrimaryGymName || selectedGymName || user?.primaryGym || "Being Fitness");
 
-  const mandatoryVisits = membershipInfo?.mandatoryVisits ?? (visitsRemaining > 0 ? visitsRemaining + totalWorkouts : 10);
+  const cycleNum = membershipInfo?.cycleNumber || currentMonth || 1;
+  const mandatoryVisits = membershipInfo?.mandatoryVisits || (cycleNum <= 4 ? 10 : 15);
   const completedVisits = membershipInfo?.completedVisits ?? totalWorkouts ?? 0;
-  const visitsLeft = membershipInfo?.mandatoryVisitsRemaining ?? (visitsRemaining > 0 ? visitsRemaining : Math.max(0, mandatoryVisits - completedVisits));
+  const visitsLeft = Math.max(0, mandatoryVisits - completedVisits);
 
   const isExpired = membershipInfo ? membershipInfo.isExpired : false;
   const isMembershipActive = membershipInfo ? (!membershipInfo.isExpired && membershipInfo.status === "ACTIVE") : false;
@@ -705,13 +706,24 @@ export default function HomeScreen() {
             <View className="w-[1px] h-8 bg-gray-200 mx-2" />
 
             <View className="flex-1 pl-2">
-              <Text className="text-gray-400 text-[10px] tracking-wide mb-1">Money Saved</Text>
-              <Text className="text-[#1F7A3E] text-xl font-bold">₹{Math.round(totalWorkouts * 90).toLocaleString()}</Text>
+              <Text className="text-gray-400 text-[10px] tracking-wide mb-1">Value Protected</Text>
+              <Text className="text-[#1F7A3E] text-xl font-bold">
+                ₹{((credits > 0 ? credits : (isPrimaryMember ? 180 : 0)) * 10).toLocaleString()}
+              </Text>
             </View>
 
-            <View className="w-10 h-10 rounded-full bg-[#E8F5E9] items-center justify-center">
+            <Pressable 
+              onPress={() => {
+                const val = (credits > 0 ? credits : (isPrimaryMember ? 180 : 0)) * 10;
+                Alert.alert(
+                  "Value Protected from Wastage 🐷",
+                  `In traditional gym memberships, unused days are 100% wasted.\n\nIn ZonoFit, your ₹${val.toLocaleString()} unused fitness value stays protected in your wallet and rolls over or converts to cash at month end!`
+                );
+              }}
+              className="w-10 h-10 rounded-full bg-[#E8F5E9] items-center justify-center active:bg-green-100"
+            >
               <Text className="text-lg">🐷</Text>
-            </View>
+            </Pressable>
           </View>
         </Pressable>
 
