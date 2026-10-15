@@ -805,9 +805,54 @@ router.get("/support", requireAuth, async (req: Request, res: Response): Promise
 router.post("/payouts/request", requireAuth, async (req: Request, res: Response): Promise<void> => {
   try {
     const { amountPaise } = req.body;
+    const requestedPaise = parseInt(amountPaise, 10);
+    if (isNaN(requestedPaise) || requestedPaise <= 0) {
+      res.status(400).json({ error: "InvalidAmount", message: "A valid positive amount is required." });
+      return;
+    }
+
     const gym = await prisma.gym.findFirst({ where: { ownerId: req.dbUserId, isActive: true } });
     if (!gym) {
       res.status(403).json({ error: "Forbidden", message: "Not a gym owner" });
+      return;
+    }
+
+    // Calculate total verified earnings for this gym
+    const completedBookings = await prisma.booking.count({
+      where: {
+        gymId: gym.id,
+        status: { in: ["CHECKED_IN", "COMPLETED"] }
+      }
+    });
+
+    // Payout per visit based on PRD v2.0 or gym credit cost
+    const payoutPerVisitINR = (gym.creditCost || 8) * 10 * 0.8; // G = 80% of nominal value
+    const totalEarnedPaise = Math.round(completedBookings * payoutPerVisitINR * 100);
+
+    // Sum already requested or paid payouts
+    const existingPayouts = await prisma.gymPayout.aggregate({
+      where: {
+        gymId: gym.id,
+        status: { in: ["PENDING", "PAID"] }
+      },
+      _sum: { amountPaise: true }
+    });
+    const alreadyDrawnPaise = existingPayouts._sum.amountPaise || 0;
+    const availablePaise = Math.max(0, totalEarnedPaise - alreadyDrawnPaise);
+
+    if (availablePaise <= 0) {
+      res.status(400).json({
+        error: "InsufficientEarnings",
+        message: "No unsettled earnings available for payout. Completed verified visits required."
+      });
+      return;
+    }
+
+    if (requestedPaise > availablePaise) {
+      res.status(400).json({
+        error: "AmountExceedsEarnings",
+        message: `Requested amount (₹${requestedPaise / 100}) exceeds available balance of ₹${availablePaise / 100}.`
+      });
       return;
     }
 
@@ -816,11 +861,11 @@ router.post("/payouts/request", requireAuth, async (req: Request, res: Response)
         gymId: gym.id,
         periodStart: new Date(),
         periodEnd: new Date(),
-        amountPaise: parseInt(amountPaise, 10),
+        amountPaise: requestedPaise,
         status: "PENDING"
       }
     });
-    res.json({ payout });
+    res.json({ payout, message: "Payout requested successfully" });
   } catch (err: any) {
     res.status(500).json({ error: "ServerError", message: err.message });
   }

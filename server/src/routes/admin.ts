@@ -942,8 +942,15 @@ router.put("/support/:id/status", requireAuth, requireAdmin, async (req: Request
 // ─── POST /api/admin/payouts/process ───────────────────────────────────────
 router.post("/payouts/process", requireAuth, requireAdmin, async (req: Request, res: Response): Promise<void> => {
   try {
+    const { payoutId } = req.body || {};
+
+    const whereClause: any = { status: "PENDING" };
+    if (payoutId) {
+      whereClause.id = payoutId;
+    }
+
     const result = await prisma.gymPayout.updateMany({
-      where: { status: "PENDING" },
+      where: whereClause,
       data: {
         status: "PAID",
         payoutDate: new Date()
@@ -954,12 +961,12 @@ router.post("/payouts/process", requireAuth, requireAdmin, async (req: Request, 
       data: {
         adminId: req.dbUserId!,
         actionType: "PROCESS_PAYOUTS",
-        targetId: "BULK",
-        details: `Processed ${result.count} pending payouts`
+        targetId: payoutId || "BULK",
+        details: payoutId ? `Processed single payout ${payoutId}` : `Processed ${result.count} pending payouts`
       }
     });
 
-    res.json({ message: "Payouts processed", count: result.count });
+    res.json({ message: "Payout processed successfully", count: result.count });
   } catch (err: any) {
     res.status(500).json({ error: "ServerError", message: err.message });
   }
