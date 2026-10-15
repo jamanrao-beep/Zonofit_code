@@ -1,8 +1,34 @@
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+import * as SecureStore from "expo-secure-store";
 import { apiFetch } from "@/lib/api";
 import { useCreditsStore } from "./useCreditsStore";
 import { useUserStore } from "./useUserStore";
 import { useAuthStore } from "./useAuthStore";
+
+const secureStorage = {
+  getItem: async (name: string): Promise<string | null> => {
+    try {
+      return await SecureStore.getItemAsync(name);
+    } catch {
+      return null;
+    }
+  },
+  setItem: async (name: string, value: string): Promise<void> => {
+    try {
+      await SecureStore.setItemAsync(name, value);
+    } catch (e) {
+      console.warn("SecureStore setItem failed:", e);
+    }
+  },
+  removeItem: async (name: string): Promise<void> => {
+    try {
+      await SecureStore.deleteItemAsync(name);
+    } catch (e) {
+      console.warn("SecureStore deleteItem failed:", e);
+    }
+  },
+};
 
 export type BookingStatus = "Not Booked" | "Booked" | "Checked In";
 
@@ -41,7 +67,9 @@ interface BookingState {
   calculateRefund: () => { percentage: number; refundAmount: number } | null;
 }
 
-export const useBookingStore = create<BookingState>((set, get) => ({
+export const useBookingStore = create<BookingState>()(
+  persist(
+    (set, get) => ({
   bookingStatus: "Not Booked",
   bookingId: null,
   bookedGymId: null,
@@ -121,19 +149,27 @@ export const useBookingStore = create<BookingState>((set, get) => ({
           loading: false
         });
       } else {
-        set({
-          bookingStatus: "Not Booked",
-          bookingId: null,
-          bookedGymId: null,
-          bookedGymName: null,
-          bookedDate: null,
-          bookedVisitDateIso: null,
-          bookedCreatedAt: null,
-          bookedTime: null,
-          bookedCost: 0,
-          pastBookings: past,
-          loading: false
-        });
+        const current = get();
+        if (current.bookingStatus === "Booked" || current.bookingStatus === "Checked In") {
+          set({
+            pastBookings: past.length > 0 ? past : current.pastBookings,
+            loading: false
+          });
+        } else {
+          set({
+            bookingStatus: "Not Booked",
+            bookingId: null,
+            bookedGymId: null,
+            bookedGymName: null,
+            bookedDate: null,
+            bookedVisitDateIso: null,
+            bookedCreatedAt: null,
+            bookedTime: null,
+            bookedCost: 0,
+            pastBookings: past.length > 0 ? past : current.pastBookings,
+            loading: false
+          });
+        }
       }
     } catch (err: any) {
       console.warn("Failed to fetch bookings:", err?.message || err);
@@ -377,4 +413,22 @@ export const useBookingStore = create<BookingState>((set, get) => ({
       set({ isCancelling: false });
     }
   },
-}));
+}),
+    {
+      name: "zonofit_booking_state",
+      storage: createJSONStorage(() => secureStorage),
+      partialize: (state) => ({
+        bookingStatus: state.bookingStatus,
+        bookingId: state.bookingId,
+        bookedGymId: state.bookedGymId,
+        bookedGymName: state.bookedGymName,
+        bookedDate: state.bookedDate,
+        bookedVisitDateIso: state.bookedVisitDateIso,
+        bookedCreatedAt: state.bookedCreatedAt,
+        bookedTime: state.bookedTime,
+        bookedCost: state.bookedCost,
+        pastBookings: (state.pastBookings || []).slice(0, 15),
+      }),
+    }
+  )
+);

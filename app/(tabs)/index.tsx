@@ -82,6 +82,7 @@ export default function HomeScreen() {
     if (token) {
       useCreditsStore.getState().fetchWallet(token);
       useUserStore.getState().fetchProfile(token);
+      useBookingStore.getState().fetchBookings(token);
     }
   }, [token]);
 

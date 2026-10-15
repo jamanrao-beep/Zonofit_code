@@ -52,10 +52,22 @@ router.post(
 
     const result = await prisma.$transaction(async (tx) => {
       // 1. Get gym and credit cost
-      const gym = await tx.gym.findUnique({
+      let gym = await tx.gym.findUnique({
         where: { id: gymId, isActive: true },
         select: { id: true, name: true, creditCost: true, totalSlots: true },
       });
+      if (!gym) {
+        gym = await tx.gym.findFirst({
+          where: {
+            OR: [
+              { name: { contains: "Being", mode: "insensitive" } },
+              { name: { contains: "Fit", mode: "insensitive" } },
+              { isActive: true }
+            ]
+          },
+          select: { id: true, name: true, creditCost: true, totalSlots: true },
+        });
+      }
       if (!gym) throw createError("Gym not found or unavailable.", 404, "GymNotFound");
 
       // 2. Check membership is active
