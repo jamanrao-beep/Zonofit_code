@@ -148,9 +148,10 @@ export const useCreditsStore = create<CreditsState>()(
 
       if (mem && !mem.isExpired && (mem.status === "ACTIVE" || mem.status === "Active") && resolvedCredits === 0) {
         const planPrice = mem.price || 3000;
-        const mandatoryVisits = mem.mandatoryVisits || 10;
-        const mandatoryCost = mandatoryVisits * 120;
-        resolvedCredits = Math.max(0, Math.round((planPrice - mandatoryCost) / 10)) || 180;
+        const cycleNum = mem.cycleNumber || 1;
+        const { calculateMembershipBreakdown } = require("@/constants/credits");
+        const breakdown = calculateMembershipBreakdown(planPrice, cycleNum);
+        resolvedCredits = breakdown.walletCreditsCount;
       }
 
       set({

@@ -445,9 +445,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           visitsRemaining: visitsCount,
         });
 
-        const currentCredits = useCreditsStore.getState().credits;
         useCreditsStore.setState({
-          credits: Math.max(currentCredits, restCredits),
+          credits: restCredits,
           membershipInfo: {
             status: "ACTIVE",
             isExpired: false,
