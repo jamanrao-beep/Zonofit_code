@@ -1,6 +1,6 @@
 import { useAuthStore } from "@/store/useAuthStore";
 import { Image, Text, View, Pressable, ActivityIndicator, ScrollView, Alert, StyleSheet } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialIcons, Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as ImagePicker from 'expo-image-picker';
@@ -15,6 +15,7 @@ import { SwipeableTabScreen } from "@/components/SwipeableTabScreen";
 export default function ProfileScreen() {
     const { user, isLoaded, signOut } = useAuthStore();
     const router = useRouter();
+    const insets = useSafeAreaInsets();
 
     const { planName, membershipStatus, streak, totalWorkouts, avatarUrl, uploadAvatar, memberSince, identityStage, currentMonth } = useUserStore();
     const { credits } = useCreditsStore();
@@ -110,7 +111,7 @@ export default function ProfileScreen() {
                 </View>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} bounces={true} overScrollMode="never" contentContainerStyle={{ paddingBottom: 120 }}>
+            <ScrollView showsVerticalScrollIndicator={false} bounces={true} overScrollMode="never" contentContainerStyle={{ paddingBottom: 140 + insets.bottom }}>
 
                 {/* Guest Mode Callout */}
                 {isGuest && (

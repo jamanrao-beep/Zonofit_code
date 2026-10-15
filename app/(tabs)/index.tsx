@@ -8,7 +8,7 @@ import {
   StyleSheet,
   Animated
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -43,6 +43,7 @@ function getGreeting(): string {
 
 export default function HomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user, token } = useAuthStore();
   const { 
     avatarUrl, 
@@ -433,7 +434,7 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         bounces={true}
         overScrollMode="never"
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120, paddingTop: 8 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 150 + insets.bottom, paddingTop: 8 }}
       >
         {/* Renewal / Expiry Alert Banner */}
         {showRenewalAlert && (

@@ -22,7 +22,7 @@ export function BottomNav({ state, navigation }: BottomTabBarProps) {
     return (
         <View
             style={{ 
-                paddingBottom: insets.bottom || 24,
+                paddingBottom: Math.max(insets.bottom, 20) + 6,
                 position: 'absolute',
                 bottom: 0,
                 left: 0,

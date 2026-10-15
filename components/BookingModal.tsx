@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export interface BookingModalGym {
   id: string;
@@ -56,6 +57,7 @@ export default function BookingModal({
   cashBalance = 0,
   loading = false,
 }: BookingModalProps) {
+  const insets = useSafeAreaInsets();
   const dates = useMemo(() => {
     const list = [];
     const now = new Date();
@@ -149,7 +151,7 @@ export default function BookingModal({
         <View style={styles.modalOverlay}>
           <Pressable style={styles.backdrop} onPress={onClose} />
 
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 20) + 16 }]}>
             {/* Header Close Bar */}
             <View style={styles.modalHeaderRow}>
               <View style={styles.headerTitleWrap}>
