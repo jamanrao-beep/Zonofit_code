@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { View, Text, StyleSheet, Pressable, StatusBar, BackHandler } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useGuestStore } from "@/store/useGuestStore";
@@ -10,12 +10,24 @@ import { useUserStore } from "@/store/useUserStore";
 
 export default function WelcomeScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    credits?: string;
+    gymName?: string;
+    visits?: string;
+    price?: string;
+  }>();
   const { selectedGymName } = useGuestStore();
   const { credits } = useCreditsStore();
   const { primaryGymName, planName } = useUserStore();
-  const gymName = selectedGymName || primaryGymName || "Being Fitness";
+
+  const gymName = params.gymName || selectedGymName || primaryGymName || "Being Fitness";
   const displayPlan = planName && planName !== "None" ? planName : "Monthly Plan";
-  const displayCredits = credits > 0 ? `${credits} Credits available` : "180 Credits available";
+
+  // Dynamic variable credits: strictly reflect the exact credits allocated to this membership
+  const resolvedCredits = params.credits !== undefined && params.credits !== ""
+    ? Number(params.credits)
+    : credits;
+  const displayCredits = `${resolvedCredits} Credits available`;
   
   const handleGoHome = () => {
     if (router.canGoBack()) {

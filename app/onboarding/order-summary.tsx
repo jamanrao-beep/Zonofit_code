@@ -126,8 +126,16 @@ export default function OrderSummaryScreen() {
         await fetchWallet(token);
       }
       
-      // Navigate to Payment Success / Welcome Screen
-      router.replace("/onboarding/welcome");
+      // Navigate to Payment Success / Welcome Screen with dynamic parameters
+      router.replace({
+        pathname: "/onboarding/welcome",
+        params: {
+          credits: String(walletCreditsCount),
+          gymName: displayGymName,
+          visits: String(mandatoryVisitsCount),
+          price: String(membershipTotal),
+        },
+      } as any);
     } catch (e: any) {
       Alert.alert("Payment Error", e?.message || "Could not complete payment. Please try again.");
     } finally {
