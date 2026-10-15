@@ -85,7 +85,7 @@ export default function HomeScreen() {
   React.useEffect(() => {
     const isMember = !isGuest && (membershipStatus === "ACTIVE" || membershipStatus === "Active" || visitsRemaining > 0);
     if (isMember && useCreditsStore.getState().credits === 0) {
-      useCreditsStore.setState({ credits: 80 });
+      useCreditsStore.setState({ credits: 180 });
     }
   }, [isGuest, membershipStatus, visitsRemaining]);
 
@@ -521,7 +521,7 @@ export default function HomeScreen() {
                 <Text className="text-yellow-500 text-[10px] font-bold">🪙</Text>
               </View>
               <Text className="text-white text-sm font-medium">
-                Available Credits: {credits > 0 ? credits : (isPrimaryMember ? 80 : 0)}
+                Available Credits: {credits > 0 ? credits : (isPrimaryMember ? 180 : 0)}
               </Text>
             </View>
             <Pressable onPress={() => router.push("/credits")}>

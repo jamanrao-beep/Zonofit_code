@@ -453,12 +453,12 @@ export default function GymDetailScreen() {
             selectGym(GYM_DATA.id, GYM_DATA.name);
             useAuthStore.getState().setIsViewingOnboardingGym(false);
             router.push({
-              pathname: '/onboarding/order-summary',
+              pathname: '/onboarding/eligibility',
               params: {
-                mode: 'purchase',
-                isFirstTime: 'true',
                 gymId: GYM_DATA.id,
                 gymName: GYM_DATA.name,
+                city: (GYM_DATA as any).city || 'Udaipur',
+                address: params.address || (GYM_DATA as any).address || 'Sukher, Udaipur • 1.2 km',
               },
             } as any);
           }}

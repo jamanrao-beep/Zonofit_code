@@ -80,10 +80,78 @@ export default function CreateAccountScreen() {
 
     try {
       setOtpSending(true);
-      await sendOTP(cleanPhone);
+      const isSignIn = mode === "signin";
+
+      // Verify if account already exists with this phone number
+      const checkResult = await useAuthStore.getState().checkUserExists(cleanPhone);
+
+      // SCENARIO 1: User is on "Create Account" (signup), but phone is already registered!
+      if (!isSignIn && checkResult.phoneExists) {
+        setOtpSending(false);
+        Alert.alert(
+          "Account Already Exists",
+          `An account with mobile number +91 ${cleanPhone} is already registered.\n\nPlease Sign In to continue.`,
+          [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Sign In Instead",
+              onPress: async () => {
+                setMode("signin");
+                try {
+                  setOtpSending(true);
+                  await sendOTP(cleanPhone, true);
+                  router.push({
+                    pathname: "/(auth)/verify-number",
+                    params: { phone: cleanPhone, autoSend: "1", mode: "signin" },
+                  } as any);
+                } catch (err: any) {
+                  Alert.alert("Sign In Error", err?.message || "Failed to send sign-in OTP.");
+                } finally {
+                  setOtpSending(false);
+                }
+              },
+            },
+          ]
+        );
+        return;
+      }
+
+      // SCENARIO 2: User is on "Sign In", but no account exists with this phone number!
+      if (isSignIn && !checkResult.phoneExists) {
+        setOtpSending(false);
+        Alert.alert(
+          "Account Not Found",
+          `No account found with mobile number +91 ${cleanPhone}.\n\nPlease create an account to get started.`,
+          [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Create Account",
+              onPress: async () => {
+                setMode("signup");
+                try {
+                  setOtpSending(true);
+                  await sendOTP(cleanPhone, false);
+                  router.push({
+                    pathname: "/(auth)/verify-number",
+                    params: { phone: cleanPhone, autoSend: "1", mode: "signup" },
+                  } as any);
+                } catch (err: any) {
+                  Alert.alert("Sign Up Error", err?.message || "Failed to send signup OTP.");
+                } finally {
+                  setOtpSending(false);
+                }
+              },
+            },
+          ]
+        );
+        return;
+      }
+
+      // Send OTP with the respective mode
+      await sendOTP(cleanPhone, isSignIn);
       router.push({
         pathname: "/(auth)/verify-number",
-        params: { phone: cleanPhone, autoSend: "1", mode }
+        params: { phone: cleanPhone, autoSend: "1", mode },
       } as any);
     } catch (e: any) {
       Alert.alert("Error Sending OTP", e?.message || "Failed to send OTP code.");
@@ -143,7 +211,7 @@ export default function CreateAccountScreen() {
         setGoogleLoading(false);
       }
     } else {
-      setGoogleDialogMode("choose");
+      setGoogleDialogMode("type_new");
       setCustomGoogleEmail("");
       setCustomGoogleName("");
       setShowGoogleModal(true);
@@ -172,16 +240,57 @@ export default function CreateAccountScreen() {
   };
 
   const handleConfirmCustomGoogleEmail = async () => {
-    const trimmed = customGoogleEmail.trim();
+    const trimmed = customGoogleEmail.trim().toLowerCase();
     if (!trimmed || !trimmed.includes("@") || !trimmed.includes(".")) {
       Alert.alert("Invalid Email", "Please enter a valid Google / Gmail address.");
       return;
     }
     const derivedName = customGoogleName.trim() || trimmed.split("@")[0].replace(/[._]/g, " ");
+
+    const isSignIn = mode === "signin";
+    const checkResult = await useAuthStore.getState().checkUserExists(undefined, trimmed);
+
+    // If signup mode but email already registered
+    if (!isSignIn && checkResult.emailExists) {
+      Alert.alert(
+        "Account Already Exists",
+        `An account with email ${trimmed} is already registered.\n\nPlease Sign In to continue.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Sign In Instead",
+            onPress: () => {
+              setMode("signin");
+              handleSelectGoogleAccount(trimmed, derivedName);
+            },
+          },
+        ]
+      );
+      return;
+    }
+
+    // If signin mode but email not registered
+    if (isSignIn && !checkResult.emailExists) {
+      Alert.alert(
+        "Account Not Found",
+        `No account found with email ${trimmed}.\n\nPlease create an account to get started.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Create Account",
+            onPress: () => {
+              setMode("signup");
+              handleSelectGoogleAccount(trimmed, derivedName);
+            },
+          },
+        ]
+      );
+      return;
+    }
+
     await handleSelectGoogleAccount(trimmed, derivedName);
     setCustomGoogleEmail("");
     setCustomGoogleName("");
-    setGoogleDialogMode("choose");
   };
 
   const handleAppleSignInPress = () => {
