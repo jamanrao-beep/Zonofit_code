@@ -110,6 +110,13 @@ export default function ChooseGymScreen() {
                   style={styles.gymImage} 
                   resizeMode="cover" 
                 />
+                {/* Floating Highlighted Membership Price Badge */}
+                <View style={styles.priceFloatingBadge}>
+                  <Text style={styles.priceFloatingText}>
+                    ₹{(gym.membershipPrice || 3000).toLocaleString('en-IN')}
+                    <Text style={styles.priceFloatingMonth}>/mo</Text>
+                  </Text>
+                </View>
                 {gym.isBestValue && (
                   <View style={styles.topBadge}>
                     <Text style={styles.topBadgeText}>Best Value</Text>
@@ -369,6 +376,32 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: "800",
     color: "#1F7A3E",
+  },
+  priceFloatingBadge: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: "rgba(226, 232, 240, 0.8)",
+  },
+  priceFloatingText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#15803D",
+  },
+  priceFloatingMonth: {
+    fontSize: 10.5,
+    fontWeight: "600",
+    color: "#64748B",
   },
   emptyContainer: {
     alignItems: "center",

@@ -586,6 +586,13 @@ export default function PartnerGymsScreen() {
                         style={styles.gymImage}
                         resizeMode="cover"
                       />
+                      {/* Highlighted Membership Price Badge */}
+                      <View style={styles.priceFloatingBadge}>
+                        <Text style={styles.priceFloatingText}>
+                          ₹{(gym.membershipPrice || 3000).toLocaleString('en-IN')}
+                          <Text style={styles.priceFloatingMonth}>/mo</Text>
+                        </Text>
+                      </View>
                     </View>
 
                     {/* Bottom Strip: Circular Logo + Checkmark + Info */}
@@ -622,33 +629,38 @@ export default function PartnerGymsScreen() {
                         </View>
                       </View>
 
-                      {/* Quick Action / Credits Pill */}
-                      {isUdaipur ? (
-                        <Pressable 
-                          onPress={() => Alert.alert(
-                            "Udaipur Restriction",
-                            "You cannot visit other gyms in Udaipur. Your ZonoFit membership allows local visits only at your designated Primary Gym. Network credits can be used in other cities (e.g. Delhi NCR, Mumbai, Jaipur) when traveling.",
-                            [
-                              { text: "Got It", style: "cancel" },
-                              { text: "Select Another City", onPress: () => router.push("/partner-cities" as any) }
-                            ]
-                          )}
-                          style={styles.lockedPillBtn}
-                          hitSlop={6}
-                        >
-                          <Ionicons name="lock-closed" size={11} color="#DC2626" />
-                          <Text style={styles.lockedPillText}>Locked in Udaipur</Text>
-                        </Pressable>
-                      ) : (
-                        <Pressable 
-                          onPress={() => handleOpenBooking(gym)}
-                          style={styles.bookPillBtn}
-                          hitSlop={6}
-                        >
-                          <Ionicons name="flash" size={11} color="#166534" />
-                          <Text style={styles.bookPillText}>{gym.cost || 8} Credits</Text>
-                        </Pressable>
-                      )}
+                      {/* Quick Action / Credits Pill & Price */}
+                      <View style={styles.actionColumn}>
+                        <Text style={styles.membershipPriceHighlight}>
+                          ₹{(gym.membershipPrice || 3000).toLocaleString('en-IN')}<Text style={{ fontSize: 10, fontWeight: '600', color: '#64748B' }}>/mo</Text>
+                        </Text>
+                        {isUdaipur ? (
+                          <Pressable 
+                            onPress={() => Alert.alert(
+                              "Udaipur Restriction",
+                              "You cannot visit other gyms in Udaipur. Your ZonoFit membership allows local visits only at your designated Primary Gym. Network credits can be used in other cities (e.g. Delhi NCR, Mumbai, Jaipur) when traveling.",
+                              [
+                                { text: "Got It", style: "cancel" },
+                                { text: "Select Another City", onPress: () => router.push("/partner-cities" as any) }
+                              ]
+                            )}
+                            style={styles.lockedPillBtn}
+                            hitSlop={6}
+                          >
+                            <Ionicons name="lock-closed" size={11} color="#DC2626" />
+                            <Text style={styles.lockedPillText}>Locked in Udaipur</Text>
+                          </Pressable>
+                        ) : (
+                          <Pressable 
+                            onPress={() => handleOpenBooking(gym)}
+                            style={styles.bookPillBtn}
+                            hitSlop={6}
+                          >
+                            <Ionicons name="flash" size={11} color="#166534" />
+                            <Text style={styles.bookPillText}>{gym.cost || 8} Credits</Text>
+                          </Pressable>
+                        )}
+                      </View>
                     </View>
                   </Pressable>
               );
@@ -993,6 +1005,44 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
     color: "#166534",
+  },
+
+  /* Membership Price & Action Styles */
+  priceFloatingBadge: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: "rgba(226, 232, 240, 0.8)",
+  },
+  priceFloatingText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#15803D",
+  },
+  priceFloatingMonth: {
+    fontSize: 10.5,
+    fontWeight: "600",
+    color: "#64748B",
+  },
+  actionColumn: {
+    alignItems: "flex-end",
+    justifyContent: "center",
+    gap: 4,
+  },
+  membershipPriceHighlight: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#0F172A",
   },
 
   /* In-feed Ambience Section */
