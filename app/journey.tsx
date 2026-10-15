@@ -30,9 +30,16 @@ export default function JourneyScreen() {
 
   const cycleMonth = membershipInfo?.cycleNumber ?? currentMonth ?? 1;
   const cycleTotalMonths = membershipInfo?.maxCycles ?? totalMonths ?? 12;
-  // Ensure we accurately count visits completed across membership & user workout records
-  const visitsCompleted = Math.max(membershipInfo?.completedVisits || 0, totalWorkouts || 0);
-  const visitsGoal = membershipInfo?.mandatoryVisits ?? 10;
+  // Ensure we accurately count visits completed across membership, active check-in, and user workout records
+  const checkedInToday = bookingStatus === "Checked In" ? 1 : 0;
+  const completedPastCount = pastBookings.filter(b => b.status === "Completed" || b.status === "Checked In").length;
+  const visitsCompleted = Math.max(
+    membershipInfo?.completedVisits || 0,
+    totalWorkouts || 0,
+    completedPastCount,
+    checkedInToday
+  );
+  const visitsGoal = membershipInfo?.mandatoryVisits ?? (cycleMonth <= 4 ? 10 : 15);
   const visitsRemaining = Math.max(0, visitsGoal - visitsCompleted);
 
   const monthName = new Date().toLocaleString('default', { month: 'long' });
