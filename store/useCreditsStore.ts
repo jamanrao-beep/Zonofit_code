@@ -1,7 +1,33 @@
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+import * as SecureStore from "expo-secure-store";
 import { Alert } from "react-native";
 import { apiFetch } from "@/lib/api";
 import { useAuthStore } from "./useAuthStore";
+
+const secureStorage = {
+  getItem: async (name: string): Promise<string | null> => {
+    try {
+      return await SecureStore.getItemAsync(name);
+    } catch {
+      return null;
+    }
+  },
+  setItem: async (name: string, value: string): Promise<void> => {
+    try {
+      await SecureStore.setItemAsync(name, value);
+    } catch (e) {
+      console.warn("SecureStore setItem failed:", e);
+    }
+  },
+  removeItem: async (name: string): Promise<void> => {
+    try {
+      await SecureStore.deleteItemAsync(name);
+    } catch (e) {
+      console.warn("SecureStore deleteItem failed:", e);
+    }
+  },
+};
 
 export interface Transaction {
   id: string;
@@ -63,7 +89,9 @@ interface CreditsState {
   reset: () => void;
 }
 
-export const useCreditsStore = create<CreditsState>((set, get) => ({
+export const useCreditsStore = create<CreditsState>()(
+  persist(
+    (set, get) => ({
   credits: 0,
   cashBalance: 0,
   inrWallet: null,
@@ -657,4 +685,17 @@ export const useCreditsStore = create<CreditsState>((set, get) => ({
       return { success: true, message: err.message };
     }
   },
-}));
+}),
+    {
+      name: "zonofit_credits_state",
+      storage: createJSONStorage(() => secureStorage),
+      partialize: (state) => ({
+        credits: state.credits,
+        cashBalance: state.cashBalance,
+        inrWallet: state.inrWallet,
+        membershipInfo: state.membershipInfo,
+        transactions: (state.transactions || []).slice(0, 20),
+      }),
+    }
+  )
+);

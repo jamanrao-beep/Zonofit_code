@@ -1,7 +1,33 @@
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+import * as SecureStore from "expo-secure-store";
 import { apiFetch, uploadProfilePicture } from "@/lib/api";
 import { useCreditsStore } from "./useCreditsStore";
 import { useAuthStore } from "./useAuthStore";
+
+const secureStorage = {
+  getItem: async (name: string): Promise<string | null> => {
+    try {
+      return await SecureStore.getItemAsync(name);
+    } catch {
+      return null;
+    }
+  },
+  setItem: async (name: string, value: string): Promise<void> => {
+    try {
+      await SecureStore.setItemAsync(name, value);
+    } catch (e) {
+      console.warn("SecureStore setItem failed:", e);
+    }
+  },
+  removeItem: async (name: string): Promise<void> => {
+    try {
+      await SecureStore.deleteItemAsync(name);
+    } catch (e) {
+      console.warn("SecureStore deleteItem failed:", e);
+    }
+  },
+};
 
 interface UserState {
   name: string;
@@ -37,7 +63,9 @@ interface UserState {
   reset: () => void;
 }
 
-export const useUserStore = create<UserState>((set, get) => ({
+export const useUserStore = create<UserState>()(
+  persist(
+    (set, get) => ({
   name: "Member",
   email: "",
   phone: null,
@@ -350,4 +378,31 @@ export const useUserStore = create<UserState>((set, get) => ({
       return { success: false, message: err.message || "Upload failed" };
     }
   },
-}));
+}),
+    {
+      name: "zonofit_user_state",
+      storage: createJSONStorage(() => secureStorage),
+      partialize: (state) => ({
+        name: state.name,
+        email: state.email,
+        phone: state.phone,
+        avatarUrl: state.avatarUrl,
+        visitsRemaining: state.visitsRemaining,
+        membershipStatus: state.membershipStatus,
+        planName: state.planName,
+        primaryGymId: state.primaryGymId,
+        primaryGymName: state.primaryGymName,
+        membershipExpiry: state.membershipExpiry,
+        currentMonth: state.currentMonth,
+        totalMonths: state.totalMonths,
+        identityStage: state.identityStage,
+        progressPercentage: state.progressPercentage,
+        nextMilestone: state.nextMilestone,
+        streak: state.streak,
+        totalWorkouts: state.totalWorkouts,
+        trainingHours: state.trainingHours,
+        memberSince: state.memberSince,
+      }),
+    }
+  )
+);
