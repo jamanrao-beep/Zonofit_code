@@ -28,9 +28,7 @@ router.post(
   [
     body("gymId").isUUID().withMessage("Valid gym ID required."),
     body("visitDate").isISO8601().withMessage("Valid visit date required (ISO 8601)."),
-    body("timeSlot")
-      .matches(/^\d{2}:\d{2}-\d{2}:\d{2}$/)
-      .withMessage("Time slot format: HH:MM-HH:MM"),
+    body("timeSlot").isString().notEmpty().withMessage("Time slot required."),
   ],
   async (req: Request, res: Response): Promise<void> => {
     const errors = validationResult(req);
@@ -348,9 +346,19 @@ router.delete(
       }
 
       // Calculate the exact workout time
-      const [startHour, startMinute] = booking.timeSlot.split('-')[0].split(':').map(Number);
-      const workoutTime = new Date(booking.visitDate);
-      workoutTime.setHours(startHour, startMinute, 0, 0);
+      let workoutTime = new Date(booking.visitDate);
+      try {
+        const slotPart = (booking.timeSlot || "").split('-')[0].trim();
+        const timeParts = slotPart.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+        if (timeParts) {
+          let h = parseInt(timeParts[1], 10);
+          const m = parseInt(timeParts[2], 10);
+          const meridian = timeParts[3]?.toUpperCase();
+          if (meridian === "PM" && h < 12) h += 12;
+          if (meridian === "AM" && h === 12) h = 0;
+          workoutTime.setHours(h, m, 0, 0);
+        }
+      } catch {}
 
       const now = new Date();
       const timeUntilWorkoutMs = workoutTime.getTime() - now.getTime();
@@ -372,7 +380,7 @@ router.delete(
       const currentBalance = wallet?.balance || 0;
 
       if (booking.creditsDeducted > 0) {
-        // Credit booking: refund = booked - 2 credits fee
+        // Credit booking: refund = booked - 2 credits fee (flat 2 fee)
         refundedCredits = Math.max(0, booking.creditsDeducted - 2);
         if (refundedCredits > 0) {
           const updatedWallet = await tx.creditWallet.update({
@@ -388,7 +396,7 @@ router.delete(
               type: "REFUND",
               amount: refundedCredits,
               balanceAfter: updatedWallet.balance,
-              description: `Cancellation at ${gymName} — ${refundedCredits} credits refunded (2 credits cancellation fee deducted).`,
+              description: `Cancellation at ${gymName} — ${refundedCredits} credits refunded (flat 2 credits fee deducted).`,
               bookingId: booking.id,
             },
           });
@@ -396,10 +404,10 @@ router.delete(
           newBalance = currentBalance;
         }
       } else {
-        // Mandatory visit (0 credits booked): 2 credits fee charged from wallet
+        // Mandatory visit (0 credits booked): flat 2 credits fee charged from wallet
         if (currentBalance < 2) {
           throw createError(
-            `Cannot cancel booking: A 2 Credits fee is required, but your wallet balance is only ${currentBalance} Credits.`,
+            `Cannot cancel booking: A flat 2 Credits fee is required, but your wallet balance is only ${currentBalance} Credits.`,
             400,
             "InsufficientCredits"
           );
@@ -416,11 +424,17 @@ router.delete(
             userId: req.dbUserId!,
             walletId: updatedWallet.id,
             type: "VISIT_SPEND",
-            amount: 2,
+            amount: -2,
             balanceAfter: updatedWallet.balance,
-            description: `Cancellation fee (2 credits) for mandatory visit at ${gymName}.`,
+            description: `Cancellation fee (flat 2 credits) for mandatory visit at ${gymName}.`,
             bookingId: booking.id,
           },
+        });
+
+        // Restore 1 primary gym mandatory visit on membership
+        await tx.membership.updateMany({
+          where: { userId: req.dbUserId! },
+          data: { primaryGymVisits: { increment: 1 } },
         });
       }
 

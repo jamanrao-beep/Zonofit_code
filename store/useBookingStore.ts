@@ -28,6 +28,7 @@ interface BookingState {
   bookedCost: number;
   pastBookings: PastBooking[];
   loading: boolean;
+  isCancelling: boolean;
   appliedCoupon: { code: string; discountType: string; discountValue: number } | null;
   
   // Actions
@@ -52,6 +53,7 @@ export const useBookingStore = create<BookingState>((set, get) => ({
   bookedCost: 0,
   pastBookings: [],
   loading: false,
+  isCancelling: false,
   appliedCoupon: null,
 
   applyCoupon: (coupon) => set({ appliedCoupon: coupon }),
@@ -260,6 +262,10 @@ export const useBookingStore = create<BookingState>((set, get) => ({
   },
 
   cancelBooking: async (): Promise<{ success: boolean; message?: string }> => {
+    if (get().isCancelling) {
+      return { success: false, message: "Cancellation already in progress." };
+    }
+
     const { bookingStatus, bookedGymName, bookedCost, bookingId, bookedGymId } = get();
     if (bookingStatus !== "Booked" || !bookingId) {
       return { success: false, message: "No active booking to cancel." };
@@ -270,15 +276,19 @@ export const useBookingStore = create<BookingState>((set, get) => ({
     // Enforce 2 Credits fee requirement for mandatory visits
     if (bookedCost === 0 && currentWalletCredits < 2) {
       throw new Error(
-        `Cannot cancel booking: A 2 Credits fee is required, but your wallet balance is only ${currentWalletCredits} Credits. Please recharge credits to cancel.`
+        `Cannot cancel booking: A flat 2 Credits fee is required, but your wallet balance is only ${currentWalletCredits} Credits. Please recharge credits to cancel.`
       );
     }
 
+    set({ isCancelling: true });
+
     try {
       const token = useAuthStore.getState().token;
+      let apiResult: any = null;
+
       if (token) {
         try {
-          await apiFetch(`/api/bookings/${bookingId}`, { method: "DELETE", token });
+          apiResult = await apiFetch(`/api/bookings/${bookingId}`, { method: "DELETE", token });
         } catch (apiErr: any) {
           if (apiErr?.message?.includes("Insufficient") || apiErr?.message?.includes("balance")) {
             throw apiErr;
@@ -288,9 +298,11 @@ export const useBookingStore = create<BookingState>((set, get) => ({
       }
 
       if (bookedCost > 0) {
-        // Credit Booking: Deduct 2 credits fee directly from refund
+        // Credit Booking: Deduct 2 credits fee directly from refund (net effect: exactly 2 credits deducted)
         const refundedCredits = Math.max(0, bookedCost - 2);
-        if (refundedCredits > 0) {
+        if (typeof apiResult?.newCreditBalance === "number") {
+          useCreditsStore.setState({ credits: apiResult.newCreditBalance });
+        } else if (refundedCredits > 0) {
           useCreditsStore.getState().addTransaction(
             "credit",
             refundedCredits,
@@ -302,16 +314,22 @@ export const useBookingStore = create<BookingState>((set, get) => ({
           }));
         }
       } else {
-        // Mandatory Visit: Deduct 2 credits fee from wallet, restore 1 mandatory visit
-        useCreditsStore.setState((state) => ({
-          credits: Math.max(0, state.credits - 2),
-        }));
-        useCreditsStore.getState().addTransaction(
-          "debit",
-          2,
-          "credits",
-          `Cancellation Fee (2 Credits) - ${bookedGymName || "Mandatory Visit"}`
-        );
+        // Mandatory Visit (0 credits booked): Deduct flat 2 credits from wallet & restore 1 mandatory visit
+        if (typeof apiResult?.newCreditBalance === "number") {
+          useCreditsStore.setState({ credits: apiResult.newCreditBalance });
+          useCreditsStore.getState().addTransaction(
+            "debit",
+            2,
+            "credits",
+            `Cancellation Fee (Flat 2 Credits) - ${bookedGymName || "Mandatory Visit"}`
+          );
+        } else {
+          // Reliable 2-credit deduction with backend sync
+          await useCreditsStore.getState().deductCredits(
+            2,
+            `Cancellation Fee (Flat 2 Credits) - ${bookedGymName || "Mandatory Visit"}`
+          );
+        }
 
         useUserStore.setState((s) => ({ visitsRemaining: Math.min(10, s.visitsRemaining + 1) }));
         const mem = useCreditsStore.getState().membershipInfo;
@@ -351,6 +369,8 @@ export const useBookingStore = create<BookingState>((set, get) => ({
     } catch (err) {
       console.error("Failed to cancel booking:", err);
       throw err;
+    } finally {
+      set({ isCancelling: false });
     }
   },
 }));

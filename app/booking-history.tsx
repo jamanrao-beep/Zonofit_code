@@ -1,5 +1,5 @@
-import React from "react";
-import { ScrollView, Text, View, Pressable, Alert } from "react-native";
+import React, { useState } from "react";
+import { ScrollView, Text, View, Pressable, Alert, Modal, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -35,8 +35,10 @@ const statusConfig = {
 export default function BookingHistoryScreen() {
   const router = useRouter();
   const { pastBookings, bookingStatus, bookedGymName, bookedTime, cancelBooking } = useBookingStore();
+  const [isProcessingCancel, setIsProcessingCancel] = useState(false);
 
   const handleCancel = () => {
+    if (isProcessingCancel) return;
     const bookedCost = useBookingStore.getState().bookedCost;
     const isMandatory = bookedCost === 0 || bookedCost === undefined;
     const currentCredits = useCreditsStore.getState().credits;
@@ -67,15 +69,18 @@ export default function BookingHistoryScreen() {
           text: "Yes, Cancel",
           style: "destructive",
           onPress: async () => {
+            setIsProcessingCancel(true);
             try {
               await cancelBooking();
+              setIsProcessingCancel(false);
               Alert.alert(
                 "Booking Cancelled", 
                 isMandatory
-                  ? "Your booking was cancelled. 1 mandatory visit has been restored and 2 credits were deducted."
-                  : `Your booking was cancelled. ${refundAmount} credits were refunded to your wallet (2 credits fee applied).`
+                  ? "Your booking was cancelled. 1 mandatory visit has been restored and flat 2 credits were deducted."
+                  : `Your booking was cancelled. ${refundAmount} credits were refunded to your wallet (flat 2 credits fee applied).`
               );
             } catch (err: any) {
+              setIsProcessingCancel(false);
               Alert.alert("Cancellation Failed", err?.message || "Could not cancel booking.");
             }
           }
@@ -133,9 +138,14 @@ export default function BookingHistoryScreen() {
             <View className="flex-row items-center gap-x-2.5 mt-3 pt-3 border-t border-gray-100">
               <Pressable 
                 onPress={handleCancel}
-                className="flex-1 bg-red-50 border border-red-200 py-2 rounded-xl items-center active:opacity-80"
+                disabled={isProcessingCancel}
+                className={`flex-1 bg-red-50 border border-red-200 py-2 rounded-xl items-center active:opacity-80 ${isProcessingCancel ? "opacity-60" : ""}`}
               >
-                <Text className="text-red-600 font-bold text-xs">Cancel Booking</Text>
+                {isProcessingCancel ? (
+                  <ActivityIndicator size="small" color="#DC2626" />
+                ) : (
+                  <Text className="text-red-600 font-bold text-xs">Cancel Booking</Text>
+                )}
               </Pressable>
               <Pressable 
                 onPress={() => router.push("/booking-pass" as any)}
@@ -229,6 +239,21 @@ export default function BookingHistoryScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Cancellation Loading HUD */}
+      <Modal visible={isProcessingCancel} transparent animationType="fade">
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.65)", alignItems: "center", justifyContent: "center", paddingHorizontal: 24 }}>
+          <View style={{ backgroundColor: "#FFFFFF", borderRadius: 24, padding: 24, alignItems: "center", width: "100%", maxWidth: 320, elevation: 12, shadowColor: "#000", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.25, shadowRadius: 16 }}>
+            <ActivityIndicator size="large" color="#1F7A3E" />
+            <Text style={{ fontSize: 17, fontWeight: "800", color: "#111827", marginTop: 16, textAlign: "center" }}>
+              Cancelling Booking...
+            </Text>
+            <Text style={{ fontSize: 12.5, color: "#6B7280", marginTop: 6, textAlign: "center", lineHeight: 18 }}>
+              Processing cancellation & flat 2 credits fee. Please wait...
+            </Text>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

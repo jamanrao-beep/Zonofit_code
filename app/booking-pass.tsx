@@ -8,7 +8,9 @@ import {
   Alert, 
   StyleSheet, 
   Dimensions,
-  StatusBar
+  StatusBar,
+  Modal,
+  ActivityIndicator
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -39,6 +41,7 @@ export default function BookingPassScreen() {
   } = useBookingStore();
   const { primaryGymId, primaryGymName } = useUserStore();
   const [copied, setCopied] = useState(false);
+  const [isProcessingCancel, setIsProcessingCancel] = useState(false);
 
   // Fallback gym resolution
   const matchedGym = FALLBACK_NETWORK_GYMS.find(
@@ -92,6 +95,7 @@ export default function BookingPassScreen() {
   };
 
   const handleCancelBooking = () => {
+    if (isProcessingCancel) return;
     const isMandatory = isCostZero;
     const currentCredits = useCreditsStore.getState().credits;
 
@@ -121,16 +125,19 @@ export default function BookingPassScreen() {
           text: "Yes, Cancel",
           style: "destructive",
           onPress: async () => {
+            setIsProcessingCancel(true);
             try {
               await cancelBooking();
+              setIsProcessingCancel(false);
               Alert.alert(
                 "Booking Cancelled",
                 isMandatory 
-                  ? "Your booking was cancelled. 1 mandatory visit has been restored and 2 credits were deducted."
-                  : `Your booking was cancelled. ${refundAmount} credits were refunded to your wallet (2 credits fee applied).`,
+                  ? "Your booking was cancelled. 1 mandatory visit has been restored and flat 2 credits were deducted."
+                  : `Your booking was cancelled. ${refundAmount} credits were refunded to your wallet (flat 2 credits fee applied).`,
                 [{ text: "OK", onPress: () => router.replace("/(tabs)") }]
               );
             } catch (err: any) {
+              setIsProcessingCancel(false);
               Alert.alert("Cancellation Failed", err?.message || "Could not cancel booking.");
             }
           }
@@ -367,9 +374,14 @@ export default function BookingPassScreen() {
               {bookingStatus !== "Checked In" && (
                 <Pressable
                   onPress={handleCancelBooking}
-                  style={styles.cancelBookingBtn}
+                  disabled={isProcessingCancel}
+                  style={[styles.cancelBookingBtn, isProcessingCancel && { opacity: 0.6 }]}
                 >
-                  <Text style={styles.cancelBookingBtnText}>Cancel This Booking</Text>
+                  {isProcessingCancel ? (
+                    <ActivityIndicator size="small" color="#DC2626" />
+                  ) : (
+                    <Text style={styles.cancelBookingBtnText}>Cancel This Booking</Text>
+                  )}
                 </Pressable>
               )}
 
@@ -383,6 +395,19 @@ export default function BookingPassScreen() {
           </>
         )}
       </ScrollView>
+
+      {/* Cancellation Loading HUD */}
+      <Modal visible={isProcessingCancel} transparent animationType="fade">
+        <View style={styles.loadingModalOverlay}>
+          <View style={styles.loadingModalCard}>
+            <ActivityIndicator size="large" color="#1F7A3E" />
+            <Text style={styles.loadingModalTitle}>Cancelling Booking...</Text>
+            <Text style={styles.loadingModalSubtitle}>
+              Processing cancellation & flat 2 credits fee. Please wait...
+            </Text>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -847,5 +872,39 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     fontSize: 12.5,
     fontWeight: "600",
+  },
+  loadingModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+  },
+  loadingModalCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 24,
+    alignItems: "center",
+    width: "100%",
+    maxWidth: 320,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  loadingModalTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: "#111827",
+    marginTop: 16,
+    textAlign: "center",
+  },
+  loadingModalSubtitle: {
+    fontSize: 12.5,
+    color: "#6B7280",
+    marginTop: 6,
+    textAlign: "center",
+    lineHeight: 18,
   },
 });
