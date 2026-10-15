@@ -39,27 +39,27 @@ export default function GymDashboardLayout({
                 href={item.href}
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm ${
                   isActive
-                    ? "bg-white/10 text-brand-lime border border-white/10 shadow-sm"
+                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-sm"
                     : "text-muted hover:bg-white/5 hover:text-white"
                 }`}
               >
-                <Icon size={18} className={isActive ? "text-brand-lime" : "text-muted"} />
+                <Icon size={18} className={isActive ? "text-emerald-400" : "text-muted"} />
                 {item.name}
               </Link>
             );
           })}
 
           <div className="mt-auto pt-6 pb-2">
-            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-brand-green/15 border border-brand-green/30 text-white shadow-sm">
-              <div className="w-8 h-8 rounded-lg bg-brand-green/30 flex items-center justify-center text-brand-lime flex-shrink-0">
+            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/80 border border-slate-700/60 text-white shadow-sm">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400 flex-shrink-0">
                 <CheckCircle2 size={18} />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-xs font-bold text-white flex items-center gap-1.5">
                   Verified Partner
-                  <span className="w-1.5 h-1.5 rounded-full bg-brand-lime animate-pulse" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 </div>
-                <div className="text-[11px] text-muted truncate">Active in ZonoFit Network</div>
+                <div className="text-[11px] text-gray-400 truncate">Active in ZonoFit Network</div>
               </div>
             </div>
           </div>
