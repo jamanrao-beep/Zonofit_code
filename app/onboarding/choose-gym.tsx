@@ -40,6 +40,7 @@ export default function ChooseGymScreen() {
         distance: String(gym.distance),
         image: gym.image,
         address: gym.address,
+        price: String(gym.membershipPrice || 3000),
       }
     } as any);
   };
@@ -122,7 +123,12 @@ export default function ChooseGymScreen() {
                 
                 <View style={styles.gymFooter}>
                   <View style={styles.tagsContainer}>
-                    {gym.tags.slice(0, 2).map((tag, idx) => (
+                    <View style={[styles.tag, { backgroundColor: '#E8F5E9', borderColor: '#C8E6C9', borderWidth: 1 }]}>
+                      <Text style={[styles.tagText, { color: '#1F7A3E', fontWeight: '800' }]}>
+                        ₹{(gym.membershipPrice || 3000).toLocaleString('en-IN')}/mo
+                      </Text>
+                    </View>
+                    {gym.tags.slice(0, 1).map((tag, idx) => (
                       <View key={idx} style={styles.tag}>
                         <Text style={styles.tagText}>{tag}</Text>
                       </View>

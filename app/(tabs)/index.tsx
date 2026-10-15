@@ -527,7 +527,7 @@ export default function HomeScreen() {
                 <Text className="text-yellow-500 text-[10px] font-bold">🪙</Text>
               </View>
               <Text className="text-white text-sm font-medium">
-                Available Credits: {credits > 0 ? credits : (isPrimaryMember ? 180 : 0)}
+                Available Credits: {credits}
               </Text>
             </View>
             <Pressable onPress={() => router.push("/credits")}>

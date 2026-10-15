@@ -50,6 +50,7 @@ export default function GymDetailScreen() {
     distance?: string;
     image?: string;
     address?: string;
+    price?: string;
   }>();
   const id = params.id;
   const isFromOnboarding = useAuthStore(state => state.isViewingOnboardingGym);
@@ -459,6 +460,7 @@ export default function GymDetailScreen() {
                 gymName: GYM_DATA.name,
                 city: (GYM_DATA as any).city || 'Udaipur',
                 address: params.address || (GYM_DATA as any).address || 'Sukher, Udaipur • 1.2 km',
+                price: params.price || String(matchedGym?.membershipPrice || 3000),
               },
             } as any);
           }}

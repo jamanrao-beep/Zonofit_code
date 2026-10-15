@@ -165,8 +165,11 @@ router.post(
           // Common membership rule: First 4 months = 10 days cut, Months 5 to 12 = 15 days cut
           const cutDays = nextCycleNumber <= 4 ? 10 : 15;
           initialVisits = cutDays;
-          const netCreditDays = Math.max(0, 30 - cutDays);
-          remainingCreditsToAdd = netCreditDays * (gym.creditCost || 8);
+          const gymPrice = gymPlan.priceInPaise ? gymPlan.priceInPaise / 100 : 3000;
+          const perVisitCost = Math.round(gymPrice * 0.04);
+          const mandatoryVisitsCost = initialVisits * perVisitCost;
+          const walletCreditsValue = Math.max(0, gymPrice - mandatoryVisitsCost);
+          remainingCreditsToAdd = Math.round(walletCreditsValue / 10);
           
           const durationDays = gymPlan.billingCycle === "YEARLY" ? 365 : 30;
           endDate = new Date(baseDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
@@ -223,18 +226,16 @@ router.post(
           }
 
           // Single common membership rule:
-          // Months 1 to 4: first 10 days credits are cut (10 mandatory visits)
-          // Months 5 to 12: first 15 days credits are cut (15 mandatory visits)
+          // Months 1 to 4: 10 mandatory visits (10 days cut)
+          // Months 5 to 12: 15 mandatory visits (15 days cut)
+          // Mandatory per-visit cost = 4% of total membership price
+          // Wallet credits = (Membership Price - Mandatory Visits Cost) / 10
           initialVisits = nextCycleNumber <= 4 ? 10 : 15;
-          const gymCreditCost = gym.creditCost || 8;
-          let initialCreditsCost = gymCreditCost * initialVisits;
-
-          const totalMonthlyCredits = plan.monthlyCredits || 160;
-          if (initialCreditsCost > totalMonthlyCredits) {
-            initialCreditsCost = totalMonthlyCredits;
-          }
-
-          remainingCreditsToAdd = Math.max(0, totalMonthlyCredits - initialCreditsCost);
+          const membershipPrice = req.body.price || (plan.priceInPaise ? plan.priceInPaise / 100 : 3000);
+          const perVisitCost = Math.round(membershipPrice * 0.04);
+          const mandatoryVisitsCost = initialVisits * perVisitCost;
+          const walletCreditsValue = Math.max(0, membershipPrice - mandatoryVisitsCost);
+          remainingCreditsToAdd = Math.round(walletCreditsValue / 10);
           endDate = new Date(baseDate.getTime() + (plan.durationDays || 30) * 24 * 60 * 60 * 1000);
         }
 

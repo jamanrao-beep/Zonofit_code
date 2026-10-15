@@ -2,6 +2,8 @@ import { create } from "zustand";
 import * as SecureStore from "expo-secure-store";
 import { apiFetch } from "@/lib/api";
 import { useGuestStore } from "./useGuestStore";
+import { calculateMembershipBreakdown } from "@/constants/credits";
+import { FALLBACK_NETWORK_GYMS } from "@/constants/fallbackGyms";
 
 const TOKEN_KEY = "zonofit_auth_token";
 const SESSION_KEY = "zonofit_user_session";
@@ -40,7 +42,12 @@ interface AuthState {
   verifyOTP: (code: string, isSignIn?: boolean) => Promise<boolean>;
   checkUserExists: (phone?: string, email?: string) => Promise<{ exists: boolean; phoneExists: boolean; emailExists: boolean; isOnboarded: boolean; user?: any }>;
   updateProfile: (details: { name: string, dob?: string, email?: string, referral?: string }) => Promise<void>;
-  completeOnboarding: (city: string, gymId: string, plan: string) => Promise<void>;
+  completeOnboarding: (
+    city: string,
+    gymId: string,
+    plan: string,
+    options?: { price?: number; visits?: number; credits?: number; gymName?: string; cycleNumber?: number }
+  ) => Promise<void>;
   googleSignIn: (email?: string, name?: string) => Promise<{ success: boolean; isOnboarded: boolean }>;
   appleSignIn: (email?: string, name?: string) => Promise<{ success: boolean; isOnboarded: boolean }>;
   signOut: () => Promise<void>;
@@ -361,7 +368,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  completeOnboarding: async (city, gymId, plan) => {
+  completeOnboarding: async (city, gymId, plan, options) => {
     let user = get().user;
     if (!user) {
       user = {
@@ -419,19 +426,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       try {
         const { useUserStore } = require("./useUserStore");
         const { useCreditsStore } = require("./useCreditsStore");
-        const gymName = useGuestStore.getState().selectedGymName || useUserStore.getState().primaryGymName || "Being Fitness";
+        const gymLookup = FALLBACK_NETWORK_GYMS.find(g => g.id === gymId);
+        const gymName = options?.gymName || useGuestStore.getState().selectedGymName || useUserStore.getState().primaryGymName || gymLookup?.name || "Being Fit Fitness";
         
+        const cycleNum = options?.cycleNumber || 1;
+        const gymPrice = options?.price || gymLookup?.membershipPrice || 3000;
+        const breakdown = calculateMembershipBreakdown(gymPrice, cycleNum);
+
+        const visitsCount = options?.visits ?? breakdown.mandatoryVisitsCount;
+        const restCredits = options?.credits ?? breakdown.walletCreditsCount;
+
         useUserStore.setState({
           name: updatedUser.username,
           primaryGymId: gymId,
           primaryGymName: gymName,
           planName: plan || "Monthly",
           membershipStatus: "Active",
-          visitsRemaining: 10,
+          visitsRemaining: visitsCount,
         });
 
-        // Grant rest credits for the active membership (Formula: (Price - MandatoryVisitsCost) / 10 => (3000 - 1200) / 10 = 180 credits)
-        const restCredits = 180;
         const currentCredits = useCreditsStore.getState().credits;
         useCreditsStore.setState({
           credits: Math.max(currentCredits, restCredits),
@@ -439,22 +452,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             status: "ACTIVE",
             isExpired: false,
             isExpiringSoon: false,
-            tier: "STARTER",
+            tier: gymPrice >= 4500 ? "PREMIUM" : (gymPrice <= 1500 ? "BUDGET" : "STARTER"),
             planName: plan || "Monthly",
             gymName: gymName,
             endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
             daysRemaining: 30,
-            cycleNumber: 1,
+            cycleNumber: cycleNum,
             maxCycles: 12,
-            cyclesRemaining: 11,
-            mandatoryVisits: 10,
+            cyclesRemaining: Math.max(0, 12 - cycleNum),
+            mandatoryVisits: visitsCount,
             completedVisits: 0,
-            mandatoryVisitsRemaining: 10,
+            mandatoryVisitsRemaining: visitsCount,
             canRepurchase: false,
             canBuyAdditionalCredits: true,
           },
         });
-        useCreditsStore.getState().addTransaction("credit", restCredits, "credits", "Monthly Membership Activation - Rest Credits");
+        useCreditsStore.getState().addTransaction("credit", restCredits, "credits", `Monthly Membership Activation - Rest Credits (${restCredits} Credits)`);
       } catch {}
 
       // Convert guest session if active per PRD Section 14

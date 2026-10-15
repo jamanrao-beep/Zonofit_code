@@ -4,6 +4,7 @@ import * as SecureStore from "expo-secure-store";
 import { apiFetch, uploadProfilePicture } from "@/lib/api";
 import { useCreditsStore } from "./useCreditsStore";
 import { useAuthStore } from "./useAuthStore";
+import { calculateMembershipBreakdown } from "@/constants/credits";
 
 const secureStorage = {
   getItem: async (name: string): Promise<string | null> => {
@@ -200,9 +201,11 @@ export const useUserStore = create<UserState>()(
   updatePlan: async (planId: string, amountPaidPaise: number, primaryGymId?: string) => {
     // Single common monthly membership
     const planName = "Monthly Membership";
-    const monthlyCredits = 160;
     const currentCycle = get().currentMonth || 1;
-    const visits = currentCycle <= 4 ? 10 : 15;
+    const resolvedPrice = (typeof amountPaidPaise === "number" && amountPaidPaise > 0) ? Math.round(amountPaidPaise / 100) : 3000;
+    const breakdown = calculateMembershipBreakdown(resolvedPrice, currentCycle);
+    const monthlyCredits = breakdown.walletCreditsCount;
+    const visits = breakdown.mandatoryVisitsCount;
 
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(planId || "");
     const resolvedPlanId = isUuid ? planId : "755fb72b-6174-44a9-9456-e4747dc46095";
@@ -329,33 +332,36 @@ export const useUserStore = create<UserState>()(
       return { success: true, message: "Gym plan purchased successfully." };
     } catch (err: any) {
       console.warn("Backend gym plan activation error, activating plan directly:", err?.message || err);
+      const price = amountPaidPaise > 0 ? Math.round(amountPaidPaise / 100) : 3000;
+      const currentCycle = get().currentMonth || 1;
+      const breakdown = calculateMembershipBreakdown(price, currentCycle);
       const expiryDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
       set({
         planName: "Partner Gym Plan",
-        visitsRemaining: 10,
+        visitsRemaining: breakdown.mandatoryVisitsCount,
         membershipStatus: "ACTIVE",
         membershipExpiry: expiryDate.toLocaleDateString(),
       });
 
-      useCreditsStore.getState().addTransaction("credit", 160, "credits", "Gym Plan Activation");
+      useCreditsStore.getState().addTransaction("credit", breakdown.walletCreditsCount, "credits", `Gym Plan Activation (${breakdown.walletCreditsCount} Credits)`);
       useCreditsStore.setState((state) => ({
-        credits: state.credits + 160,
+        credits: state.credits + breakdown.walletCreditsCount,
         membershipInfo: {
           status: "ACTIVE",
           isExpired: false,
           isExpiringSoon: false,
-          tier: "STANDARD",
+          tier: price >= 4500 ? "PREMIUM" : (price <= 1500 ? "BUDGET" : "STANDARD"),
           planName: "Partner Gym Plan",
-          gymName: "FitZone Pro",
+          gymName: get().primaryGymName || "FitZone Pro",
           endDate: expiryDate.toISOString(),
           daysRemaining: 30,
-          cycleNumber: 1,
+          cycleNumber: currentCycle,
           maxCycles: 12,
-          cyclesRemaining: 11,
-          mandatoryVisits: 10,
+          cyclesRemaining: Math.max(0, 12 - currentCycle),
+          mandatoryVisits: breakdown.mandatoryVisitsCount,
           completedVisits: 0,
-          mandatoryVisitsRemaining: 10,
+          mandatoryVisitsRemaining: breakdown.mandatoryVisitsCount,
           canRepurchase: false,
           canBuyAdditionalCredits: true,
         },
