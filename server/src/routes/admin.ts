@@ -74,16 +74,26 @@ router.get("/dashboard", requireAuth, requireAdmin, async (req: Request, res: Re
 // ─── GET /api/admin/users ────────────────────────────────────────────────
 router.get("/users", requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
+    const role = req.query.role as string | undefined;
+    const where: any = {};
+    if (role && role !== "ALL") {
+      where.systemRole = role;
+    }
+
     const users = await prisma.user.findMany({
+      where,
       include: {
         membership: true,
         wallet: true,
+        gymsOwned: {
+          select: { id: true, name: true, city: true }
+        },
         _count: {
           select: { bookings: true }
         }
       },
       orderBy: { createdAt: "desc" },
-      take: 50
+      take: 100
     });
     res.json({ users });
   } catch (err: any) {
