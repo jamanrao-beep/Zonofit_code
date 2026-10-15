@@ -6,10 +6,8 @@ import {
   LayoutDashboard,
   Users,
   IndianRupee,
-  Store,
-  Tag,
+  CheckCircle2,
   LineChart,
-  LifeBuoy,
 } from "lucide-react";
 
 export default function GymDashboardLayout({
@@ -52,13 +50,18 @@ export default function GymDashboardLayout({
           })}
 
           <div className="mt-auto pt-6 pb-2">
-            <Link
-              href="/partners/apply"
-              className="flex items-center gap-3 px-4 py-3 rounded-xl bg-brand-green hover:bg-primary-dark text-white font-bold text-sm shadow-sm transition-colors border border-brand-green/20 emerald-glow-sm group"
-            >
-              <Store size={18} className="text-brand-lime group-hover:scale-110 transition-transform" />
-              Apply for Partner Gym
-            </Link>
+            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-brand-green/15 border border-brand-green/30 text-white shadow-sm">
+              <div className="w-8 h-8 rounded-lg bg-brand-green/30 flex items-center justify-center text-brand-lime flex-shrink-0">
+                <CheckCircle2 size={18} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                  Verified Partner
+                  <span className="w-1.5 h-1.5 rounded-full bg-brand-lime animate-pulse" />
+                </div>
+                <div className="text-[11px] text-muted truncate">Active in ZonoFit Network</div>
+              </div>
+            </div>
           </div>
         </nav>
       </aside>
