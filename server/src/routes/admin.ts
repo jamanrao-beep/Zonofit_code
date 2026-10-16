@@ -199,6 +199,291 @@ router.put("/gyms/:id/status", requireAuth, requireAdmin, async (req: Request, r
   }
 });
 
+// ─── POST /api/admin/gyms ────────────────────────────────────────────────
+router.post("/gyms", requireAuth, requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const {
+      // * star internal
+      customGymId,
+      ownerName,
+      bankDetails,
+      cappingMode,
+      maxDailyVisits,
+      maxSlotVisits,
+      payoutModel,
+      payoutCommissionRate,
+      payoutFixedPerVisit,
+      paymentCycle,
+      isGstRegistered,
+      gstNumber,
+      invoicePrefix,
+
+      // public / user facing
+      name,
+      address,
+      city,
+      state,
+      landmark,
+      googleMapsUrl,
+      contactPhone,
+      monthlyPrice,
+      weekdayHours,
+      weekendHours,
+      facilities,
+      slots,
+      logoUrl,
+      exteriorImageUrl,
+      interiorImageUrls,
+      lat,
+      lng,
+      isVerified,
+      isActive,
+    } = req.body;
+
+    if (!name || !address) {
+      res.status(400).json({ error: "ValidationError", message: "Gym Name and Full Address are required." });
+      return;
+    }
+
+    const priceM = monthlyPrice ? parseInt(monthlyPrice, 10) : 3000;
+    // Derive credit cost using PRD v2.0 Formula: U = M / 25, 1 Credit = ₹10
+    const derivedCreditCost = Math.max(1, Math.round(priceM / 25 / 10));
+
+    // Handle exclusive capping mode (do not overlap)
+    const finalCappingMode = cappingMode === "PER_SLOT" ? "PER_SLOT" : "DAILY_TOTAL";
+    const finalMaxDaily = finalCappingMode === "DAILY_TOTAL" ? (maxDailyVisits ? parseInt(maxDailyVisits, 10) : 25) : null;
+    const finalMaxSlot = finalCappingMode === "PER_SLOT" ? (maxSlotVisits ? parseInt(maxSlotVisits, 10) : 5) : null;
+
+    // Handle exclusive payout model (do not overlap)
+    const finalPayoutModel = payoutModel === "FIXED_PER_VISIT" ? "FIXED_PER_VISIT" : "COMMISSION_PERCENTAGE";
+    const finalCommRate = finalPayoutModel === "COMMISSION_PERCENTAGE" ? (payoutCommissionRate !== undefined ? parseFloat(payoutCommissionRate) : 20.0) : null;
+    const finalFixedPayout = finalPayoutModel === "FIXED_PER_VISIT" ? (payoutFixedPerVisit !== undefined ? parseFloat(payoutFixedPerVisit) : Math.round((priceM / 30) * 0.8)) : null;
+
+    const latVal = lat ? parseFloat(lat) : 18.5204;
+    const lngVal = lng ? parseFloat(lng) : 73.8567;
+
+    let finalCustomId = customGymId?.trim();
+    if (!finalCustomId) {
+      const count = await prisma.gym.count();
+      finalCustomId = `ZONO-${String(count + 1).padStart(3, "0")}`;
+    }
+
+    const gym = await prisma.gym.create({
+      data: {
+        customGymId: finalCustomId,
+        name,
+        address,
+        city: city || "Mumbai",
+        state: state || "Maharashtra",
+        landmark: landmark || null,
+        googleMapsUrl: googleMapsUrl || null,
+        contactPhone: contactPhone || null,
+        monthlyPrice: priceM,
+        creditCost: derivedCreditCost,
+        weekdayHours: weekdayHours || "06:00 AM - 10:00 PM",
+        weekendHours: weekendHours || "07:00 AM - 08:00 PM",
+        facilities: Array.isArray(facilities) ? facilities : (facilities ? [facilities] : ["Strength", "Cardio"]),
+        
+        cappingMode: finalCappingMode,
+        maxDailyVisits: finalMaxDaily,
+        maxSlotVisits: finalMaxSlot,
+
+        slotsJson: slots ? (typeof slots === "string" ? slots : JSON.stringify(slots)) : null,
+
+        ownerName: ownerName || null,
+        bankDetailsJson: bankDetails ? (typeof bankDetails === "string" ? bankDetails : JSON.stringify(bankDetails)) : null,
+
+        logoUrl: logoUrl || null,
+        exteriorImageUrl: exteriorImageUrl || null,
+        interiorImageUrls: Array.isArray(interiorImageUrls) ? interiorImageUrls : (interiorImageUrls ? [interiorImageUrls] : []),
+        imageUrls: [exteriorImageUrl, logoUrl, ...(Array.isArray(interiorImageUrls) ? interiorImageUrls : [])].filter(Boolean) as string[],
+
+        payoutModel: finalPayoutModel,
+        payoutCommissionRate: finalCommRate,
+        payoutFixedPerVisit: finalFixedPayout,
+        paymentCycle: paymentCycle || "WEEKLY",
+
+        isGstRegistered: !!isGstRegistered,
+        gstNumber: gstNumber || null,
+        invoicePrefix: invoicePrefix || null,
+
+        lat: latVal,
+        lng: lngVal,
+        isVerified: isVerified !== undefined ? !!isVerified : true,
+        isActive: isActive !== undefined ? !!isActive : true,
+      }
+    });
+
+    try {
+      await prisma.$executeRaw`
+        UPDATE gyms
+        SET location = ST_SetSRID(ST_MakePoint(${lngVal}, ${latVal}), 4326)
+        WHERE id = ${gym.id}
+      `;
+    } catch (geoErr) {
+      console.warn("PostGIS coordinate update warning:", geoErr);
+    }
+
+    await prisma.gymPlan.create({
+      data: {
+        gymId: gym.id,
+        name: `${gym.name} Monthly Membership`,
+        description: `Full access to ${gym.name} facilities with ZonoFit credits.`,
+        priceInPaise: priceM * 100,
+        billingCycle: "MONTHLY",
+        initialPeriodMonths: 1,
+        initialCutoffDays: 10,
+        subsequentCutoffDays: 15,
+        isActive: true,
+      }
+    });
+
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.dbUserId!,
+        actionType: "CREATE_GYM",
+        targetId: gym.id,
+        details: `Created gym ${gym.name} (${finalCustomId})`
+      }
+    });
+
+    res.status(201).json({ gym, message: "Gym created successfully" });
+  } catch (err: any) {
+    console.error("Admin create gym error:", err);
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
+// ─── PUT /api/admin/gyms/:id ──────────────────────────────────────────────────
+router.put("/gyms/:id", requireAuth, requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const gymId = req.params.id as string;
+    const {
+      customGymId,
+      ownerName,
+      bankDetails,
+      cappingMode,
+      maxDailyVisits,
+      maxSlotVisits,
+      payoutModel,
+      payoutCommissionRate,
+      payoutFixedPerVisit,
+      paymentCycle,
+      isGstRegistered,
+      gstNumber,
+      invoicePrefix,
+
+      name,
+      address,
+      city,
+      state,
+      landmark,
+      googleMapsUrl,
+      contactPhone,
+      monthlyPrice,
+      weekdayHours,
+      weekendHours,
+      facilities,
+      slots,
+      logoUrl,
+      exteriorImageUrl,
+      interiorImageUrls,
+      lat,
+      lng,
+      isVerified,
+      isActive,
+    } = req.body;
+
+    const existingGym = await prisma.gym.findUnique({ where: { id: gymId } });
+    if (!existingGym) {
+      res.status(404).json({ error: "NotFound", message: "Gym not found" });
+      return;
+    }
+
+    const priceM = monthlyPrice !== undefined ? parseInt(monthlyPrice, 10) : existingGym.monthlyPrice;
+    const derivedCreditCost = priceM ? Math.max(1, Math.round(priceM / 25 / 10)) : existingGym.creditCost;
+
+    const finalCappingMode = cappingMode !== undefined ? cappingMode : existingGym.cappingMode;
+    const finalMaxDaily = finalCappingMode === "DAILY_TOTAL" ? (maxDailyVisits !== undefined ? parseInt(maxDailyVisits, 10) : existingGym.maxDailyVisits) : null;
+    const finalMaxSlot = finalCappingMode === "PER_SLOT" ? (maxSlotVisits !== undefined ? parseInt(maxSlotVisits, 10) : existingGym.maxSlotVisits) : null;
+
+    const finalPayoutModel = payoutModel !== undefined ? payoutModel : existingGym.payoutModel;
+    const finalCommRate = finalPayoutModel === "COMMISSION_PERCENTAGE" ? (payoutCommissionRate !== undefined ? parseFloat(payoutCommissionRate) : existingGym.payoutCommissionRate) : null;
+    const finalFixedPayout = finalPayoutModel === "FIXED_PER_VISIT" ? (payoutFixedPerVisit !== undefined ? parseFloat(payoutFixedPerVisit) : existingGym.payoutFixedPerVisit) : null;
+
+    const latVal = lat !== undefined ? parseFloat(lat) : existingGym.lat;
+    const lngVal = lng !== undefined ? parseFloat(lng) : existingGym.lng;
+
+    const gym = await prisma.gym.update({
+      where: { id: gymId },
+      data: {
+        customGymId: customGymId !== undefined ? customGymId : existingGym.customGymId,
+        name: name !== undefined ? name : existingGym.name,
+        address: address !== undefined ? address : existingGym.address,
+        city: city !== undefined ? city : existingGym.city,
+        state: state !== undefined ? state : existingGym.state,
+        landmark: landmark !== undefined ? landmark : existingGym.landmark,
+        googleMapsUrl: googleMapsUrl !== undefined ? googleMapsUrl : existingGym.googleMapsUrl,
+        contactPhone: contactPhone !== undefined ? contactPhone : existingGym.contactPhone,
+        monthlyPrice: priceM,
+        creditCost: derivedCreditCost,
+        weekdayHours: weekdayHours !== undefined ? weekdayHours : existingGym.weekdayHours,
+        weekendHours: weekendHours !== undefined ? weekendHours : existingGym.weekendHours,
+        facilities: facilities !== undefined ? (Array.isArray(facilities) ? facilities : [facilities]) : existingGym.facilities,
+        
+        cappingMode: finalCappingMode,
+        maxDailyVisits: finalMaxDaily,
+        maxSlotVisits: finalMaxSlot,
+
+        slotsJson: slots !== undefined ? (typeof slots === "string" ? slots : JSON.stringify(slots)) : existingGym.slotsJson,
+
+        ownerName: ownerName !== undefined ? ownerName : existingGym.ownerName,
+        bankDetailsJson: bankDetails !== undefined ? (typeof bankDetails === "string" ? bankDetails : JSON.stringify(bankDetails)) : existingGym.bankDetailsJson,
+
+        logoUrl: logoUrl !== undefined ? logoUrl : existingGym.logoUrl,
+        exteriorImageUrl: exteriorImageUrl !== undefined ? exteriorImageUrl : existingGym.exteriorImageUrl,
+        interiorImageUrls: interiorImageUrls !== undefined ? (Array.isArray(interiorImageUrls) ? interiorImageUrls : [interiorImageUrls]) : existingGym.interiorImageUrls,
+        imageUrls: [
+          exteriorImageUrl || existingGym.exteriorImageUrl,
+          logoUrl || existingGym.logoUrl,
+          ...(Array.isArray(interiorImageUrls) ? interiorImageUrls : existingGym.interiorImageUrls || [])
+        ].filter(Boolean) as string[],
+
+        payoutModel: finalPayoutModel,
+        payoutCommissionRate: finalCommRate,
+        payoutFixedPerVisit: finalFixedPayout,
+        paymentCycle: paymentCycle !== undefined ? paymentCycle : existingGym.paymentCycle,
+
+        isGstRegistered: isGstRegistered !== undefined ? !!isGstRegistered : existingGym.isGstRegistered,
+        gstNumber: gstNumber !== undefined ? gstNumber : existingGym.gstNumber,
+        invoicePrefix: invoicePrefix !== undefined ? invoicePrefix : existingGym.invoicePrefix,
+
+        lat: latVal,
+        lng: lngVal,
+        isVerified: isVerified !== undefined ? !!isVerified : existingGym.isVerified,
+        isActive: isActive !== undefined ? !!isActive : existingGym.isActive,
+      }
+    });
+
+    if (lat !== undefined && lng !== undefined) {
+      try {
+        await prisma.$executeRaw`
+          UPDATE gyms
+          SET location = ST_SetSRID(ST_MakePoint(${lngVal}, ${latVal}), 4326)
+          WHERE id = ${gym.id}
+        `;
+      } catch (geoErr) {
+        console.warn("PostGIS coordinate update warning:", geoErr);
+      }
+    }
+
+    res.json({ gym, message: "Gym updated successfully" });
+  } catch (err: any) {
+    console.error("Admin update gym error:", err);
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
 // ─── GET /api/admin/gyms/:id ─────────────────────────────────────────────────
 router.get("/gyms/:id", requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {

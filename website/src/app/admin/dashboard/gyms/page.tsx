@@ -1,13 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Search, CheckCircle, XCircle, TrendingUp, Ban, Check, X, Trash } from "lucide-react";
+import { Search, CheckCircle, XCircle, TrendingUp, Ban, Check, X, Trash, Plus, Edit3, Shield } from "lucide-react";
+import GymFormModal from "@/components/admin/GymFormModal";
 
 export default function AdminGymsPage() {
   const [gyms, setGyms] = useState<any[]>([]);
   const [applications, setApplications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [showModal, setShowModal] = useState(false);
+  const [editingGym, setEditingGym] = useState<any>(null);
 
   const fetchGyms = async () => {
     try {
@@ -107,8 +110,19 @@ export default function AdminGymsPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-black mb-2">Gym Management</h1>
-          <p className="text-gray-600">Review applications, approve partners, and monitor gym performance.</p>
+          <p className="text-gray-600">
+            Add partner gyms, configure exclusive capping & payout models, and manage public discovery.
+          </p>
         </div>
+        <button
+          onClick={() => {
+            setEditingGym(null);
+            setShowModal(true);
+          }}
+          className="bg-black hover:bg-gray-800 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-md transition-all text-sm"
+        >
+          <Plus size={18} /> Add New Gym
+        </button>
       </div>
 
       {applications.length > 0 && (
@@ -146,10 +160,10 @@ export default function AdminGymsPage() {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input 
               type="text" 
-              placeholder="Search by Gym Name or City..."
+              placeholder="Search by Gym Name, ID, or City..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-black"
+              className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-black text-sm"
             />
           </div>
         </div>
@@ -160,53 +174,89 @@ export default function AdminGymsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-gray-100 text-sm text-gray-500 uppercase tracking-wider">
+                <tr className="border-b border-gray-100 text-xs text-gray-500 uppercase tracking-wider">
                   <th className="pb-4 font-bold">Gym Info</th>
-                  <th className="pb-4 font-bold">Category</th>
-                  <th className="pb-4 font-bold">Visits</th>
-                  <th className="pb-4 font-bold">Credit Cost</th>
+                  <th className="pb-4 font-bold">Monthly Price (M)</th>
+                  <th className="pb-4 font-bold">* Visit Capping</th>
+                  <th className="pb-4 font-bold">* Payout Model</th>
+                  <th className="pb-4 font-bold">Bookings</th>
                   <th className="pb-4 font-bold">Status</th>
                   <th className="pb-4 font-bold text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-gray-50 text-sm">
                 {filteredGyms.map((gym) => (
                   <tr key={gym.id} className="hover:bg-gray-50 transition-colors">
                     <td className="py-4">
-                      <div className="font-bold text-black">{gym.name}</div>
-                      <div className="text-sm text-gray-500">{gym.city}, {gym.state}</div>
+                      <div className="font-bold text-gray-900 flex items-center gap-2">
+                        {gym.name}
+                        {gym.customGymId && (
+                          <span className="text-[10px] font-mono px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md border border-slate-200">
+                            *{gym.customGymId}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-0.5">{gym.city}, {gym.address}</div>
                     </td>
                     <td className="py-4">
-                      <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs font-bold">
-                        {gym.category || 'Standard'}
-                      </span>
+                      <div className="font-bold text-gray-900">₹{gym.monthlyPrice || 3000}</div>
+                      <div className="text-xs text-emerald-700 font-medium">{gym.creditCost || 12} Credits/visit</div>
                     </td>
-                    <td className="py-4 font-medium text-black">
+                    <td className="py-4">
+                      {gym.cappingMode === "PER_SLOT" ? (
+                        <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-lg inline-block">
+                          {gym.maxSlotVisits || 5} visits / slot
+                        </span>
+                      ) : (
+                        <span className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-lg inline-block">
+                          {gym.maxDailyVisits || 25} visits / day
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-4">
+                      {gym.payoutModel === "FIXED_PER_VISIT" ? (
+                        <span className="text-xs font-bold text-blue-700 bg-blue-50 border border-blue-100 px-2.5 py-1 rounded-lg inline-block">
+                          Fixed ₹{gym.payoutFixedPerVisit || 80}/visit
+                        </span>
+                      ) : (
+                        <span className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-100 px-2.5 py-1 rounded-lg inline-block">
+                          {gym.payoutCommissionRate || 20}% Comm.
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-4 font-semibold text-gray-900">
                       {gym._count?.bookings || 0}
-                    </td>
-                    <td className="py-4 font-bold text-black">
-                      {gym.creditCost}
                     </td>
                     <td className="py-4">
                       {gym.isVerified ? (
-                        <span className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-bold flex items-center gap-1 w-fit">
-                          <CheckCircle size={14} /> Verified
+                        <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg text-xs font-bold flex items-center gap-1 w-fit">
+                          <CheckCircle size={13} /> Verified
                         </span>
                       ) : (
-                        <span className="px-3 py-1 bg-orange-50 text-orange-700 rounded-lg text-xs font-bold flex items-center gap-1 w-fit">
+                        <span className="px-2.5 py-1 bg-orange-50 text-orange-700 border border-orange-100 rounded-lg text-xs font-bold flex items-center gap-1 w-fit">
                           Pending Approval
                         </span>
                       )}
                     </td>
                     <td className="py-4">
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-end gap-1.5">
+                        <button
+                          onClick={() => {
+                            setEditingGym(gym);
+                            setShowModal(true);
+                          }}
+                          className="p-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                          title="Edit Profile & Internal Config"
+                        >
+                          <Edit3 size={16} />
+                        </button>
                         {!gym.isVerified ? (
                           <button 
                             onClick={() => handleStatusUpdate(gym.id, true, true)}
                             className="p-2 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors"
                             title="Approve Gym"
                           >
-                            <CheckCircle size={18} />
+                            <CheckCircle size={16} />
                           </button>
                         ) : (
                           <button 
@@ -214,15 +264,15 @@ export default function AdminGymsPage() {
                             className="p-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
                             title="Revoke Verification"
                           >
-                            <XCircle size={18} />
+                            <XCircle size={16} />
                           </button>
                         )}
                         <a 
                           href={`/admin/dashboard/gyms/${gym.id}`}
                           className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors inline-block" 
-                          title="Manage Gym"
+                          title="Economy & Plan Details"
                         >
-                          <TrendingUp size={18} />
+                          <TrendingUp size={16} />
                         </a>
                         {gym.isActive ? (
                           <button 
@@ -230,7 +280,7 @@ export default function AdminGymsPage() {
                             className="p-2 text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors"
                             title="Suspend Gym (Hide in App)"
                           >
-                            <Ban size={18} />
+                            <Ban size={16} />
                           </button>
                         ) : (
                           <button 
@@ -238,7 +288,7 @@ export default function AdminGymsPage() {
                             className="p-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                             title="Unsuspend Gym (Show in App)"
                           >
-                            <Ban size={18} />
+                            <Ban size={16} />
                           </button>
                         )}
                         <button 
@@ -246,7 +296,7 @@ export default function AdminGymsPage() {
                           className="p-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
                           title="Delete Gym Entirely"
                         >
-                          <Trash size={18} />
+                          <Trash size={16} />
                         </button>
                       </div>
                     </td>
@@ -257,6 +307,17 @@ export default function AdminGymsPage() {
           </div>
         )}
       </div>
+
+      {/* Comprehensive Add / Edit Gym Modal */}
+      <GymFormModal
+        isOpen={showModal}
+        onClose={() => {
+          setShowModal(false);
+          setEditingGym(null);
+        }}
+        onSuccess={fetchGyms}
+        initialData={editingGym}
+      />
     </div>
   );
 }

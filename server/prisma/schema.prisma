@@ -343,6 +343,42 @@ model Gym {
   gymOperatingHours GymOperatingHour[]
   gymPayments       GymPayment[]
 
+  // Admin Internal Identifiers & Details (* internal)
+  customGymId          String?   @unique
+  ownerName            String?
+  bankDetailsJson      String?   // { accountHolder, bankName, accountNumber, ifsc, upiId }
+  
+  // Hours (Weekday vs Weekend)
+  weekdayHours         String?   @default("06:00 AM - 10:00 PM")
+  weekendHours         String?   @default("07:00 AM - 08:00 PM")
+
+  // Location & Reference Price
+  googleMapsUrl        String?
+  monthlyPrice         Int?      @default(3000)
+
+  // Visit Capping Model (* internal - exclusive options)
+  cappingMode          String?   @default("DAILY_TOTAL") // "DAILY_TOTAL" | "PER_SLOT"
+  maxDailyVisits       Int?      @default(25)
+  maxSlotVisits        Int?
+
+  // Structured Slots configuration JSON
+  slotsJson            String?
+
+  // Extended Images
+  exteriorImageUrl     String?
+  interiorImageUrls    String[]  @default([])
+
+  // Payout Configuration (* internal - exclusive options)
+  payoutModel          String?   @default("COMMISSION_PERCENTAGE") // "COMMISSION_PERCENTAGE" | "FIXED_PER_VISIT"
+  payoutCommissionRate Float?    @default(20.0) // Commission %
+  payoutFixedPerVisit  Float?    // Fixed ₹ per visit
+  paymentCycle         String?   @default("WEEKLY") // "WEEKLY" | "BI_WEEKLY" | "MONTHLY" | "48_HOURS"
+
+  // Tax & Invoicing (* internal)
+  isGstRegistered      Boolean?  @default(false)
+  gstNumber            String?
+  invoicePrefix        String?
+
   @@index([city])
   @@index([isActive])
   @@map("gyms")
