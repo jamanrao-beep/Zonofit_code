@@ -586,7 +586,26 @@ router.get(
       });
 
       const visitsThisMonth = monthBookings.length;
-      const earningsThisMonth = monthBookings.reduce((sum, b) => sum + (b.gym?.creditCost || 0), 0) * 10;
+      
+      // PRD v2.0 Formula: G = (M / 30) * 80% (Gym payout per eligible visit)
+      const plans = await prisma.gymPlan.findMany({
+        where: { gymId: { in: gymIds }, isActive: true },
+      });
+      const gymPlanMap = new Map<string, number>();
+      for (const p of plans) {
+        if (p.gymId && p.priceInPaise > 0) {
+          gymPlanMap.set(p.gymId, p.priceInPaise / 100);
+        }
+      }
+
+      const getGymVisitPayout = (gymId: string, creditCost: number) => {
+        const M = gymPlanMap.get(gymId) || (creditCost ? (creditCost * 10 * 30) / 8 : 3000);
+        return (M / 30) * 0.8;
+      };
+
+      const earningsThisMonth = Math.round(
+        monthBookings.reduce((sum, b) => sum + getGymVisitPayout(b.gymId, b.gym?.creditCost || 8), 0) * 100
+      ) / 100;
       
       // Fetch payouts
       const payouts = await prisma.gymPayout.findMany({
@@ -594,8 +613,29 @@ router.get(
         orderBy: { createdAt: "desc" }
       });
 
+      // Calculate total verified unsettled earnings
+      const allVerifiedBookings = await prisma.booking.findMany({
+        where: {
+          gymId: { in: gymIds },
+          status: { in: ["CHECKED_IN", "COMPLETED"] }
+        },
+        include: { gym: true }
+      });
+      const totalEarnedPaise = Math.round(
+        allVerifiedBookings.reduce((sum, b) => sum + getGymVisitPayout(b.gymId, b.gym?.creditCost || 8), 0) * 100
+      );
+      const existingPayouts = await prisma.gymPayout.aggregate({
+        where: {
+          gymId: { in: gymIds },
+          status: { in: ["PENDING", "PAID"] }
+        },
+        _sum: { amountPaise: true }
+      });
+      const alreadyDrawnPaise = existingPayouts._sum.amountPaise || 0;
+      const pendingPayout = Math.max(0, Math.round((totalEarnedPaise - alreadyDrawnPaise) / 100));
+
       res.json({
-        pendingPayout: 0, // Simplified for now
+        pendingPayout,
         earningsThisMonth,
         visitsThisMonth,
         payouts: payouts.map(p => ({
@@ -825,8 +865,15 @@ router.post("/payouts/request", requireAuth, async (req: Request, res: Response)
       }
     });
 
-    // Payout per visit based on PRD v2.0 or gym credit cost
-    const payoutPerVisitINR = (gym.creditCost || 8) * 10 * 0.8; // G = 80% of nominal value
+    // PRD v2.0 Formula 2: G = (M / 30) * 80% (Gym payout per eligible visit)
+    const gymPlan = await prisma.gymPlan.findFirst({
+      where: { gymId: gym.id, isActive: true },
+      orderBy: { createdAt: "desc" }
+    });
+    const M = gymPlan && gymPlan.priceInPaise > 0 
+      ? (gymPlan.priceInPaise / 100) 
+      : (gym.creditCost ? (gym.creditCost * 10 * 30) / 8 : 3000);
+    const payoutPerVisitINR = (M / 30) * 0.8;
     const totalEarnedPaise = Math.round(completedBookings * payoutPerVisitINR * 100);
 
     // Sum already requested or paid payouts
