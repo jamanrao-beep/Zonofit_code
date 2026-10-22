@@ -21,6 +21,7 @@
       }
     },
     "production": {
+      "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_API_URL": "http://100.31.236.208"
       },

@@ -80,6 +80,28 @@ export default function HomeScreen() {
     remainingCredits: number;
   } | null>(null);
 
+  const resolvedGymName = (
+    membershipInfo?.gymName && 
+    membershipInfo.gymName !== "None" && 
+    membershipInfo.gymName !== "Select a Gym" && 
+    membershipInfo.gymName !== "Primary Gym" &&
+    membershipInfo.gymName !== "ZonoFit Partner Gym" &&
+    membershipInfo.gymName !== "FitZone Pro"
+  ) ? membershipInfo.gymName 
+    : (userPrimaryGymName || selectedGymName || user?.primaryGym || "Being Fitness");
+
+  const cycleNum = membershipInfo?.cycleNumber || currentMonth || 1;
+  const mandatoryVisits = membershipInfo?.mandatoryVisits || (cycleNum <= 4 ? 10 : 15);
+  const completedVisits = membershipInfo?.completedVisits ?? totalWorkouts ?? 0;
+  const visitsLeft = Math.max(0, mandatoryVisits - completedVisits);
+
+  const isExpired = membershipInfo ? membershipInfo.isExpired : false;
+  const isMembershipActive = membershipInfo ? (!membershipInfo.isExpired && membershipInfo.status === "ACTIVE") : false;
+  const isPrimaryMember = !isGuest && (isMembershipActive || membershipStatus === "ACTIVE" || membershipStatus === "Active" || visitsRemaining > 0);
+  const daysRemaining = membershipInfo?.daysRemaining ?? 0;
+  const isExpiringSoon = isMembershipActive && daysRemaining <= 3 && daysRemaining > 0;
+  const showRenewalAlert = isExpired || isExpiringSoon;
+
   React.useEffect(() => {
     if (token) {
       useCreditsStore.getState().fetchWallet(token);
@@ -132,28 +154,6 @@ export default function HomeScreen() {
     homeScrollRef.current?.scrollTo({ y: 0, animated: false });
     guestScrollRef.current?.scrollTo({ y: 0, animated: false });
   }, []);
-
-  const resolvedGymName = (
-    membershipInfo?.gymName && 
-    membershipInfo.gymName !== "None" && 
-    membershipInfo.gymName !== "Select a Gym" && 
-    membershipInfo.gymName !== "Primary Gym" &&
-    membershipInfo.gymName !== "ZonoFit Partner Gym" &&
-    membershipInfo.gymName !== "FitZone Pro"
-  ) ? membershipInfo.gymName 
-    : (userPrimaryGymName || selectedGymName || user?.primaryGym || "Being Fitness");
-
-  const cycleNum = membershipInfo?.cycleNumber || currentMonth || 1;
-  const mandatoryVisits = membershipInfo?.mandatoryVisits || (cycleNum <= 4 ? 10 : 15);
-  const completedVisits = membershipInfo?.completedVisits ?? totalWorkouts ?? 0;
-  const visitsLeft = Math.max(0, mandatoryVisits - completedVisits);
-
-  const isExpired = membershipInfo ? membershipInfo.isExpired : false;
-  const isMembershipActive = membershipInfo ? (!membershipInfo.isExpired && membershipInfo.status === "ACTIVE") : false;
-  const isPrimaryMember = !isGuest && (isMembershipActive || membershipStatus === "ACTIVE" || membershipStatus === "Active" || visitsRemaining > 0);
-  const daysRemaining = membershipInfo?.daysRemaining ?? 0;
-  const isExpiringSoon = isMembershipActive && daysRemaining <= 3 && daysRemaining > 0;
-  const showRenewalAlert = isExpired || isExpiringSoon;
 
   const handleOpenPrimaryBooking = () => {
     if (bookingStatus !== "Not Booked") {
