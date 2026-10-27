@@ -1,8 +1,7 @@
 import { Request, Response, Router } from "express";
 import { body, validationResult } from "express-validator";
 import multer from "multer";
-import multerS3 from "multer-s3";
-import { S3Client } from "@aws-sdk/client-s3";
+import fs from "fs";
 import path from "path";
 import prisma from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
@@ -10,24 +9,20 @@ import { generateUniqueReferralCode } from "../lib/referral";
 
 const router = Router();
 
-const s3 = new S3Client({
-    region: process.env.AWS_REGION || "us-east-1",
-    credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-    }
-});
+// Avatars are stored on this server's disk (server/uploads) and served from /uploads by index.ts.
+const uploadsDir = path.join(__dirname, "../../uploads");
 
 const upload = multer({
-    storage: multerS3({
-        s3: s3,
-        bucket: process.env.S3_BUCKET_NAME || "zonofit-images",
-        contentType: multerS3.AUTO_CONTENT_TYPE,
-        key: function (req: any, file: any, cb: any) {
+    storage: multer.diskStorage({
+        destination: (_req, _file, cb) => {
+            fs.mkdirSync(uploadsDir, { recursive: true });
+            cb(null, uploadsDir);
+        },
+        filename: (_req, file, cb) => {
             const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
             const ext = path.extname(file.originalname) || ".jpg";
             cb(null, `avatar-${uniqueSuffix}${ext}`);
-        }
+        },
     }),
     limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
 });
@@ -259,9 +254,9 @@ router.post(
             return;
         }
 
-        // Generate the full URL to access the uploaded file from S3
-        const file = req.file as any;
-        const avatarUrl = file.location;
+        // Public URL of the uploaded file (PUBLIC_API_URL e.g. https://api.zonofit.com)
+        const baseUrl = (process.env.PUBLIC_API_URL ?? `${req.protocol}://${req.get("host")}`).replace(/\/$/, "");
+        const avatarUrl = `${baseUrl}/uploads/${req.file.filename}`;
 
         const updated = await prisma.user.update({
             where: { id: req.dbUserId! },
