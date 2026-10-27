@@ -3,6 +3,7 @@
 import { Dumbbell, MapPin, Star, Activity, Plus } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { GYM_URL } from "@/lib/urls";
 
 export default function PartnersPage() {
   const gyms = [
@@ -98,7 +99,7 @@ export default function PartnersPage() {
             <p className="text-gray-600 mb-6 max-w-xl">
               Fill your empty slots, acquire new members, and generate additional revenue. Join the ZonoFit network today and get access to our partner dashboard.
             </p>
-            <Link href="/auth/signup" className="inline-flex bg-primary hover:bg-primary-dark text-white px-8 py-4 rounded-full font-semibold transition-all shadow-[0_4px_20px_rgba(16,185,129,0.3)] items-center gap-2">
+            <Link href={`${GYM_URL}/auth/signup`} className="inline-flex bg-primary hover:bg-primary-dark text-white px-8 py-4 rounded-full font-semibold transition-all shadow-[0_4px_20px_rgba(16,185,129,0.3)] items-center gap-2">
               Register Your Gym <Plus size={20} />
             </Link>
           </div>

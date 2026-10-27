@@ -9,8 +9,8 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "ZonoFit Portal | Gym & Admin Management",
-  description: "Manage your gym partners, view analytics, and control the ZonoFit network.",
+  title: "ZonoFit | One membership, gyms across the network",
+  description: "Buy a ZonoFit membership, get credits, and book visits at partner gyms.",
 };
 
 export default function RootLayout({

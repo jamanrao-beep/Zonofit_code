@@ -1,21 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useAuthStore } from "@/store/useAuthStore";
-import { LogOut, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 
 export default function Header() {
-  const { user, initialize, logout } = useAuthStore();
-  const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
-
-  useEffect(() => {
-    initialize();
-    setMounted(true);
-  }, [initialize]);
 
   // If in admin/gym dashboard, dashboard layout handles its own header
   if (pathname?.includes("/dashboard")) {
@@ -79,42 +71,6 @@ export default function Header() {
           </Link>
         </nav>
 
-        {/* Right Actions */}
-        <div className="hidden md:flex items-center gap-4">
-          {mounted && user ? (
-            <div className="flex items-center gap-3">
-              <Link
-                href={user.role === "ADMIN" ? "/admin/dashboard" : "/gym/dashboard"}
-                className="px-5 py-2.5 rounded-full border border-gray-300 text-sm font-bold text-gray-900 hover:border-gray-900 transition-all bg-white"
-              >
-                Dashboard
-              </Link>
-              <button
-                onClick={logout}
-                className="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100 transition-colors bg-white"
-                title="Logout"
-              >
-                <LogOut size={16} className="text-gray-800" />
-              </button>
-            </div>
-          ) : (
-            <>
-              <Link
-                href="/auth/login"
-                className="text-sm font-bold text-gray-800 hover:text-black px-2 py-2 transition-colors"
-              >
-                Log in
-              </Link>
-              <Link
-                href="/auth/signup"
-                className="bg-[#111827] text-white text-sm font-bold px-5 py-2.5 rounded-full hover:bg-black transition-all shadow-sm hover:shadow"
-              >
-                Join ZonoFit
-              </Link>
-            </>
-          )}
-        </div>
-
         {/* Mobile Hamburger Button */}
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -163,22 +119,6 @@ export default function Header() {
           >
             FAQ
           </Link>
-          <div className="pt-3 border-t border-gray-100 flex flex-col gap-2.5">
-            <Link
-              href="/auth/login"
-              onClick={() => setMobileMenuOpen(false)}
-              className="text-center py-2.5 font-bold text-gray-800"
-            >
-              Log in
-            </Link>
-            <Link
-              href="/auth/signup"
-              onClick={() => setMobileMenuOpen(false)}
-              className="text-center py-3 bg-[#111827] text-white font-bold rounded-full shadow-sm"
-            >
-              Join ZonoFit
-            </Link>
-          </div>
         </div>
       )}
     </header>

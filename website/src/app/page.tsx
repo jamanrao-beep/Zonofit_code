@@ -89,10 +89,10 @@ export default function LandingPage() {
                 {/* CTA Buttons */}
                 <div className="flex flex-wrap items-center gap-4">
                   <Link
-                    href="/auth/signup"
+                    href="#membership"
                     className="inline-flex items-center gap-2 bg-[#94ca3d] hover:bg-[#86ba33] text-[#112406] font-extrabold text-base px-7 py-4 rounded-full shadow-sm hover:shadow-md transition-all group"
                   >
-                    <span>Start your membership</span>
+                    <span>View membership plans</span>
                     <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                   </Link>
 
@@ -660,15 +660,6 @@ export default function LandingPage() {
                     </h3>
                   </div>
 
-                  {/* Right CTA Button */}
-                  <Link
-                    href="/auth/signup"
-                    className="inline-flex items-center gap-2 bg-[#111827] hover:bg-black text-white font-extrabold text-sm sm:text-base px-8 py-4 rounded-full shadow-lg transition-all shrink-0 group self-start md:self-auto"
-                  >
-                    <span>Join ZonoFit</span>
-                    <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                  </Link>
-
                 </div>
               </div>
             </div>
@@ -748,16 +739,6 @@ export default function LandingPage() {
                   Account
                 </h4>
                 <ul className="space-y-3 text-sm font-medium text-gray-600">
-                  <li>
-                    <Link href="/auth/signup" className="hover:text-gray-950 transition-colors">
-                      Join ZonoFit
-                    </Link>
-                  </li>
-                  <li>
-                    <Link href="/auth/login" className="hover:text-gray-950 transition-colors">
-                      Member login
-                    </Link>
-                  </li>
                   <li>
                     <Link href="#faq" className="hover:text-gray-950 transition-colors">
                       FAQs

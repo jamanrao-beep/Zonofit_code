@@ -1,6 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { ArrowLeft, Handshake, Mail, MapPin, Building2, CheckCircle2 } from "lucide-react";
+import { GYM_URL } from "@/lib/urls";
 
 export const metadata = {
   title: "Gym Partner Agreement | ZonoFit",
@@ -19,7 +20,7 @@ export default function PartnerAgreementPage() {
           </Link>
           <div className="flex items-center gap-3">
             <Link 
-              href="/partners/apply" 
+              href={`${GYM_URL}/partners/apply`} 
               className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-lg transition-colors"
             >
               Apply as Partner

@@ -107,9 +107,9 @@ export default function PlansPage() {
           <p className="text-gray-600 mb-6">
             Are you a corporate wellness manager looking to provide ZonoFit for your entire team? We offer bulk credit purchasing.
           </p>
-          <Link href="/auth/signup" className="text-primary hover:text-primary-dark font-semibold flex items-center justify-center gap-1">
+          <a href="mailto:support@zonofit.com" className="text-primary hover:text-primary-dark font-semibold flex items-center justify-center gap-1">
             Contact Sales <ArrowRight size={16} />
-          </Link>
+          </a>
         </div>
 
       </div>
