@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DDL_STATEMENTS = void 0;
 exports.initDatabase = initDatabase;
+exports.seedTestGym = seedTestGym;
 const prisma_1 = __importDefault(require("./prisma"));
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const DEFAULT_ADMIN_EMAIL = "zonofitofficial@gmail.com";
@@ -129,10 +130,57 @@ async function initDatabase() {
             },
         });
         console.log(`[initDatabase] Admin user verified and ready: ${admin.email}`);
+        // Seed test gym partner and gym
+        const testGymEmail = "testgym_1@gmail.com";
+        const testGymPassword = "testgym_1";
+        const testGymPasswordHash = await bcryptjs_1.default.hash(testGymPassword, 10);
+        const testGymUser = await prisma_1.default.user.upsert({
+            where: { email: testGymEmail },
+            update: {
+                passwordHash: testGymPasswordHash,
+                systemRole: "GYM_OWNER",
+                isSuspended: false,
+            },
+            create: {
+                email: testGymEmail,
+                name: "Test Gym Partner",
+                passwordHash: testGymPasswordHash,
+                systemRole: "GYM_OWNER",
+                isSuspended: false,
+            },
+        });
+        const existingGym = await prisma_1.default.gym.findFirst({
+            where: { ownerId: testGymUser.id },
+        });
+        if (!existingGym) {
+            await prisma_1.default.gym.create({
+                data: {
+                    name: "ZonoFit Test Arena",
+                    description: "Official test partner gym for ZonoFit verification and portal testing.",
+                    tagline: "Power & Fitness Performance",
+                    address: "Plot 42, Link Road, Andheri West",
+                    city: "Mumbai",
+                    state: "Maharashtra",
+                    lat: 19.1363,
+                    lng: 72.8277,
+                    creditCost: 8,
+                    isVerified: true,
+                    isActive: true,
+                    category: "STANDARD",
+                    facilities: ["Strength", "Cardio", "Lockers", "Shower", "CrossFit"],
+                    ownerId: testGymUser.id,
+                    totalSlots: 25,
+                    contactEmail: testGymEmail,
+                    contactPhone: "+91 98765 43210",
+                },
+            });
+            console.log(`[initDatabase] Test gym created and linked to ${testGymEmail}`);
+        }
         return {
             success: true,
-            message: "Database initialized and admin account ready.",
+            message: "Database initialized, admin and test gym accounts ready.",
             admin: admin.email,
+            testGym: testGymEmail,
             tablesCreated: executedCount,
         };
     }
@@ -143,5 +191,63 @@ async function initDatabase() {
             message: error.message || "Database initialization failed",
         };
     }
+}
+async function seedTestGym() {
+    const testGymEmail = "testgym_1@gmail.com";
+    const testGymPassword = "testgym_1";
+    const testGymPasswordHash = await bcryptjs_1.default.hash(testGymPassword, 10);
+    const testGymUser = await prisma_1.default.user.upsert({
+        where: { email: testGymEmail },
+        update: {
+            passwordHash: testGymPasswordHash,
+            systemRole: "GYM_OWNER",
+            isSuspended: false,
+        },
+        create: {
+            email: testGymEmail,
+            name: "Test Gym Partner",
+            passwordHash: testGymPasswordHash,
+            systemRole: "GYM_OWNER",
+            isSuspended: false,
+        },
+    });
+    let gym = await prisma_1.default.gym.findFirst({
+        where: { ownerId: testGymUser.id },
+    });
+    if (!gym) {
+        gym = await prisma_1.default.gym.create({
+            data: {
+                name: "ZonoFit Test Arena",
+                description: "Official test partner gym for ZonoFit verification and portal testing.",
+                tagline: "Power & Fitness Performance",
+                address: "Plot 42, Link Road, Andheri West",
+                city: "Mumbai",
+                state: "Maharashtra",
+                lat: 19.1363,
+                lng: 72.8277,
+                creditCost: 8,
+                isVerified: true,
+                isActive: true,
+                category: "STANDARD",
+                facilities: ["Strength", "Cardio", "Lockers", "Shower", "CrossFit"],
+                ownerId: testGymUser.id,
+                totalSlots: 25,
+                contactEmail: testGymEmail,
+                contactPhone: "+91 98765 43210",
+            },
+        });
+    }
+    return {
+        success: true,
+        user: {
+            id: testGymUser.id,
+            email: testGymUser.email,
+            role: testGymUser.systemRole,
+        },
+        gym: {
+            id: gym.id,
+            name: gym.name,
+        },
+    };
 }
 //# sourceMappingURL=initDatabase.js.map

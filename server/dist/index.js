@@ -107,6 +107,15 @@ app.all("/api/setup-db", async (_req, res) => {
     const result = await (0, initDatabase_1.initDatabase)();
     res.status(result.success ? 200 : 500).json(result);
 });
+app.all("/api/seed-test-gym", async (_req, res) => {
+    try {
+        const result = await (0, initDatabase_1.seedTestGym)();
+        res.json(result);
+    }
+    catch (err) {
+        res.status(500).json({ error: "SeedError", message: err.message });
+    }
+});
 // ─── API Routes ────────────────────────────────────────────────────────────────
 // Auth routes (public)
 app.use("/api/auth/portal", auth_portal_1.default);

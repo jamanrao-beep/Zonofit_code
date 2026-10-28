@@ -112,12 +112,21 @@ app.get("/health", async (_req, res) => {
     });
 });
 
-import { initDatabase } from "./lib/initDatabase";
+import { initDatabase, seedTestGym } from "./lib/initDatabase";
 
 // ─── Setup / Self-Healing Route ────────────────────────────────────────────────
 app.all("/api/setup-db", async (_req, res) => {
     const result = await initDatabase();
     res.status(result.success ? 200 : 500).json(result);
+});
+
+app.all("/api/seed-test-gym", async (_req, res) => {
+    try {
+        const result = await seedTestGym();
+        res.json(result);
+    } catch (err: any) {
+        res.status(500).json({ error: "SeedError", message: err.message });
+    }
 });
 
 // ─── API Routes ────────────────────────────────────────────────────────────────
