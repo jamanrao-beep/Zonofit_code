@@ -73,8 +73,8 @@ router.get(
           lng: number;
           credit_cost: number;
           category: string;
-          facilities: string[];
-          image_urls: string[];
+          facilities: any;
+          image_urls: any;
           rating: number;
           total_ratings: number;
           is_verified: boolean;
@@ -91,30 +91,29 @@ router.get(
           city,
           lat,
           lng,
-          credit_cost,
+          creditCost AS credit_cost,
           category,
           facilities,
-          image_urls,
+          imageUrls AS image_urls,
           rating,
-          total_ratings,
-          is_verified,
-          opening_time,
-          closing_time,
-          total_slots,
-          ST_Distance(
-            location::geography,
-            ST_SetSRID(ST_MakePoint(${lngNum}, ${latNum}), 4326)::geography
+          totalRatings AS total_ratings,
+          isVerified AS is_verified,
+          openingTime AS opening_time,
+          closingTime AS closing_time,
+          totalSlots AS total_slots,
+          ST_Distance_Sphere(
+            POINT(lng, lat),
+            POINT(${lngNum}, ${latNum})
           ) AS distance_meters
         FROM gyms
         WHERE
-          is_active = true
-          AND ST_DWithin(
-            location::geography,
-            ST_SetSRID(ST_MakePoint(${lngNum}, ${latNum}), 4326)::geography,
-            ${radiusMeters}
-          )
+          isActive = true
+          AND ST_Distance_Sphere(
+            POINT(lng, lat),
+            POINT(${lngNum}, ${latNum})
+          ) <= ${radiusMeters}
           ${category ? prisma.$queryRaw`AND category = ${category}` : prisma.$queryRaw``}
-          ${maxCredits ? prisma.$queryRaw`AND credit_cost <= ${parseInt(maxCredits)}` : prisma.$queryRaw``}
+          ${maxCredits ? prisma.$queryRaw`AND creditCost <= ${parseInt(maxCredits)}` : prisma.$queryRaw``}
           ${city ? prisma.$queryRaw`AND LOWER(city) = LOWER(${city})` : prisma.$queryRaw``}
           ${search ? prisma.$queryRaw`AND (LOWER(name) LIKE ${"%" + search.toLowerCase() + "%"} OR LOWER(address) LIKE ${"%" + search.toLowerCase() + "%"})` : prisma.$queryRaw``}
         ORDER BY distance_meters ASC
@@ -123,8 +122,11 @@ router.get(
       `;
 
       res.json({
-        gyms: gyms.map((g) => ({
+        gyms: gyms.map((g: any) => ({
           ...g,
+          facilities: typeof g.facilities === "string" ? JSON.parse(g.facilities) : (g.facilities ?? []),
+          imageUrls: typeof (g.imageUrls ?? g.image_urls) === "string" ? JSON.parse(g.imageUrls ?? g.image_urls) : (g.imageUrls ?? g.image_urls ?? []),
+          creditCost: g.creditCost ?? g.credit_cost,
           distanceKm: +(g.distance_meters / 1000).toFixed(2),
         })),
         pagination: { page: pageNum, limit: limitNum },
@@ -218,19 +220,18 @@ router.get(
         id,
         name,
         address,
-        ST_Distance(
-          location::geography,
-          ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography
+        ST_Distance_Sphere(
+          POINT(lng, lat),
+          POINT(${lng}, ${lat})
         ) AS distance_meters
       FROM gyms
       WHERE
-        is_active = true
+        isActive = true
         AND id != ${primaryGymId}
-        AND ST_DWithin(
-          location::geography,
-          ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography,
-          ${RADIUS_METERS}
-        )
+        AND ST_Distance_Sphere(
+          POINT(lng, lat),
+          POINT(${lng}, ${lat})
+        ) <= ${RADIUS_METERS}
       ORDER BY distance_meters ASC
       LIMIT 10
     `;
@@ -950,7 +951,7 @@ router.post("/applications", requireAuth, async (req: Request, res: Response): P
         creditCost: 10, // default
         isVerified: false,
         isActive: false,
-        ownerId: req.dbUserId,
+        ownerId: req.dbUserId || null,
         facilities: Array.isArray(facilities) ? facilities : (facilities ? [facilities] : []),
         services: Array.isArray(services) ? services : (services ? [services] : []),
         rules: Array.isArray(rules) ? rules : (rules ? [rules] : [])

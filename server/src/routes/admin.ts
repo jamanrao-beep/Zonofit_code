@@ -314,16 +314,6 @@ router.post("/gyms", requireAuth, requireAdmin, async (req: Request, res: Respon
       }
     });
 
-    try {
-      await prisma.$executeRaw`
-        UPDATE gyms
-        SET location = ST_SetSRID(ST_MakePoint(${lngVal}, ${latVal}), 4326)
-        WHERE id = ${gym.id}
-      `;
-    } catch (geoErr) {
-      console.warn("PostGIS coordinate update warning:", geoErr);
-    }
-
     await prisma.gymPlan.create({
       data: {
         gymId: gym.id,
@@ -429,7 +419,7 @@ router.put("/gyms/:id", requireAuth, requireAdmin, async (req: Request, res: Res
         creditCost: derivedCreditCost,
         weekdayHours: weekdayHours !== undefined ? weekdayHours : existingGym.weekdayHours,
         weekendHours: weekendHours !== undefined ? weekendHours : existingGym.weekendHours,
-        facilities: facilities !== undefined ? (Array.isArray(facilities) ? facilities : [facilities]) : existingGym.facilities,
+        facilities: facilities !== undefined ? (Array.isArray(facilities) ? facilities : [facilities]) : (existingGym.facilities as any ?? []),
         
         cappingMode: finalCappingMode,
         maxDailyVisits: finalMaxDaily,
@@ -442,11 +432,11 @@ router.put("/gyms/:id", requireAuth, requireAdmin, async (req: Request, res: Res
 
         logoUrl: logoUrl !== undefined ? logoUrl : existingGym.logoUrl,
         exteriorImageUrl: exteriorImageUrl !== undefined ? exteriorImageUrl : existingGym.exteriorImageUrl,
-        interiorImageUrls: interiorImageUrls !== undefined ? (Array.isArray(interiorImageUrls) ? interiorImageUrls : [interiorImageUrls]) : existingGym.interiorImageUrls,
+        interiorImageUrls: interiorImageUrls !== undefined ? (Array.isArray(interiorImageUrls) ? interiorImageUrls : [interiorImageUrls]) : (existingGym.interiorImageUrls as any ?? []),
         imageUrls: [
           exteriorImageUrl || existingGym.exteriorImageUrl,
           logoUrl || existingGym.logoUrl,
-          ...(Array.isArray(interiorImageUrls) ? interiorImageUrls : existingGym.interiorImageUrls || [])
+          ...(Array.isArray(interiorImageUrls) ? interiorImageUrls : (Array.isArray(existingGym.interiorImageUrls) ? (existingGym.interiorImageUrls as any[]) : []))
         ].filter(Boolean) as string[],
 
         payoutModel: finalPayoutModel,
@@ -464,18 +454,6 @@ router.put("/gyms/:id", requireAuth, requireAdmin, async (req: Request, res: Res
         isActive: isActive !== undefined ? !!isActive : existingGym.isActive,
       }
     });
-
-    if (lat !== undefined && lng !== undefined) {
-      try {
-        await prisma.$executeRaw`
-          UPDATE gyms
-          SET location = ST_SetSRID(ST_MakePoint(${lngVal}, ${latVal}), 4326)
-          WHERE id = ${gym.id}
-        `;
-      } catch (geoErr) {
-        console.warn("PostGIS coordinate update warning:", geoErr);
-      }
-    }
 
     res.json({ gym, message: "Gym updated successfully" });
   } catch (err: any) {

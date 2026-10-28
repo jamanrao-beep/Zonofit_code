@@ -3,14 +3,12 @@
 // Run: npx prisma migrate dev --name init
 
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["postgresqlExtensions"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
-  provider   = "postgresql"
-  url        = env("DATABASE_URL")
-  extensions = [postgis]
+  provider = "mysql"
+  url      = env("DATABASE_URL")
 }
 
 // ─────────────────────────────────────────────
@@ -103,7 +101,7 @@ model User {
   email            String    @unique
   name             String
   phone            String?
-  avatarUrl        String?
+  avatarUrl        String?   @db.Text
   expoPushToken    String?
   gender           String?
   dob              DateTime?
@@ -182,7 +180,7 @@ model MembershipPlan {
   monthlyCredits Int // Credits granted on activation/renewal
   priceInPaise   Int // Price in Indian paise (₹1 = 100 paise) — store integers, never floats for money
   durationDays   Int            @default(30)
-  features       String[] // Display-only feature list for the plan card
+  features       Json? // Display-only feature list for the plan card
   isActive       Boolean        @default(true)
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
@@ -202,7 +200,7 @@ model Membership {
   endDate       DateTime // Expiry — credits expire 15 days after this
   autoRenew     Boolean          @default(true)
   source        String           @default("ZONOFIT_MARKETPLACE")
-  internalNotes String?
+  internalNotes String?          @db.Text
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -253,7 +251,7 @@ model CreditTransaction {
   // Using Int not Float — credits are always whole numbers
   amount       Int
   balanceAfter Int // Snapshot of wallet balance after this transaction
-  description  String
+  description  String                @db.Text
   bookingId    String? // Linked booking if this was a VISIT_SPEND or REFUND
   referenceId  String? // Payment gateway reference ID for PURCHASE type
   createdAt    DateTime              @default(now())
@@ -274,35 +272,31 @@ model CreditTransaction {
 model Gym {
   id            String  @id @default(uuid())
   name          String
-  description   String?
-  logoUrl       String?
-  coverImageUrl String?
+  description   String? @db.Text
+  logoUrl       String? @db.Text
+  coverImageUrl String? @db.Text
   tagline       String?
-  address       String
+  address       String  @db.Text
   city          String
   pincode       String?
   state         String  @default("Maharashtra")
   landmark      String?
   area          String?
 
-  // Lat/Lng stored as plain floats for display + fallback
+  // Lat/Lng stored as plain floats for display + spherical distance
   lat      Float
   lng      Float
-  // PostGIS geometry column for spatial queries (ST_DWithin, ST_Distance)
-  // Managed via raw SQL in migrations — Prisma uses Unsupported for this type
-  // Insert/update via: ST_SetSRID(ST_MakePoint(lng, lat), 4326)
-  location Unsupported("geometry(Point, 4326)")?
 
   creditCost      Int // Credits required per visit — ZonoFit retains final say
   isVerified      Boolean     @default(false)
   isActive        Boolean     @default(true)
   category        GymCategory @default(STANDARD)
-  facilities      String[] // e.g. ["Strength", "Cardio", "CrossFit", "Steam Room"]
-  services        String[]
-  rules           String[]
-  policiesJson    String?
-  socialLinksJson String?
-  imageUrls       String[]
+  facilities      Json? // e.g. ["Strength", "Cardio", "CrossFit", "Steam Room"]
+  services        Json?
+  rules           Json?
+  policiesJson    String?     @db.Text
+  socialLinksJson String?     @db.Text
+  imageUrls       Json?
   rating          Float       @default(0.0)
   totalRatings    Int         @default(0)
   establishedYear Int?
@@ -346,14 +340,14 @@ model Gym {
   // Admin Internal Identifiers & Details (* internal)
   customGymId          String?   @unique
   ownerName            String?
-  bankDetailsJson      String?   // { accountHolder, bankName, accountNumber, ifsc, upiId }
+  bankDetailsJson      String?   @db.Text // { accountHolder, bankName, accountNumber, ifsc, upiId }
   
   // Hours (Weekday vs Weekend)
   weekdayHours         String?   @default("06:00 AM - 10:00 PM")
   weekendHours         String?   @default("07:00 AM - 08:00 PM")
 
   // Location & Reference Price
-  googleMapsUrl        String?
+  googleMapsUrl        String?   @db.Text
   monthlyPrice         Int?      @default(3000)
 
   // Visit Capping Model (* internal - exclusive options)
@@ -362,11 +356,11 @@ model Gym {
   maxSlotVisits        Int?
 
   // Structured Slots configuration JSON
-  slotsJson            String?
+  slotsJson            String?   @db.Text
 
   // Extended Images
-  exteriorImageUrl     String?
-  interiorImageUrls    String[]  @default([])
+  exteriorImageUrl     String?   @db.Text
+  interiorImageUrls    Json?
 
   // Payout Configuration (* internal - exclusive options)
   payoutModel          String?   @default("COMMISSION_PERCENTAGE") // "COMMISSION_PERCENTAGE" | "FIXED_PER_VISIT"
@@ -443,9 +437,9 @@ model GymPlan {
   billingCycle String   @default("MONTHLY") // MONTHLY or YEARLY
   isActive     Boolean  @default(true)
   durationDays Int?
-  benefits     String[]
+  benefits     Json?
   visibility   String   @default("VISIBLE")
-  restrictions String[]
+  restrictions Json?
   maxMembers   Int?
 
   initialPeriodMonths  Int
@@ -520,13 +514,13 @@ model CheckIn {
 model MarketplaceItem {
   id            String        @id @default(uuid())
   title         String
-  description   String
+  description   String        @db.Text
   pricePaise    Int // Price in INR paise
-  imageUrl      String
+  imageUrl      String        @db.Text
   inStock       Boolean       @default(true)
   storeCategory StoreCategory @default(ZONOFIT_COMMON)
-  sizes         String[]      @default([])
-  colors        String[]      @default([])
+  sizes         Json?
+  colors        Json?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
@@ -673,10 +667,10 @@ model UserRoleProfile {
   userId String   @unique
   role   RoleType
 
-  bio                   String?
+  bio                   String? @db.Text
   // Trainer specific
   costPerSessionInPaise Int? // Cost per session in cash points (paise)
-  specialties           String[]
+  specialties           Json?
   // Buddy specific
   timingInterval        String? // e.g. "07:00 AM - 08:30 AM"
 
@@ -827,7 +821,7 @@ model AdminAuditLog {
   adminId    String
   actionType String // e.g., "APPROVE_GYM", "RELEASE_PAYOUT"
   targetId   String? // ID of the entity affected
-  details    String? // JSON string or text explaining the change
+  details    String?  @db.Text // JSON string or text explaining the change
   createdAt  DateTime @default(now())
 
   admin User @relation(fields: [adminId], references: [id], onDelete: Cascade)
@@ -839,8 +833,8 @@ model GymApplication {
   id            String   @id @default(uuid())
   gymId         String
   status        String   @default("PENDING") // PENDING, APPROVED, REJECTED, NEEDS_CLARIFICATION
-  documentsJson String? // Stores uploaded URLs/references
-  notes         String?
+  documentsJson String?  @db.Text // Stores uploaded URLs/references
+  notes         String?  @db.Text
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -852,7 +846,7 @@ model GymApplication {
 model SupportTicket {
   id       String @id @default(uuid())
   subject  String
-  message  String
+  message  String @db.Text
   status   String @default("OPEN") // OPEN, IN_PROGRESS, RESOLVED, CLOSED
   priority String @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
 
@@ -887,7 +881,7 @@ model MarketingCoupon {
 
 model SystemContent {
   key       String   @id
-  value     String
+  value     String   @db.Text
   updatedAt DateTime @updatedAt
 
   @@map("system_content")
@@ -898,8 +892,8 @@ model TrialGym {
   name        String
   city        String
   area        String
-  description String?
-  imageUrl    String?
+  description String? @db.Text
+  imageUrl    String? @db.Text
 
   votes     TrialGymVote[]
   createdAt DateTime       @default(now())

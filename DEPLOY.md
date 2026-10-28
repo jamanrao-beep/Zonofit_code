@@ -4,15 +4,15 @@
 
 | Folder | Domain | What it is | Runs on |
 |---|---|---|---|
-| `website/` | `zonofit.com` | Public site (static pages) | Hostinger Unlimited → Node.js web app #1 |
-| `gym-portal/` | `gym.zonofit.com` | Gym partner login + dashboard | Hostinger Unlimited → Node.js web app #2 |
-| `admin-portal/` | `admin.zonofit.com` | Admin login + dashboard | Hostinger Unlimited → Node.js web app #3 |
-| `server/` | `api.zonofit.com` | Express API + Postgres/PostGIS + uploads | **Hostinger VPS** (see below) |
+| `website/` | `zonofit.com` | Public site (landing & marketing) | Hostinger → Node.js web app #1 |
+| `gym-portal/` | `gym.zonofit.com` | Gym partner login + dashboard | Hostinger → Node.js web app #2 |
+| `admin-portal/` | `admin.zonofit.com` | Admin login + dashboard | Hostinger → Node.js web app #3 |
+| `server/` | `api.zonofit.com` | Express API + MySQL + disk uploads | Hostinger (Node.js app or VPS) |
 
-> **Important:** the Unlimited web-hosting plan can run the three Next.js apps, but it
-> **cannot run Postgres + PostGIS** (shared hosting only gives MySQL), and the API needs
-> a long-running server with cron jobs. To get rid of AWS you also need a **Hostinger VPS**
-> (KVM 1 is enough to start; KVM 2 if you want headroom). That is a separate purchase.
+> **Database Note:** The backend has been fully migrated from PostgreSQL + PostGIS to **MySQL**.
+> You can now use Hostinger's built-in managed MySQL database (under **Databases → Management** in hPanel)
+> without needing PostgreSQL or PostGIS extensions. Native spherical distance calculation (`ST_Distance_Sphere`)
+> is used directly.
 
 Each portal calls its own `/api/*`, which Next proxies to `API_URL` (default
 `https://api.zonofit.com`). No CORS setup is needed for the websites.
@@ -82,31 +82,39 @@ ufw allow OpenSSH && ufw allow 'Nginx Full' && ufw enable
 
 (Replace `postgresql-16-postgis-3` with the version `apt` shows for your Ubuntu.)
 
-### 2.3 Create the database and restore
+### 2.2 Create the MySQL Database on Hostinger
 
-```bash
-sudo -u postgres psql -c "CREATE USER zonofit WITH PASSWORD 'CHANGE_ME_STRONG';"
-sudo -u postgres psql -c "CREATE DATABASE zonofit OWNER zonofit;"
-sudo -u postgres psql -d zonofit -c "CREATE EXTENSION IF NOT EXISTS postgis;"
-pg_restore --no-owner --role=zonofit -d "postgresql://zonofit:CHANGE_ME_STRONG@localhost/zonofit" zonofit.dump
-```
+1. In Hostinger hPanel → **Databases → Management**.
+2. Click **Create MySQL Database**:
+   - **Database Name**: e.g. `zonofit` (Hostinger prefixes with your account username, e.g. `u123456_zonofit`)
+   - **Username**: e.g. `zonofit_user` (e.g. `u123456_zonofit`)
+   - **Password**: `<YOUR_STRONG_PASSWORD>`
+3. Note the MySQL Host provided by Hostinger (usually `localhost` or `127.0.0.1`).
 
-Postgres must listen on `localhost` only (default). Do not open port 5432.
-
-### 2.4 Deploy the API
+### 2.3 Deploy the API & Initialize Database
 
 ```bash
 git clone <your-repo> /srv/zonofit && cd /srv/zonofit/server
 npm install && npx prisma generate && npm run build
-mkdir -p uploads && cp -r /path/to/synced/uploads/* uploads/
+
+# Push database schema to your MySQL database:
+npx prisma db push
+
+# (Optional) Seed default membership plans and data:
+npm run db:seed
+
+# Prepare uploads directory for user avatars and gym photos
+mkdir -p uploads
 ```
 
-Create `/srv/zonofit/server/.env`:
+### 2.4 Environment Variables for the Server
+
+Create `/srv/zonofit/server/.env` (or set in Hostinger Node.js app environment variables):
 
 ```env
 NODE_ENV=production
 PORT=3000
-DATABASE_URL=postgresql://zonofit:CHANGE_ME_STRONG@localhost:5432/zonofit
+DATABASE_URL="mysql://<DB_USER>:<DB_PASSWORD>@<DB_HOST>:3306/<DB_NAME>"
 JWT_SECRET=<long random string, e.g. `openssl rand -hex 48`>   # REQUIRED - never leave unset
 PUBLIC_API_URL=https://api.zonofit.com
 ALLOWED_ORIGINS=https://zonofit.com,https://gym.zonofit.com,https://admin.zonofit.com

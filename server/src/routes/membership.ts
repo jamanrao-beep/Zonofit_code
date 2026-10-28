@@ -183,8 +183,8 @@ router.post(
             plan = await tx.membershipPlan.findFirst({
               where: {
                 OR: [
-                  { name: { equals: cleanedName, mode: "insensitive" } },
-                  { name: { contains: cleanedName, mode: "insensitive" } },
+                  { name: { equals: cleanedName } },
+                  { name: { contains: cleanedName } },
                 ],
                 isActive: true,
               },

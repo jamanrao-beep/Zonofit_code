@@ -60,8 +60,8 @@ router.post(
         gym = await tx.gym.findFirst({
           where: {
             OR: [
-              { name: { contains: "Being", mode: "insensitive" } },
-              { name: { contains: "Fit", mode: "insensitive" } },
+              { name: { contains: "Being" } },
+              { name: { contains: "Fit" } },
               { isActive: true }
             ]
           },

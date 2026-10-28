@@ -311,14 +311,6 @@ async function main() {
       },
     });
 
-    // Set PostGIS location geometry via raw SQL
-    // ST_MakePoint(longitude, latitude) — note the order: lng first!
-    await prisma.$executeRaw`
-      UPDATE gyms
-      SET location = ST_SetSRID(ST_MakePoint(${gym.lng}, ${gym.lat}), 4326)
-      WHERE id = ${created.id}
-    `;
-
     console.log(`✅ Gym: ${gym.name} (${gym.city})`);
   }
 
