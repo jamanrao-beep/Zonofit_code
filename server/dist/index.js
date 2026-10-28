@@ -31,24 +31,43 @@ const admin_1 = __importDefault(require("./routes/admin"));
 const trial_gyms_1 = __importDefault(require("./routes/trial-gyms"));
 const coupons_1 = __importDefault(require("./routes/coupons"));
 const content_1 = __importDefault(require("./routes/content"));
+const prisma_1 = __importDefault(require("./lib/prisma"));
+const bcryptjs_1 = __importDefault(require("bcryptjs"));
+// Process level safety guards
+process.on("unhandledRejection", (reason) => {
+    console.error("[UnhandledRejection]", reason);
+});
+process.on("uncaughtException", (error) => {
+    console.error("[UncaughtException]", error);
+});
 const app = (0, express_1.default)();
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
 // ─── Security & Logging ────────────────────────────────────────────────────────
 app.use((0, helmet_1.default)());
 app.use((0, morgan_1.default)(process.env.NODE_ENV === "development" ? "dev" : "combined"));
 // ─── CORS ──────────────────────────────────────────────────────────────────────
-const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? "")
+const defaultOrigins = [
+    "https://zonofit.com",
+    "https://gym.zonofit.com",
+    "https://admin.zonofit.com",
+    "https://api.zonofit.com",
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:3002",
+];
+const envOrigins = (process.env.ALLOWED_ORIGINS ?? "")
     .split(",")
     .map((o) => o.trim())
     .filter(Boolean);
+const allowedOrigins = Array.from(new Set([...defaultOrigins, ...envOrigins]));
 app.use((0, cors_1.default)({
     origin: (origin, callback) => {
-        // Allow requests with no origin (mobile apps, Postman, server-to-server)
-        if (!origin || allowedOrigins.includes(origin)) {
+        // Allow requests with no origin (mobile apps, Postman, server-to-server) or matching origins
+        if (!origin || allowedOrigins.includes(origin) || origin.endsWith(".zonofit.com")) {
             callback(null, true);
         }
         else {
-            callback(new Error(`CORS: Origin ${origin} not allowed`));
+            callback(null, false);
         }
     },
     credentials: true,
@@ -63,14 +82,50 @@ if (!fs_1.default.existsSync(uploadsDir)) {
 }
 app.use("/uploads", express_1.default.static(uploadsDir));
 // ─── Health Check ──────────────────────────────────────────────────────────────
-app.get("/health", (_req, res) => {
+app.get("/health", async (_req, res) => {
+    let dbStatus = "unknown";
+    let dbError = null;
+    try {
+        await prisma_1.default.$queryRaw `SELECT 1`;
+        dbStatus = "connected";
+    }
+    catch (err) {
+        dbStatus = "disconnected";
+        dbError = err.message;
+    }
     res.json({
-        status: "ok",
+        status: dbStatus === "connected" ? "ok" : "degraded",
         service: "zonofit-server",
+        db: dbStatus,
+        ...(dbError && { dbError }),
         timestamp: new Date().toISOString(),
         env: process.env.NODE_ENV,
     });
 });
+async function ensureAdminUser() {
+    const email = process.env.ADMIN_EMAIL;
+    const password = process.env.ADMIN_PASSWORD;
+    if (!email || !password)
+        return;
+    try {
+        const existing = await prisma_1.default.user.findFirst({ where: { email } });
+        if (!existing) {
+            const passwordHash = await bcryptjs_1.default.hash(password, 10);
+            await prisma_1.default.user.create({
+                data: {
+                    email,
+                    name: "ZonoFit Admin",
+                    passwordHash,
+                    systemRole: "ADMIN",
+                },
+            });
+            console.log(`[Admin] Initial admin user ready: ${email}`);
+        }
+    }
+    catch (err) {
+        console.warn("[Admin] Could not verify/seed admin user:", err.message);
+    }
+}
 // ─── API Routes ────────────────────────────────────────────────────────────────
 // Auth routes (public)
 app.use("/api/auth/portal", auth_portal_1.default);
@@ -107,6 +162,7 @@ app.listen(PORT, "0.0.0.0", () => {
 ║  Environment: ${(process.env.NODE_ENV ?? "development").padEnd(20)}║
 ╚══════════════════════════════════════╝
   `);
+    ensureAdminUser();
 });
 exports.default = app;
 //# sourceMappingURL=index.js.map

@@ -29,6 +29,17 @@ import trialGymsRouter from "./routes/trial-gyms";
 import couponsRouter from "./routes/coupons";
 import contentRouter from "./routes/content";
 
+import prisma from "./lib/prisma";
+import bcrypt from "bcryptjs";
+
+// Process level safety guards
+process.on("unhandledRejection", (reason) => {
+    console.error("[UnhandledRejection]", reason);
+});
+process.on("uncaughtException", (error) => {
+    console.error("[UncaughtException]", error);
+});
+
 const app = express();
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
 
@@ -37,19 +48,31 @@ app.use(helmet());
 app.use(morgan(process.env.NODE_ENV === "development" ? "dev" : "combined"));
 
 // ─── CORS ──────────────────────────────────────────────────────────────────────
-const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? "")
+const defaultOrigins = [
+    "https://zonofit.com",
+    "https://gym.zonofit.com",
+    "https://admin.zonofit.com",
+    "https://api.zonofit.com",
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:3002",
+];
+
+const envOrigins = (process.env.ALLOWED_ORIGINS ?? "")
     .split(",")
     .map((o) => o.trim())
     .filter(Boolean);
 
+const allowedOrigins = Array.from(new Set([...defaultOrigins, ...envOrigins]));
+
 app.use(
     cors({
         origin: (origin, callback) => {
-            // Allow requests with no origin (mobile apps, Postman, server-to-server)
-            if (!origin || allowedOrigins.includes(origin)) {
+            // Allow requests with no origin (mobile apps, Postman, server-to-server) or matching origins
+            if (!origin || allowedOrigins.includes(origin) || origin.endsWith(".zonofit.com")) {
                 callback(null, true);
             } else {
-                callback(new Error(`CORS: Origin ${origin} not allowed`));
+                callback(null, false);
             }
         },
         credentials: true,
@@ -68,14 +91,50 @@ if (!fs.existsSync(uploadsDir)) {
 app.use("/uploads", express.static(uploadsDir));
 
 // ─── Health Check ──────────────────────────────────────────────────────────────
-app.get("/health", (_req, res) => {
+app.get("/health", async (_req, res) => {
+    let dbStatus = "unknown";
+    let dbError = null;
+    try {
+        await prisma.$queryRaw`SELECT 1`;
+        dbStatus = "connected";
+    } catch (err: any) {
+        dbStatus = "disconnected";
+        dbError = err.message;
+    }
+
     res.json({
-        status: "ok",
+        status: dbStatus === "connected" ? "ok" : "degraded",
         service: "zonofit-server",
+        db: dbStatus,
+        ...(dbError && { dbError }),
         timestamp: new Date().toISOString(),
         env: process.env.NODE_ENV,
     });
 });
+
+async function ensureAdminUser(): Promise<void> {
+    const email = process.env.ADMIN_EMAIL;
+    const password = process.env.ADMIN_PASSWORD;
+    if (!email || !password) return;
+
+    try {
+        const existing = await prisma.user.findFirst({ where: { email } });
+        if (!existing) {
+            const passwordHash = await bcrypt.hash(password, 10);
+            await prisma.user.create({
+                data: {
+                    email,
+                    name: "ZonoFit Admin",
+                    passwordHash,
+                    systemRole: "ADMIN",
+                },
+            });
+            console.log(`[Admin] Initial admin user ready: ${email}`);
+        }
+    } catch (err: any) {
+        console.warn("[Admin] Could not verify/seed admin user:", err.message);
+    }
+}
 
 // ─── API Routes ────────────────────────────────────────────────────────────────
 // Auth routes (public)
@@ -119,6 +178,7 @@ app.listen(PORT, "0.0.0.0", () => {
 ║  Environment: ${(process.env.NODE_ENV ?? "development").padEnd(20)}║
 ╚══════════════════════════════════════╝
   `);
+    ensureAdminUser();
 });
 
 export default app;

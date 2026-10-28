@@ -26,10 +26,19 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await res.json();
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error(
+          res.status === 503 || res.status === 502
+            ? "API server is currently initializing. Please try again in a few moments."
+            : `Server returned error (${res.status}).`
+        );
+      }
 
       if (!res.ok) {
-        throw new Error(data.message || "Failed to login");
+        throw new Error(data.message || data.error || "Failed to login");
       }
 
       if (data.user.role !== "GYM_OWNER") {

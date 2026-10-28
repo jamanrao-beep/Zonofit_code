@@ -17,49 +17,54 @@ router.post(
     body("role").isIn(["GYM_OWNER"]),
   ],
   async (req: Request, res: Response): Promise<void> => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      res.status(400).json({ error: "ValidationError", details: errors.array() });
-      return;
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res.status(400).json({ error: "ValidationError", details: errors.array() });
+        return;
+      }
+
+      const { email, password, name, role } = req.body;
+
+      const existingUser = await prisma.user.findFirst({
+        where: { email },
+      });
+
+      if (existingUser) {
+        res.status(400).json({ error: "EmailAlreadyRegistered", message: "This email is already registered." });
+        return;
+      }
+
+      const passwordHash = await bcrypt.hash(password, 10);
+
+      const user = await prisma.user.create({
+        data: {
+          email,
+          name,
+          passwordHash,
+          systemRole: role as SystemRole,
+        },
+      });
+
+      const token = signToken({
+        dbUserId: user.id,
+        systemRole: user.systemRole,
+        createdAt: Date.now(),
+      });
+
+      res.json({
+        token,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.systemRole,
+        },
+      });
+    } catch (err: any) {
+      console.error("[AuthPortal Signup Error]", err);
+      res.status(500).json({ error: "InternalServerError", message: err.message || "Signup failed." });
     }
-
-    const { email, password, name, role } = req.body;
-
-    const existingUser = await prisma.user.findFirst({
-      where: { email },
-    });
-
-    if (existingUser) {
-      res.status(400).json({ error: "EmailAlreadyRegistered", message: "This email is already registered." });
-      return;
-    }
-
-    const passwordHash = await bcrypt.hash(password, 10);
-
-    const user = await prisma.user.create({
-      data: {
-        email,
-        name,
-        passwordHash,
-        systemRole: role as SystemRole,
-      },
-    });
-
-    const token = signToken({
-      dbUserId: user.id,
-      systemRole: user.systemRole,
-      createdAt: Date.now(),
-    });
-
-    res.json({
-      token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.systemRole,
-      },
-    });
   }
 );
 
@@ -71,56 +76,61 @@ router.post(
     body("password").isString(),
   ],
   async (req: Request, res: Response): Promise<void> => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      res.status(400).json({ error: "ValidationError", details: errors.array() });
-      return;
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res.status(400).json({ error: "ValidationError", details: errors.array() });
+        return;
+      }
+
+      const { email, password } = req.body;
+
+      const user = await prisma.user.findFirst({
+        where: { email },
+      });
+
+      if (!user || !user.passwordHash) {
+        res.status(401).json({ error: "InvalidCredentials", message: "Invalid email or password." });
+        return;
+      }
+
+      const isMatch = await bcrypt.compare(password, user.passwordHash);
+
+      if (!isMatch) {
+        res.status(401).json({ error: "InvalidCredentials", message: "Invalid email or password." });
+        return;
+      }
+
+      if (user.isSuspended) {
+        res.status(403).json({ error: "AccountSuspended", message: "Your account has been suspended by an administrator." });
+        return;
+      }
+
+      // Check if they are allowed to login here
+      if (user.systemRole === "MEMBER") {
+        res.status(403).json({ error: "AccessDenied", message: "Standard members cannot access the portal." });
+        return;
+      }
+
+      const token = signToken({
+        dbUserId: user.id,
+        systemRole: user.systemRole,
+        createdAt: Date.now(),
+      });
+
+      res.json({
+        token,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.systemRole,
+        },
+      });
+    } catch (err: any) {
+      console.error("[AuthPortal Signin Error]", err);
+      res.status(500).json({ error: "InternalServerError", message: err.message || "Signin failed." });
     }
-
-    const { email, password } = req.body;
-
-    const user = await prisma.user.findFirst({
-      where: { email },
-    });
-
-    if (!user || !user.passwordHash) {
-      res.status(401).json({ error: "InvalidCredentials", message: "Invalid email or password." });
-      return;
-    }
-
-    const isMatch = await bcrypt.compare(password, user.passwordHash);
-
-    if (!isMatch) {
-      res.status(401).json({ error: "InvalidCredentials", message: "Invalid email or password." });
-      return;
-    }
-
-    if (user.isSuspended) {
-      res.status(403).json({ error: "AccountSuspended", message: "Your account has been suspended by an administrator." });
-      return;
-    }
-
-    // Check if they are allowed to login here
-    if (user.systemRole === "MEMBER") {
-      res.status(403).json({ error: "AccessDenied", message: "Standard members cannot access the portal." });
-      return;
-    }
-
-    const token = signToken({
-      dbUserId: user.id,
-      systemRole: user.systemRole,
-      createdAt: Date.now(),
-    });
-
-    res.json({
-      token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.systemRole,
-      },
-    });
   }
 );
 
