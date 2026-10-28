@@ -50,9 +50,9 @@ export default function GymDashboardLayout({
   ];
 
   return (
-    <div className="min-h-screen bg-background flex flex-col md:flex-row">
+    <div className="flex-1 w-full min-h-screen bg-background flex flex-col md:flex-row">
       {/* ─── Desktop Sidebar ────────────────────────────────────────── */}
-      <aside className="hidden md:flex md:w-64 bg-surface-dark border-r border-secondary-dark flex-col z-20 shrink-0 h-screen sticky top-0">
+      <aside className="hidden md:flex md:w-64 bg-[#1C1C1E] border-r border-[#2C2C2E] flex-col z-20 shrink-0 min-h-screen md:h-screen md:sticky md:top-0">
         <div className="p-6 border-b border-secondary-dark flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-emerald-600 shadow-sm">
             <span className="text-white font-black text-base">Z</span>
