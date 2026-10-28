@@ -112,29 +112,13 @@ app.get("/health", async (_req, res) => {
     });
 });
 
-async function ensureAdminUser(): Promise<void> {
-    const email = process.env.ADMIN_EMAIL;
-    const password = process.env.ADMIN_PASSWORD;
-    if (!email || !password) return;
+import { initDatabase } from "./lib/initDatabase";
 
-    try {
-        const existing = await prisma.user.findFirst({ where: { email } });
-        if (!existing) {
-            const passwordHash = await bcrypt.hash(password, 10);
-            await prisma.user.create({
-                data: {
-                    email,
-                    name: "ZonoFit Admin",
-                    passwordHash,
-                    systemRole: "ADMIN",
-                },
-            });
-            console.log(`[Admin] Initial admin user ready: ${email}`);
-        }
-    } catch (err: any) {
-        console.warn("[Admin] Could not verify/seed admin user:", err.message);
-    }
-}
+// ─── Setup / Self-Healing Route ────────────────────────────────────────────────
+app.all("/api/setup-db", async (_req, res) => {
+    const result = await initDatabase();
+    res.status(result.success ? 200 : 500).json(result);
+});
 
 // ─── API Routes ────────────────────────────────────────────────────────────────
 // Auth routes (public)
@@ -178,7 +162,9 @@ app.listen(PORT, "0.0.0.0", () => {
 ║  Environment: ${(process.env.NODE_ENV ?? "development").padEnd(20)}║
 ╚══════════════════════════════════════╝
   `);
-    ensureAdminUser();
+    initDatabase().catch((err) => {
+        console.error("[Startup] Initial db setup error:", err);
+    });
 });
 
 export default app;

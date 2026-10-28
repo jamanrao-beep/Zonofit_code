@@ -1,0 +1,1 @@
+{"version":3,"file":"initDatabase.d.ts","sourceRoot":"","sources":["../../src/lib/initDatabase.ts"],"names":[],"mappings":"AAMA,eAAO,MAAM,cAAc,EAAE,MAAM,EAkFlC,CAAC;AAEF,wBAAsB,YAAY,IAAI,OAAO,CAAC;IAC5C,OAAO,EAAE,OAAO,CAAC;IACjB,OAAO,EAAE,MAAM,CAAC;IAChB,KAAK,CAAC,EAAE,MAAM,CAAC;IACf,aAAa,CAAC,EAAE,MAAM,CAAC;CACxB,CAAC,CAwDD"}

@@ -32,7 +32,6 @@ const trial_gyms_1 = __importDefault(require("./routes/trial-gyms"));
 const coupons_1 = __importDefault(require("./routes/coupons"));
 const content_1 = __importDefault(require("./routes/content"));
 const prisma_1 = __importDefault(require("./lib/prisma"));
-const bcryptjs_1 = __importDefault(require("bcryptjs"));
 // Process level safety guards
 process.on("unhandledRejection", (reason) => {
     console.error("[UnhandledRejection]", reason);
@@ -102,30 +101,12 @@ app.get("/health", async (_req, res) => {
         env: process.env.NODE_ENV,
     });
 });
-async function ensureAdminUser() {
-    const email = process.env.ADMIN_EMAIL;
-    const password = process.env.ADMIN_PASSWORD;
-    if (!email || !password)
-        return;
-    try {
-        const existing = await prisma_1.default.user.findFirst({ where: { email } });
-        if (!existing) {
-            const passwordHash = await bcryptjs_1.default.hash(password, 10);
-            await prisma_1.default.user.create({
-                data: {
-                    email,
-                    name: "ZonoFit Admin",
-                    passwordHash,
-                    systemRole: "ADMIN",
-                },
-            });
-            console.log(`[Admin] Initial admin user ready: ${email}`);
-        }
-    }
-    catch (err) {
-        console.warn("[Admin] Could not verify/seed admin user:", err.message);
-    }
-}
+const initDatabase_1 = require("./lib/initDatabase");
+// ─── Setup / Self-Healing Route ────────────────────────────────────────────────
+app.all("/api/setup-db", async (_req, res) => {
+    const result = await (0, initDatabase_1.initDatabase)();
+    res.status(result.success ? 200 : 500).json(result);
+});
 // ─── API Routes ────────────────────────────────────────────────────────────────
 // Auth routes (public)
 app.use("/api/auth/portal", auth_portal_1.default);
@@ -162,7 +143,9 @@ app.listen(PORT, "0.0.0.0", () => {
 ║  Environment: ${(process.env.NODE_ENV ?? "development").padEnd(20)}║
 ╚══════════════════════════════════════╝
   `);
-    ensureAdminUser();
+    (0, initDatabase_1.initDatabase)().catch((err) => {
+        console.error("[Startup] Initial db setup error:", err);
+    });
 });
 exports.default = app;
 //# sourceMappingURL=index.js.map
