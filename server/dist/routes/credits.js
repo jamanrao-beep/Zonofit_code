@@ -1,0 +1,681 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const express_validator_1 = require("express-validator");
+const crypto_1 = __importDefault(require("crypto"));
+const razorpay_1 = __importDefault(require("razorpay"));
+const prisma_1 = __importDefault(require("../lib/prisma"));
+const auth_1 = require("../middleware/auth");
+const constants_1 = require("../lib/constants");
+const errorHandler_1 = require("../middleware/errorHandler");
+const notifications_1 = require("../services/notifications");
+const settings_1 = require("../services/settings");
+// Initialize Razorpay
+// We use placeholder keys if env vars are missing so the server doesn't crash on boot
+const razorpay = new razorpay_1.default({
+    key_id: process.env.RAZORPAY_KEY_ID || "rzp_test_placeholder",
+    key_secret: process.env.RAZORPAY_KEY_SECRET || "placeholder_secret",
+});
+const router = (0, express_1.Router)();
+// ─── GET /api/credits/balance ─────────────────────────────────────────────────
+/**
+ * Returns the authoritative credit balance and wallet info for the
+ * authenticated user. The mobile app should call this on screen focus
+ * and after any mutation — never trust a locally cached balance.
+ */
+router.get("/balance", auth_1.requireAuth, async (req, res) => {
+    const wallet = await prisma_1.default.creditWallet.findUnique({
+        where: { userId: req.dbUserId },
+        include: {
+            user: {
+                include: {
+                    membership: {
+                        include: {
+                            plan: true,
+                            gymPlan: true,
+                            primaryGym: { select: { id: true, name: true, city: true, address: true } }
+                        },
+                    },
+                },
+            },
+        },
+    });
+    if (!wallet) {
+        res.status(404).json({ error: "WalletNotFound", message: "Wallet not found." });
+        return;
+    }
+    const now = new Date();
+    const membership = wallet.user.membership;
+    const isExpired = membership ? (membership.endDate < now || membership.status === "EXPIRED") : true;
+    // Check if user has an active membership and should have rest credits from their plan
+    if (membership && !isExpired && membership.status === "ACTIVE") {
+        const cycleNum = membership.cycleNumber || 1;
+        const mandatoryVisits = membership.mandatoryVisits || (cycleNum <= 4 ? 10 : 15);
+        const mAny = membership;
+        const gymPrice = (mAny.gymPlan ? (mAny.gymPlan.priceInPaise / 100) : (mAny.plan ? (mAny.plan.priceInPaise / 100) : 3000));
+        const perVisitCost = Math.round(gymPrice * 0.04);
+        const mandatoryCost = mandatoryVisits * perVisitCost;
+        const expectedRestCredits = Math.max(0, Math.round((gymPrice - mandatoryCost) / 10));
+        const debitCount = await prisma_1.default.creditTransaction.count({
+            where: {
+                userId: req.dbUserId,
+                amount: { lt: 0 }
+            },
+        });
+        // If user hasn't spent credits and wallet balance is 0, fulfill their rest credits from membership
+        if (wallet.balance === 0 && debitCount === 0 && expectedRestCredits > 0) {
+            await prisma_1.default.creditWallet.update({
+                where: { id: wallet.id },
+                data: { balance: expectedRestCredits },
+            });
+            await prisma_1.default.creditTransaction.create({
+                data: {
+                    userId: req.dbUserId,
+                    walletId: wallet.id,
+                    type: "MEMBERSHIP_GRANT",
+                    amount: expectedRestCredits,
+                    balanceAfter: expectedRestCredits,
+                    description: `Membership Plan (${membership.plan?.name || "Active Plan"}) Rest Credits Granted`,
+                },
+            });
+            wallet.balance = expectedRestCredits;
+        }
+    }
+    else {
+        // Only for non-members without transactions: fix test auto-grant
+        const transactionCount = await prisma_1.default.creditTransaction.count({
+            where: { userId: req.dbUserId },
+        });
+        if (transactionCount === 0 && wallet.balance > 0) {
+            await prisma_1.default.creditWallet.update({
+                where: { id: wallet.id },
+                data: { balance: 0 },
+            });
+            wallet.balance = 0;
+        }
+    }
+    const convertibleCashINR = wallet.convertibleCashBalanceInPaise / 100;
+    const isCashValid = !!(wallet.cashExpiryDate && wallet.cashExpiryDate > now && convertibleCashINR > 0);
+    const inrWalletDaysRemaining = isCashValid
+        ? Math.ceil((wallet.cashExpiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+        : 0;
+    const daysRemaining = membership && !isExpired
+        ? Math.ceil((membership.endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+        : 0;
+    const cycleNumber = membership?.cycleNumber || 1;
+    const maxCycles = 12;
+    const cyclesRemaining = Math.max(0, maxCycles - cycleNumber);
+    const mandatoryVisits = membership?.mandatoryVisits || 10;
+    const completedVisits = membership?.completedVisits || 0;
+    const mandatoryVisitsRemaining = Math.max(0, mandatoryVisits - completedVisits);
+    // Can repurchase/renew if expired OR within 3 days of expiry
+    const canRepurchase = !!membership && (isExpired || daysRemaining <= 3) && cycleNumber <= maxCycles;
+    const canBuyAdditionalCredits = !!membership && !isExpired;
+    res.json({
+        balance: wallet.balance,
+        displayValueINR: (0, constants_1.creditsToDisplayINR)(wallet.balance),
+        convertibleCashBalanceINR: convertibleCashINR,
+        nonConvertibleCashBalanceINR: wallet.nonConvertibleCashBalanceInPaise / 100,
+        inrWallet: {
+            balanceINR: convertibleCashINR,
+            daysRemaining: inrWalletDaysRemaining,
+            isValid: isCashValid,
+            expiryDate: wallet.cashExpiryDate,
+        },
+        membership: membership
+            ? {
+                status: isExpired ? "EXPIRED" : membership.status,
+                isExpired,
+                isExpiringSoon: !isExpired && daysRemaining <= 3,
+                tier: membership.plan ? membership.plan.tier : "STANDARD",
+                planName: membership.plan ? membership.plan.name : "Plan",
+                gymName: membership.primaryGym?.name || "ZonoFit Partner Gym",
+                endDate: membership.endDate,
+                daysRemaining,
+                cycleNumber,
+                maxCycles,
+                cyclesRemaining,
+                mandatoryVisits,
+                completedVisits,
+                mandatoryVisitsRemaining,
+                canRepurchase,
+                canBuyAdditionalCredits,
+                creditExpiryDate: new Date(membership.endDate.getTime() +
+                    constants_1.CREDIT_CONSTANTS.CREDITS_EXPIRE_DAYS_AFTER_MEMBERSHIP *
+                        24 *
+                        60 *
+                        60 *
+                        1000),
+            }
+            : null,
+    });
+});
+// ─── GET /api/credits/transactions ───────────────────────────────────────────
+/**
+ * Returns paginated credit transaction history for the authenticated user.
+ */
+router.get("/transactions", auth_1.requireAuth, async (req, res) => {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+    const [transactions, total] = await prisma_1.default.$transaction([
+        prisma_1.default.creditTransaction.findMany({
+            where: { userId: req.dbUserId },
+            orderBy: { createdAt: "desc" },
+            skip,
+            take: limit,
+            include: {
+                booking: {
+                    include: { gym: { select: { name: true } } },
+                },
+            },
+        }),
+        prisma_1.default.creditTransaction.count({ where: { userId: req.dbUserId } }),
+    ]);
+    res.json({
+        transactions,
+        pagination: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+        },
+    });
+});
+// ─── POST /api/credits/convert ────────────────────────────────────────────────
+/**
+ * Converts fitness credits to withdrawable INR cash.
+ * Rate: 1 credit = ₹8 (not ₹10 — the asymmetry is intentional).
+ *
+ * This is a trust-boundary operation — never compute this client-side.
+ */
+router.post("/convert", auth_1.requireAuth, [
+    (0, express_validator_1.body)("credits")
+        .isInt({ min: constants_1.CREDIT_CONSTANTS.MIN_CREDITS_FOR_CONVERSION })
+        .withMessage(`Minimum ${constants_1.CREDIT_CONSTANTS.MIN_CREDITS_FOR_CONVERSION} credits required for conversion.`),
+], async (req, res) => {
+    const errors = (0, express_validator_1.validationResult)(req);
+    if (!errors.isEmpty()) {
+        res.status(400).json({ error: "ValidationError", details: errors.array() });
+        return;
+    }
+    const { credits } = req.body;
+    const settings = await (0, settings_1.getSystemSettings)();
+    const cashINR = credits * settings.creditConversionValue;
+    const cashPaise = cashINR * 100;
+    // Atomic transaction — deduct credits and add cash in one DB operation
+    const result = await prisma_1.default.$transaction(async (tx) => {
+        const wallet = await tx.creditWallet.findUnique({
+            where: { userId: req.dbUserId },
+        });
+        if (!wallet)
+            throw (0, errorHandler_1.createError)("Wallet not found.", 404, "WalletNotFound");
+        if (wallet.balance < credits) {
+            throw (0, errorHandler_1.createError)("Insufficient credits.", 400, "InsufficientCredits");
+        }
+        const updatedWallet = await tx.creditWallet.update({
+            where: { userId: req.dbUserId },
+            data: {
+                balance: { decrement: credits },
+                convertibleCashBalanceInPaise: { increment: cashPaise },
+            },
+        });
+        await tx.creditTransaction.create({
+            data: {
+                userId: req.dbUserId,
+                walletId: wallet.id,
+                type: "CONVERSION",
+                amount: -credits,
+                balanceAfter: updatedWallet.balance,
+                description: `Converted ${credits} credits to ₹${cashINR} cash`,
+            },
+        });
+        return updatedWallet;
+    });
+    res.json({
+        creditsConverted: credits,
+        cashAddedINR: cashINR,
+        newCreditBalance: result.balance,
+        newConvertibleCashBalanceINR: result.convertibleCashBalanceInPaise / 100,
+        message: `${credits} credits converted to ₹${cashINR}.`,
+    });
+});
+// ─── POST /api/credits/create-order ──────────────────────────────────────────
+/**
+ * Step 1: Create an order in our DB and fetch an Order ID from Razorpay.
+ */
+router.post("/create-order", auth_1.requireAuth, [
+    (0, express_validator_1.body)("credits")
+        .isInt({ min: 10 })
+        .withMessage("Minimum purchase is 10 credits and must be a whole number."),
+], async (req, res) => {
+    const errors = (0, express_validator_1.validationResult)(req);
+    if (!errors.isEmpty()) {
+        res.status(400).json({ error: "ValidationError", details: errors.array() });
+        return;
+    }
+    const { credits } = req.body;
+    // Verify user has an active membership (PRD Rule #6, #7, #11)
+    const membership = await prisma_1.default.membership.findFirst({
+        where: {
+            userId: req.dbUserId,
+            status: "ACTIVE",
+            endDate: { gt: new Date() },
+        },
+    });
+    if (!membership) {
+        res.status(400).json({
+            error: "ActiveMembershipRequired",
+            message: "Additional credits can only be purchased while your membership is active.",
+        });
+        return;
+    }
+    const settings = await (0, settings_1.getSystemSettings)();
+    const amountINR = credits * settings.creditPurchasePrice;
+    const amountPaise = amountINR * 100;
+    try {
+        const options = {
+            amount: amountPaise,
+            currency: "INR",
+            receipt: `receipt_user_${req.dbUserId}_${Date.now()}`,
+        };
+        const order = await razorpay.orders.create(options);
+        // Save it in our DB
+        const paymentOrder = await prisma_1.default.paymentOrder.create({
+            data: {
+                userId: req.dbUserId,
+                razorpayOrderId: order.id,
+                amountPaise: amountPaise,
+                creditsToAdd: credits,
+                status: "CREATED",
+            },
+        });
+        res.status(200).json({
+            razorpayOrderId: order.id,
+            amount: order.amount,
+            currency: order.currency,
+            credits: credits,
+        });
+    }
+    catch (error) {
+        console.error("Razorpay order creation failed:", error);
+        res.status(500).json({ error: "Failed to create payment order" });
+    }
+});
+// ─── POST /api/credits/webhook ───────────────────────────────────────────────
+/**
+ * Step 2: Razorpay calls this securely when payment succeeds.
+ */
+router.post("/webhook", async (req, res) => {
+    // Note: Razorpay sends webhook payload as JSON
+    const secret = process.env.RAZORPAY_WEBHOOK_SECRET || "placeholder_webhook_secret";
+    const shasum = crypto_1.default.createHmac("sha256", secret);
+    shasum.update(JSON.stringify(req.body));
+    const digest = shasum.digest("hex");
+    if (digest !== req.headers["x-razorpay-signature"]) {
+        console.error("Webhook signature mismatch!");
+        res.status(400).send("Invalid signature");
+        return;
+    }
+    const event = req.body.event;
+    if (event === "payment.captured") {
+        const payment = req.body.payload.payment.entity;
+        const orderId = payment.order_id;
+        const referenceId = payment.id; // payment ID
+        try {
+            await prisma_1.default.$transaction(async (tx) => {
+                // Find the order
+                const paymentOrder = await tx.paymentOrder.findUnique({
+                    where: { razorpayOrderId: orderId },
+                });
+                if (!paymentOrder) {
+                    console.error(`Webhook error: Order ${orderId} not found.`);
+                    return;
+                }
+                if (paymentOrder.status === "PAID") {
+                    // Idempotency: already processed
+                    console.log(`Webhook note: Order ${orderId} already paid.`);
+                    return;
+                }
+                // Mark order as PAID
+                await tx.paymentOrder.update({
+                    where: { razorpayOrderId: orderId },
+                    data: { status: "PAID" },
+                });
+                // Give credits to user
+                const wallet = await tx.creditWallet.findUnique({
+                    where: { userId: paymentOrder.userId },
+                });
+                if (!wallet)
+                    throw new Error("Wallet not found");
+                const updatedWallet = await tx.creditWallet.update({
+                    where: { userId: paymentOrder.userId },
+                    data: {
+                        balance: { increment: paymentOrder.creditsToAdd },
+                        nonConvertibleCashBalanceInPaise: { increment: paymentOrder.cashToAddPaise }
+                    },
+                });
+                // Record transaction
+                await tx.creditTransaction.create({
+                    data: {
+                        userId: paymentOrder.userId,
+                        walletId: wallet.id,
+                        type: "PURCHASE",
+                        amount: paymentOrder.creditsToAdd,
+                        balanceAfter: updatedWallet.balance,
+                        description: paymentOrder.creditsToAdd > 0
+                            ? `Purchased ${paymentOrder.creditsToAdd} credits via Razorpay`
+                            : `Topped up ₹${paymentOrder.cashToAddPaise / 100} non-convertible cash via Razorpay`,
+                        referenceId: referenceId, // Store payment ID here
+                    },
+                });
+            });
+            // Send Push Notification
+            const paymentOrder = await prisma_1.default.paymentOrder.findUnique({
+                where: { razorpayOrderId: orderId },
+            });
+            if (paymentOrder) {
+                if (paymentOrder.creditsToAdd > 0) {
+                    (0, notifications_1.sendPushNotification)(paymentOrder.userId, "Credits Purchased ⚡", `You successfully purchased ${paymentOrder.creditsToAdd} credits!`).catch(e => console.error(e));
+                }
+                else if (paymentOrder.cashToAddPaise > 0) {
+                    (0, notifications_1.sendPushNotification)(paymentOrder.userId, "Wallet Top Up 💰", `You successfully added ₹${paymentOrder.cashToAddPaise / 100} to your wallet!`).catch(e => console.error(e));
+                }
+            }
+            res.status(200).send("OK");
+        }
+        catch (err) {
+            console.error("Webhook processing error:", err);
+            res.status(500).send("Internal Error");
+        }
+    }
+    else {
+        // Ignore other events
+        res.status(200).send("OK");
+    }
+});
+// ─── POST /api/credits/mock-payment ───────────────────────────────────────────
+/**
+ * Developer utility: Simulates a successful payment webhook.
+ * Only available in non-production environments to bypass Razorpay on simulators.
+ */
+router.post("/mock-payment", auth_1.requireAuth, [
+    (0, express_validator_1.body)("razorpayOrderId").isString().notEmpty().withMessage("Order ID required."),
+], async (req, res) => {
+    if (process.env.NODE_ENV === "production") {
+        res.status(403).json({ error: "Forbidden in production" });
+        return;
+    }
+    const errors = (0, express_validator_1.validationResult)(req);
+    if (!errors.isEmpty()) {
+        res.status(400).json({ error: "ValidationError", details: errors.array() });
+        return;
+    }
+    const { razorpayOrderId } = req.body;
+    try {
+        await prisma_1.default.$transaction(async (tx) => {
+            const paymentOrder = await tx.paymentOrder.findUnique({
+                where: { razorpayOrderId },
+            });
+            if (!paymentOrder)
+                throw new Error("Order not found");
+            if (paymentOrder.status === "PAID")
+                return;
+            await tx.paymentOrder.update({
+                where: { razorpayOrderId },
+                data: { status: "PAID" },
+            });
+            const wallet = await tx.creditWallet.findUnique({
+                where: { userId: paymentOrder.userId },
+            });
+            if (!wallet)
+                throw new Error("Wallet not found");
+            const updatedWallet = await tx.creditWallet.update({
+                where: { userId: paymentOrder.userId },
+                data: {
+                    balance: { increment: paymentOrder.creditsToAdd },
+                    nonConvertibleCashBalanceInPaise: { increment: paymentOrder.cashToAddPaise }
+                },
+            });
+            await tx.creditTransaction.create({
+                data: {
+                    userId: paymentOrder.userId,
+                    walletId: wallet.id,
+                    type: "PURCHASE",
+                    amount: paymentOrder.creditsToAdd,
+                    balanceAfter: updatedWallet.balance,
+                    description: paymentOrder.creditsToAdd > 0
+                        ? `Purchased ${paymentOrder.creditsToAdd} credits via Razorpay (Mocked)`
+                        : `Topped up ₹${paymentOrder.cashToAddPaise / 100} non-convertible cash via Razorpay (Mocked)`,
+                    referenceId: `mock_pay_${Date.now()}`,
+                },
+            });
+            // Send Push Notification
+            if (paymentOrder.creditsToAdd > 0) {
+                (0, notifications_1.sendPushNotification)(paymentOrder.userId, "Credits Purchased ⚡", `You successfully purchased ${paymentOrder.creditsToAdd} credits! (Mocked)`).catch(e => console.error(e));
+            }
+            else if (paymentOrder.cashToAddPaise > 0) {
+                (0, notifications_1.sendPushNotification)(paymentOrder.userId, "Wallet Top Up 💰", `You successfully added ₹${paymentOrder.cashToAddPaise / 100} to your wallet! (Mocked)`).catch(e => console.error(e));
+            }
+        });
+        res.json({ success: true, message: "Payment mocked successfully." });
+    }
+    catch (error) {
+        console.error("Mock payment error:", error);
+        res.status(500).json({ error: "Failed to mock payment" });
+    }
+});
+// ─── POST /api/credits/deduct ─────────────────────────────────────────────────
+/**
+ * Generic endpoint to deduct credits from the wallet.
+ */
+router.post("/deduct", auth_1.requireAuth, [
+    (0, express_validator_1.body)("credits").isInt({ min: 1 }).withMessage("Credits must be a positive integer."),
+    (0, express_validator_1.body)("description").isString().notEmpty().withMessage("Description required."),
+], async (req, res) => {
+    const errors = (0, express_validator_1.validationResult)(req);
+    if (!errors.isEmpty()) {
+        res.status(400).json({ error: "ValidationError", details: errors.array() });
+        return;
+    }
+    const { credits, description } = req.body;
+    const result = await prisma_1.default.$transaction(async (tx) => {
+        const wallet = await tx.creditWallet.findUnique({
+            where: { userId: req.dbUserId },
+        });
+        if (!wallet)
+            throw (0, errorHandler_1.createError)("Wallet not found.", 404, "WalletNotFound");
+        if (wallet.balance < credits) {
+            throw (0, errorHandler_1.createError)("Insufficient credits.", 400, "InsufficientCredits");
+        }
+        const updatedWallet = await tx.creditWallet.update({
+            where: { userId: req.dbUserId },
+            data: { balance: { decrement: credits } },
+        });
+        await tx.creditTransaction.create({
+            data: {
+                userId: req.dbUserId,
+                walletId: wallet.id,
+                type: "VISIT_SPEND", // Since DEDUCTION is not in CreditTransactionType enum
+                amount: -credits,
+                balanceAfter: updatedWallet.balance,
+                description,
+            },
+        });
+        return updatedWallet;
+    });
+    res.json({
+        creditsDeducted: credits,
+        newBalance: result.balance,
+        message: `${credits} credits deducted.`,
+    });
+});
+// ─── POST /api/credits/reconvert ──────────────────────────────────────────────
+/**
+ * Converts convertible cash back to fitness credits.
+ * Rate: ₹10 = 1 credit.
+ */
+router.post("/reconvert", auth_1.requireAuth, [
+    (0, express_validator_1.body)("creditsToBuy")
+        .isInt({ min: 1 })
+        .withMessage("Must reconvert to at least 1 credit."),
+], async (req, res) => {
+    const errors = (0, express_validator_1.validationResult)(req);
+    if (!errors.isEmpty()) {
+        res.status(400).json({ error: "ValidationError", details: errors.array() });
+        return;
+    }
+    const { creditsToBuy } = req.body;
+    const settings = await (0, settings_1.getSystemSettings)();
+    const cashRequiredPaise = creditsToBuy * settings.creditPurchasePrice * 100; // using dynamic price
+    try {
+        const result = await prisma_1.default.$transaction(async (tx) => {
+            const wallet = await tx.creditWallet.findUnique({
+                where: { userId: req.dbUserId },
+            });
+            if (!wallet)
+                throw (0, errorHandler_1.createError)("Wallet not found.", 404, "WalletNotFound");
+            if (wallet.convertibleCashBalanceInPaise < cashRequiredPaise) {
+                throw (0, errorHandler_1.createError)("Insufficient convertible cash.", 400, "InsufficientCash");
+            }
+            const updatedWallet = await tx.creditWallet.update({
+                where: { userId: req.dbUserId },
+                data: {
+                    balance: { increment: creditsToBuy },
+                    convertibleCashBalanceInPaise: { decrement: cashRequiredPaise },
+                },
+            });
+            await tx.creditTransaction.create({
+                data: {
+                    userId: req.dbUserId,
+                    walletId: wallet.id,
+                    type: "RECONVERSION",
+                    amount: creditsToBuy,
+                    balanceAfter: updatedWallet.balance,
+                    description: `Converted ₹${cashRequiredPaise / 100} cash back to ${creditsToBuy} credits.`,
+                },
+            });
+            return updatedWallet;
+        });
+        res.json({
+            creditsBought: creditsToBuy,
+            cashDeductedINR: cashRequiredPaise / 100,
+            newCreditBalance: result.balance,
+            newConvertibleCashBalanceINR: result.convertibleCashBalanceInPaise / 100,
+            message: `Successfully bought ${creditsToBuy} credits with ₹${cashRequiredPaise / 100} convertible cash.`,
+        });
+    }
+    catch (error) {
+        if (error.status) {
+            res.status(error.status).json({ error: error.code, message: error.message });
+        }
+        else {
+            console.error("Reconvert error:", error);
+            res.status(500).json({ error: "InternalError", message: "Failed to reconvert cash." });
+        }
+    }
+});
+// ─── POST /api/credits/create-cash-order ──────────────────────────────────────
+/**
+ * Step 1 for cash top-up: Create an order to buy non-convertible cash.
+ */
+router.post("/create-cash-order", auth_1.requireAuth, [
+    (0, express_validator_1.body)("amountINR")
+        .isInt({ min: 10 })
+        .withMessage("Must top up at least ₹10."),
+], async (req, res) => {
+    const errors = (0, express_validator_1.validationResult)(req);
+    if (!errors.isEmpty()) {
+        res.status(400).json({ error: "ValidationError", details: errors.array() });
+        return;
+    }
+    const { amountINR } = req.body;
+    const amountPaise = amountINR * 100;
+    try {
+        const options = {
+            amount: amountPaise,
+            currency: "INR",
+            receipt: `receipt_cash_user_${req.dbUserId}_${Date.now()}`,
+        };
+        const order = await razorpay.orders.create(options);
+        // Save it in our DB, note creditsToAdd is 0
+        const paymentOrder = await prisma_1.default.paymentOrder.create({
+            data: {
+                userId: req.dbUserId,
+                razorpayOrderId: order.id,
+                amountPaise: amountPaise,
+                creditsToAdd: 0,
+                cashToAddPaise: amountPaise,
+                status: "CREATED",
+            },
+        });
+        res.status(200).json({
+            razorpayOrderId: order.id,
+            amount: order.amount,
+            currency: order.currency,
+            cashToAddINR: amountINR,
+        });
+    }
+    catch (error) {
+        console.error("Razorpay cash order creation failed:", error);
+        res.status(500).json({ error: "Failed to create cash payment order" });
+    }
+});
+// ─── POST /api/credits/deduct ─────────────────────────────────────────────────
+/**
+ * Deduct credits from user's wallet for cancellation fee, purchases, or services.
+ * Authoritative server deduction that persists to PostgreSQL DB.
+ */
+router.post("/deduct", auth_1.requireAuth, [
+    (0, express_validator_1.body)("credits").isInt({ min: 1 }).withMessage("Credits must be a positive integer."),
+    (0, express_validator_1.body)("description").optional().isString(),
+], async (req, res) => {
+    const errors = (0, express_validator_1.validationResult)(req);
+    if (!errors.isEmpty()) {
+        res.status(400).json({ error: "ValidationError", details: errors.array() });
+        return;
+    }
+    const { credits, description } = req.body;
+    try {
+        const result = await prisma_1.default.$transaction(async (tx) => {
+            const wallet = await tx.creditWallet.findUnique({
+                where: { userId: req.dbUserId },
+            });
+            if (!wallet) {
+                throw (0, errorHandler_1.createError)("Wallet not found.", 404, "WalletNotFound");
+            }
+            if (wallet.balance < credits) {
+                throw (0, errorHandler_1.createError)(`Insufficient credits. Current balance: ${wallet.balance}`, 400, "InsufficientCredits");
+            }
+            const updatedWallet = await tx.creditWallet.update({
+                where: { id: wallet.id },
+                data: { balance: { decrement: credits } },
+            });
+            await tx.creditTransaction.create({
+                data: {
+                    userId: req.dbUserId,
+                    walletId: wallet.id,
+                    type: "VISIT_SPEND",
+                    amount: -credits,
+                    balanceAfter: updatedWallet.balance,
+                    description: description || `Fee / Credit Deduction (${credits} Credits)`,
+                },
+            });
+            return updatedWallet;
+        });
+        res.json({
+            success: true,
+            newBalance: result.balance,
+            message: `Successfully deducted ${credits} credits.`,
+        });
+    }
+    catch (err) {
+        console.error("Deduct credits failed:", err);
+        res.status(err.statusCode || 500).json({ error: err.message || "Failed to deduct credits" });
+    }
+});
+exports.default = router;
+//# sourceMappingURL=credits.js.map

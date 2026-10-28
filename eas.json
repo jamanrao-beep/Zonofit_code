@@ -8,13 +8,13 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://100.31.236.208"
+        "EXPO_PUBLIC_API_URL": "https://api.zonofit.com"
       }
     },
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://100.31.236.208"
+        "EXPO_PUBLIC_API_URL": "https://api.zonofit.com"
       },
       "android": {
         "buildType": "apk"
@@ -23,7 +23,7 @@
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://100.31.236.208"
+        "EXPO_PUBLIC_API_URL": "https://api.zonofit.com"
       },
       "android": {
         "buildType": "app-bundle"
