@@ -19,7 +19,7 @@ export default function PartnersPage() {
       type: "Yoga & Pilates",
       location: "Westside",
       rating: 4.8,
-      image: "https://images.unsplash.com/photo-1599901860904-17e08c3d0cb8?q=80&w=2070&auto=format&fit=crop"
+      image: "https://images.unsplash.com/photo-1545205597-3d9d02c29597?q=80&w=2070&auto=format&fit=crop"
     },
     {
       name: "Velocity CrossFit",
