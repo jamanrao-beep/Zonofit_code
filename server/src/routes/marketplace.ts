@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { body, validationResult } from "express-validator";
 import prisma from "../lib/prisma";
+import { marketplaceDiscountPaise } from "../lib/couponMath";
 import { requireAuth } from "../middleware/auth";
 import { createError } from "../middleware/errorHandler";
 
@@ -181,13 +182,19 @@ router.post(
           if (!coupon.isActive) throw createError("Coupon is no longer active", 400, "InvalidCoupon");
           if (coupon.expiryDate && new Date(coupon.expiryDate) < new Date()) throw createError("Coupon expired", 400, "InvalidCoupon");
           if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit) throw createError("Coupon usage limit reached", 400, "InvalidCoupon");
-          if (coupon.discountType === "CREDITS") throw createError("This coupon can only be used for gym bookings", 400, "InvalidCoupon");
-
-          let discountPaise = 0;
-          if (coupon.discountType === "PERCENTAGE") {
-            discountPaise = Math.floor(totalPaise * (coupon.discountValue / 100));
-          } else if (coupon.discountType === "RUPEES") {
-            discountPaise = coupon.discountValue * 100;
+          const discountPaise = marketplaceDiscountPaise(
+            coupon.discountType,
+            coupon.discountValue,
+            totalPaise,
+          );
+          if (discountPaise === "credits-only") {
+            throw createError("This coupon can only be used for gym bookings", 400, "InvalidCoupon");
+          }
+          if (discountPaise === "unsupported") {
+            throw createError("This coupon cannot be used for marketplace checkout.", 400, "InvalidCoupon");
+          }
+          if (discountPaise <= 0) {
+            throw createError("This coupon does not reduce the order total.", 400, "InvalidCoupon");
           }
 
           totalPaise = Math.max(0, totalPaise - discountPaise);
@@ -220,6 +227,13 @@ router.post(
 
         // 3. STEP 3: Remaining amount for payment gateway
         const onlinePaidPaise = remainderAfterInrPaise - creditsPaiseUsed;
+        if (onlinePaidPaise > 0) {
+          throw createError(
+            "This order is not fully covered by your cash and credits. Add funds before checkout.",
+            402,
+            "PaymentRequired"
+          );
+        }
 
         // Deduct INR balance (nonConvertible first, then convertible)
         let remainingInrToDeduct = inrPaiseUsed;
@@ -233,14 +247,22 @@ router.post(
           deductConvertible = remainingInrToDeduct - deductNonConvertible;
         }
 
-        await tx.creditWallet.update({
-          where: { id: wallet.id },
-          data: { 
+        const updatedWallet = await tx.creditWallet.updateMany({
+          where: {
+            id: wallet.id,
+            balance: { gte: actualCreditsToUse },
+            nonConvertibleCashBalanceInPaise: { gte: deductNonConvertible },
+            convertibleCashBalanceInPaise: { gte: deductConvertible },
+          },
+          data: {
             nonConvertibleCashBalanceInPaise: { decrement: deductNonConvertible },
             convertibleCashBalanceInPaise: { decrement: deductConvertible },
             balance: { decrement: actualCreditsToUse },
           },
         });
+        if (updatedWallet.count !== 1) {
+          throw createError("Insufficient wallet balance.", 400, "InsufficientFunds");
+        }
 
         const orders = await Promise.all(
           itemRecords.map(record =>

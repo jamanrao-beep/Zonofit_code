@@ -2,6 +2,8 @@ import { Router, Request, Response } from "express";
 import { body, validationResult } from "express-validator";
 import { v4 as uuidv4 } from "uuid";
 import prisma from "../lib/prisma";
+import { bookingDiscountCredits, isCancellationTooLate } from "../lib/couponMath";
+import { decrementCredits } from "../lib/wallet";
 import { requireAuth } from "../middleware/auth";
 import { sendPushNotification } from "../services/notifications";
 import { createError } from "../middleware/errorHandler";
@@ -52,22 +54,10 @@ router.post(
 
     const result = await prisma.$transaction(async (tx) => {
       // 1. Get gym and credit cost
-      let gym = await tx.gym.findUnique({
+      const gym = await tx.gym.findFirst({
         where: { id: gymId, isActive: true },
         select: { id: true, name: true, creditCost: true, totalSlots: true },
       });
-      if (!gym) {
-        gym = await tx.gym.findFirst({
-          where: {
-            OR: [
-              { name: { contains: "Being" } },
-              { name: { contains: "Fit" } },
-              { isActive: true }
-            ]
-          },
-          select: { id: true, name: true, creditCost: true, totalSlots: true },
-        });
-      }
       if (!gym) throw createError("Gym not found or unavailable.", 404, "GymNotFound");
 
       // 2. Check membership is active
@@ -95,20 +85,24 @@ router.post(
         if (!coupon.isActive) throw createError("Coupon is no longer active", 400, "InvalidCoupon");
         if (coupon.expiryDate && new Date(coupon.expiryDate) < new Date()) throw createError("Coupon expired", 400, "InvalidCoupon");
         if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit) throw createError("Coupon usage limit reached", 400, "InvalidCoupon");
-        if (coupon.discountType === "RUPEES") throw createError("This coupon can only be used for marketplace purchases", 400, "InvalidCoupon");
-
-        if (coupon.discountType === "PERCENTAGE") {
-          finalCreditCost = Math.max(0, Math.floor(finalCreditCost - (finalCreditCost * (coupon.discountValue / 100))));
-        } else if (coupon.discountType === "CREDITS") {
-          finalCreditCost = Math.max(0, finalCreditCost - coupon.discountValue);
+        const discountCredits = bookingDiscountCredits(
+          coupon.discountType,
+          coupon.discountValue,
+          finalCreditCost,
+        );
+        if (discountCredits === null) {
+          throw createError("This coupon cannot be used for a gym visit.", 400, "InvalidCoupon");
         }
-
+        if (discountCredits <= 0) {
+          throw createError("This coupon does not reduce the visit cost.", 400, "InvalidCoupon");
+        }
+        finalCreditCost = Math.max(0, finalCreditCost - discountCredits);
         appliedCouponId = coupon.id;
       }
 
       // 4. Check wallet balance or primary visits
       let isPrimaryVisit = false;
-      if (membership.primaryGymId === gymId && membership.primaryGymVisits > 0) {
+      if (membership.primaryGymId === gym.id && membership.primaryGymVisits > 0) {
         isPrimaryVisit = true;
       }
 
@@ -128,7 +122,7 @@ router.post(
       const existingBooking = await tx.booking.findFirst({
         where: {
           userId: req.dbUserId!,
-          gymId,
+          gymId: gym.id,
           visitDate: { gte: visitDateStart, lte: visitDateEnd },
           status: { in: ["PENDING", "CONFIRMED", "CHECKED_IN"] },
         },
@@ -144,7 +138,7 @@ router.post(
       // 5. Check slot availability
       const bookedCount = await tx.booking.count({
         where: {
-          gymId,
+          gymId: gym.id,
           visitDate: { gte: visitDateStart, lte: visitDateEnd },
           status: { in: ["CONFIRMED", "CHECKED_IN", "COMPLETED"] },
         },
@@ -165,10 +159,7 @@ router.post(
           data: { primaryGymVisits: { decrement: 1 } }
         });
       } else {
-        updatedWallet = await tx.creditWallet.update({
-          where: { userId: req.dbUserId! },
-          data: { balance: { decrement: finalCreditCost } },
-        });
+        updatedWallet = await decrementCredits(tx, req.dbUserId!, finalCreditCost);
       }
 
       // 8. Create the booking
@@ -176,7 +167,7 @@ router.post(
       const booking = await tx.booking.create({
         data: {
           userId: req.dbUserId!,
-          gymId,
+          gymId: gym.id,
           visitDate: visitDateObj,
           timeSlot,
           status: "CONFIRMED",
@@ -373,10 +364,14 @@ router.delete(
       } catch {}
 
       const now = new Date();
-      const timeUntilWorkoutMs = workoutTime.getTime() - now.getTime();
-      const timeUntilWorkoutHours = timeUntilWorkoutMs / (1000 * 60 * 60);
+      if (isCancellationTooLate(workoutTime, now)) {
+        throw createError(
+          "Bookings can only be cancelled more than 2 hours before the visit.",
+          400,
+          "CancellationTooLate"
+        );
+      }
 
-      const timeSinceBookingMs = now.getTime() - booking.createdAt.getTime();
       await tx.booking.update({
         where: { id: booking.id },
         data: { status: "CANCELLED" },
@@ -425,10 +420,7 @@ router.delete(
           );
         }
 
-        const updatedWallet = await tx.creditWallet.update({
-          where: { userId: req.dbUserId! },
-          data: { balance: { decrement: 2 } },
-        });
+        const updatedWallet = await decrementCredits(tx, req.dbUserId!, 2);
         newBalance = updatedWallet.balance;
 
         await tx.creditTransaction.create({

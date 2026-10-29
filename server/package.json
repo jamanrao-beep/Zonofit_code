@@ -1,7 +1,7 @@
 {
     "name": "zonofit-server",
     "version": "1.0.0",
-    "description": "ZonoFit backend API \u00e2\u20ac\u201d Node.js + Express + Prisma + PostgreSQL + PostGIS",
+    "description": "ZonoFit backend API. Node.js, Express, Prisma, and MySQL.",
     "main": "dist/index.js",
     "prisma": {
         "seed": "ts-node --project tsconfig.json prisma/seed.ts"
@@ -16,7 +16,9 @@
         "db:generate": "prisma generate",
         "db:studio": "prisma studio",
         "db:reset": "prisma migrate reset",
-        "db:seed": "ts-node prisma/seed.ts"
+        "db:seed": "ts-node prisma/seed.ts",
+        "rotate-admin": "ts-node src/scripts/rotateAdminPassword.ts",
+        "test": "node --test test/security.test.cjs"
     },
     "dependencies": {
         "@prisma/client": "^6.9.0",

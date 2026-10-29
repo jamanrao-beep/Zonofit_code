@@ -1,8 +1,4 @@
 import prisma from "./prisma";
-import bcrypt from "bcryptjs";
-
-const DEFAULT_ADMIN_EMAIL = "zonofitofficial@gmail.com";
-const DEFAULT_ADMIN_PASSWORD = "Admin#Zonofit@Official_Hostinger(main)$2008";
 
 export const DDL_STATEMENTS: string[] = [
   "CREATE TABLE IF NOT EXISTS `users` (\r\n    `id` VARCHAR(191) NOT NULL,\r\n    `email` VARCHAR(191) NOT NULL,\r\n    `name` VARCHAR(191) NOT NULL,\r\n    `phone` VARCHAR(191) NULL,\r\n    `avatarUrl` TEXT NULL,\r\n    `expoPushToken` VARCHAR(191) NULL,\r\n    `gender` VARCHAR(191) NULL,\r\n    `dob` DATETIME(3) NULL,\r\n    `emergencyContact` VARCHAR(191) NULL,\r\n    `systemRole` ENUM('MEMBER', 'GYM_OWNER', 'ADMIN') NOT NULL DEFAULT 'MEMBER',\r\n    `passwordHash` VARCHAR(191) NULL,\r\n    `isSuspended` BOOLEAN NOT NULL DEFAULT false,\r\n    `referralCode` VARCHAR(191) NULL,\r\n    `referredByUserId` VARCHAR(191) NULL,\r\n    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\r\n    `updatedAt` DATETIME(3) NOT NULL,\r\n    `streak` INTEGER NOT NULL DEFAULT 0,\r\n    `totalWorkouts` INTEGER NOT NULL DEFAULT 0,\r\n    `trainingHours` INTEGER NOT NULL DEFAULT 0,\r\n    `identityStage` VARCHAR(191) NOT NULL DEFAULT 'Beginner',\r\n\r\n    UNIQUE INDEX `users_email_key`(`email`),\r\n    UNIQUE INDEX `users_referralCode_key`(`referralCode`),\r\n    PRIMARY KEY (`id`)\r\n) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci",
@@ -115,83 +111,9 @@ export async function initDatabase(): Promise<{
     }
     console.log(`[initDatabase] Finished executing ${executedCount} DDL statements.`);
 
-    const adminEmail = process.env.ADMIN_EMAIL || DEFAULT_ADMIN_EMAIL;
-    const adminPassword = process.env.ADMIN_PASSWORD || DEFAULT_ADMIN_PASSWORD;
-
-    const passwordHash = await bcrypt.hash(adminPassword, 10);
-    const admin = await prisma.user.upsert({
-      where: { email: adminEmail },
-      update: {
-        passwordHash,
-        systemRole: "ADMIN",
-        isSuspended: false,
-      },
-      create: {
-        email: adminEmail,
-        name: "ZonoFit Admin",
-        passwordHash,
-        systemRole: "ADMIN",
-        isSuspended: false,
-      },
-    });
-
-    console.log(`[initDatabase] Admin user verified and ready: ${admin.email}`);
-
-    // Seed test gym partner and gym
-    const testGymEmail = "testgym_1@gmail.com";
-    const testGymPassword = "testgym_1";
-    const testGymPasswordHash = await bcrypt.hash(testGymPassword, 10);
-
-    const testGymUser = await prisma.user.upsert({
-      where: { email: testGymEmail },
-      update: {
-        passwordHash: testGymPasswordHash,
-        systemRole: "GYM_OWNER",
-        isSuspended: false,
-      },
-      create: {
-        email: testGymEmail,
-        name: "Test Gym Partner",
-        passwordHash: testGymPasswordHash,
-        systemRole: "GYM_OWNER",
-        isSuspended: false,
-      },
-    });
-
-    const existingGym = await prisma.gym.findFirst({
-      where: { ownerId: testGymUser.id },
-    });
-
-    if (!existingGym) {
-      await prisma.gym.create({
-        data: {
-          name: "ZonoFit Test Arena",
-          description: "Official test partner gym for ZonoFit verification and portal testing.",
-          tagline: "Power & Fitness Performance",
-          address: "Plot 42, Link Road, Andheri West",
-          city: "Mumbai",
-          state: "Maharashtra",
-          lat: 19.1363,
-          lng: 72.8277,
-          creditCost: 8,
-          isVerified: true,
-          isActive: true,
-          category: "STANDARD",
-          facilities: ["Strength", "Cardio", "Lockers", "Shower", "CrossFit"],
-          ownerId: testGymUser.id,
-          totalSlots: 25,
-          contactEmail: testGymEmail,
-          contactPhone: "+91 98765 43210",
-        },
-      });
-      console.log(`[initDatabase] Test gym created and linked to ${testGymEmail}`);
-    }
-
     return {
       success: true,
-      message: "Database initialized, admin and test gym accounts ready.",
-      admin: admin.email,
-      testGym: testGymEmail,
+      message: "Database tables checked. Admin passwords are not reset from this process.",
       tablesCreated: executedCount,
     };
   } catch (error: any) {
@@ -203,69 +125,6 @@ export async function initDatabase(): Promise<{
   }
 }
 
-export async function seedTestGym(): Promise<{
-  success: boolean;
-  user: { id: string; email: string; role: string };
-  gym: { id: string; name: string };
-}> {
-  const testGymEmail = "testgym_1@gmail.com";
-  const testGymPassword = "testgym_1";
-  const testGymPasswordHash = await bcrypt.hash(testGymPassword, 10);
-
-  const testGymUser = await prisma.user.upsert({
-    where: { email: testGymEmail },
-    update: {
-      passwordHash: testGymPasswordHash,
-      systemRole: "GYM_OWNER",
-      isSuspended: false,
-    },
-    create: {
-      email: testGymEmail,
-      name: "Test Gym Partner",
-      passwordHash: testGymPasswordHash,
-      systemRole: "GYM_OWNER",
-      isSuspended: false,
-    },
-  });
-
-  let gym = await prisma.gym.findFirst({
-    where: { ownerId: testGymUser.id },
-  });
-
-  if (!gym) {
-    gym = await prisma.gym.create({
-      data: {
-        name: "ZonoFit Test Arena",
-        description: "Official test partner gym for ZonoFit verification and portal testing.",
-        tagline: "Power & Fitness Performance",
-        address: "Plot 42, Link Road, Andheri West",
-        city: "Mumbai",
-        state: "Maharashtra",
-        lat: 19.1363,
-        lng: 72.8277,
-        creditCost: 8,
-        isVerified: true,
-        isActive: true,
-        category: "STANDARD",
-        facilities: ["Strength", "Cardio", "Lockers", "Shower", "CrossFit"],
-        ownerId: testGymUser.id,
-        totalSlots: 25,
-        contactEmail: testGymEmail,
-        contactPhone: "+91 98765 43210",
-      },
-    });
-  }
-
-  return {
-    success: true,
-    user: {
-      id: testGymUser.id,
-      email: testGymUser.email,
-      role: testGymUser.systemRole,
-    },
-    gym: {
-      id: gym.id,
-      name: gym.name,
-    },
-  };
+export async function seedTestGym(): Promise<never> {
+  throw new Error("Test gym seeding is disabled. Create gym partners from the admin portal.");
 }

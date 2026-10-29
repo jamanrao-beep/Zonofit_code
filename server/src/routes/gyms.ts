@@ -1,4 +1,5 @@
-import { Router, Request, Response } from "express";
+import { Prisma } from "@prisma/client";
+import { Router, Request, Response, NextFunction } from "express";
 import { query, validationResult } from "express-validator";
 import prisma from "../lib/prisma";
 import { requireAuth, optionalAuth } from "../middleware/auth";
@@ -63,6 +64,16 @@ router.get(
       // ST_DWithin is faster than ST_Distance filter because it uses spatial index
       // ST_Distance gives us the actual distance in meters for sorting/display
       // Geography cast converts to spheroid for accurate real-world distances
+      const filters: Prisma.Sql[] = [];
+      if (category) filters.push(Prisma.sql`AND category = ${category}`);
+      if (maxCredits) filters.push(Prisma.sql`AND creditCost <= ${parseInt(maxCredits, 10)}`);
+      if (city) filters.push(Prisma.sql`AND LOWER(city) = LOWER(${city})`);
+      if (search) {
+        const like = `%${search.toLowerCase()}%`;
+        filters.push(Prisma.sql`AND (LOWER(name) LIKE ${like} OR LOWER(address) LIKE ${like})`);
+      }
+      const filterSql = filters.length > 0 ? Prisma.join(filters, " ") : Prisma.empty;
+
       const gyms = await prisma.$queryRaw<
         Array<{
           id: string;
@@ -112,10 +123,7 @@ router.get(
             POINT(lng, lat),
             POINT(${lngNum}, ${latNum})
           ) <= ${radiusMeters}
-          ${category ? prisma.$queryRaw`AND category = ${category}` : prisma.$queryRaw``}
-          ${maxCredits ? prisma.$queryRaw`AND creditCost <= ${parseInt(maxCredits)}` : prisma.$queryRaw``}
-          ${city ? prisma.$queryRaw`AND LOWER(city) = LOWER(${city})` : prisma.$queryRaw``}
-          ${search ? prisma.$queryRaw`AND (LOWER(name) LIKE ${"%" + search.toLowerCase() + "%"} OR LOWER(address) LIKE ${"%" + search.toLowerCase() + "%"})` : prisma.$queryRaw``}
+          ${filterSql}
         ORDER BY distance_meters ASC
         LIMIT ${limitNum}
         OFFSET ${skip}
@@ -138,12 +146,12 @@ router.get(
     const where: Record<string, unknown> = {
       isActive: true,
       ...(category && { category }),
-      ...(city && { city: { equals: city, mode: "insensitive" } }),
+      ...(city && { city }),
       ...(maxCredits && { creditCost: { lte: parseInt(maxCredits) } }),
       ...(search && {
         OR: [
-          { name: { contains: search, mode: "insensitive" } },
-          { address: { contains: search, mode: "insensitive" } },
+          { name: { contains: search } },
+          { address: { contains: search } },
         ],
       }),
     };
@@ -296,8 +304,13 @@ router.get("/favorites", requireAuth, async (req: Request, res: Response) => {
 router.get(
   "/:id",
   optionalAuth,
-  async (req: Request, res: Response): Promise<void> => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const gymId = req.params.id as string;
+    const reserved = new Set(["favorites", "offers", "support", "analytics", "profile", "applications", "payouts", "explore"]);
+    if (reserved.has(gymId)) {
+      next();
+      return;
+    }
     const gym = await prisma.gym.findUnique({
       where: { id: gymId, isActive: true },
       select: {

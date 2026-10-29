@@ -3,17 +3,28 @@ import prisma from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
 import { createError } from "../middleware/errorHandler";
 import { getSystemSettings } from "../services/settings";
+import { roleCanAccess } from "../lib/adminAccess";
 
 const router = Router();
 
-// Middleware to ensure user is an Admin
+const ADMIN_ROLES = ["FOUNDER", "OPS_MANAGER", "SALES_REP", "SUPPORT_AGENT", "FINANCE_ADMIN", "MARKETING_MANAGER"] as const;
+
+// An admin with no profile keeps full access. A stored role is enforced.
 const requireAdmin = async (req: Request, res: Response, next: Function) => {
   if (!req.dbUserId) {
     return next(createError("Unauthorized", 401, "Unauthorized"));
   }
-  const user = await prisma.user.findUnique({ where: { id: req.dbUserId } });
+  const user = await prisma.user.findUnique({
+    where: { id: req.dbUserId },
+    include: { adminProfile: true },
+  });
   if (user?.systemRole !== "ADMIN") {
     return next(createError("Forbidden. Admin access required.", 403, "Forbidden"));
+  }
+  const role = user.adminProfile?.roleType ?? "FOUNDER";
+  const path = `${req.baseUrl || ""}${req.path || ""}`;
+  if (!roleCanAccess(role, path, req.method)) {
+    return next(createError("This admin role cannot use that action.", 403, "Forbidden"));
   }
   next();
 };
@@ -1322,5 +1333,55 @@ router.delete("/gyms/:id", requireAuth, requireAdmin, async (req: Request, res: 
   }
 });
 
+// ─── GET /api/admin/admins ───────────────────────────────────────────────────
+router.get("/admins", requireAuth, requireAdmin, async (_req: Request, res: Response): Promise<void> => {
+  const admins = await prisma.user.findMany({
+    where: { systemRole: "ADMIN" },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      adminProfile: { select: { roleType: true } },
+    },
+    orderBy: { name: "asc" },
+  });
+  res.json({
+    admins: admins.map((admin) => ({
+      id: admin.id,
+      name: admin.name,
+      email: admin.email,
+      roleType: admin.adminProfile?.roleType ?? "FOUNDER",
+    })),
+  });
+});
+
+// ─── PUT /api/admin/admins/:userId ───────────────────────────────────────────
+router.put("/admins/:userId", requireAuth, requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  const roleType = String(req.body?.roleType ?? "");
+  if (!ADMIN_ROLES.includes(roleType as (typeof ADMIN_ROLES)[number])) {
+    res.status(400).json({ error: "ValidationError", message: "Choose a valid admin role." });
+    return;
+  }
+  const userId = req.params.userId as string;
+  const target = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, systemRole: true } });
+  if (!target || target.systemRole !== "ADMIN") {
+    res.status(404).json({ error: "NotFound", message: "That user is not an admin." });
+    return;
+  }
+  const profile = await prisma.adminProfile.upsert({
+    where: { userId },
+    update: { roleType: roleType as (typeof ADMIN_ROLES)[number] },
+    create: { userId, roleType: roleType as (typeof ADMIN_ROLES)[number] },
+  });
+  await prisma.adminAuditLog.create({
+    data: {
+      adminId: req.dbUserId!,
+      actionType: "SET_ADMIN_ROLE",
+      targetId: userId,
+      details: `Set admin role to ${profile.roleType}`,
+    },
+  });
+  res.json({ userId, roleType: profile.roleType });
+});
+
 export default router;
-// trigger restart

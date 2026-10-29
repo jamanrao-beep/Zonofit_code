@@ -1,10 +1,12 @@
+import crypto from "crypto";
 import prisma from "./prisma";
 
+const REFERRAL_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
 export function generateRandomReferralCode(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "ZONO-";
   for (let i = 0; i < 6; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
+    code += REFERRAL_CHARS[crypto.randomInt(REFERRAL_CHARS.length)];
   }
   return code;
 }
@@ -15,5 +17,5 @@ export async function generateUniqueReferralCode(): Promise<string> {
     const existing = await prisma.user.findUnique({ where: { referralCode: code } });
     if (!existing) return code;
   }
-  return "ZONO-" + Math.random().toString(36).substring(2, 8).toUpperCase();
+  return "ZONO-" + crypto.randomBytes(4).toString("hex").toUpperCase();
 }

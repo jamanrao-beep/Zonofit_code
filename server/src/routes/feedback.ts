@@ -1,10 +1,9 @@
-import { PrismaClient } from "@prisma/client";
 import { Request, Response, Router } from "express";
 import { body, validationResult } from "express-validator";
+import prisma from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // POST /api/feedback/feature
 router.post(
@@ -57,26 +56,13 @@ router.post(
       return;
     }
 
-    const { city, contact, note } = req.body;
-    console.log(`[City Vote] Received request for city: "${city}" | Contact: "${contact || 'N/A'}" | Note: "${note || 'N/A'}"`);
+    const { city } = req.body as { city: string };
+    console.log("[City Vote] recorded");
 
-    try {
-      await (prisma as any).featureFeedback?.create?.({
-        data: {
-          featureName: `City Vote: ${city}`,
-          comment: `City Vote: ${city}. Contact: ${contact || "Not provided"}. Note: ${note || "None"}`,
-        },
-      }).catch((e: any) => console.log("DB featureFeedback optional write:", e?.message));
-
-      res.json({
-        success: true,
-        message: `Thank you! Your vote for ${city} has been recorded.`,
-        targetEmail: "zonofitofficial@gmail.com",
-      });
-    } catch (error) {
-      console.error("Failed to record city vote:", error);
-      res.json({ success: true, message: "Vote noted!" });
-    }
+    res.json({
+      success: true,
+      message: `Thank you! Your vote for ${city} has been recorded.`,
+    });
   }
 );
 

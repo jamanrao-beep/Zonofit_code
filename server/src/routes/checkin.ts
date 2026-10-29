@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { Router, Request, Response } from "express";
 import { body, validationResult } from "express-validator";
 import prisma from "../lib/prisma";
@@ -7,205 +8,34 @@ import { sendPushNotification } from "../services/notifications";
 
 const router = Router();
 
+function codesMatch(actual: string, expected: string): boolean {
+  const actualBuf = Buffer.from(actual);
+  const expectedBuf = Buffer.from(expected);
+  if (actualBuf.length !== expectedBuf.length) return false;
+  return crypto.timingSafeEqual(actualBuf, expectedBuf);
+}
+
+function startOfTodayInKolkata(): Date {
+  const date = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  return new Date(`${date}T00:00:00+05:30`);
+}
+
 // ─── POST /api/checkin/verify ─────────────────────────────────────────────────
 /**
- * Verify a QR check-in.
- *
- * TRUST BOUNDARY — the authoritative "this visit is valid" decision.
- * The app can display a QR code, but this endpoint makes the call.
- *
- * Called when:
- *   - Gym staff scans user's QR pass (passCode from booking)
- *   - OR user self-reports check-in via OTP (future)
- *
- * Success → booking.status = CHECKED_IN, checkIn.status = VERIFIED
- * Failure → checkIn.attemptCount incremented, booking stays CONFIRMED
- *
- * Security rules:
- *   - Code must match the stored verificationCode
- *   - Must not be expired
- *   - Must not already be verified (prevents duplicate check-ins)
- *   - Max 5 attempts before locking
+ * Members cannot complete their own visit. The pass is shown to gym staff,
+ * who confirm it on POST /api/checkin/staff. Client GPS is not accepted.
  */
-router.post(
-  "/verify",
-  requireAuth,
-  [
-    body("bookingId").isUUID().withMessage("Valid booking ID required."),
-    body("verificationCode").isString().notEmpty().withMessage("Verification code required."),
-    body("userLat").isFloat().withMessage("User latitude required."),
-    body("userLng").isFloat().withMessage("User longitude required."),
-  ],
-  async (req: Request, res: Response): Promise<void> => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      res.status(400).json({ error: "ValidationError", details: errors.array() });
-      return;
-    }
-
-    const { bookingId, verificationCode, userLat, userLng } = req.body as {
-      bookingId: string;
-      verificationCode: string;
-      userLat: number;
-      userLng: number;
-    };
-
-    const result = await prisma.$transaction(async (tx) => {
-      // Load booking + check-in in one query
-      const booking = await tx.booking.findFirst({
-        where: {
-          id: bookingId,
-          userId: req.dbUserId!, // Prevent verifying someone else's booking
-        },
-        include: {
-          checkIn: true,
-          gym: { select: { name: true, lat: true, lng: true } },
-          user: { select: { id: true, name: true, referredByUserId: true, totalWorkouts: true } },
-        },
-      });
-
-      if (!booking) throw createError("Booking not found.", 404, "BookingNotFound");
-      if (!booking.checkIn) throw createError("Check-in record not found.", 404, "CheckInNotFound");
-
-      const checkIn = booking.checkIn;
-
-      // Already verified?
-      if (checkIn.status === "VERIFIED") {
-        throw createError("This visit has already been checked in.", 409, "AlreadyCheckedIn");
-      }
-
-      // Expired?
-      if (new Date() > checkIn.expiresAt) {
-        await tx.checkIn.update({
-          where: { id: checkIn.id },
-          data: { status: "EXPIRED" },
-        });
-        throw createError("Check-in code has expired.", 410, "CheckInExpired");
-      }
-
-      // Too many attempts?
-      if (checkIn.attemptCount >= 5) {
-        throw createError(
-          "Too many failed attempts. Please contact gym staff.",
-          429,
-          "TooManyAttempts"
-        );
-      }
-
-      // Increment attempt counter regardless of outcome
-      await tx.checkIn.update({
-        where: { id: checkIn.id },
-        data: { attemptCount: { increment: 1 } },
-      });
-
-      // Verify code — in prod this would be a hash comparison
-      // TODO: replace with crypto.timingSafeEqual(hash(verificationCode), storedHash)
-      if (verificationCode !== checkIn.verificationCode) {
-        throw createError(
-          "Invalid verification code.",
-          400,
-          "InvalidCode"
-        );
-      }
-
-      // Location Check: Must be within 1km
-      const R = 6371; // Radius of the earth in km
-      const dLat = (booking.gym.lat - userLat) * Math.PI / 180;
-      const dLon = (booking.gym.lng - userLng) * Math.PI / 180;
-      const a = 
-        Math.sin(dLat/2) * Math.sin(dLat/2) +
-        Math.cos(userLat * Math.PI / 180) * Math.cos(booking.gym.lat * Math.PI / 180) * 
-        Math.sin(dLon/2) * Math.sin(dLon/2); 
-      const distanceInKm = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)) * R;
-      
-      if (distanceInKm > 1) {
-        throw createError(
-          `You must be within 1km of ${booking.gym.name} to check in. You are currently ${distanceInKm.toFixed(2)}km away.`,
-          403,
-          "TooFarFromGym"
-        );
-      }
-
-      // ✅ Valid — mark as VERIFIED and update user journey stats
-      const [updatedCheckIn] = await Promise.all([
-        tx.checkIn.update({
-          where: { id: checkIn.id },
-          data: {
-            status: "VERIFIED",
-            verifiedAt: new Date(),
-          },
-        }),
-        tx.booking.update({
-          where: { id: booking.id },
-          data: { status: "CHECKED_IN" },
-        }),
-        tx.user.update({
-          where: { id: req.dbUserId! },
-          data: {
-            totalWorkouts: { increment: 1 },
-            streak: { increment: 1 },
-            trainingHours: { increment: 1 },
-          },
-        }),
-        tx.membership.updateMany({
-          where: { userId: req.dbUserId!, status: "ACTIVE" },
-          data: {
-            completedVisits: { increment: 1 },
-          },
-        }),
-      ]);
-
-      // Award 5 credits to referrer if this is their friend's first completed visit
-      let referrerIdToNotify: string | null = null;
-      if (booking.user?.referredByUserId && booking.user.totalWorkouts === 0) {
-        referrerIdToNotify = booking.user.referredByUserId;
-        const referrerWallet = await tx.creditWallet.findUnique({
-          where: { userId: referrerIdToNotify },
-        });
-        if (referrerWallet) {
-          await tx.creditWallet.update({
-            where: { id: referrerWallet.id },
-            data: { balance: { increment: 5 } },
-          });
-          await tx.creditTransaction.create({
-            data: {
-              walletId: referrerWallet.id,
-              userId: referrerIdToNotify,
-              type: "BONUS",
-              amount: 5,
-              balanceAfter: referrerWallet.balance + 5,
-              description: `Referral reward: ${booking.user?.name || "Friend"} completed their first gym visit!`,
-            },
-          });
-        }
-      }
-
-      return { checkIn: updatedCheckIn, gymName: booking.gym.name, referrerIdToNotify };
-    });
-
-    // Send push notification to user
-    sendPushNotification(
-      req.dbUserId!,
-      "Check-in Verified 🔥",
-      `You're all checked in at ${result.gymName}. Have a great workout!`
-    ).catch(e => console.error(e));
-
-    // Send push notification to referrer if applicable
-    if (result.referrerIdToNotify) {
-      sendPushNotification(
-        result.referrerIdToNotify,
-        "Referral Bonus! 🎁",
-        "You earned 5 credits! Your referred friend just completed their first workout."
-      ).catch(e => console.error(e));
-    }
-
-    res.json({
-      success: true,
-      message: `Checked in at ${result.gymName}. Enjoy your workout! 🔥`,
-      verifiedAt: result.checkIn.verifiedAt,
-    });
-  }
-);
+router.post("/verify", requireAuth, async (_req: Request, res: Response): Promise<void> => {
+  res.status(403).json({
+    error: "StaffConfirmationRequired",
+    message: "Show your pass to the front desk. A gym partner confirms the visit.",
+  });
+});
 
 // ─── GET /api/checkin/pass/:bookingId ─────────────────────────────────────────
 /**
@@ -245,6 +75,138 @@ router.get(
       status: booking.status,
       checkIn: booking.checkIn,
     });
+  }
+);
+
+// ─── POST /api/checkin/staff ──────────────────────────────────────────────────
+/**
+ * Gym staff confirm a member's pass code at the desk.
+ * The member does not mark their own visit from this route.
+ */
+router.post(
+  "/staff",
+  requireAuth,
+  [body("passCode").isString().notEmpty().withMessage("Pass code required.")],
+  async (req: Request, res: Response): Promise<void> => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      res.status(400).json({ error: "ValidationError", details: errors.array() });
+      return;
+    }
+
+    const { passCode } = req.body as { passCode: string };
+    const ownedGyms = await prisma.gym.findMany({
+      where: { ownerId: req.dbUserId!, isActive: true },
+      select: { id: true },
+    });
+    if (ownedGyms.length === 0) {
+      res.status(403).json({ error: "Forbidden", message: "Only a gym partner can confirm a visit." });
+      return;
+    }
+
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        const booking = await tx.booking.findFirst({
+          where: {
+            passCode,
+            gymId: { in: ownedGyms.map((gym) => gym.id) },
+            status: "CONFIRMED",
+          },
+          include: {
+            checkIn: true,
+            gym: { select: { name: true } },
+            user: { select: { id: true, name: true, referredByUserId: true, totalWorkouts: true } },
+          },
+        });
+        if (!booking) throw createError("No confirmed visit matches that pass.", 404, "BookingNotFound");
+        if (!booking.checkIn) throw createError("Check-in record not found.", 404, "CheckInNotFound");
+        if (booking.checkIn.status === "VERIFIED") {
+          throw createError("This visit has already been checked in.", 409, "AlreadyCheckedIn");
+        }
+        if (new Date() > booking.checkIn.expiresAt) {
+          await tx.checkIn.update({ where: { id: booking.checkIn.id }, data: { status: "EXPIRED" } });
+          throw createError("Check-in code has expired.", 410, "CheckInExpired");
+        }
+        if (!codesMatch(passCode, booking.checkIn.verificationCode)) {
+          throw createError("Invalid verification code.", 400, "InvalidCode");
+        }
+
+        const alreadyCheckedInToday = await tx.checkIn.count({
+          where: {
+            status: "VERIFIED",
+            verifiedAt: { gte: startOfTodayInKolkata() },
+            booking: { userId: booking.userId },
+          },
+        });
+        const updatedCheckIn = await tx.checkIn.update({
+          where: { id: booking.checkIn.id },
+          data: {
+            status: "VERIFIED",
+            verifiedAt: new Date(),
+            verifiedByStaff: req.dbUserId!,
+          },
+        });
+        await tx.booking.update({ where: { id: booking.id }, data: { status: "CHECKED_IN" } });
+        await tx.user.update({
+          where: { id: booking.userId },
+          data: {
+            totalWorkouts: { increment: 1 },
+            trainingHours: { increment: 1 },
+            ...(alreadyCheckedInToday === 0 ? { streak: { increment: 1 } } : {}),
+          },
+        });
+        await tx.membership.updateMany({
+          where: { userId: booking.userId, status: "ACTIVE" },
+          data: { completedVisits: { increment: 1 } },
+        });
+
+        let referrerIdToNotify: string | null = null;
+        if (booking.user?.referredByUserId && booking.user.totalWorkouts === 0) {
+          referrerIdToNotify = booking.user.referredByUserId;
+          const referrerWallet = await tx.creditWallet.findUnique({ where: { userId: referrerIdToNotify } });
+          if (referrerWallet) {
+            await tx.creditWallet.update({
+              where: { id: referrerWallet.id },
+              data: { balance: { increment: 5 } },
+            });
+            await tx.creditTransaction.create({
+              data: {
+                walletId: referrerWallet.id,
+                userId: referrerIdToNotify,
+                type: "BONUS",
+                amount: 5,
+                balanceAfter: referrerWallet.balance + 5,
+                description: `Referral reward: ${booking.user?.name || "Friend"} completed their first gym visit.`,
+              },
+            });
+          }
+        }
+
+        return { verifiedAt: updatedCheckIn.verifiedAt, gymName: booking.gym.name, memberId: booking.userId, referrerIdToNotify };
+      });
+
+      sendPushNotification(
+        result.memberId,
+        "Check-in Verified",
+        `You're all checked in at ${result.gymName}. Have a great workout.`
+      ).catch(() => {});
+      if (result.referrerIdToNotify) {
+        sendPushNotification(
+          result.referrerIdToNotify,
+          "Referral Bonus",
+          "You earned 5 credits. Your referred friend just completed their first workout."
+        ).catch(() => {});
+      }
+
+      res.json({
+        success: true,
+        message: `Checked in at ${result.gymName}.`,
+        verifiedAt: result.verifiedAt,
+      });
+    } catch (err: any) {
+      const status = err.statusCode || 500;
+      res.status(status).json({ error: err.code || "CheckInFailed", message: err.message || "Check-in failed." });
+    }
   }
 );
 

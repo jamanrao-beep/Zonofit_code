@@ -1,46 +1,64 @@
-import { createHmac } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 
-const JWT_SECRET = process.env.JWT_SECRET || "zonofit_super_secret_key_1234567890";
+const TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const BANNED_SECRETS = new Set([
+  "zonofit_super_secret_key_1234567890",
+  "changeme",
+  "secret",
+]);
 
 export interface TokenPayload {
   dbUserId: string;
   phone?: string;
   systemRole?: string;
-  createdAt: number;
+  iat: number;
+  exp: number;
 }
 
-/**
- * signToken — Generates a stateless session token.
- * Format: base64url(payload).base64url(signature)
- */
-export function signToken(payload: TokenPayload): string {
-  const payloadStr = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  const signature = createHmac("sha256", JWT_SECRET)
-    .update(payloadStr)
-    .digest("base64url");
-  return `${payloadStr}.${signature}`;
+function getSecret(): string {
+  const secret = process.env.JWT_SECRET?.trim() ?? "";
+  if (secret.length < 32 || BANNED_SECRETS.has(secret)) {
+    throw new Error("JWT_SECRET must be set to a unique value of at least 32 characters.");
+  }
+  return secret;
 }
 
-/**
- * verifyToken — Verifies a stateless session token and returns the parsed payload.
- * Returns null if invalid or expired.
- */
+function sign(payloadStr: string): string {
+  return createHmac("sha256", getSecret()).update(payloadStr).digest("base64url");
+}
+
+function signaturesMatch(actual: string, expected: string): boolean {
+  const actualBuf = Buffer.from(actual);
+  const expectedBuf = Buffer.from(expected);
+  if (actualBuf.length !== expectedBuf.length) return false;
+  return timingSafeEqual(actualBuf, expectedBuf);
+}
+
+export function signToken(payload: Omit<TokenPayload, "iat" | "exp">): string {
+  const now = Date.now();
+  const full: TokenPayload = { ...payload, iat: now, exp: now + TOKEN_TTL_MS };
+  const payloadStr = Buffer.from(JSON.stringify(full)).toString("base64url");
+  return `${payloadStr}.${sign(payloadStr)}`;
+}
+
 export function verifyToken(token: string): TokenPayload | null {
   const parts = token.split(".");
   if (parts.length !== 2) return null;
 
   const [payloadStr, signature] = parts;
-  const expectedSignature = createHmac("sha256", JWT_SECRET)
-    .update(payloadStr)
-    .digest("base64url");
-
-  if (signature !== expectedSignature) {
+  let expectedSignature: string;
+  try {
+    expectedSignature = sign(payloadStr);
+  } catch {
     return null;
   }
 
+  if (!signaturesMatch(signature, expectedSignature)) return null;
+
   try {
-    const jsonStr = Buffer.from(payloadStr, "base64url").toString("utf8");
-    return JSON.parse(jsonStr) as TokenPayload;
+    const parsed = JSON.parse(Buffer.from(payloadStr, "base64url").toString("utf8")) as TokenPayload;
+    if (!parsed?.dbUserId || typeof parsed.exp !== "number" || Date.now() > parsed.exp) return null;
+    return parsed;
   } catch {
     return null;
   }
