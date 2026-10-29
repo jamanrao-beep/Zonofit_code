@@ -1,13 +1,42 @@
 "use client";
 
 import GymGuard from "@/components/GymGuard";
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Activity, Users, Tag, CalendarCheck, CheckCircle2 } from "lucide-react";
 
 export default function GymDashboardPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [passCode, setPassCode] = useState("");
+  const [checkInMessage, setCheckInMessage] = useState("");
+  const [checkingIn, setCheckingIn] = useState(false);
+
+  const confirmVisit = async (event: FormEvent) => {
+    event.preventDefault();
+    const code = passCode.trim();
+    if (!code) return;
+    setCheckingIn(true);
+    setCheckInMessage("");
+    try {
+      const token = localStorage.getItem("zonofit_portal_token");
+      const res = await fetch("/api/checkin/staff", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ passCode: code }),
+      });
+      const result = await res.json();
+      setCheckInMessage(result.message || "Could not confirm that visit.");
+      if (res.ok) setPassCode("");
+    } catch {
+      setCheckInMessage("Could not reach the server.");
+    } finally {
+      setCheckingIn(false);
+    }
+  };
 
   useEffect(() => {
     const fetchDashboard = async () => {
@@ -40,6 +69,28 @@ export default function GymDashboardPage() {
             </p>
           </div>
         </div>
+
+        <form onSubmit={confirmVisit} className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm mb-8">
+          <h2 className="text-lg font-bold text-gray-900 mb-1">Confirm a visit</h2>
+          <p className="text-sm text-gray-500 mb-4">Enter the pass code from the member&apos;s booking.</p>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <input
+              value={passCode}
+              onChange={(event) => setPassCode(event.target.value)}
+              className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-gray-900"
+              placeholder="Pass code"
+              autoComplete="off"
+            />
+            <button
+              type="submit"
+              disabled={checkingIn || !passCode.trim()}
+              className="bg-emerald-700 text-white rounded-xl px-5 py-3 font-semibold disabled:opacity-50"
+            >
+              {checkingIn ? "Checking..." : "Confirm"}
+            </button>
+          </div>
+          {checkInMessage ? <p className="text-sm mt-3 text-gray-700">{checkInMessage}</p> : null}
+        </form>
         
         {loading ? (
           <div className="text-center py-20 text-gray-400 font-medium animate-pulse">Loading Live Analytics...</div>

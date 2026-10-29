@@ -28,7 +28,7 @@ export default function ScanModal() {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [verifying, setVerifying] = useState(false);
-  const { bookingStatus, bookedGymId, bookingId, checkIn } = useBookingStore();
+  const { bookingStatus, bookedGymId, bookingId } = useBookingStore();
   const { token } = useAuthStore();
 
   // Remove the block that requires an active booking to open the scanner
@@ -108,7 +108,7 @@ export default function ScanModal() {
       const distanceMeters = getDistance(userLat, userLon, gym.lat, gym.lng);
       
       // We allow up to 200 meters deviation
-      if (distanceMeters > 200) {
+      if (distanceMeters > 1000) {
         Alert.alert(
           "Location Verification Failed", 
           `You appear to be ${Math.round(distanceMeters)} meters away from the gym. You must be at the gym to check in.`,
@@ -125,11 +125,11 @@ export default function ScanModal() {
         const costLabel = isCashVenue ? `₹${cashCost} Cash` : `${gym.cost} Credits`;
 
         Alert.alert(
-          "Walk-In Check-In",
-          `Check in to ${gym.name} now for ${costLabel}?`,
+          "Book this visit",
+          `Book ${gym.name} now for ${costLabel}? The front desk confirms the visit from your pass.`,
           [
             { text: "Cancel", style: "cancel", onPress: () => { setScanned(false); setVerifying(false); } },
-            { text: "Check In", onPress: async () => {
+            { text: "Book", onPress: async () => {
               try {
                 const now = new Date();
                 const dateStr = now.toISOString();
@@ -142,7 +142,7 @@ export default function ScanModal() {
                    if (successCash) {
                       successBooking = await useBookingStore.getState().bookVisit(gym.id, gym.name, dateStr, timeStr, 0);
                    } else {
-                      Alert.alert("Insufficient Cash", "You do not have enough converted cash for this venue.");
+                      Alert.alert("Cash visit unavailable", "This visit has to be booked and paid through your ZonoFit wallet.");
                       setScanned(false);
                       setVerifying(false);
                       return;
@@ -163,29 +163,12 @@ export default function ScanModal() {
                 
                 if (!newBookingId) throw new Error("Could not find newly created booking ID.");
 
-                // 2. Fetch pass code
-                const passData = await apiFetch(`/api/checkin/pass/${newBookingId}`, { token });
-                if (!passData || !passData.passCode) throw new Error("Could not retrieve pass.");
-
-                // 3. Verify
-                const verifyData = await apiFetch("/api/checkin/verify", {
-                  token,
-                  method: "POST",
-                  body: JSON.stringify({
-                    bookingId: newBookingId,
-                    verificationCode: passData.passCode
-                  })
-                });
-
-                // 4. Mark checked in locally
-                const successCheckIn = await useBookingStore.getState().checkIn();
-                if (successCheckIn) {
-                  Alert.alert(
-                    "Check-In Successful! 🎉", 
-                    verifyData.message || "You have successfully verified your location and QR code. Have a great workout!",
-                    [{ text: "Awesome!", onPress: () => router.replace("/(tabs)") }]
-                  );
-                }
+                setVerifying(false);
+                Alert.alert(
+                  "Pass ready",
+                  `Your visit at ${gym.name} is booked. Show the pass to the front desk. They confirm the visit.`,
+                  [{ text: "View pass", onPress: () => router.replace("/booking-pass" as any) }]
+                );
               } catch (e: any) {
                 Alert.alert("Error", e.message || "Walk-in check-in failed.");
                 setScanned(false);
@@ -198,33 +181,19 @@ export default function ScanModal() {
         return;
       }
 
-      // --- Normal Pre-Booked Check-In Flow ---
-      const passData = await apiFetch(`/api/checkin/pass/${bookingId}`, { token });
-      if (!passData || !passData.passCode) {
-        Alert.alert("Error", "Could not retrieve your booking pass.");
+      if (!bookingId) {
+        Alert.alert("No booking", "Book a visit first, then show the pass to the front desk.");
         setScanned(false);
         setVerifying(false);
         return;
       }
 
-      const verifyData = await apiFetch("/api/checkin/verify", {
-        token,
-        method: "POST",
-        body: JSON.stringify({
-          bookingId,
-          verificationCode: passData.passCode
-        })
-      });
-
-      // Success!
-      const success = await checkIn();
-      if (success) {
-        Alert.alert(
-          "Check-In Successful! 🎉", 
-          verifyData.message || "You have successfully verified your location and QR code. Have a great workout!",
-          [{ text: "Awesome!", onPress: () => router.replace("/(tabs)") }]
-        );
-      }
+      setVerifying(false);
+      Alert.alert(
+        "Show your pass",
+        "Show this pass to the front desk. They confirm the visit. Scanning the gym code does not check you in.",
+        [{ text: "View pass", onPress: () => router.replace("/booking-pass" as any) }]
+      );
 
     } catch (error: any) {
       Alert.alert("Error", error.message || "Failed to check in.");
@@ -253,7 +222,7 @@ export default function ScanModal() {
         <View className="items-center mt-16 px-5">
           <Text className="text-white text-2xl font-black">Scan Gym QR</Text>
           <Text className="text-white/80 text-center mt-2 font-medium">
-            Find the ZonoFit QR code at the front desk and scan it to check in.
+            Find the ZonoFit QR code at the front desk. Scanning opens your pass. Staff confirm the visit.
           </Text>
         </View>
 

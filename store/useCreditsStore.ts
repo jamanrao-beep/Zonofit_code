@@ -89,6 +89,36 @@ interface CreditsState {
   reset: () => void;
 }
 
+async function confirmRazorpayOrder(orderData: any, description: string) {
+  if (!orderData?.keyId || !orderData?.razorpayOrderId) {
+    throw new Error(orderData?.message || "Card payments are not configured yet.");
+  }
+  const RazorpayCheckout = require("react-native-razorpay").default;
+  if (!RazorpayCheckout?.open) {
+    throw new Error("Card payments need the ZonoFit app on a phone.");
+  }
+  const payment = await RazorpayCheckout.open({
+    description,
+    currency: orderData.currency || "INR",
+    key: orderData.keyId,
+    amount: orderData.amount,
+    name: "ZonoFit",
+    order_id: orderData.razorpayOrderId,
+    theme: { color: "#059669" },
+  });
+  const token = useAuthStore.getState().token;
+  await apiFetch("/api/credits/confirm", {
+    method: "POST",
+    token,
+    body: JSON.stringify({
+      razorpayOrderId: orderData.razorpayOrderId,
+      razorpayPaymentId: payment.razorpay_payment_id,
+      razorpaySignature: payment.razorpay_signature,
+    }),
+  });
+  if (token) await useCreditsStore.getState().fetchWallet(token);
+}
+
 export const useCreditsStore = create<CreditsState>()(
   persist(
     (set, get) => ({
@@ -112,88 +142,17 @@ export const useCreditsStore = create<CreditsState>()(
     set({ loading: true });
     try {
       const data = await apiFetch("/api/credits/balance", { token });
-      let resolvedCredits = data.balance ?? 0;
-      let mem = data.membership;
-
-      // If backend has no membership record yet, check local userStore
-      try {
-        const { useUserStore } = require("./useUserStore");
-        const userState = useUserStore.getState();
-        const isUserActive = userState.membershipStatus === "Active" || userState.membershipStatus === "ACTIVE" || userState.visitsRemaining > 0;
-        
-        if (!mem && isUserActive) {
-          mem = {
-            status: "ACTIVE",
-            isExpired: false,
-            isExpiringSoon: false,
-            tier: userState.planName?.toUpperCase() || "STARTER",
-            planName: userState.planName || "Starter",
-            gymName: userState.primaryGymName || "Being Fitness",
-            endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-            daysRemaining: 30,
-            cycleNumber: 1,
-            maxCycles: 12,
-            cyclesRemaining: 11,
-            mandatoryVisits: userState.visitsRemaining || 10,
-            completedVisits: 0,
-            mandatoryVisitsRemaining: userState.visitsRemaining || 10,
-            canRepurchase: false,
-            canBuyAdditionalCredits: true,
-            creditExpiryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString(),
-          };
-        } else if (mem && mem.gymName === "FitZone Pro" && userState.primaryGymName && userState.primaryGymName !== "FitZone Pro") {
-          mem = { ...mem, gymName: userState.primaryGymName };
-        }
-      } catch {}
-
-      if (mem && !mem.isExpired && (mem.status === "ACTIVE" || mem.status === "Active") && resolvedCredits === 0) {
-        const planPrice = mem.price || 3000;
-        const cycleNum = mem.cycleNumber || 1;
-        const { calculateMembershipBreakdown } = require("@/constants/credits");
-        const breakdown = calculateMembershipBreakdown(planPrice, cycleNum);
-        resolvedCredits = breakdown.walletCreditsCount;
-      }
-
       set({
-        credits: resolvedCredits,
+        credits: data.balance ?? 0,
         cashBalance: (data.convertibleCashBalanceINR || 0) + (data.nonConvertibleCashBalanceINR || 0),
         inrWallet: data.inrWallet || null,
-        membershipInfo: mem || null,
+        membershipInfo: data.membership || null,
         loading: false,
       });
       // Optionally fetch the first page of transactions automatically
       get().fetchTransactions(token, 1);
     } catch (err) {
-      try {
-        const { useUserStore } = require("./useUserStore");
-        const userState = useUserStore.getState();
-        const isMember = userState.membershipStatus === "Active" || userState.membershipStatus === "ACTIVE" || userState.visitsRemaining > 0;
-        if (isMember) {
-          const gymName = userState.primaryGymName || "Being Fitness";
-          set((state) => ({
-            credits: state.credits > 0 ? state.credits : 180,
-            membershipInfo: state.membershipInfo ? { ...state.membershipInfo, gymName } : {
-              status: "ACTIVE",
-              isExpired: false,
-              isExpiringSoon: false,
-              tier: userState.planName?.toUpperCase() || "STARTER",
-              planName: userState.planName || "Starter",
-              gymName,
-              endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-              daysRemaining: 30,
-              cycleNumber: 1,
-              maxCycles: 12,
-              cyclesRemaining: 11,
-              mandatoryVisits: userState.visitsRemaining || 10,
-              completedVisits: 0,
-              mandatoryVisitsRemaining: userState.visitsRemaining || 10,
-              canRepurchase: false,
-              canBuyAdditionalCredits: true,
-              creditExpiryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString(),
-            },
-          }));
-        }
-      } catch {}
+      console.error("Failed to fetch wallet:", err);
       set({ loading: false });
     }
   },
@@ -287,238 +246,43 @@ export const useCreditsStore = create<CreditsState>()(
     }));
   },
 
-  buyCredits: async (creditsAmount, inrCost) => {
-    let orderData: any = null;
+  buyCredits: async (creditsAmount, _inrCost) => {
     try {
       const token = useAuthStore.getState().token;
-      
-      // Step 1: Create Order
-      orderData = await apiFetch("/api/credits/create-order", {
+      const orderData = await apiFetch("/api/credits/create-order", {
         method: "POST",
         token,
         body: JSON.stringify({ credits: creditsAmount }),
       });
-
-      // Step 2: Open Razorpay
-      const RazorpayCheckout = require('react-native-razorpay').default;
-      const options = {
-        description: `Purchase ${creditsAmount} ZonoFit Credits`,
-        image: 'https://i.imgur.com/3g7nmJC.png',
-        currency: orderData.currency,
-        key: 'rzp_test_placeholder', // This should be replaced with actual env var in production
-        amount: orderData.amount,
-        name: 'ZonoFit',
-        order_id: orderData.razorpayOrderId,
-        theme: { color: '#059669' }
-      };
-
-      await RazorpayCheckout.open(options);
-
-      // Step 3: Refresh Wallet since webhook handled the deposit
-      await get().fetchWallet(token!);
-      return { success: true, message: `Successfully purchased ${creditsAmount} credits!` };
+      await confirmRazorpayOrder(orderData, "Purchase " + creditsAmount + " ZonoFit Credits");
+      return { success: true, message: "Successfully purchased " + creditsAmount + " credits." };
     } catch (err: any) {
-      console.error("Failed to buy credits via Razorpay:", err);
-      const msg = err.description || err.message || "Payment Failed";
-      
-      // Fallback for testing on simulators/Expo Go
-      if (msg.includes("Native module cannot be null") || msg.includes("Cannot read property") || msg.includes("undefined is not an object")) {
-        console.warn("Razorpay Native module missing. Asking to simulate success.");
-        
-        return new Promise((resolve) => {
-          if (!orderData?.razorpayOrderId) {
-            resolve({ success: false, message: "Use physical device or custom dev client for Razorpay." });
-            return;
-          }
-
-          Alert?.alert(
-            "Simulator Detected", 
-            "Razorpay native module is missing. Do you want to mock a successful payment for testing?",
-            [
-              { text: "Cancel", style: "cancel", onPress: () => resolve({ success: false, message: "Use physical device or custom dev client for Razorpay." }) },
-              { text: "Mock Payment", onPress: async () => {
-                  try {
-                    const token = useAuthStore.getState().token;
-                    await apiFetch("/api/credits/mock-payment", {
-                      method: "POST",
-                      token,
-                      body: JSON.stringify({ razorpayOrderId: orderData.razorpayOrderId })
-                    });
-                    await get().fetchWallet(token!);
-                    resolve({ success: true, message: `Successfully purchased ${creditsAmount} credits! (Mocked)` });
-                  } catch(e) {
-                    resolve({ success: false, message: "Mock payment failed" });
-                  }
-              }}
-            ]
-          );
-        });
-      }
-
+      const msg = err.description || err.message || "Payment failed.";
       return { success: false, message: msg };
     }
   },
 
   topUpCash: async (amountINR) => {
-    let orderData: any = null;
     try {
       const token = useAuthStore.getState().token;
-      
-      orderData = await apiFetch("/api/credits/create-cash-order", {
+      const orderData = await apiFetch("/api/credits/create-cash-order", {
         method: "POST",
         token,
         body: JSON.stringify({ amountINR }),
       });
-
-      const RazorpayCheckout = require('react-native-razorpay').default;
-      const options = {
-        description: `Top Up ₹${amountINR}`,
-        image: 'https://i.imgur.com/3g7nmJC.png',
-        currency: orderData.currency,
-        key: 'rzp_test_placeholder', 
-        amount: orderData.amount,
-        name: 'ZonoFit',
-        order_id: orderData.razorpayOrderId,
-        theme: { color: '#059669' }
-      };
-
-      await RazorpayCheckout.open(options);
-
-      await get().fetchWallet(token!);
-      return { success: true, message: `Successfully added ₹${amountINR}!` };
+      await confirmRazorpayOrder(orderData, "Top up Rs " + amountINR);
+      return { success: true, message: "Successfully added Rs " + amountINR + "." };
     } catch (err: any) {
-      console.error("Failed to top up cash:", err);
-      const msg = err.description || err.message || "Payment Failed";
-      
-      // Fallback for testing on simulators/Expo Go
-      if (msg.includes("Native module cannot be null") || msg.includes("Cannot read property") || msg.includes("undefined is not an object")) {
-        console.warn("Razorpay Native module missing. Asking to simulate success.");
-        
-        return new Promise((resolve) => {
-          if (!orderData?.razorpayOrderId) {
-            resolve({ success: false, message: "Use physical device or custom dev client for Razorpay." });
-            return;
-          }
-
-          Alert?.alert(
-            "Simulator Detected", 
-            "Razorpay native module is missing. Do you want to mock a successful payment for testing?",
-            [
-              { text: "Cancel", style: "cancel", onPress: () => resolve({ success: false, message: "Use physical device or custom dev client for Razorpay." }) },
-              { text: "Mock Payment", onPress: async () => {
-                  try {
-                    const token = useAuthStore.getState().token;
-                    await apiFetch("/api/credits/mock-payment", {
-                      method: "POST",
-                      token,
-                      body: JSON.stringify({ razorpayOrderId: orderData.razorpayOrderId })
-                    });
-                    await get().fetchWallet(token!);
-                    resolve({ success: true, message: `Successfully added ₹${amountINR}! (Mocked)` });
-                  } catch(e) {
-                    resolve({ success: false, message: "Mock payment failed" });
-                  }
-              }}
-            ]
-          );
-        });
-      }
-
+      const msg = err.description || err.message || "Payment failed.";
       return { success: false, message: msg };
     }
   },
 
-  buyGymSubscription: async (gymName, inrPaid, initialCreditDeduction) => {
-    const creditsGained = inrPaid / 10;
-    let orderData: any = null;
-    try {
-      const token = useAuthStore.getState().token;
-      
-      // Step 1: Create Order
-      orderData = await apiFetch("/api/credits/create-order", {
-        method: "POST",
-        token,
-        body: JSON.stringify({ credits: creditsGained }),
-      });
-
-      // Step 2: Open Razorpay
-      const RazorpayCheckout = require('react-native-razorpay').default;
-      const options = {
-        description: `${gymName} Subscription (${creditsGained} Credits)`,
-        image: 'https://i.imgur.com/3g7nmJC.png',
-        currency: orderData.currency,
-        key: 'rzp_test_placeholder',
-        amount: orderData.amount,
-        name: 'ZonoFit',
-        order_id: orderData.razorpayOrderId,
-        theme: { color: '#059669' }
-      };
-
-      await RazorpayCheckout.open(options);
-
-      // Step 3: Deduct initial commitment if payment was successful
-      await apiFetch("/api/credits/deduct", {
-        method: "POST",
-        token,
-        body: JSON.stringify({
-          credits: initialCreditDeduction,
-          description: `10-Day Upfront Commitment - ${gymName}`
-        })
-      });
-
-      // Step 4: Refresh Wallet
-      await get().fetchWallet(token!);
-      return { success: true, message: "Subscription purchased successfully." };
-    } catch (err: any) {
-      console.error("Failed to buy gym subscription via Razorpay:", err);
-      const msg = err.description || err.message || "Payment Failed";
-
-      if (msg.includes("Native module cannot be null") || msg.includes("Cannot read property") || msg.includes("undefined is not an object")) {
-        console.warn("Razorpay Native module missing. Asking to simulate success.");
-        
-        return new Promise((resolve) => {
-          if (!orderData?.razorpayOrderId) {
-            resolve({ success: false, message: "Use physical device or custom dev client for Razorpay." });
-            return;
-          }
-
-          Alert?.alert(
-            "Simulator Detected", 
-            "Razorpay native module is missing. Do you want to mock a successful payment for testing?",
-            [
-              { text: "Cancel", style: "cancel", onPress: () => resolve({ success: false, message: "Use physical device or custom dev client for Razorpay." }) },
-              { text: "Mock Payment", onPress: async () => {
-                  try {
-                    const token = useAuthStore.getState().token;
-                    await apiFetch("/api/credits/mock-payment", {
-                      method: "POST",
-                      token,
-                      body: JSON.stringify({ razorpayOrderId: orderData.razorpayOrderId })
-                    });
-                    
-                    // Deduct initial commitment if payment was successful
-                    await apiFetch("/api/credits/deduct", {
-                      method: "POST",
-                      token,
-                      body: JSON.stringify({
-                        credits: initialCreditDeduction,
-                        description: `10-Day Upfront Commitment - ${gymName}`
-                      })
-                    });
-
-                    await get().fetchWallet(token!);
-                    resolve({ success: true, message: `Subscription purchased successfully! (Mocked)` });
-                  } catch(e) {
-                    resolve({ success: false, message: "Mock payment failed" });
-                  }
-              }}
-            ]
-          );
-        });
-      }
-
-      return { success: false, message: msg };
-    }
+  buyGymSubscription: async () => {
+    return {
+      success: false,
+      message: "Buy a membership from checkout. Credits are added only after the payment is confirmed.",
+    };
   },
 
   buyMarketplaceItem: async (itemId, costInInr) => {
@@ -571,14 +335,8 @@ export const useCreditsStore = create<CreditsState>()(
     }
   },
 
-  bookVisitWithCash: (gymName, costInInr) => {
-    const { cashBalance } = get();
-    if (cashBalance < costInInr) {
-      return false;
-    }
-    set((state) => ({ cashBalance: state.cashBalance - costInInr }));
-    get().addTransaction("debit", costInInr, "cash", `Workout Booking (Distant Venue) - ${gymName}`);
-    return true;
+  bookVisitWithCash: () => {
+    return false;
   },
 
   convertCreditsToCash: async (creditsAmount) => {
@@ -591,7 +349,7 @@ export const useCreditsStore = create<CreditsState>()(
       });
       set({
         credits: data.newCreditBalance,
-        cashBalance: data.newCashBalanceINR
+        cashBalance: data.newConvertibleCashBalanceINR
       });
       return { success: true, message: data.message };
     } catch (err: any) {
@@ -619,72 +377,11 @@ export const useCreditsStore = create<CreditsState>()(
     }
   },
 
-  deductCredits: async (creditsAmount: number, description: string) => {
-    const currentCredits = get().credits;
-    let newBalance = Math.max(0, currentCredits - creditsAmount);
-
-    try {
-      const token = useAuthStore.getState().token;
-      if (token) {
-        try {
-          const data = await apiFetch("/api/credits/deduct", {
-            method: "POST",
-            token,
-            body: JSON.stringify({
-              credits: creditsAmount,
-              description
-            })
-          });
-          if (typeof data?.newBalance === "number") {
-            newBalance = data.newBalance;
-          }
-        } catch (apiErr: any) {
-          console.warn("[Credits] Backend deduct notice, using local authoritative deduction:", apiErr?.message);
-        }
-      }
-
-      set((state) => ({
-        credits: newBalance,
-        transactions: [
-          {
-            id: "tx_" + Date.now(),
-            type: "debit",
-            amount: creditsAmount,
-            currency: "credits",
-            description,
-            date: new Date().toLocaleDateString("en-IN", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            }),
-          },
-          ...state.transactions,
-        ],
-      }));
-
-      return { success: true, message: `Deducted ${creditsAmount} credits.` };
-    } catch (err: any) {
-      console.error("Deduct failed:", err);
-      set((state) => ({
-        credits: Math.max(0, state.credits - creditsAmount),
-        transactions: [
-          {
-            id: "tx_" + Date.now(),
-            type: "debit",
-            amount: creditsAmount,
-            currency: "credits",
-            description,
-            date: new Date().toLocaleDateString("en-IN", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            }),
-          },
-          ...state.transactions,
-        ],
-      }));
-      return { success: true, message: err.message };
-    }
+  deductCredits: async () => {
+    return {
+      success: false,
+      message: "Credits are spent when a visit is booked. The wallet cannot deduct them on its own.",
+    };
   },
 }),
     {

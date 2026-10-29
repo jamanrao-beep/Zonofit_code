@@ -184,20 +184,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ loading: true, error: null, verificationPhone: phone });
     try {
       const cleanPhone = phone.replace(/[^0-9]/g, "").slice(-10);
-      try {
-        if (isSignIn) {
-          await apiFetch("/api/auth/signin", {
-            method: "POST",
-            body: JSON.stringify({ phone: cleanPhone }),
-          });
-        } else {
-          await apiFetch("/api/auth/signup", {
-            method: "POST",
-            body: JSON.stringify({ username: "ZonoFit Member", phone: cleanPhone }),
-          });
-        }
-      } catch (apiErr: any) {
-        console.warn("[Auth] sendOTP remote notice (will allow test codes 1234/123456):", apiErr.message);
+      if (isSignIn) {
+        await apiFetch("/api/auth/signin", {
+          method: "POST",
+          body: JSON.stringify({ phone: cleanPhone }),
+        });
+      } else {
+        await apiFetch("/api/auth/signup", {
+          method: "POST",
+          body: JSON.stringify({ username: "ZonoFit Member", phone: cleanPhone }),
+        });
       }
       set({ loading: false });
     } catch (err: any) {
@@ -241,41 +237,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             isOnboarded,
           };
         }
-      } catch (verifyErr) {
-        // Allow common test codes: "1234" or "123456"
-        if (code === "1234" || code === "123456") {
-          try {
-            const googleRes = await apiFetch("/api/auth/google", {
-              method: "POST",
-              body: JSON.stringify({ email: `user_${phone}@zonofit.com`, name: "ZonoFit Member" }),
-            });
-            if (googleRes.token) {
-              authToken = googleRes.token;
-              isOnboarded = Boolean(googleRes.user?.isOnboarded);
-              authUser = {
-                id: googleRes.user?.id || "usr_" + Date.now(),
-                username: googleRes.user?.name || "ZonoFit Member",
-                phone,
-                email: googleRes.user?.email,
-                authMethod: "phone",
-                isOnboarded,
-              };
-            }
-          } catch {
-            // Offline fallback
-            authToken = "mock_jwt_token_" + Date.now();
-            authUser = {
-              id: "usr_" + Date.now(),
-              username: "ZonoFit Member",
-              phone,
-              authMethod: "phone",
-              isOnboarded: false,
-            };
-          }
-        } else {
-          set({ loading: false, error: "Invalid code. Use 1234 or 123456 for testing." });
-          return false;
-        }
+      } catch (verifyErr: any) {
+        set({ loading: false, error: verifyErr?.message || "Invalid code." });
+        return false;
       }
 
       if (authToken && authUser) {
@@ -339,18 +303,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       };
 
       const token = get().token;
-      if (token) {
-        await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(updatedUser));
-        try {
-          await apiFetch("/api/users/me", {
-            method: "PATCH",
-            token,
-            body: JSON.stringify({ name: details.name, phone: updatedUser.phone }),
-          });
-        } catch (apiErr) {
-          console.warn("[Auth] Failed to sync updated profile to backend:", apiErr);
-        }
+      if (!token || token.startsWith("mock_")) {
+        set({ loading: false, error: "Sign in with your phone number before saving your profile." });
+        return;
       }
+      await apiFetch("/api/users/me", {
+        method: "PATCH",
+        token,
+        body: JSON.stringify({
+          name: details.name,
+          phone: updatedUser.phone,
+          ...(details.email ? { email: details.email } : {}),
+        }),
+      });
+      await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(updatedUser));
       
       set({ 
         user: updatedUser, 
@@ -369,110 +335,93 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   completeOnboarding: async (city, gymId, plan, options) => {
-    let user = get().user;
-    if (!user) {
-      user = {
-        id: "usr_" + Date.now(),
-        username: "ZonoFit Member",
-        phone: get().verificationPhone || "",
-        authMethod: "phone",
-      };
+    const user = get().user;
+    const token = get().token;
+    if (!user || !token || token.startsWith("mock_")) {
+      set({ loading: false, error: "Sign in with your phone number before paying for a membership." });
+      throw new Error("Sign in with your phone number before paying for a membership.");
     }
-    
-    set({ loading: true });
+
+    set({ loading: true, error: null });
     try {
-      let token = get().token;
-      if (!token) {
-        try {
-          const res = await apiFetch("/api/auth/google", {
-            method: "POST",
-            body: JSON.stringify({
-              email: `user_${user.phone || Date.now()}@zonofit.com`,
-              name: user.username,
-            }),
-          });
-          if (res.token) token = res.token;
-        } catch {
-          token = "mock_jwt_token_" + Date.now();
-        }
+      const { useUserStore } = require("./useUserStore");
+      const { useCreditsStore } = require("./useCreditsStore");
+      const gymLookup = FALLBACK_NETWORK_GYMS.find((g) => g.id === gymId);
+      const gymName = options?.gymName || useGuestStore.getState().selectedGymName || useUserStore.getState().primaryGymName || gymLookup?.name;
+
+      const order = await apiFetch("/api/membership/create-order", {
+        method: "POST",
+        token,
+        body: JSON.stringify({
+          primaryGymId: gymId,
+          gymName,
+          ...(plan && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(plan) ? { planId: plan } : {}),
+        }),
+      });
+
+      if (!order?.keyId || !order?.razorpayOrderId) {
+        throw new Error(order?.message || "Card payments are not configured yet.");
       }
 
-      const updatedUser: User = { ...user, city, primaryGym: gymId, plan };
-      
-      if (token) {
-        await SecureStore.setItemAsync(TOKEN_KEY, token);
-        try {
-          if (updatedUser.username && updatedUser.username !== "ZonoFit Member" && updatedUser.username !== "Google User") {
-            await apiFetch("/api/users/me", {
-              method: "PATCH",
-              token,
-              body: JSON.stringify({ name: updatedUser.username, phone: updatedUser.phone }),
-            });
-          }
-        } catch {}
-      }
+      const RazorpayCheckout = require("react-native-razorpay").default;
+      const payment = await RazorpayCheckout.open({
+        description: `ZonoFit membership at ${order.gymName || gymName || "your gym"}`,
+        currency: order.currency || "INR",
+        key: order.keyId,
+        amount: order.amount,
+        name: "ZonoFit",
+        order_id: order.razorpayOrderId,
+        theme: { color: "#059669" },
+      });
+
+      const activated = await apiFetch("/api/membership/activate", {
+        method: "POST",
+        token,
+        body: JSON.stringify({
+          razorpayOrderId: order.razorpayOrderId,
+          razorpayPaymentId: payment.razorpay_payment_id,
+          razorpaySignature: payment.razorpay_signature,
+        }),
+      });
+
+      const membership = activated?.membership;
+      const updatedUser: User = {
+        ...user,
+        city,
+        primaryGym: membership?.primaryGymId || order.gymId || gymId,
+        plan: membership?.plan?.name || plan,
+      };
+
+      await SecureStore.setItemAsync(TOKEN_KEY, token);
       await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(updatedUser));
       await SecureStore.setItemAsync(ONBOARDED_KEY, "true");
-      
-      set({ 
+
+      set({
         user: updatedUser,
         token,
         loading: false,
         isSignedIn: true,
-        isOnboarded: true 
+        isOnboarded: true,
       });
 
-      // Sync with useUserStore & useCreditsStore
-      try {
-        const { useUserStore } = require("./useUserStore");
-        const { useCreditsStore } = require("./useCreditsStore");
-        const gymLookup = FALLBACK_NETWORK_GYMS.find(g => g.id === gymId);
-        const gymName = options?.gymName || useGuestStore.getState().selectedGymName || useUserStore.getState().primaryGymName || gymLookup?.name || "Being Fit Fitness";
-        
-        const cycleNum = options?.cycleNumber || 1;
-        const gymPrice = options?.price || gymLookup?.membershipPrice || 3000;
-        const breakdown = calculateMembershipBreakdown(gymPrice, cycleNum);
+      useUserStore.setState({
+        name: updatedUser.username,
+        primaryGymId: updatedUser.primaryGym,
+        primaryGymName: membership?.primaryGym?.name || order.gymName || gymName,
+        planName: membership?.plan?.name || plan || "Monthly",
+        membershipStatus: membership?.status || "ACTIVE",
+        visitsRemaining: membership?.primaryGymVisits || 0,
+      });
+      if (typeof activated?.newCreditBalance === "number") {
+        useCreditsStore.setState({ credits: activated.newCreditBalance });
+      }
+      useCreditsStore.getState().fetchWallet(token).catch(() => {});
 
-        const visitsCount = options?.visits ?? breakdown.mandatoryVisitsCount;
-        const restCredits = options?.credits ?? breakdown.walletCreditsCount;
-
-        useUserStore.setState({
-          name: updatedUser.username,
-          primaryGymId: gymId,
-          primaryGymName: gymName,
-          planName: plan || "Monthly",
-          membershipStatus: "Active",
-          visitsRemaining: visitsCount,
-        });
-
-        useCreditsStore.setState({
-          credits: restCredits,
-          membershipInfo: {
-            status: "ACTIVE",
-            isExpired: false,
-            isExpiringSoon: false,
-            tier: gymPrice >= 4500 ? "PREMIUM" : (gymPrice <= 1500 ? "BUDGET" : "STARTER"),
-            planName: plan || "Monthly",
-            gymName: gymName,
-            endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-            daysRemaining: 30,
-            cycleNumber: cycleNum,
-            maxCycles: 12,
-            cyclesRemaining: Math.max(0, 12 - cycleNum),
-            mandatoryVisits: visitsCount,
-            completedVisits: 0,
-            mandatoryVisitsRemaining: visitsCount,
-            canRepurchase: false,
-            canBuyAdditionalCredits: true,
-          },
-        });
-        useCreditsStore.getState().addTransaction("credit", restCredits, "credits", `Monthly Membership Activation - Rest Credits (${restCredits} Credits)`);
-      } catch {}
-
-      // Convert guest session if active per PRD Section 14
       await useGuestStore.getState().convertGuest();
     } catch (err: any) {
-      set({ loading: false, error: err.message });
+      const message = err?.description || err?.message || "Membership payment was not completed.";
+      set({ loading: false, error: message });
+      throw err;
     }
   },
 
@@ -480,7 +429,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       if (!customEmail || !customEmail.trim()) {
-        throw new Error("Email address is required for Google Sign-In.");
+        throw new Error("Sign in with your phone number. Google sign-in needs a verified Google token, which this build does not send.");
       }
 
       let authToken: string | null = null;
@@ -513,21 +462,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             primaryGym: data.user?.primaryGymId,
           };
         }
-      } catch (apiErr) {
-        console.warn("[Auth] Google API signin warning, falling back to local session:", apiErr);
+      } catch (apiErr: any) {
+        set({ loading: false, error: apiErr?.message || "Google sign-in failed. Use your phone number." });
+        throw apiErr;
       }
 
       if (!authToken || !authUser) {
-        authToken = "mock_jwt_google_" + Date.now();
-        authUser = {
-          id: "usr_" + Date.now(),
-          username: name,
-          phone: "",
-          email: email,
-          authMethod: "google",
-        };
-        const storedOnboardedFlag = await SecureStore.getItemAsync(ONBOARDED_KEY);
-        isOnboarded = storedOnboardedFlag === "true" || false;
+        const message = "Sign in with your phone number. Google sign-in needs a verified Google token.";
+        set({ loading: false, error: message });
+        throw new Error(message);
       }
 
       if (isOnboarded) {
@@ -595,20 +538,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             primaryGym: data.user?.primaryGymId,
           };
         }
-      } catch (apiErr) {
-        console.warn("[Auth] Apple signin warning, falling back to local session:", apiErr);
+      } catch (apiErr: any) {
+        set({ loading: false, error: apiErr?.message || "Apple sign-in failed. Use your phone number." });
+        throw apiErr;
       }
 
       if (!authToken || !authUser) {
-        authToken = "mock_jwt_apple_" + Date.now();
-        authUser = {
-          id: "usr_" + Date.now(),
-          username: name,
-          phone: "",
-          authMethod: "apple",
-        };
-        const storedOnboardedFlag = await SecureStore.getItemAsync(ONBOARDED_KEY);
-        isOnboarded = storedOnboardedFlag === "true" || false;
+        const message = "Sign in with your phone number. Apple sign-in is not available in this build.";
+        set({ loading: false, error: message });
+        throw new Error(message);
       }
 
       if (isOnboarded) {

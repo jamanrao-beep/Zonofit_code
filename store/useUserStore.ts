@@ -204,7 +204,6 @@ export const useUserStore = create<UserState>()(
     const currentCycle = get().currentMonth || 1;
     const resolvedPrice = (typeof amountPaidPaise === "number" && amountPaidPaise > 0) ? Math.round(amountPaidPaise / 100) : 3000;
     const breakdown = calculateMembershipBreakdown(resolvedPrice, currentCycle);
-    const monthlyCredits = breakdown.walletCreditsCount;
     const visits = breakdown.mandatoryVisitsCount;
 
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(planId || "");
@@ -248,10 +247,8 @@ export const useUserStore = create<UserState>()(
       });
 
       // Update credits store
-      if (data.newCreditBalance !== undefined) {
+      if (typeof data.newCreditBalance === "number") {
         useCreditsStore.setState({ credits: data.newCreditBalance });
-      } else {
-        useCreditsStore.setState((s) => ({ credits: s.credits + monthlyCredits }));
       }
 
       if (token) {
@@ -260,48 +257,7 @@ export const useUserStore = create<UserState>()(
 
       return { success: true, message: data.message || `Upgraded to ${finalPlanName} plan!` };
     } catch (err: any) {
-      console.warn("Backend activation error, granting membership directly:", err?.message || err);
-
-      // Resilient Fallback: Allow Pay Now to fulfill membership and credit grant immediately
-      const expiryDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-
-      set({
-        planName,
-        visitsRemaining: visits,
-        primaryGymId: resolvedGymId,
-        primaryGymName: "FitZone Pro",
-        membershipStatus: "ACTIVE",
-        membershipExpiry: expiryDate.toLocaleDateString(),
-      });
-
-      // Grant credits and update membership lifecycle
-      useCreditsStore.getState().addTransaction("credit", monthlyCredits, "credits", `${planName} Plan Activation`);
-      useCreditsStore.setState((state) => ({
-        credits: state.credits + monthlyCredits,
-        membershipInfo: {
-          status: "ACTIVE",
-          isExpired: false,
-          isExpiringSoon: false,
-          tier: planName.toUpperCase(),
-          planName: planName,
-          gymName: "FitZone Pro",
-          endDate: expiryDate.toISOString(),
-          daysRemaining: 30,
-          cycleNumber: 1,
-          maxCycles: 12,
-          cyclesRemaining: 11,
-          mandatoryVisits: visits,
-          completedVisits: 0,
-          mandatoryVisitsRemaining: visits,
-          canRepurchase: false,
-          canBuyAdditionalCredits: true,
-        },
-      }));
-
-      return {
-        success: true,
-        message: `Successfully activated ${planName} Plan! ${monthlyCredits} credits and ${visits} visits added.`,
-      };
+      return { success: false, message: err?.message || "Membership payment was not confirmed." };
     }
   },
 
@@ -331,43 +287,7 @@ export const useUserStore = create<UserState>()(
       }
       return { success: true, message: "Gym plan purchased successfully." };
     } catch (err: any) {
-      console.warn("Backend gym plan activation error, activating plan directly:", err?.message || err);
-      const price = amountPaidPaise > 0 ? Math.round(amountPaidPaise / 100) : 3000;
-      const currentCycle = get().currentMonth || 1;
-      const breakdown = calculateMembershipBreakdown(price, currentCycle);
-      const expiryDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-
-      set({
-        planName: "Partner Gym Plan",
-        visitsRemaining: breakdown.mandatoryVisitsCount,
-        membershipStatus: "ACTIVE",
-        membershipExpiry: expiryDate.toLocaleDateString(),
-      });
-
-      useCreditsStore.getState().addTransaction("credit", breakdown.walletCreditsCount, "credits", `Gym Plan Activation (${breakdown.walletCreditsCount} Credits)`);
-      useCreditsStore.setState((state) => ({
-        credits: state.credits + breakdown.walletCreditsCount,
-        membershipInfo: {
-          status: "ACTIVE",
-          isExpired: false,
-          isExpiringSoon: false,
-          tier: price >= 4500 ? "PREMIUM" : (price <= 1500 ? "BUDGET" : "STANDARD"),
-          planName: "Partner Gym Plan",
-          gymName: get().primaryGymName || "FitZone Pro",
-          endDate: expiryDate.toISOString(),
-          daysRemaining: 30,
-          cycleNumber: currentCycle,
-          maxCycles: 12,
-          cyclesRemaining: Math.max(0, 12 - currentCycle),
-          mandatoryVisits: breakdown.mandatoryVisitsCount,
-          completedVisits: 0,
-          mandatoryVisitsRemaining: breakdown.mandatoryVisitsCount,
-          canRepurchase: false,
-          canBuyAdditionalCredits: true,
-        },
-      }));
-
-      return { success: true, message: "Gym plan activated successfully!" };
+      return { success: false, message: err?.message || "Gym plan payment was not confirmed." };
     }
   },
 

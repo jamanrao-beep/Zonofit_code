@@ -36,8 +36,7 @@ export default function BookingPassScreen() {
     bookedDate, 
     bookedTime, 
     bookedCost,
-    cancelBooking,
-    checkIn
+    cancelBooking
   } = useBookingStore();
   const { primaryGymId, primaryGymName } = useUserStore();
   const [copied, setCopied] = useState(false);
@@ -312,16 +311,10 @@ export default function BookingPassScreen() {
 
               {/* Check-In CTA inside the pass */}
               {bookingStatus !== "Checked In" && (
-                <Pressable
-                  onPress={async () => {
-                    await checkIn();
-                    Alert.alert("Checked In!", "Front desk verification complete. Have a great workout!");
-                  }}
-                  style={styles.qrScanBtn}
-                >
-                  <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-                  <Text style={styles.qrScanBtnText}>Verify Check-In at Front Desk</Text>
-                </Pressable>
+                <View style={styles.qrScanBtn}>
+                  <Ionicons name="information-circle-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                  <Text style={styles.qrScanBtnText}>Show this pass at the front desk. Staff confirm your visit.</Text>
+                </View>
               )}
             </View>
 
@@ -724,6 +717,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#16A34A",
     borderRadius: 14,
     paddingVertical: 13,
+    paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -737,6 +731,8 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 13,
     fontWeight: "700",
+    flex: 1,
+    textAlign: "center",
   },
 
   // Cancellation notice

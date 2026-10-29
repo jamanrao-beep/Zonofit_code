@@ -150,7 +150,31 @@ export const useBookingStore = create<BookingState>()(
         });
       } else {
         const current = get();
-        if (current.bookingStatus === "Booked" || current.bookingStatus === "Checked In") {
+        const matched = current.bookingId
+          ? past.find((item: { id: string; status: string }) => item.id === current.bookingId)
+          : undefined;
+
+        if (matched?.status === "Checked In") {
+          set({
+            bookingStatus: "Checked In",
+            pastBookings: past,
+            loading: false,
+          });
+        } else if (matched) {
+          set({
+            bookingStatus: "Not Booked",
+            bookingId: null,
+            bookedGymId: null,
+            bookedGymName: null,
+            bookedDate: null,
+            bookedVisitDateIso: null,
+            bookedCreatedAt: null,
+            bookedTime: null,
+            bookedCost: 0,
+            pastBookings: past,
+            loading: false,
+          });
+        } else if (current.bookingStatus === "Booked" || current.bookingStatus === "Checked In") {
           set({
             pastBookings: past.length > 0 ? past : current.pastBookings,
             loading: false
@@ -192,48 +216,34 @@ export const useBookingStore = create<BookingState>()(
 
     try {
       const token = useAuthStore.getState().token;
-      let bookingId = "bk_" + Date.now();
+      if (!token || token.startsWith("mock_")) {
+        return false;
+      }
       let visitDateIso = new Date().toISOString();
-      try {
-        if (date) {
-          const parsed = new Date(date);
-          if (!isNaN(parsed.getTime())) {
-            visitDateIso = parsed.toISOString();
-          }
-        }
-      } catch {}
-      let deductedCost = creditCost;
-
-      if (token) {
-        try {
-          const data = await apiFetch("/api/bookings", {
-            method: "POST",
-            token,
-            body: JSON.stringify({
-              gymId,
-              visitDate: visitDateIso,
-              timeSlot: time,
-              couponCode,
-            }),
-          });
-          if (data?.booking?.id) {
-            bookingId = data.booking.id;
-            visitDateIso = data.booking.visitDate;
-            deductedCost = data.booking.creditsDeducted ?? creditCost;
-          }
-        } catch (apiErr: any) {
-          console.warn("[Booking] Remote API notice, processing local authoritative booking & credit deduction:", apiErr?.message);
-        }
+      if (date) {
+        const parsed = new Date(date);
+        if (!isNaN(parsed.getTime())) visitDateIso = parsed.toISOString();
       }
 
-      // If credit cost applies, cut credits from wallet immediately
-      if (deductedCost > 0) {
-        await useCreditsStore.getState().deductCredits(
-          deductedCost,
-          `Workout Booking - ${gymName}`
-        );
-      } else {
-        // Mandatory visit (0 credits): decrement mandatory visit count (10, 9, 8... 0)
+      const data = await apiFetch("/api/bookings", {
+        method: "POST",
+        token,
+        body: JSON.stringify({
+          gymId,
+          visitDate: visitDateIso,
+          timeSlot: time,
+          couponCode,
+        }),
+      });
+      if (!data?.booking?.id) return false;
+
+      const bookingId = data.booking.id;
+      visitDateIso = data.booking.visitDate || visitDateIso;
+      const deductedCost = data.booking.creditsDeducted ?? creditCost;
+      if (typeof data.newCreditBalance === "number") {
+        useCreditsStore.setState({ credits: data.newCreditBalance });
+      }
+      if (deductedCost === 0) {
         useUserStore.getState().decrementVisits();
         const currentMembership = useCreditsStore.getState().membershipInfo;
         if (currentMembership) {
@@ -241,7 +251,7 @@ export const useBookingStore = create<BookingState>()(
             membershipInfo: {
               ...currentMembership,
               mandatoryVisitsRemaining: Math.max(0, (currentMembership.mandatoryVisitsRemaining || 0) - 1),
-            }
+            },
           });
         }
       }
@@ -269,44 +279,9 @@ export const useBookingStore = create<BookingState>()(
   },
 
   checkIn: async () => {
-    // The actual API call is done in scan-modal.tsx to /api/checkin/verify.
-    // This just updates the local state post-verification.
-    const { bookingStatus, bookedGymId, bookedGymName, pastBookings } = get();
-    if (bookingStatus !== "Booked" || !bookedGymId || !bookedGymName) {
-      return false;
-    }
-
-    set({
-      bookingStatus: "Checked In",
-      pastBookings: [
-        {
-          id: Date.now().toString(),
-          gymId: bookedGymId,
-          gymName: bookedGymName,
-          date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-          time: new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }),
-          status: "Completed",
-          credits: get().bookedCost,
-        },
-        ...pastBookings,
-      ],
-    });
-
-    // Record workout in user store (streak, total workouts)
-    useUserStore.getState().recordWorkout(1.5); // 1.5 hours default workout length
-    
-    // Update membership completed visits in credits store for instant Journey sync
-    const currentMembership = useCreditsStore.getState().membershipInfo;
-    if (currentMembership) {
-      useCreditsStore.setState({
-        membershipInfo: {
-          ...currentMembership,
-          completedVisits: (currentMembership.completedVisits || 0) + 1,
-        }
-      });
-    }
-    
-    return true;
+    // A visit is checked in only after gym staff confirm the pass.
+    // fetchBookings reflects that server status. This does not mark it locally.
+    return false;
   },
 
   cancelBooking: async (): Promise<{ success: boolean; message?: string }> => {
@@ -334,51 +309,14 @@ export const useBookingStore = create<BookingState>()(
       const token = useAuthStore.getState().token;
       let apiResult: any = null;
 
-      if (token) {
-        try {
-          apiResult = await apiFetch(`/api/bookings/${bookingId}`, { method: "DELETE", token });
-        } catch (apiErr: any) {
-          if (apiErr?.message?.includes("Insufficient") || apiErr?.message?.includes("balance")) {
-            throw apiErr;
-          }
-          console.warn("API booking cancellation fallback to local store:", apiErr);
-        }
+      if (!token || token.startsWith("mock_") || bookingId.startsWith("bk_")) {
+        return { success: false, message: "This booking is not on the server, so it cannot be cancelled here." };
       }
-
-      if (bookedCost > 0) {
-        // Credit Booking: Deduct 2 credits fee directly from refund (net effect: exactly 2 credits deducted)
-        const refundedCredits = Math.max(0, bookedCost - 2);
-        if (typeof apiResult?.newCreditBalance === "number") {
-          useCreditsStore.setState({ credits: apiResult.newCreditBalance });
-        } else if (refundedCredits > 0) {
-          useCreditsStore.getState().addTransaction(
-            "credit",
-            refundedCredits,
-            "credits",
-            `Refund (${refundedCredits} Credits, 2 Credits Fee Applied) - ${bookedGymName}`
-          );
-          useCreditsStore.setState((state) => ({
-            credits: state.credits + refundedCredits,
-          }));
-        }
-      } else {
-        // Mandatory Visit (0 credits booked): Deduct flat 2 credits from wallet & restore 1 mandatory visit
-        if (typeof apiResult?.newCreditBalance === "number") {
-          useCreditsStore.setState({ credits: apiResult.newCreditBalance });
-          useCreditsStore.getState().addTransaction(
-            "debit",
-            2,
-            "credits",
-            `Cancellation Fee (Flat 2 Credits) - ${bookedGymName || "Mandatory Visit"}`
-          );
-        } else {
-          // Reliable 2-credit deduction with backend sync
-          await useCreditsStore.getState().deductCredits(
-            2,
-            `Cancellation Fee (Flat 2 Credits) - ${bookedGymName || "Mandatory Visit"}`
-          );
-        }
-
+      apiResult = await apiFetch(`/api/bookings/${bookingId}`, { method: "DELETE", token });
+      if (typeof apiResult?.newCreditBalance === "number") {
+        useCreditsStore.setState({ credits: apiResult.newCreditBalance });
+      }
+      if (bookedCost === 0) {
         useUserStore.setState((s) => ({ visitsRemaining: Math.min(10, s.visitsRemaining + 1) }));
         const mem = useCreditsStore.getState().membershipInfo;
         if (mem) {

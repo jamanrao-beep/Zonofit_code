@@ -229,16 +229,6 @@ export default function VerifyNumberScreen() {
             </Pressable>
           )}
 
-          <Pressable 
-            style={styles.testHintCard}
-            onPress={() => {
-              setOtpCode("1234");
-              handleVerify("1234");
-            }}
-          >
-            <Ionicons name="information-circle-outline" size={14} color="#047857" style={{ marginRight: 4 }} />
-            <Text style={styles.testHintText}>Testing Code: Tap to autofill 1234</Text>
-          </Pressable>
         </View>
 
         <Pressable 
