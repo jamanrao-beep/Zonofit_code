@@ -7,11 +7,13 @@ exports.sendOTP = sendOTP;
  */
 async function sendOTP(phone, code) {
     const apiKey = process.env.FAST2SMS_API_KEY;
-    if (!apiKey) {
-        // Fallback for development if no API key is provided
-        console.log(`[SMS-MOCK] Missing API key.`);
-        console.log(`[SMS-MOCK] Sending code ${code} to ${phone}`);
-        return true;
+    if (!apiKey || apiKey.includes("placeholder") || apiKey.length < 8) {
+        if (process.env.NODE_ENV === "development" && process.env.ALLOW_DEV_OTP === "true") {
+            console.warn("[SMS] Dev OTP is enabled. The code was not logged.");
+            return true;
+        }
+        console.error("[SMS] Refusing to pretend an OTP was sent. Set FAST2SMS_API_KEY.");
+        return false;
     }
     try {
         const response = await fetch("https://www.fast2sms.com/dev/bulkV2", {

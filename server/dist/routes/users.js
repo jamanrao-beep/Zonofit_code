@@ -9,6 +9,7 @@ const multer_1 = __importDefault(require("multer"));
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 const prisma_1 = __importDefault(require("../lib/prisma"));
+const phone_1 = require("../lib/phone");
 const auth_1 = require("../middleware/auth");
 const referral_1 = require("../lib/referral");
 const router = (0, express_1.Router)();
@@ -22,11 +23,23 @@ const upload = (0, multer_1.default)({
         },
         filename: (_req, file, cb) => {
             const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-            const ext = path_1.default.extname(file.originalname) || ".jpg";
-            cb(null, `avatar-${uniqueSuffix}${ext}`);
+            const extByType = {
+                "image/jpeg": ".jpg",
+                "image/png": ".png",
+                "image/webp": ".webp",
+            };
+            cb(null, `avatar-${uniqueSuffix}${extByType[file.mimetype] || ".jpg"}`);
         },
     }),
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+        const allowed = new Set(["image/jpeg", "image/png", "image/webp"]);
+        if (!allowed.has(file.mimetype)) {
+            cb(new Error("Only JPEG, PNG, and WebP images are allowed."));
+            return;
+        }
+        cb(null, true);
+    },
 });
 // ─── GET /api/users/me ────────────────────────────────────────────────────────
 /**
@@ -187,7 +200,8 @@ router.get("/referral", auth_1.requireAuth, async (req, res) => {
  */
 router.patch("/me", auth_1.requireAuth, [
     (0, express_validator_1.body)("name").optional().isString().trim().isLength({ min: 2, max: 100 }),
-    (0, express_validator_1.body)("phone").optional().isMobilePhone("any"),
+    (0, express_validator_1.body)("phone").optional().isString(),
+    (0, express_validator_1.body)("email").optional().isEmail(),
     (0, express_validator_1.body)("avatarUrl").optional().isURL(),
     (0, express_validator_1.body)("expoPushToken").optional().isString(),
 ], async (req, res) => {
@@ -196,18 +210,63 @@ router.patch("/me", auth_1.requireAuth, [
         res.status(400).json({ error: "ValidationError", details: errors.array() });
         return;
     }
-    const { name, phone, avatarUrl, expoPushToken } = req.body;
-    const updated = await prisma_1.default.user.update({
-        where: { id: req.dbUserId },
-        data: {
-            ...(name !== undefined && { name }),
-            ...(phone !== undefined && { phone }),
-            ...(avatarUrl !== undefined && { avatarUrl }),
-            ...(expoPushToken !== undefined && { expoPushToken }),
-        },
-        select: { id: true, name: true, phone: true, avatarUrl: true, email: true, expoPushToken: true },
-    });
-    res.json({ user: updated });
+    const { name, phone, email, avatarUrl, expoPushToken } = req.body;
+    let nextPhone;
+    if (phone === undefined) {
+        nextPhone = undefined;
+    }
+    else if (phone.trim() === "") {
+        nextPhone = null;
+    }
+    else {
+        const normalized = (0, phone_1.normalizePhone)(phone);
+        if (!normalized) {
+            res.status(400).json({ error: "InvalidPhone", message: "Enter a valid 10-digit mobile number." });
+            return;
+        }
+        nextPhone = normalized;
+    }
+    if (nextPhone) {
+        const taken = await prisma_1.default.user.findFirst({
+            where: { phone: nextPhone, NOT: { id: req.dbUserId } },
+            select: { id: true },
+        });
+        if (taken) {
+            res.status(409).json({ error: "PhoneInUse", message: "That phone number is already on another account." });
+            return;
+        }
+    }
+    if (email) {
+        const taken = await prisma_1.default.user.findFirst({
+            where: { email, NOT: { id: req.dbUserId } },
+            select: { id: true },
+        });
+        if (taken) {
+            res.status(409).json({ error: "EmailInUse", message: "That email is already on another account." });
+            return;
+        }
+    }
+    try {
+        const updated = await prisma_1.default.user.update({
+            where: { id: req.dbUserId },
+            data: {
+                ...(name !== undefined && { name }),
+                ...(nextPhone !== undefined && { phone: nextPhone }),
+                ...(email !== undefined && { email }),
+                ...(avatarUrl !== undefined && { avatarUrl }),
+                ...(expoPushToken !== undefined && { expoPushToken }),
+            },
+            select: { id: true, name: true, phone: true, avatarUrl: true, email: true, expoPushToken: true },
+        });
+        res.json({ user: updated });
+    }
+    catch (err) {
+        if (err.code === "P2002") {
+            res.status(409).json({ error: "PhoneInUse", message: "That phone number is already on another account." });
+            return;
+        }
+        throw err;
+    }
 });
 // ─── POST /api/users/avatar ───────────────────────────────────────────────────
 /**

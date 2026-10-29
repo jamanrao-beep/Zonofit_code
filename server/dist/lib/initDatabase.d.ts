@@ -6,16 +6,5 @@ export declare function initDatabase(): Promise<{
     testGym?: string;
     tablesCreated?: number;
 }>;
-export declare function seedTestGym(): Promise<{
-    success: boolean;
-    user: {
-        id: string;
-        email: string;
-        role: string;
-    };
-    gym: {
-        id: string;
-        name: string;
-    };
-}>;
+export declare function seedTestGym(): Promise<never>;
 //# sourceMappingURL=initDatabase.d.ts.map

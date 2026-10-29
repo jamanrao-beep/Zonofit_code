@@ -5,12 +5,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.generateRandomReferralCode = generateRandomReferralCode;
 exports.generateUniqueReferralCode = generateUniqueReferralCode;
+const crypto_1 = __importDefault(require("crypto"));
 const prisma_1 = __importDefault(require("./prisma"));
+const REFERRAL_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 function generateRandomReferralCode() {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     let code = "ZONO-";
     for (let i = 0; i < 6; i++) {
-        code += chars.charAt(Math.floor(Math.random() * chars.length));
+        code += REFERRAL_CHARS[crypto_1.default.randomInt(REFERRAL_CHARS.length)];
     }
     return code;
 }
@@ -21,6 +22,6 @@ async function generateUniqueReferralCode() {
         if (!existing)
             return code;
     }
-    return "ZONO-" + Math.random().toString(36).substring(2, 8).toUpperCase();
+    return "ZONO-" + crypto_1.default.randomBytes(4).toString("hex").toUpperCase();
 }
 //# sourceMappingURL=referral.js.map

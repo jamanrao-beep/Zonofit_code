@@ -6,11 +6,23 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.initCronJobs = initCronJobs;
 const node_cron_1 = __importDefault(require("node-cron"));
 const expo_server_sdk_1 = require("expo-server-sdk");
+const otpStore_1 = require("../lib/otpStore");
+const rateLimit_1 = require("../lib/rateLimit");
 const prisma_1 = __importDefault(require("../lib/prisma"));
 const settings_1 = require("./settings");
 const expo = new expo_server_sdk_1.Expo();
 function initCronJobs() {
     console.log("Initializing cron jobs...");
+    // Drop email and phone codes 10 minutes after they expire, so unused rows do not stay.
+    node_cron_1.default.schedule("*/10 * * * *", async () => {
+        try {
+            await (0, otpStore_1.purgeStaleOtps)();
+            await (0, rateLimit_1.purgeExpiredRateLimits)();
+        }
+        catch (err) {
+            console.error("[CRON] Could not clear old verification codes:", err);
+        }
+    });
     // Run every day at midnight (0 0 * * *)
     node_cron_1.default.schedule("0 0 * * *", async () => {
         console.log("[CRON] Running daily expiry checks...");

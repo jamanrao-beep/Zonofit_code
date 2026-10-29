@@ -72,7 +72,15 @@ app.use((0, cors_1.default)({
     credentials: true,
 }));
 // ─── Body Parsing ──────────────────────────────────────────────────────────────
-app.use(express_1.default.json({ limit: "1mb" }));
+app.use(express_1.default.json({
+    limit: "1mb",
+    verify: (req, _res, buf) => {
+        const url = req.originalUrl || req.url || "";
+        if (url.startsWith("/api/credits/webhook")) {
+            req.rawBody = Buffer.from(buf);
+        }
+    },
+}));
 app.use(express_1.default.urlencoded({ extended: true }));
 // ─── Static File Serving (Uploads) ─────────────────────────────────────────────
 const uploadsDir = path_1.default.join(__dirname, "../uploads");
@@ -83,38 +91,20 @@ app.use("/uploads", express_1.default.static(uploadsDir));
 // ─── Health Check ──────────────────────────────────────────────────────────────
 app.get("/health", async (_req, res) => {
     let dbStatus = "unknown";
-    let dbError = null;
     try {
         await prisma_1.default.$queryRaw `SELECT 1`;
         dbStatus = "connected";
     }
     catch (err) {
         dbStatus = "disconnected";
-        dbError = err.message;
+        console.error("[health] database check failed");
     }
     res.json({
         status: dbStatus === "connected" ? "ok" : "degraded",
         service: "zonofit-server",
         db: dbStatus,
-        ...(dbError && { dbError }),
         timestamp: new Date().toISOString(),
-        env: process.env.NODE_ENV,
     });
-});
-const initDatabase_1 = require("./lib/initDatabase");
-// ─── Setup / Self-Healing Route ────────────────────────────────────────────────
-app.all("/api/setup-db", async (_req, res) => {
-    const result = await (0, initDatabase_1.initDatabase)();
-    res.status(result.success ? 200 : 500).json(result);
-});
-app.all("/api/seed-test-gym", async (_req, res) => {
-    try {
-        const result = await (0, initDatabase_1.seedTestGym)();
-        res.json(result);
-    }
-    catch (err) {
-        res.status(500).json({ error: "SeedError", message: err.message });
-    }
 });
 // ─── API Routes ────────────────────────────────────────────────────────────────
 // Auth routes (public)
@@ -142,19 +132,48 @@ app.use("/api/admin", admin_1.default);
 app.use(errorHandler_1.notFoundHandler);
 app.use(errorHandler_1.errorHandler);
 const cron_1 = require("./services/cron");
+const ensureSchema_1 = require("./lib/ensureSchema");
+const mail_1 = require("./lib/mail");
+function assertBootSecrets() {
+    const secret = process.env.JWT_SECRET?.trim() ?? "";
+    if (secret.length < 32 || secret === "zonofit_super_secret_key_1234567890") {
+        console.error("Refusing to start: set a unique JWT_SECRET of at least 32 characters.");
+        process.exit(1);
+    }
+}
+function warnMissingProviderKeys() {
+    const names = ["RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET", "RAZORPAY_WEBHOOK_SECRET", "FAST2SMS_API_KEY"];
+    const missing = names.filter((name) => {
+        const value = process.env[name]?.trim() ?? "";
+        return value.length < 8 || /placeholder/i.test(value);
+    });
+    if (!(0, mail_1.normalizeAppPassword)(process.env.GMAIL_APP_PASSWORD))
+        missing.push("GMAIL_APP_PASSWORD");
+    if (missing.length > 0) {
+        console.warn(`[Startup] Payments or SMS stay unavailable until these are set: ${missing.join(", ")}`);
+    }
+}
 // ─── Start ─────────────────────────────────────────────────────────────────────
-(0, cron_1.initCronJobs)();
-app.listen(PORT, "0.0.0.0", () => {
-    console.log(`
+async function start() {
+    assertBootSecrets();
+    warnMissingProviderKeys();
+    try {
+        await (0, ensureSchema_1.ensureSchema)();
+    }
+    catch (err) {
+        console.error("[Startup] schema check failed", err);
+    }
+    (0, cron_1.initCronJobs)();
+    app.listen(PORT, "0.0.0.0", () => {
+        console.log(`
 ╔══════════════════════════════════════╗
 ║  ZonoFit Server                      ║
 ║  Running on http://localhost:${PORT}    ║
 ║  Environment: ${(process.env.NODE_ENV ?? "development").padEnd(20)}║
 ╚══════════════════════════════════════╝
   `);
-    (0, initDatabase_1.initDatabase)().catch((err) => {
-        console.error("[Startup] Initial db setup error:", err);
     });
-});
+}
+void start();
 exports.default = app;
 //# sourceMappingURL=index.js.map

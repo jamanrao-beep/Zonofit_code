@@ -8,15 +8,25 @@ const prisma_1 = __importDefault(require("../lib/prisma"));
 const auth_1 = require("../middleware/auth");
 const errorHandler_1 = require("../middleware/errorHandler");
 const settings_1 = require("../services/settings");
+const adminAccess_1 = require("../lib/adminAccess");
 const router = (0, express_1.Router)();
-// Middleware to ensure user is an Admin
+const ADMIN_ROLES = ["FOUNDER", "OPS_MANAGER", "SALES_REP", "SUPPORT_AGENT", "FINANCE_ADMIN", "MARKETING_MANAGER"];
+// An admin with no profile keeps full access. A stored role is enforced.
 const requireAdmin = async (req, res, next) => {
     if (!req.dbUserId) {
         return next((0, errorHandler_1.createError)("Unauthorized", 401, "Unauthorized"));
     }
-    const user = await prisma_1.default.user.findUnique({ where: { id: req.dbUserId } });
+    const user = await prisma_1.default.user.findUnique({
+        where: { id: req.dbUserId },
+        include: { adminProfile: true },
+    });
     if (user?.systemRole !== "ADMIN") {
         return next((0, errorHandler_1.createError)("Forbidden. Admin access required.", 403, "Forbidden"));
+    }
+    const role = user.adminProfile?.roleType ?? "FOUNDER";
+    const path = `${req.baseUrl || ""}${req.path || ""}`;
+    if (!(0, adminAccess_1.roleCanAccess)(role, path, req.method)) {
+        return next((0, errorHandler_1.createError)("This admin role cannot use that action.", 403, "Forbidden"));
     }
     next();
 };
@@ -1164,6 +1174,54 @@ router.delete("/gyms/:id", auth_1.requireAuth, requireAdmin, async (req, res) =>
         res.status(500).json({ error: "ServerError", message: err.message });
     }
 });
+// ─── GET /api/admin/admins ───────────────────────────────────────────────────
+router.get("/admins", auth_1.requireAuth, requireAdmin, async (_req, res) => {
+    const admins = await prisma_1.default.user.findMany({
+        where: { systemRole: "ADMIN" },
+        select: {
+            id: true,
+            name: true,
+            email: true,
+            adminProfile: { select: { roleType: true } },
+        },
+        orderBy: { name: "asc" },
+    });
+    res.json({
+        admins: admins.map((admin) => ({
+            id: admin.id,
+            name: admin.name,
+            email: admin.email,
+            roleType: admin.adminProfile?.roleType ?? "FOUNDER",
+        })),
+    });
+});
+// ─── PUT /api/admin/admins/:userId ───────────────────────────────────────────
+router.put("/admins/:userId", auth_1.requireAuth, requireAdmin, async (req, res) => {
+    const roleType = String(req.body?.roleType ?? "");
+    if (!ADMIN_ROLES.includes(roleType)) {
+        res.status(400).json({ error: "ValidationError", message: "Choose a valid admin role." });
+        return;
+    }
+    const userId = req.params.userId;
+    const target = await prisma_1.default.user.findUnique({ where: { id: userId }, select: { id: true, systemRole: true } });
+    if (!target || target.systemRole !== "ADMIN") {
+        res.status(404).json({ error: "NotFound", message: "That user is not an admin." });
+        return;
+    }
+    const profile = await prisma_1.default.adminProfile.upsert({
+        where: { userId },
+        update: { roleType: roleType },
+        create: { userId, roleType: roleType },
+    });
+    await prisma_1.default.adminAuditLog.create({
+        data: {
+            adminId: req.dbUserId,
+            actionType: "SET_ADMIN_ROLE",
+            targetId: userId,
+            details: `Set admin role to ${profile.roleType}`,
+        },
+    });
+    res.json({ userId, roleType: profile.roleType });
+});
 exports.default = router;
-// trigger restart
 //# sourceMappingURL=admin.js.map
