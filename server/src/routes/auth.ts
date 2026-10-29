@@ -1,19 +1,33 @@
+import { randomInt } from "crypto";
 import { Request, Response, Router } from "express";
 import { body, validationResult } from "express-validator";
 import { signToken } from "../lib/jwt";
 import prisma from "../lib/prisma";
+import { normalizePhone } from "../lib/phone";
 import { sendOTP } from "../lib/sms";
-import { setOTP, verifyOTP } from "../lib/otpStore";
+import { emailOtpKey, sendEmailOTP } from "../lib/mail";
+import { EMAIL_OTP_TTL_MINUTES, deleteOTP, emailResendWaitSeconds, setOTP, verifyOTP } from "../lib/otpStore";
 import { generateUniqueReferralCode } from "../lib/referral";
+import { rateLimit } from "../lib/rateLimit";
+import { requireAuth } from "../middleware/auth";
 
 const router = Router();
+
+function readPhone(req: Request, res: Response): string | null {
+  const phone = normalizePhone(req.body?.phone);
+  if (!phone) {
+    res.status(400).json({ error: "InvalidPhone", message: "Enter a valid 10-digit mobile number." });
+    return null;
+  }
+  return phone;
+}
 
 // POST /api/auth/signup
 router.post(
   "/signup",
   [
     body("username").isString().trim().isLength({ min: 2, max: 50 }),
-    body("phone").isString().trim().isLength({ min: 10, max: 15 }),
+    body("phone").isString().trim().isLength({ min: 10, max: 20 }),
   ],
   async (req: Request, res: Response): Promise<void> => {
     const errors = validationResult(req);
@@ -22,7 +36,9 @@ router.post(
       return;
     }
 
-    const { username, phone } = req.body;
+    const phone = readPhone(req, res);
+    if (!phone) return;
+    const { username } = req.body;
 
     // Check if phone already registered
     const existingUser = await prisma.user.findFirst({
@@ -34,12 +50,14 @@ router.post(
       return;
     }
 
-    const isRealSMS = !!process.env.FAST2SMS_API_KEY;
-    const code = (!isRealSMS && process.env.NODE_ENV === "development") 
-      ? "1234" 
-      : Math.floor(1000 + Math.random() * 9000).toString();
-    setOTP(phone, code);
-    
+    if (!(await rateLimit(`otp:${phone}`, 5, 15 * 60 * 1000))) {
+      res.status(429).json({ error: "TooManyRequests", message: "Too many code requests. Wait a few minutes and try again." });
+      return;
+    }
+
+    const code = randomInt(1000, 10000).toString();
+    await setOTP(phone, code);
+
     const sent = await sendOTP(phone, code);
 
     if (sent) {
@@ -54,7 +72,7 @@ router.post(
 router.post(
   "/signin",
   [
-    body("phone").isString().trim().isLength({ min: 10, max: 15 }),
+    body("phone").isString().trim().isLength({ min: 10, max: 20 }),
   ],
   async (req: Request, res: Response): Promise<void> => {
     const errors = validationResult(req);
@@ -63,7 +81,8 @@ router.post(
       return;
     }
 
-    const { phone } = req.body;
+    const phone = readPhone(req, res);
+    if (!phone) return;
 
     const user = await prisma.user.findFirst({
       where: { phone },
@@ -74,11 +93,13 @@ router.post(
       return;
     }
 
-    const isRealSMS = !!process.env.FAST2SMS_API_KEY;
-    const code = (!isRealSMS && process.env.NODE_ENV === "development") 
-      ? "1234" 
-      : Math.floor(1000 + Math.random() * 9000).toString();
-    setOTP(phone, code);
+    if (!(await rateLimit(`otp:${phone}`, 5, 15 * 60 * 1000))) {
+      res.status(429).json({ error: "TooManyRequests", message: "Too many code requests. Wait a few minutes and try again." });
+      return;
+    }
+
+    const code = randomInt(1000, 10000).toString();
+    await setOTP(phone, code);
 
     const sent = await sendOTP(phone, code);
 
@@ -96,13 +117,13 @@ router.post(
   async (req: Request, res: Response): Promise<void> => {
     try {
       const { phone, email } = req.body || {};
-      const cleanPhone = typeof phone === "string" ? phone.replace(/[^0-9]/g, "").slice(-10) : "";
+      const cleanPhone = normalizePhone(phone);
       const cleanEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
 
       let phoneUser = null;
-      if (cleanPhone && cleanPhone.length === 10) {
+      if (cleanPhone) {
         phoneUser = await prisma.user.findFirst({
-          where: { phone: { contains: cleanPhone } },
+          where: { phone: cleanPhone },
           select: { id: true, name: true, phone: true, email: true },
         });
       }
@@ -116,23 +137,11 @@ router.post(
       }
 
       const matchedUser = phoneUser || emailUser;
-      const exists = !!matchedUser;
-      const isOnboarded = !!(matchedUser && matchedUser.name && matchedUser.name !== "ZonoFit Member");
-
       res.json({
-        exists,
+        exists: !!matchedUser,
         phoneExists: !!phoneUser,
         emailExists: !!emailUser,
-        isOnboarded,
-        user: matchedUser
-          ? {
-              id: matchedUser.id,
-              name: matchedUser.name,
-              phone: matchedUser.phone,
-              email: matchedUser.email,
-              isOnboarded,
-            }
-          : null,
+        isOnboarded: !!(matchedUser && matchedUser.name && matchedUser.name !== "ZonoFit Member"),
       });
     } catch (err: any) {
       res.status(500).json({ error: "CheckUserFailed", message: err.message });
@@ -151,10 +160,17 @@ router.post(
     body("referralCode").optional().isString().trim(),
   ],
   async (req: Request, res: Response): Promise<void> => {
-    const { phone, code, isSignIn, username, referralCode: inputRefCode } = req.body;
+    const phone = readPhone(req, res);
+    if (!phone) return;
+    const { code, isSignIn, username, referralCode: inputRefCode } = req.body;
 
-    const isDev = process.env.NODE_ENV === "development" || !process.env.FAST2SMS_API_KEY;
-    const isValid = verifyOTP(phone, code) || (isDev && (code === "1234" || code === "123456"));
+    if (!(await rateLimit(`verify:${phone}`, 8, 15 * 60 * 1000))) {
+      res.status(429).json({ error: "TooManyRequests", message: "Too many attempts. Request a new code." });
+      return;
+    }
+
+    const allowDevCode = process.env.NODE_ENV === "development" && process.env.ALLOW_DEV_OTP === "true";
+    const isValid = (await verifyOTP(phone, code)) || (allowDevCode && code === "1234");
 
     if (!isValid) {
       res.status(400).json({ error: "InvalidCode", message: "Invalid or expired verification code." });
@@ -223,33 +239,40 @@ router.post(
 
       const uniqueReferralCode = await generateUniqueReferralCode();
 
-      user = await prisma.user.create({
-        data: {
-          email,
-          name: username,
-          phone,
-          referralCode: uniqueReferralCode,
-          referredByUserId,
-          wallet: {
-            create: {
-              balance: 0,
-              convertibleCashBalanceInPaise: 0,
-              nonConvertibleCashBalanceInPaise: 0,
+      try {
+        user = await prisma.user.create({
+          data: {
+            email,
+            name: username,
+            phone,
+            referralCode: uniqueReferralCode,
+            referredByUserId,
+            wallet: {
+              create: {
+                balance: 0,
+                convertibleCashBalanceInPaise: 0,
+                nonConvertibleCashBalanceInPaise: 0,
+              },
             },
           },
-        },
-        include: {
-          wallet: true,
-          membership: true,
-        },
-      });
+          include: {
+            wallet: true,
+            membership: true,
+          },
+        });
+      } catch (err: unknown) {
+        if ((err as { code?: string }).code === "P2002") {
+          res.status(409).json({ error: "UserAlreadyExists", message: "Username or phone number already registered." });
+          return;
+        }
+        throw err;
+      }
     }
 
     // Generate custom JWT token
     const token = signToken({
       dbUserId: user.id,
       phone: user.phone || undefined,
-      createdAt: Date.now(),
     });
 
     const isOnboarded = !!(user.name && user.name !== "ZonoFit Member");
@@ -270,20 +293,37 @@ router.post(
 );
 
 // POST /api/auth/google
+// Accepts only a Google ID token. An email typed into the app is not proof of identity.
 router.post("/google", async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email: bodyEmail, name: bodyName, referralCode: inputRefCode } = req.body || {};
-    
-    if (!bodyEmail || typeof bodyEmail !== "string" || !bodyEmail.trim()) {
-      res.status(400).json({ error: "EmailRequired", message: "Email address is required for Google Sign-In." });
+    const { idToken, referralCode: inputRefCode } = req.body || {};
+    if (!idToken || typeof idToken !== "string") {
+      res.status(400).json({
+        error: "GoogleTokenRequired",
+        message: "Sign in with your phone number. Google sign-in needs a verified Google token, which this build does not send.",
+      });
       return;
     }
-    const email = bodyEmail.trim().toLowerCase();
-    const name = bodyName || email.split("@")[0] || "Google User";
 
-    const premiumPlan = await prisma.membershipPlan.findFirst({
-      where: { name: "Premium" },
-    });
+    const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+    if (!clientId) {
+      res.status(503).json({ error: "GoogleNotConfigured", message: "Google sign-in is not configured. Use your phone number." });
+      return;
+    }
+
+    const googleRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
+    if (!googleRes.ok) {
+      res.status(401).json({ error: "InvalidGoogleToken", message: "Google could not verify this sign-in." });
+      return;
+    }
+    const google = await googleRes.json() as { aud?: string; email?: string; email_verified?: string; name?: string };
+    if (google.aud !== clientId || google.email_verified !== "true" || !google.email) {
+      res.status(401).json({ error: "InvalidGoogleToken", message: "Google could not verify this sign-in." });
+      return;
+    }
+
+    const email = google.email.trim().toLowerCase();
+    const name = google.name || email.split("@")[0] || "Google User";
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
     
@@ -333,7 +373,7 @@ router.post("/google", async (req: Request, res: Response): Promise<void> => {
       include: { wallet: true, membership: true },
     });
 
-    const token = signToken({ dbUserId: user.id, createdAt: Date.now() });
+    const token = signToken({ dbUserId: user.id });
 
     const hasMembership = !!user.membership;
     const hasPrimaryGym = !!(user.membership && user.membership.primaryGymId);
@@ -353,7 +393,71 @@ router.post("/google", async (req: Request, res: Response): Promise<void> => {
     });
   } catch (err: any) {
     console.error("[Google Auth Error]", err);
-    res.status(500).json({ error: "GoogleAuthFailed", message: err.message || "Google sign-in failed." });
+    res.status(500).json({ error: "GoogleAuthFailed", message: "Google sign-in failed." });
   }
 });
+
+function cleanEmail(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const email = value.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 120) return null;
+  return email;
+}
+
+// POST /api/auth/email-otp/send
+// Used while a member is registering an email address. The code goes to that inbox.
+router.post("/email-otp/send", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const email = cleanEmail(req.body?.email);
+  if (!email) {
+    res.status(400).json({ error: "InvalidEmail", message: "Enter a valid email address." });
+    return;
+  }
+  const otpKey = emailOtpKey(email);
+  const wait = await emailResendWaitSeconds(otpKey);
+  if (wait > 0) {
+    const minutes = Math.max(1, Math.ceil(wait / 60));
+    res.status(429).json({
+      error: "ResendTooSoon",
+      message: `Wait ${minutes} minute${minutes === 1 ? "" : "s"} before requesting another code.`,
+      retryAfterSeconds: wait,
+    });
+    return;
+  }
+  if (!(await rateLimit(`email-otp:${otpKey}`, 5, 15 * 60 * 1000))) {
+    res.status(429).json({ error: "TooManyRequests", message: "Too many code requests. Wait a few minutes and try again." });
+    return;
+  }
+  const code = randomInt(1000, 10000).toString();
+  await setOTP(otpKey, code, EMAIL_OTP_TTL_MINUTES);
+  const sent = await sendEmailOTP(email, code);
+  if (!sent) {
+    await deleteOTP(otpKey);
+    res.status(503).json({ error: "EmailNotConfigured", message: "Could not email a verification code. Try again shortly." });
+    return;
+  }
+  res.json({ success: true, message: "Enter the 4-digit code sent to your email. It works for 10 minutes." });
+});
+
+// POST /api/auth/email-otp/verify
+router.post("/email-otp/verify", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const email = cleanEmail(req.body?.email);
+  const code = typeof req.body?.code === "string" ? req.body.code.trim() : "";
+  if (!email || !/^\d{4}$/.test(code)) {
+    res.status(400).json({ error: "InvalidCode", message: "Enter the 4-digit code from your email." });
+    return;
+  }
+  const otpKey = emailOtpKey(email);
+  if (!(await rateLimit(`email-verify:${otpKey}`, 8, 15 * 60 * 1000))) {
+    res.status(429).json({ error: "TooManyRequests", message: "Too many attempts. Request a new code." });
+    return;
+  }
+  const allowDevCode = process.env.NODE_ENV === "development" && process.env.ALLOW_DEV_OTP === "true";
+  const isValid = (await verifyOTP(otpKey, code)) || (allowDevCode && code === "1234");
+  if (!isValid) {
+    res.status(400).json({ error: "InvalidCode", message: "Invalid or expired verification code." });
+    return;
+  }
+  res.json({ verified: true, email });
+});
+
 export default router;

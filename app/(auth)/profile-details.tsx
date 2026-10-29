@@ -18,6 +18,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/store/useAuthStore";
+import { apiFetch } from "@/lib/api";
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -31,9 +32,9 @@ const BIRTH_YEARS = Array.from({ length: 2012 - 1955 + 1 }, (_, i) => 2012 - i);
 
 export default function ProfileDetailsScreen() {
   const router = useRouter();
-  const { user, updateProfile, loading } = useAuthStore();
+  const { user, token, updateProfile, loading } = useAuthStore();
 
-  const isGoogleUser = user?.authMethod === "google" || !!user?.email;
+  const isGoogleUser = user?.authMethod === "google";
 
   const initialName = user?.username && user.username !== "Google User" && user.username !== "ZonoFit Member" 
     ? user.username 
@@ -41,7 +42,7 @@ export default function ProfileDetailsScreen() {
   
   const [name, setName] = useState(initialName);
   const [dob, setDob] = useState(user?.dob || "");
-  const [email, setEmail] = useState(user?.email || (isGoogleUser ? "saranshpandya148@gmail.com" : ""));
+  const [email, setEmail] = useState(user?.email || "");
   const [isEmailVerified, setIsEmailVerified] = useState(isGoogleUser);
   const [referral, setReferral] = useState("");
   const [referralApplied, setReferralApplied] = useState(false);
@@ -57,7 +58,7 @@ export default function ProfileDetailsScreen() {
   const [showEmailOtpModal, setShowEmailOtpModal] = useState(false);
   const [emailOtp, setEmailOtp] = useState("");
   const [otpSending, setOtpSending] = useState(false);
-  const [otpCountdown, setOtpCountdown] = useState(30);
+  const [otpCountdown, setOtpCountdown] = useState(0);
 
   // Sync existing user data if available
   useEffect(() => {
@@ -173,30 +174,42 @@ export default function ProfileDetailsScreen() {
   const firstDayIndex = new Date(pickerYear, pickerMonth, 1).getDay();
 
   // Send Email OTP
-  const handleSendEmailOtp = () => {
-    const trimmed = email.trim();
+  const handleSendEmailOtp = async () => {
+    const trimmed = email.trim().toLowerCase();
     if (!trimmed || !trimmed.includes("@") || !trimmed.includes(".")) {
       Alert.alert("Invalid Email", "Please enter a valid email address.");
       return;
     }
     setOtpSending(true);
-    setTimeout(() => {
-      setOtpSending(false);
-      setOtpCountdown(30);
+    try {
+      await apiFetch("/api/auth/email-otp/send", {
+        method: "POST",
+        token,
+        body: JSON.stringify({ email: trimmed }),
+      });
+      setEmail(trimmed);
       setEmailOtp("");
+      setOtpCountdown(5 * 60);
       setShowEmailOtpModal(true);
-    }, 600);
+    } catch (e: any) {
+      Alert.alert("Could not send code", e?.message || "Try again in a moment.");
+    } finally {
+      setOtpSending(false);
+    }
   };
 
   // Verify Email OTP
-  const handleVerifyEmailOtp = () => {
-    const cleanCode = emailOtp.trim();
-    if (cleanCode === "1234" || cleanCode.length === 4) {
+  const handleVerifyEmailOtp = async () => {
+    try {
+      await apiFetch("/api/auth/email-otp/verify", {
+        method: "POST",
+        token,
+        body: JSON.stringify({ email: email.trim().toLowerCase(), code: emailOtp.trim() }),
+      });
       setIsEmailVerified(true);
       setShowEmailOtpModal(false);
-      Alert.alert("Email Verified! ✓", "Your email address has been successfully verified.");
-    } else {
-      Alert.alert("Invalid Code", "Please enter the 4-digit code (Use 1234 for testing).");
+    } catch (e: any) {
+      Alert.alert("Invalid code", e?.message || "That code is not valid.");
     }
   };
 
@@ -224,17 +237,8 @@ export default function ProfileDetailsScreen() {
       Alert.alert("Email Required", "Please enter a valid email address.");
       return;
     }
-
-    // IF NOT GOOGLE USER AND NOT VERIFIED VIA OTP
-    if (!isGoogleUser && !isEmailVerified) {
-      Alert.alert(
-        "Email Verification Required",
-        "Please verify your email address via OTP to continue. (If continuing with Google, no OTP is needed).",
-        [
-          { text: "Verify with OTP", onPress: handleSendEmailOtp },
-          { text: "Cancel", style: "cancel" }
-        ]
-      );
+    if (!isEmailVerified) {
+      Alert.alert("Verify your email", "Enter the 4-digit code we send to that Gmail address.");
       return;
     }
 
@@ -639,7 +643,20 @@ export default function ProfileDetailsScreen() {
             <Text style={styles.emailOtpSubtitle}>
               Enter the 4-digit verification code sent to:{"\n"}
               <Text style={{ fontWeight: "700", color: "#111827" }}>{email}</Text>
+              {"\n"}It works for 10 minutes.
             </Text>
+
+            <Pressable
+              onPress={handleSendEmailOtp}
+              disabled={otpCountdown > 0 || otpSending}
+              style={{ marginBottom: 12 }}
+            >
+              <Text style={{ textAlign: "center", color: otpCountdown > 0 ? "#9CA3AF" : "#1F7A3E", fontWeight: "700" }}>
+                {otpCountdown > 0
+                  ? `Resend OTP in ${Math.floor(otpCountdown / 60)}:${String(otpCountdown % 60).padStart(2, "0")}`
+                  : "Resend OTP"}
+              </Text>
+            </Pressable>
 
             <View style={styles.emailOtpInputWrapper}>
               <TextInput
@@ -653,14 +670,6 @@ export default function ProfileDetailsScreen() {
                 onChangeText={setEmailOtp}
               />
             </View>
-
-            <Pressable 
-              style={styles.emailTestHint}
-              onPress={() => setEmailOtp("1234")}
-            >
-              <Ionicons name="information-circle-outline" size={14} color="#047857" />
-              <Text style={styles.emailTestHintText}>Testing code: Tap to fill 1234</Text>
-            </Pressable>
 
             <View style={styles.emailOtpActionRow}>
               <Pressable 

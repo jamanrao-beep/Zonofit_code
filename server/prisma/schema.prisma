@@ -1,6 +1,6 @@
 // ZonoFit — Prisma Schema
-// PostgreSQL + PostGIS
-// Run: npx prisma migrate dev --name init
+// MySQL on Hostinger. Distance queries use ST_Distance_Sphere.
+// Run migrations from the Hostinger host. Do not push this schema from a machine that cannot reach the database.
 
 generator client {
   provider = "prisma-client-js"
@@ -100,7 +100,7 @@ model User {
   id               String    @id @default(uuid())
   email            String    @unique
   name             String
-  phone            String?
+  phone            String?   @unique
   avatarUrl        String?   @db.Text
   expoPushToken    String?
   gender           String?
@@ -160,7 +160,9 @@ model PaymentOrder {
   amountPaise     Int
   creditsToAdd    Int
   cashToAddPaise  Int      @default(0)
-  status          String   @default("CREATED") // CREATED, PAID, FAILED
+  purpose         String   @default("CREDITS") // CREDITS, CASH, MEMBERSHIP
+  metaJson        String?  @db.Text
+  status          String   @default("CREATED") // CREATED, PAID, FULFILLED, FAILED
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -913,4 +915,23 @@ model TrialGymVote {
 
   @@unique([trialGymId, userId])
   @@map("trial_gym_votes")
+}
+
+// OTP and rate limits live in MySQL. The existing Hostinger database gets these
+// from ensureSchema on boot. This model is for a new empty database migration.
+model OtpCode {
+  phone     String   @id @db.VarChar(64)
+  codeHash  String   @db.VarChar(64)
+  expiresAt DateTime @db.DateTime(3)
+  attempts  Int      @default(0)
+
+  @@map("otp_codes")
+}
+
+model RateLimit {
+  id      String   @id @db.VarChar(191)
+  count   Int
+  resetAt DateTime @db.DateTime(3)
+
+  @@map("rate_limits")
 }

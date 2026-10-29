@@ -1,5 +1,7 @@
 import cron from "node-cron";
 import { Expo } from "expo-server-sdk";
+import { purgeStaleOtps } from "../lib/otpStore";
+import { purgeExpiredRateLimits } from "../lib/rateLimit";
 import prisma from "../lib/prisma";
 import { getSystemSettings } from "./settings";
 
@@ -7,6 +9,16 @@ const expo = new Expo();
 
 export function initCronJobs() {
   console.log("Initializing cron jobs...");
+
+  // Drop email and phone codes 10 minutes after they expire, so unused rows do not stay.
+  cron.schedule("*/10 * * * *", async () => {
+    try {
+      await purgeStaleOtps();
+      await purgeExpiredRateLimits();
+    } catch (err) {
+      console.error("[CRON] Could not clear old verification codes:", err);
+    }
+  });
 
   // Run every day at midnight (0 0 * * *)
   cron.schedule("0 0 * * *", async () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/useAuthStore";
 import { ArrowRight, Eye, EyeOff, Lock, Mail } from "lucide-react";
@@ -9,14 +9,22 @@ import Link from "next/link";
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
+  const [otpStep, setOtpStep] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resendIn, setResendIn] = useState(0);
   const router = useRouter();
   const login = useAuthStore((state) => state.login);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const timer = setTimeout(() => setResendIn((seconds) => seconds - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendIn]);
+
+  const signIn = async (includeCode: boolean) => {
     setLoading(true);
     setError("");
 
@@ -24,7 +32,7 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/portal/signin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, ...(includeCode ? { code } : {}) }),
       });
 
       let data: any = {};
@@ -39,7 +47,15 @@ export default function LoginPage() {
       }
 
       if (!res.ok) {
+        if (typeof data.retryAfterSeconds === "number") setResendIn(data.retryAfterSeconds);
         throw new Error(data.message || data.error || "Failed to login");
+      }
+
+      if (data.otpRequired) {
+        setOtpStep(true);
+        setCode("");
+        setResendIn(5 * 60);
+        return;
       }
 
       if (data.user.role !== "ADMIN") {
@@ -53,6 +69,11 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    void signIn(otpStep);
   };
 
   return (
@@ -105,13 +126,42 @@ export default function LoginPage() {
             </button>
           </div>
 
+          {otpStep ? (
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="4-digit code from your email"
+              required
+              maxLength={4}
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 px-4 text-black tracking-[0.3em] focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:tracking-normal placeholder:text-gray-400"
+            />
+          ) : null}
+
           <button 
             type="submit" 
-            disabled={loading}
+            disabled={loading || (otpStep && code.length < 4)}
             className="mt-2 bg-primary hover:bg-primary-dark text-white py-3.5 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 disabled:opacity-70"
           >
-            {loading ? "Logging in..." : "Login"} <ArrowRight size={18} />
+            {loading ? "Please wait..." : otpStep ? "Verify and login" : "Login"} <ArrowRight size={18} />
           </button>
+          {otpStep ? (
+            <button
+              type="button"
+              disabled={loading || resendIn > 0}
+              onClick={() => void signIn(false)}
+              className="text-center text-xs text-gray-500 hover:text-black disabled:hover:text-gray-500"
+            >
+              {resendIn > 0
+                ? `Resend OTP in ${Math.floor(resendIn / 60)}:${String(resendIn % 60).padStart(2, "0")}`
+                : "Resend OTP"}
+            </button>
+          ) : null}
+          {otpStep ? (
+            <p className="text-center text-xs text-gray-500 -mt-2">The code works for 10 minutes.</p>
+          ) : null}
         </form>
 
       </div>

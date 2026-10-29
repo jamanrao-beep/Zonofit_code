@@ -30,7 +30,6 @@ import couponsRouter from "./routes/coupons";
 import contentRouter from "./routes/content";
 
 import prisma from "./lib/prisma";
-import bcrypt from "bcryptjs";
 
 // Process level safety guards
 process.on("unhandledRejection", (reason) => {
@@ -80,7 +79,15 @@ app.use(
 );
 
 // ─── Body Parsing ──────────────────────────────────────────────────────────────
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({
+  limit: "1mb",
+  verify: (req, _res, buf) => {
+    const url = (req as { originalUrl?: string; url?: string }).originalUrl || req.url || "";
+    if (url.startsWith("/api/credits/webhook")) {
+      (req as express.Request & { rawBody?: Buffer }).rawBody = Buffer.from(buf);
+    }
+  },
+}));
 app.use(express.urlencoded({ extended: true }));
 
 // ─── Static File Serving (Uploads) ─────────────────────────────────────────────
@@ -93,40 +100,20 @@ app.use("/uploads", express.static(uploadsDir));
 // ─── Health Check ──────────────────────────────────────────────────────────────
 app.get("/health", async (_req, res) => {
     let dbStatus = "unknown";
-    let dbError = null;
     try {
         await prisma.$queryRaw`SELECT 1`;
         dbStatus = "connected";
-    } catch (err: any) {
+    } catch (err) {
         dbStatus = "disconnected";
-        dbError = err.message;
+        console.error("[health] database check failed");
     }
 
     res.json({
         status: dbStatus === "connected" ? "ok" : "degraded",
         service: "zonofit-server",
         db: dbStatus,
-        ...(dbError && { dbError }),
         timestamp: new Date().toISOString(),
-        env: process.env.NODE_ENV,
     });
-});
-
-import { initDatabase, seedTestGym } from "./lib/initDatabase";
-
-// ─── Setup / Self-Healing Route ────────────────────────────────────────────────
-app.all("/api/setup-db", async (_req, res) => {
-    const result = await initDatabase();
-    res.status(result.success ? 200 : 500).json(result);
-});
-
-app.all("/api/seed-test-gym", async (_req, res) => {
-    try {
-        const result = await seedTestGym();
-        res.json(result);
-    } catch (err: any) {
-        res.status(500).json({ error: "SeedError", message: err.message });
-    }
 });
 
 // ─── API Routes ────────────────────────────────────────────────────────────────
@@ -159,21 +146,50 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 import { initCronJobs } from "./services/cron";
+import { ensureSchema } from "./lib/ensureSchema";
+import { normalizeAppPassword } from "./lib/mail";
+
+function assertBootSecrets(): void {
+    const secret = process.env.JWT_SECRET?.trim() ?? "";
+    if (secret.length < 32 || secret === "zonofit_super_secret_key_1234567890") {
+        console.error("Refusing to start: set a unique JWT_SECRET of at least 32 characters.");
+        process.exit(1);
+    }
+}
+
+function warnMissingProviderKeys(): void {
+    const names = ["RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET", "RAZORPAY_WEBHOOK_SECRET", "FAST2SMS_API_KEY"];
+    const missing = names.filter((name) => {
+        const value = process.env[name]?.trim() ?? "";
+        return value.length < 8 || /placeholder/i.test(value);
+    });
+    if (!normalizeAppPassword(process.env.GMAIL_APP_PASSWORD)) missing.push("GMAIL_APP_PASSWORD");
+    if (missing.length > 0) {
+        console.warn(`[Startup] Payments or SMS stay unavailable until these are set: ${missing.join(", ")}`);
+    }
+}
 
 // ─── Start ─────────────────────────────────────────────────────────────────────
-initCronJobs();
-
-app.listen(PORT, "0.0.0.0", () => {
-    console.log(`
+async function start(): Promise<void> {
+    assertBootSecrets();
+    warnMissingProviderKeys();
+    try {
+        await ensureSchema();
+    } catch (err) {
+        console.error("[Startup] schema check failed", err);
+    }
+    initCronJobs();
+    app.listen(PORT, "0.0.0.0", () => {
+        console.log(`
 ╔══════════════════════════════════════╗
 ║  ZonoFit Server                      ║
 ║  Running on http://localhost:${PORT}    ║
 ║  Environment: ${(process.env.NODE_ENV ?? "development").padEnd(20)}║
 ╚══════════════════════════════════════╝
   `);
-    initDatabase().catch((err) => {
-        console.error("[Startup] Initial db setup error:", err);
     });
-});
+}
+
+void start();
 
 export default app;
