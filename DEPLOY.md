@@ -56,18 +56,15 @@ cd website && npm install && npm run dev                                     # h
 
 ## Part 2 — Backend + database on a Hostinger VPS
 
-### 2.1 Before you touch AWS (data safety)
+### 2.1 Database
 
-Do these **while AWS is still running**, then only delete AWS after step 2.7 passes.
+The live database is already MySQL on Hostinger. Do not dump Postgres into it, and do not run `prisma migrate deploy` or `prisma db push` against it. The API creates missing columns, the OTP table, the rate-limit table, and the unique phone index on boot through `ensureSchema`.
+
+`server/prisma/migrations/` is committed. Use the baseline only on a **new empty** database:
 
 ```bash
-# on the AWS box or anywhere that can reach the DB
-pg_dump -Fc "$AWS_DATABASE_URL" -f zonofit.dump          # full database backup
-aws s3 sync s3://zonofit-images ./uploads                 # all uploaded images
+cd server && npx prisma migrate deploy
 ```
-
-> `server/prisma/migrations/` is git-ignored, so migrations are **not** in the repo.
-> Do not rely on `prisma migrate` for the new database — restore the dump instead.
 
 ### 2.2 Prepare the VPS (Ubuntu 22.04/24.04)
 
@@ -174,7 +171,8 @@ search for `amazonaws.com` in the admin pages' data and re-point or re-upload th
 
 ```bash
 # /etc/cron.d/zonofit-backup  (daily 03:00, keep 14 days)
-0 3 * * * root pg_dump -Fc zonofit > /var/backups/zonofit-$(date +\%F).dump && find /var/backups -name 'zonofit-*.dump' -mtime +14 -delete
+# Use the Hostinger MySQL user. Do not put the password in this file.
+0 3 * * * root mysqldump --single-transaction u907802241_zonofit > /var/backups/zonofit-$(date +\%F).sql && find /var/backups -name 'zonofit-*.sql' -mtime +14 -delete
 ```
 
 Also enable Hostinger's weekly VPS snapshots, and copy dumps off the server regularly.
@@ -190,15 +188,16 @@ Also enable Hostinger's weekly VPS snapshots, and copy dumps off the server regu
 
 ## Part 3 — Mobile app (later)
 
-The submitted APK calls `http://100.31.236.208`. When AWS is removed that build stops working.
-In the next release, set `EXPO_PUBLIC_API_URL` to `https://api.zonofit.com` in `eas.json`
-(all three profiles) and set `usesCleartextTraffic` to `false` in `app.json`.
+The source app, website, and gym portal now call `https://api.zonofit.com`.
+Phones that already have the old APK still call the previous server until you ship a new build.
+`usesCleartextTraffic` is false in `app.json`.
 
 ## Known follow-ups
 
-- `server/src/lib/jwt.ts` falls back to a hardcoded `JWT_SECRET` if the env var is missing.
-  Always set it on the server (above) and remove the fallback.
-- Migrations are git-ignored; commit `server/prisma/migrations` (or use a documented
-  `prisma db push` flow) so new environments can be built from the repo.
-- Uploads live on the VPS disk now. They are included in the Hostinger snapshot but not in
-  `pg_dump` — back up `server/uploads/` as well.
+- The API refuses to start unless `JWT_SECRET` is a unique value of at least 32 characters.
+  Put that value only in the Hostinger `server/.env`. Old tokens stop working after the secret changes.
+- Copy `server/.env` onto the host. From `server/`, run `npm run rotate-admin` so the live admin hash matches `ADMIN_PASSWORD`. Until that script runs, the old admin password still works.
+- In the Hostinger panel, set a new MySQL password and update `DATABASE_URL` on the host. Create new Razorpay keys and a new Fast2SMS key, then set `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, and `FAST2SMS_API_KEY`. Do not put those values in git. Restart the API afterwards.
+- Email codes are sent from `zonofitofficial@gmail.com`. Put the 16-letter Google app password in the host `server/.env` as `GMAIL_APP_PASSWORD`. Optional `GMAIL_USER` overrides the sender. Do not put that password in git.
+- The committed baseline migration is for a new empty database only. The existing Hostinger database uses `ensureSchema` on boot. Do not run `prisma migrate deploy` or `prisma db push` against it.
+- Uploads live on the server disk. `mysqldump` does not include them. Back up `server/uploads/` as well.
