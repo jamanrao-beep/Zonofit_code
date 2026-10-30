@@ -137,6 +137,8 @@ router.post(
     body("items").isArray({ min: 1 }).withMessage("Items must be an array with at least 1 item."),
     body("items.*.itemId").isUUID().withMessage("Valid item ID required."),
     body("items.*.quantity").isInt({ min: 1 }).withMessage("Quantity must be at least 1."),
+    body("items.*.selectedSize").optional({ nullable: true }).isString().isLength({ max: 80 }),
+    body("items.*.selectedColor").optional({ nullable: true }).isString().isLength({ max: 80 }),
   ],
   async (req: Request, res: Response): Promise<void> => {
     const errors = validationResult(req);
@@ -146,9 +148,15 @@ router.post(
     }
 
     const { items, couponCode, creditsToUse = 0 } = req.body as { 
-      items: { itemId: string; quantity: number }[]; 
+      items: { itemId: string; quantity: number; selectedSize?: string; selectedColor?: string }[]; 
       couponCode?: string;
       creditsToUse?: number;
+    };
+
+    const cleanOption = (value: unknown): string | null => {
+      if (typeof value !== "string") return null;
+      const trimmed = value.trim();
+      return trimmed ? trimmed.slice(0, 80) : null;
     };
 
     try {
@@ -169,7 +177,12 @@ router.post(
           }
 
           totalPaise += item.pricePaise * orderItem.quantity;
-          itemRecords.push({ item, quantity: orderItem.quantity });
+          itemRecords.push({
+            item,
+            quantity: orderItem.quantity,
+            selectedSize: cleanOption(orderItem.selectedSize),
+            selectedColor: cleanOption(orderItem.selectedColor),
+          });
         }
 
         // Apply coupon if provided
@@ -272,6 +285,8 @@ router.post(
                 itemId: record.item.id,
                 quantity: record.quantity,
                 totalPaise: record.item.pricePaise * record.quantity,
+                selectedSize: record.selectedSize,
+                selectedColor: record.selectedColor,
               },
               include: { item: true },
             })

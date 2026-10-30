@@ -12,6 +12,20 @@ export interface ShopItem {
   selectedSize?: string;
   selectedColor?: string;
   variant?: string;
+  /** False for catalogue previews that are not live marketplace rows. */
+  purchasable?: boolean;
+  color?: string;
+  shape?: string;
+}
+
+/** Same product with a different flavour, size, or colour is its own cart line. */
+export function cartLineKey(item: Pick<ShopItem, "id" | "variant" | "selectedSize" | "selectedColor">): string {
+  const option = item.variant || [item.selectedColor, item.selectedSize].filter(Boolean).join(" • ");
+  return option ? `${item.id}::${option}` : item.id;
+}
+
+export function isMarketplaceId(id: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 }
 
 export interface CartItem {
@@ -32,6 +46,8 @@ interface CartState {
   addToCart: (item: ShopItem) => void;
   removeFromCart: (itemId: string) => void;
   updateQuantity: (itemId: string, quantity: number) => void;
+  setLineQuantity: (item: ShopItem, quantity: number) => void;
+  removeLines: (keys: string[]) => void;
   clearCart: () => void;
   getTotalPrice: () => number;
   getDiscountedPrice: () => number;
@@ -45,12 +61,13 @@ export const useCartStore = create<CartState>((set, get) => ({
   appliedCoupon: null,
 
   addToCart: (item) => {
+    const key = cartLineKey(item);
     set((state) => {
-      const existingItem = state.cartItems.find((ci) => ci.item.id === item.id);
+      const existingItem = state.cartItems.find((ci) => cartLineKey(ci.item) === key);
       if (existingItem) {
         return {
           cartItems: state.cartItems.map((ci) =>
-            ci.item.id === item.id ? { ...ci, quantity: ci.quantity + 1 } : ci
+            cartLineKey(ci.item) === key ? { ...ci, quantity: Math.min(20, ci.quantity + 1) } : ci
           ),
         };
       }
@@ -59,21 +76,54 @@ export const useCartStore = create<CartState>((set, get) => ({
   },
 
   removeFromCart: (itemId) => {
-    set((state) => ({
-      cartItems: state.cartItems.filter((ci) => ci.item.id !== itemId),
-    }));
+    set((state) => {
+      const byLine = state.cartItems.some((ci) => cartLineKey(ci.item) === itemId);
+      const cartItems = state.cartItems.filter((ci) =>
+        byLine ? cartLineKey(ci.item) !== itemId : ci.item.id !== itemId
+      );
+      return { cartItems, appliedCoupon: cartItems.length ? state.appliedCoupon : null };
+    });
   },
 
   updateQuantity: (itemId, quantity) => {
     set((state) => {
+      const byLine = state.cartItems.some((ci) => cartLineKey(ci.item) === itemId);
+      const matches = (ci: CartItem) => (byLine ? cartLineKey(ci.item) === itemId : ci.item.id === itemId);
       if (quantity <= 0) {
-        return { cartItems: state.cartItems.filter((ci) => ci.item.id !== itemId) };
+        const cartItems = state.cartItems.filter((ci) => !matches(ci));
+        return { cartItems, appliedCoupon: cartItems.length ? state.appliedCoupon : null };
       }
+      const next = Math.min(20, quantity);
+      return {
+        cartItems: state.cartItems.map((ci) => (matches(ci) ? { ...ci, quantity: next } : ci)),
+      };
+    });
+  },
+
+  setLineQuantity: (item, quantity) => {
+    const key = cartLineKey(item);
+    set((state) => {
+      if (quantity <= 0) {
+        const cartItems = state.cartItems.filter((ci) => cartLineKey(ci.item) !== key);
+        return { cartItems, appliedCoupon: cartItems.length ? state.appliedCoupon : null };
+      }
+      const next = Math.min(20, quantity);
+      const exists = state.cartItems.some((ci) => cartLineKey(ci.item) === key);
+      if (!exists) return { cartItems: [...state.cartItems, { item, quantity: next }] };
       return {
         cartItems: state.cartItems.map((ci) =>
-          ci.item.id === itemId ? { ...ci, quantity } : ci
+          cartLineKey(ci.item) === key ? { ...ci, item, quantity: next } : ci
         ),
       };
+    });
+  },
+
+  removeLines: (keys) => {
+    set((state) => {
+      const cartItems = state.cartItems.filter(
+        (ci) => !keys.includes(cartLineKey(ci.item)) && !keys.includes(ci.item.id)
+      );
+      return { cartItems, appliedCoupon: cartItems.length ? state.appliedCoupon : null };
     });
   },
 

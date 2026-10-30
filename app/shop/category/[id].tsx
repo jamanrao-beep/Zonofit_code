@@ -1,263 +1,229 @@
-import React, { useState } from "react";
-import { 
-  ScrollView, 
-  Text, 
-  View, 
-  TextInput, 
-  Pressable, 
-  Image, 
-  StatusBar
+import React, { useCallback, useMemo, useState } from "react";
+import {
+  View,
+  Text,
+  ScrollView,
+  TextInput,
+  Pressable,
+  StyleSheet,
+  StatusBar,
+  Alert,
+  useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter, useLocalSearchParams } from "expo-router";
-import { useCartStore } from "@/store/useCartStore";
-import CartModal from "@/components/CartModal";
-import AddToCartConfirmModal, { AddedItemDetails } from "@/components/AddToCartConfirmModal";
+import { useLocalSearchParams, useFocusEffect, useRouter } from "expo-router";
+import {
+  categoryNameFor,
+  filterShopProducts,
+  GOAL_LABEL,
+  SHOP_CATEGORIES,
+  sortShopProducts,
+  type ShopGoal,
+  type ShopSort,
+} from "@/data/shopCatalog";
+import { useShopCatalogStore } from "@/store/useShopCatalogStore";
+import { useWishlistStore } from "@/store/useWishlistStore";
+import { ShopBackButton, CartIconButton } from "@/components/shop/Chrome";
+import ProductCard from "@/components/shop/ProductCard";
+import { shop, shopStyles } from "@/components/shop/theme";
 
-const FILTERS = ["All", "Protein", "Creatine", "Pre Workout", "BCAA"];
-
-const PRODUCTS = [
-  {
-    id: "prod_1",
-    name: "Gold Standard Whey",
-    brand: "Optimum Nutrition",
-    variant: "Chocolate • 1kg",
-    rating: "4.8 (1.2K)",
-    price: 2499,
-    image: "https://images.unsplash.com/photo-1579722820308-d74e571900a9?auto=format&fit=crop&q=80&w=400",
-    isBestSeller: true
-  },
-  {
-    id: "prod_2",
-    name: "MuscleBlaze Creatine",
-    brand: "MuscleBlaze",
-    variant: "Monohydrate • 250g",
-    rating: "4.7 (856)",
-    price: 899,
-    image: "https://images.unsplash.com/photo-1593095948071-474c5cc2989d?auto=format&fit=crop&q=80&w=400",
-  },
-  {
-    id: "prod_3",
-    name: "MuscleBlaze Biozyme",
-    brand: "MuscleBlaze",
-    variant: "Performance Whey • 1kg",
-    rating: "4.6 (732)",
-    price: 2899,
-    image: "https://images.unsplash.com/photo-1579722821273-0f137351ecf4?auto=format&fit=crop&q=80&w=400",
-  },
-  {
-    id: "prod_4",
-    name: "Avvatar Isorich",
-    brand: "Avvatar",
-    variant: "Whey Protein • 1kg",
-    rating: "4.5 (508)",
-    price: 2399,
-    image: "https://images.unsplash.com/photo-1593095948071-474c5cc2989d?auto=format&fit=crop&q=80&w=400",
-  }
+const SORTS: { id: ShopSort; label: string }[] = [
+  { id: "pop", label: "Popular" },
+  { id: "rt", label: "Top rated" },
+  { id: "lo", label: "Price: low to high" },
+  { id: "hi", label: "Price: high to low" },
 ];
 
-export default function CategoryScreen() {
-  const router = useRouter();
-  const { id } = useLocalSearchParams();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [activeFilter, setActiveFilter] = useState("All");
-  
-  const cartCount = useCartStore((state) => state.getTotalItems());
-  const addToCart = useCartStore((state) => state.addToCart);
-  const [isCartOpen, setIsCartOpen] = useState(false);
-  const [addedItem, setAddedItem] = useState<AddedItemDetails | null>(null);
+function one(value: string | string[] | undefined): string {
+  return Array.isArray(value) ? value[0] || "" : value || "";
+}
 
-  const filteredProducts = PRODUCTS.filter((prod) => {
-    const q = searchQuery.trim().toLowerCase();
-    const matchesSearch = !q || 
-      prod.name.toLowerCase().includes(q) ||
-      prod.brand.toLowerCase().includes(q) ||
-      prod.variant.toLowerCase().includes(q);
-      
-    const matchesFilter = activeFilter === "All" || 
-      prod.name.toLowerCase().includes(activeFilter.toLowerCase()) ||
-      prod.variant.toLowerCase().includes(activeFilter.toLowerCase());
-      
-    return matchesSearch && matchesFilter;
-  });
+export default function ShopListScreen() {
+  const params = useLocalSearchParams<{ id: string; q?: string; goal?: string; brand?: string; wish?: string; best?: string }>();
+  const category = categoryNameFor(one(params.id));
+  const goal = one(params.goal);
+  const brand = one(params.brand);
+  const wish = one(params.wish) === "1";
+  const best = one(params.best) === "1";
+  const [search, setSearch] = useState(one(params.q));
+  const [sub, setSub] = useState("All");
+  const [sort, setSort] = useState<ShopSort>("pop");
+  const products = useShopCatalogStore((state) => state.products);
+  const load = useShopCatalogStore((state) => state.load);
+  const wishedIds = useWishlistStore((state) => state.ids);
+  const { width } = useWindowDimensions();
+  const router = useRouter();
+
+  useFocusEffect(useCallback(() => { void load(); }, [load]));
+
+  const title = wish
+    ? "Wishlist"
+    : best
+      ? "Best Sellers"
+      : goal && GOAL_LABEL[goal as ShopGoal]
+        ? GOAL_LABEL[goal as ShopGoal]
+        : brand
+          ? brand
+          : category || "All products";
+
+  const base = useMemo(
+    () => filterShopProducts(products, { category, goal, brand, q: search, wish, best, wishedIds }),
+    [products, category, goal, brand, search, wish, best, wishedIds]
+  );
+
+  const chipKey = category ? "sub" : "category";
+  const chipValues = ["All", ...Array.from(new Set(base.map((product) => (chipKey === "sub" ? product.sub : product.category))))];
+  const narrowed = sub === "All"
+    ? base
+    : base.filter((product) => (chipKey === "sub" ? product.sub : product.category) === sub);
+  const shown = sortShopProducts(narrowed, sort);
+  const cardWidth = Math.floor((width - 40 - 12) / 2);
+
+  const openSort = () => {
+    Alert.alert("Sort", undefined, [
+      ...SORTS.map((entry) => ({ text: entry.label, onPress: () => setSort(entry.id) })),
+      { text: "Cancel", style: "cancel" as const },
+    ]);
+  };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }} edges={["top"]}>
+    <SafeAreaView style={shopStyles.screen} edges={["top"]}>
       <StatusBar barStyle="dark-content" />
-      
-      {/* Header */}
-      <View className="px-5 pt-4 pb-4 flex-row justify-between items-center bg-white">
-        <Pressable onPress={() => router.back()} className="w-10 h-10 items-center justify-center">
-          <Ionicons name="chevron-back" size={24} color="#111827" />
-        </Pressable>
-        <View className="flex-1 items-center">
-          <Text className="text-[18px] font-bold text-[#111827]">Supplements</Text>
-          <Text className="text-[12px] font-medium text-[#6B7280]">Fuel your performance</Text>
-        </View>
-        <View className="flex-row items-center w-16 justify-end">
-          <Pressable className="mr-4">
-            <Ionicons name="heart-outline" size={22} color="#111827" />
-          </Pressable>
-          <Pressable className="relative" onPress={() => setIsCartOpen(true)}>
-            <Ionicons name="cart-outline" size={22} color="#111827" />
-            {cartCount > 0 && (
-              <View className="absolute -top-1.5 -right-1.5 bg-[#1F7A3E] w-[14px] h-[14px] rounded-full items-center justify-center border border-white">
-                <Text className="text-white text-[8px] font-bold">{cartCount}</Text>
-              </View>
-            )}
-          </Pressable>
-        </View>
+      <View style={[shopStyles.top, { paddingBottom: 4 }]}>
+        <ShopBackButton fallback="/shop" />
+        <Text style={[shopStyles.h2, { flex: 1 }]} numberOfLines={1}>{title}</Text>
+        <CartIconButton />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} bounces={true} overScrollMode="never" contentContainerStyle={{ paddingBottom: 100 }}>
-        
-        {/* Search Bar */}
-        <View className="px-5 mb-4 mt-2">
-          <View className="flex-row items-center bg-[#F3F5F4] rounded-[16px] px-4 h-[46px] border border-black/5">
-            <Ionicons name="search-outline" size={18} color="#9CA3AF" />
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 40 }}>
+        <View style={shopStyles.pad}>
+          <View style={shopStyles.search}>
+            <Ionicons name="search-outline" size={20} color={shop.muted} />
             <TextInput
-              placeholder="Search supplements..."
-              placeholderTextColor="#9CA3AF"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              className="flex-1 ml-2 text-[13px] font-medium text-black h-full"
+              value={search}
+              onChangeText={(value) => {
+                setSearch(value);
+                setSub("All");
+              }}
+              placeholder={`Search in ${title.toLowerCase()}`}
+              placeholderTextColor={shop.muted}
+              style={shopStyles.searchInput}
+              returnKeyType="search"
             />
-            {searchQuery.length > 0 && (
-              <Pressable onPress={() => setSearchQuery("")} hitSlop={8}>
-                <Ionicons name="close-circle" size={16} color="#9CA3AF" />
+            {search.length > 0 ? (
+              <Pressable accessibilityLabel="Clear search" onPress={() => { setSearch(""); setSub("All"); }} hitSlop={8}>
+                <Ionicons name="close-circle" size={18} color={shop.muted} />
               </Pressable>
-            )}
+            ) : null}
           </View>
         </View>
 
-        {/* Categories Horizontal Bar (No complex filter modal) */}
-        <View className="px-5 mb-6">
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: 10 }}>
-            {FILTERS.map((filter) => (
-              <Pressable
-                key={filter}
-                onPress={() => setActiveFilter(filter)}
-                className={`px-4 py-2 rounded-full mr-2 ${activeFilter === filter ? 'bg-[#1F7A3E]' : 'bg-[#F3F4F6]'}`}
-              >
-                <Text className={`text-[12px] font-bold ${activeFilter === filter ? 'text-white' : 'text-[#374151]'}`}>
-                  {filter}
-                </Text>
-              </Pressable>
-            ))}
+        {chipValues.length > 2 ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+            {chipValues.map((value) => {
+              const on = sub === value;
+              const label = value === "All" || chipKey === "sub"
+                ? value
+                : SHOP_CATEGORIES.find((cat) => cat.name === value)?.name || value;
+              return (
+                <Pressable key={value} onPress={() => setSub(value)} style={[styles.chip, on && styles.chipOn]}>
+                  <Text style={[styles.chipText, on && styles.chipTextOn]}>{label}</Text>
+                </Pressable>
+              );
+            })}
           </ScrollView>
+        ) : null}
+
+        <View style={styles.meta}>
+          <Text style={styles.count}>{shown.length} product{shown.length === 1 ? "" : "s"}</Text>
+          <Pressable onPress={openSort} style={styles.sort}>
+            <Text style={styles.sortText}>{SORTS.find((entry) => entry.id === sort)?.label}</Text>
+            <Ionicons name="chevron-down" size={16} color={shop.ink} />
+          </Pressable>
         </View>
 
-        {/* Wallet Banner */}
-        <View className="px-5 mb-6">
-          <View className="bg-[#F3FAF4] rounded-2xl p-4 flex-row items-center border border-[#1F7A3E]/20">
-            <Ionicons name="wallet-outline" size={24} color="#1F7A3E" className="mr-3" />
-            <View className="flex-1 px-3">
-              <Text className="text-[#111827] text-[12px] font-bold mb-1">Use your wallet or convert credits to INR</Text>
-              <Text className="text-gray-500 text-[10px] font-medium">1 CR = ₹10  •  After conversion 1 CR = ₹8</Text>
+        {shown.length === 0 ? (
+          <View style={styles.empty}>
+            <View style={styles.emptyIcon}>
+              <Ionicons name="search-outline" size={36} color={shop.hero} />
             </View>
-            <Ionicons name="chevron-forward" size={16} color="#1F7A3E" />
-          </View>
-        </View>
-
-        {/* Product Grid */}
-        <View className="px-5">
-          <View className="flex-row justify-between items-center mb-4">
-            <Text className="text-[16px] font-bold text-[#111827]">
-              {activeFilter === "All" ? "Best Sellers" : `${activeFilter} Products`} ({filteredProducts.length})
+            <Text style={styles.emptyTitle}>{wish ? "Nothing saved yet" : "Nothing here yet"}</Text>
+            <Text style={styles.emptyCopy}>
+              {wish ? "Tap the heart on a product to keep it here." : "Try another filter or search."}
             </Text>
+            <Pressable
+              style={styles.emptyBtn}
+              onPress={() => {
+                if (search) {
+                  setSearch("");
+                  setSub("All");
+                  return;
+                }
+                router.push("/shop" as never);
+              }}
+            >
+              <Text style={styles.emptyBtnText}>{search ? "Clear search" : "Browse shop"}</Text>
+            </Pressable>
           </View>
-
-          <View className="flex-row flex-wrap justify-between">
-            {filteredProducts.map((prod) => (
-              <View 
-                key={prod.id} 
-                className="w-[48%] bg-white border border-gray-200 rounded-2xl p-3 mb-4 shadow-sm justify-between"
-              >
-                <Pressable
-                  onPress={() => router.push(`/shop/product/${prod.id}` as any)}
-                  className="active:opacity-85"
-                >
-                  {prod.isBestSeller && (
-                    <View className="absolute top-0 left-0 bg-[#1F7A3E] px-2 py-0.5 rounded-br-lg rounded-tl-2xl z-10">
-                      <Text className="text-white text-[8px] font-bold uppercase">Bestseller</Text>
-                    </View>
-                  )}
-                  <View className="w-full h-32 bg-white rounded-xl mb-3 items-center justify-center">
-                    <Image 
-                      source={{ uri: prod.image }} 
-                      className="w-full h-full rounded-xl"
-                      resizeMode="contain"
-                    />
-                    <View className="absolute top-2 right-2 bg-white rounded-full p-1 shadow-sm">
-                      <Ionicons name="heart-outline" size={14} color="#9CA3AF" />
-                    </View>
-                  </View>
-                  
-                  <Text className="text-[12px] font-bold text-[#111827] leading-tight mb-1" numberOfLines={2}>
-                    {prod.name}
-                  </Text>
-                  <Text className="text-[10px] text-gray-500 mb-1.5">{prod.variant}</Text>
-                  <View className="flex-row items-center mb-2">
-                    <Ionicons name="star" size={10} color="#F59E0B" />
-                    <Text className="text-[10px] text-gray-600 font-medium ml-1">{prod.rating}</Text>
-                  </View>
-                  
-                  <Text className="text-[14px] font-bold text-[#111827] mb-2">₹{prod.price.toLocaleString()}</Text>
-                  
-                  <View className="bg-[#F5F3FF] self-start px-1.5 py-0.5 rounded border border-[#8B5CF6]/20 mb-3 flex-row items-center">
-                    <Ionicons name="wallet-outline" size={10} color="#8B5CF6" />
-                    <Text className="text-[#8B5CF6] text-[8px] font-bold ml-1">Wallet Accepted</Text>
-                  </View>
-                </Pressable>
-                
-                <Pressable 
-                  className="w-full py-2 rounded-lg border border-[#1F7A3E] items-center justify-center active:bg-[#F3FAF4]"
-                  onPress={() => {
-                    addToCart({
-                      id: prod.id,
-                      name: prod.name,
-                      brand: prod.brand,
-                      price: prod.price,
-                      image: prod.image,
-                      variant: prod.variant,
-                    });
-                    setAddedItem({
-                      id: prod.id,
-                      name: prod.name,
-                      brand: prod.brand,
-                      price: prod.price,
-                      image: prod.image,
-                      variant: prod.variant,
-                    });
-                  }}
-                >
-                  <Text className="text-[#1F7A3E] font-bold text-[11px]">Add to Cart</Text>
-                </Pressable>
-              </View>
+        ) : (
+          <View style={styles.grid}>
+            {shown.map((product) => (
+              <ProductCard key={product.id} product={product} width={cardWidth} />
             ))}
-
-            {filteredProducts.length === 0 && (
-              <View className="w-full py-12 items-center justify-center">
-                <Ionicons name="search-outline" size={40} color="#9CA3AF" />
-                <Text className="text-gray-700 font-bold text-base mt-3">No products found</Text>
-                <Text className="text-gray-400 text-xs mt-1">Try another category or clear search</Text>
-              </View>
-            )}
           </View>
-        </View>
-
+        )}
       </ScrollView>
-      <CartModal visible={isCartOpen} onClose={() => setIsCartOpen(false)} />
-      <AddToCartConfirmModal
-        visible={!!addedItem}
-        item={addedItem}
-        onViewCart={() => {
-          setAddedItem(null);
-          setIsCartOpen(true);
-        }}
-        onContinueShopping={() => setAddedItem(null)}
-      />
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  chips: { paddingHorizontal: 20, gap: 8, paddingTop: 8 },
+  chip: {
+    borderWidth: 1,
+    borderColor: shop.line,
+    backgroundColor: "#fff",
+    borderRadius: 99,
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+  },
+  chipOn: { backgroundColor: shop.hero, borderColor: shop.hero },
+  chipText: { fontWeight: "600", fontSize: 13.5, color: shop.ink },
+  chipTextOn: { color: "#fff" },
+  meta: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginHorizontal: 20,
+    marginTop: 14,
+    marginBottom: 12,
+  },
+  count: { color: shop.muted, fontSize: 13.5 },
+  sort: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderWidth: 1,
+    borderColor: shop.line,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  sortText: { fontWeight: "600", color: shop.ink },
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: 12, paddingHorizontal: 20 },
+  empty: { alignItems: "center", paddingVertical: 70, paddingHorizontal: 20 },
+  emptyIcon: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: shop.soft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  emptyTitle: { fontSize: 22, fontWeight: "700", color: shop.ink },
+  emptyCopy: { color: shop.muted, marginTop: 6, textAlign: "center" },
+  emptyBtn: { marginTop: 16, backgroundColor: shop.hero, borderRadius: 16, paddingHorizontal: 18, paddingVertical: 12 },
+  emptyBtnText: { color: "#fff", fontWeight: "700" },
+});

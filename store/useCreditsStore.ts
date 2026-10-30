@@ -85,7 +85,12 @@ interface CreditsState {
   convertCashToCredits: (creditsToBuy: number) => Promise<{ success: boolean; message?: string }>;
   deductCredits: (creditsAmount: number, description: string) => Promise<{ success: boolean; message?: string }>;
   addTransaction: (type: "debit" | "credit", amount: number, currency: "credits" | "cash", description: string) => void;
-  checkoutCart: (items: { itemId: string; quantity: number }[], totalCostInr: number, couponCode?: string, creditsToUse?: number) => Promise<{ success: boolean; message?: string; breakdown?: any }>;
+  checkoutCart: (
+    items: { itemId: string; quantity: number; selectedSize?: string; selectedColor?: string }[],
+    totalCostInr: number,
+    couponCode?: string,
+    creditsToUse?: number,
+  ) => Promise<{ success: boolean; message?: string; breakdown?: any; orders?: { id: string; quantity: number; totalPaise: number; item?: { title?: string } }[] }>;
   reset: () => void;
 }
 
@@ -329,7 +334,7 @@ export const useCreditsStore = create<CreditsState>()(
       } else {
         set((state) => ({ cashBalance: Math.max(0, state.cashBalance - totalCostInr) }));
       }
-      return { success: true, breakdown: data.breakdown };
+      return { success: true, breakdown: data.breakdown, orders: data.orders };
     } catch (err: any) {
       return { success: false, message: err.message || "Failed to process checkout." };
     }

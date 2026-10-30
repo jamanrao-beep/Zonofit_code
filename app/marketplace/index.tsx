@@ -68,7 +68,7 @@ export default function MarketplaceScreen() {
     const variantText = [chosenColor, chosenSize].filter(Boolean).join(" • ");
 
     addToCart({
-      id: `${item.id}${chosenColor ? `-${chosenColor}` : ''}${chosenSize ? `-${chosenSize}` : ''}`,
+      id: item.id,
       name: item.title,
       price: item.pricePaise / 100,
       image: item.imageUrl,

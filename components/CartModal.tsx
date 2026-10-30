@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { View, Text, ScrollView, Pressable, Modal, ActivityIndicator, TextInput, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useCartStore } from "@/store/useCartStore";
+import { cartLineKey, isMarketplaceId, useCartStore } from "@/store/useCartStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useGuestStore } from "@/store/useGuestStore";
@@ -34,7 +34,8 @@ export default function CartModal({ visible, onClose }: CartModalProps) {
     getTotalPrice, 
     getDiscountedPrice, 
     getTotalItems, 
-    clearCart, 
+    clearCart,
+    removeLines,
     appliedCoupon, 
     applyCoupon, 
     clearCoupon 
@@ -96,17 +97,41 @@ export default function CartModal({ visible, onClose }: CartModalProps) {
     setIsCheckingOut(true);
     
     // Map items to the format required by the backend
-    const checkoutItems = cartItems.map(ci => ({ itemId: ci.item.id, quantity: ci.quantity }));
+    const ready = cartItems.filter((ci) => isMarketplaceId(ci.item.id));
+    if (ready.length === 0) {
+      Alert.alert(
+        "Preview items",
+        "These products are catalogue previews. They can be ordered after they are added in the admin marketplace."
+      );
+      setIsCheckingOut(false);
+      return;
+    }
+    if (finalPayableOnline > 0) {
+      Alert.alert(
+        "Add funds",
+        `This order still needs ₹${finalPayableOnline}. Online payment is not connected yet. Cover it with wallet cash or credits.`
+      );
+      setIsCheckingOut(false);
+      return;
+    }
+
+    const checkoutItems = ready.map((ci) => ({
+      itemId: ci.item.id,
+      quantity: ci.quantity,
+      selectedSize: ci.item.selectedSize || ci.item.variant,
+      selectedColor: ci.item.selectedColor,
+    }));
     
     const result = await checkoutCart(checkoutItems, discountedPriceInr, appliedCoupon?.code, creditsToUse);
     
     if (result.success) {
+      const skipped = cartItems.length - ready.length;
       Alert.alert(
-        "Order Confirmed!", 
-        `Items will be delivered to ${selectedAddress.flatHouse}, ${selectedAddress.city}.` +
-        (finalPayableOnline > 0 ? `\nPaid Online: ₹${finalPayableOnline}` : "\nFully covered with INR & Credits!")
+        "Order Confirmed!",
+        `Items will be delivered to ${selectedAddress.flatHouse}, ${selectedAddress.city}. Fully covered with wallet cash and credits.` +
+        (skipped > 0 ? " Preview items were left in the cart." : "")
       );
-      clearCart();
+      removeLines(ready.map((ci) => cartLineKey(ci.item)));
       onClose();
     } else {
       Alert.alert("Purchase Failed", result.message || "Failed to process checkout.");
@@ -174,7 +199,7 @@ export default function CartModal({ visible, onClose }: CartModalProps) {
             <>
               <ScrollView className="mb-6 max-h-[60%]">
                 {cartItems.map((ci) => (
-                  <View key={ci.item.id} className="flex-row items-center justify-between border-b border-black/5 py-4">
+                  <View key={cartLineKey(ci.item)} className="flex-row items-center justify-between border-b border-black/5 py-4">
                     <View className="flex-1 mr-4">
                       <Text className="text-sm font-bold text-[#1F2520]" numberOfLines={1}>{ci.item.name || (ci.item as any).title}</Text>
                       {(ci.item.variant || ci.item.selectedColor || ci.item.selectedSize) && (
@@ -187,14 +212,14 @@ export default function CartModal({ visible, onClose }: CartModalProps) {
                     
                     <View className="flex-row items-center bg-[#F5F7F4] rounded-full px-2 py-1">
                       <Pressable 
-                        onPress={() => updateQuantity(ci.item.id, ci.quantity - 1)}
+                        onPress={() => updateQuantity(cartLineKey(ci.item), ci.quantity - 1)}
                         className="w-8 h-8 items-center justify-center"
                       >
                         <Ionicons name="remove" size={16} color="#1F2520" />
                       </Pressable>
                       <Text className="font-bold text-[#1F2520] w-6 text-center">{ci.quantity}</Text>
                       <Pressable 
-                        onPress={() => updateQuantity(ci.item.id, ci.quantity + 1)}
+                        onPress={() => updateQuantity(cartLineKey(ci.item), ci.quantity + 1)}
                         className="w-8 h-8 items-center justify-center"
                       >
                         <Ionicons name="add" size={16} color="#1F2520" />

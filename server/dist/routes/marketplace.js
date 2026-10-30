@@ -110,6 +110,8 @@ router.post("/checkout", auth_1.requireAuth, [
     (0, express_validator_1.body)("items").isArray({ min: 1 }).withMessage("Items must be an array with at least 1 item."),
     (0, express_validator_1.body)("items.*.itemId").isUUID().withMessage("Valid item ID required."),
     (0, express_validator_1.body)("items.*.quantity").isInt({ min: 1 }).withMessage("Quantity must be at least 1."),
+    (0, express_validator_1.body)("items.*.selectedSize").optional({ nullable: true }).isString().isLength({ max: 80 }),
+    (0, express_validator_1.body)("items.*.selectedColor").optional({ nullable: true }).isString().isLength({ max: 80 }),
 ], async (req, res) => {
     const errors = (0, express_validator_1.validationResult)(req);
     if (!errors.isEmpty()) {
@@ -117,6 +119,12 @@ router.post("/checkout", auth_1.requireAuth, [
         return;
     }
     const { items, couponCode, creditsToUse = 0 } = req.body;
+    const cleanOption = (value) => {
+        if (typeof value !== "string")
+            return null;
+        const trimmed = value.trim();
+        return trimmed ? trimmed.slice(0, 80) : null;
+    };
     try {
         const result = await prisma_1.default.$transaction(async (tx) => {
             let totalPaise = 0;
@@ -132,7 +140,12 @@ router.post("/checkout", auth_1.requireAuth, [
                     throw (0, errorHandler_1.createError)(`Item ${item.title} is out of stock.`, 400, "ItemOutOfStock");
                 }
                 totalPaise += item.pricePaise * orderItem.quantity;
-                itemRecords.push({ item, quantity: orderItem.quantity });
+                itemRecords.push({
+                    item,
+                    quantity: orderItem.quantity,
+                    selectedSize: cleanOption(orderItem.selectedSize),
+                    selectedColor: cleanOption(orderItem.selectedColor),
+                });
             }
             // Apply coupon if provided
             if (couponCode) {
@@ -216,6 +229,8 @@ router.post("/checkout", auth_1.requireAuth, [
                     itemId: record.item.id,
                     quantity: record.quantity,
                     totalPaise: record.item.pricePaise * record.quantity,
+                    selectedSize: record.selectedSize,
+                    selectedColor: record.selectedColor,
                 },
                 include: { item: true },
             })));
