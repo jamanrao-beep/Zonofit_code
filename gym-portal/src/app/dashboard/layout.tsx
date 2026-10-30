@@ -16,6 +16,8 @@ import {
   X,
   LogOut,
   ShieldCheck,
+  CalendarCheck,
+  Clock,
 } from "lucide-react";
 import { useAuthStore } from "@/store/useAuthStore";
 
@@ -42,6 +44,8 @@ export default function GymDashboardLayout({
   const navItems = [
     { name: "Home", href: "/dashboard", icon: LayoutDashboard },
     { name: "Members", href: "/dashboard/members", icon: Users },
+    { name: "Today's Visitors", href: "/dashboard/visitors", icon: CalendarCheck },
+    { name: "Slots", href: "/dashboard/slots", icon: Clock },
     { name: "Payouts & Earnings", href: "/dashboard/payouts", icon: IndianRupee },
     { name: "Performance Analytics", href: "/dashboard/analytics", icon: LineChart },
     { name: "Special Offers", href: "/dashboard/offers", icon: Tag },
@@ -50,9 +54,9 @@ export default function GymDashboardLayout({
   ];
 
   return (
-    <div className="flex-1 w-full min-h-screen bg-background flex flex-col md:flex-row">
+    <div className="flex h-dvh w-full min-h-0 bg-[#F7F8F6] flex-col md:flex-row overflow-hidden">
       {/* ─── Desktop Sidebar ────────────────────────────────────────── */}
-      <aside className="hidden md:flex md:w-64 bg-[#1C1C1E] border-r border-[#2C2C2E] flex-col z-20 shrink-0 min-h-screen md:h-screen md:sticky md:top-0">
+      <aside className="hidden md:flex md:w-64 h-full bg-[#111111] border-r border-[#2A2A2A] flex-col z-20 shrink-0">
         <div className="p-6 border-b border-secondary-dark flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-emerald-600 shadow-sm">
             <span className="text-white font-black text-base">Z</span>
@@ -72,14 +76,14 @@ export default function GymDashboardLayout({
               <Link
                 key={item.name}
                 href={item.href}
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 font-medium text-sm ${
+                className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 font-medium text-sm min-w-0 ${
                   isActive
                     ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 shadow-sm font-semibold"
                     : "text-muted hover:bg-white/5 hover:text-white"
                 }`}
               >
-                <Icon size={18} className={isActive ? "text-emerald-400" : "text-muted"} />
-                {item.name}
+                <Icon size={18} className={`shrink-0 ${isActive ? "text-emerald-400" : "text-muted"}`} />
+                <span className="leading-snug">{item.name}</span>
               </Link>
             );
           })}
@@ -111,7 +115,7 @@ export default function GymDashboardLayout({
       </aside>
 
       {/* ─── Mobile Sticky Header with Hamburger ──────────────────────── */}
-      <header className="md:hidden bg-surface-dark border-b border-secondary-dark px-4 py-3.5 flex items-center justify-between sticky top-0 z-30 shadow-md">
+      <header className="md:hidden bg-[#111111] border-b border-[#2A2A2A] px-4 py-3.5 flex items-center justify-between shrink-0 z-30 shadow-md pt-[max(0.875rem,env(safe-area-inset-top))]">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-emerald-600 shadow-sm">
             <span className="text-white font-bold text-sm">Z</span>
@@ -151,7 +155,7 @@ export default function GymDashboardLayout({
           />
 
           {/* Drawer Content */}
-          <div className="relative ml-auto w-[85%] max-w-xs bg-surface-dark border-l border-secondary-dark flex flex-col h-full shadow-2xl z-50">
+          <div className="relative mr-auto h-dvh w-[min(88%,20rem)] max-w-xs bg-[#111111] border-r border-[#2A2A2A] flex flex-col shadow-2xl z-50 pb-[env(safe-area-inset-bottom)]">
             {/* Drawer Header */}
             <div className="p-5 border-b border-secondary-dark flex items-center justify-between">
               <div className="flex items-center gap-2.5">
@@ -189,14 +193,14 @@ export default function GymDashboardLayout({
                     key={item.name}
                     href={item.href}
                     onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all text-sm ${
+                    className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all text-sm min-w-0 ${
                       isActive
                         ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 font-bold"
                         : "text-muted hover:bg-white/5 hover:text-white"
                     }`}
                   >
-                    <Icon size={18} className={isActive ? "text-emerald-400" : "text-muted"} />
-                    <span>{item.name}</span>
+                    <Icon size={18} className={`shrink-0 ${isActive ? "text-emerald-400" : "text-muted"}`} />
+                    <span className="leading-snug">{item.name}</span>
                   </Link>
                 );
               })}
@@ -217,7 +221,7 @@ export default function GymDashboardLayout({
       )}
 
       {/* ─── Main Content Area ───────────────────────────────────────── */}
-      <main className="flex-1 flex flex-col min-h-0 overflow-hidden bg-background">
+      <main className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden bg-[#F7F8F6]">
         {/* Desktop Top Navbar */}
         <header className="hidden md:flex bg-surface border-b border-secondary px-8 py-4 items-center justify-between z-10 soft-shadow">
           <h2 className="text-xl font-bold text-foreground">Gym Partner Console</h2>
@@ -237,7 +241,7 @@ export default function GymDashboardLayout({
         </header>
 
         {/* Page Content */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-8">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 pb-[max(1rem,env(safe-area-inset-bottom))]">
           {children}
         </div>
       </main>
