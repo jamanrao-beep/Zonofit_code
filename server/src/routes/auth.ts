@@ -5,7 +5,7 @@ import { signToken } from "../lib/jwt";
 import prisma from "../lib/prisma";
 import { normalizePhone } from "../lib/phone";
 import { sendOTP } from "../lib/sms";
-import { emailOtpKey, sendEmailOTP } from "../lib/mail";
+import { createEmailCode, emailOtpKey, sendEmailOTP } from "../lib/mail";
 import { EMAIL_OTP_TTL_MINUTES, deleteOTP, emailResendWaitSeconds, setOTP, verifyOTP } from "../lib/otpStore";
 import { generateUniqueReferralCode } from "../lib/referral";
 import { rateLimit } from "../lib/rateLimit";
@@ -60,10 +60,10 @@ router.post(
 
     const sent = await sendOTP(phone, code);
 
-    if (sent) {
+    if (sent.success) {
       res.json({ success: true, message: "OTP sent successfully." });
     } else {
-      res.status(500).json({ error: "SMSFailed", message: "Failed to send OTP SMS." });
+      res.status(500).json({ error: "SMSFailed", message: sent.message || "Failed to send OTP SMS." });
     }
   }
 );
@@ -103,10 +103,10 @@ router.post(
 
     const sent = await sendOTP(phone, code);
 
-    if (sent) {
+    if (sent.success) {
       res.json({ success: true, message: "OTP sent successfully." });
     } else {
-      res.status(500).json({ error: "SMSFailed", message: "Failed to send OTP SMS." });
+      res.status(500).json({ error: "SMSFailed", message: sent.message || "Failed to send OTP SMS." });
     }
   }
 );
@@ -474,7 +474,7 @@ router.post("/email-otp/send", requireAuth, async (req: Request, res: Response):
     res.status(429).json({ error: "TooManyRequests", message: "Too many code requests. Wait a few minutes and try again." });
     return;
   }
-  const code = randomInt(1000, 10000).toString();
+  const code = createEmailCode();
   await setOTP(otpKey, code, EMAIL_OTP_TTL_MINUTES);
   const sent = await sendEmailOTP(email, code);
   if (!sent) {
@@ -482,15 +482,15 @@ router.post("/email-otp/send", requireAuth, async (req: Request, res: Response):
     res.status(503).json({ error: "EmailNotConfigured", message: "Could not email a verification code. Try again shortly." });
     return;
   }
-  res.json({ success: true, message: "Enter the 4-digit code sent to your email. It works for 10 minutes." });
+  res.json({ success: true, message: "Enter the 6-digit code sent to your email. It works for 10 minutes." });
 });
 
 // POST /api/auth/email-otp/verify
 router.post("/email-otp/verify", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const email = cleanEmail(req.body?.email);
   const code = typeof req.body?.code === "string" ? req.body.code.trim() : "";
-  if (!email || !/^\d{4}$/.test(code)) {
-    res.status(400).json({ error: "InvalidCode", message: "Enter the 4-digit code from your email." });
+  if (!email || !/^\d{6}$/.test(code)) {
+    res.status(400).json({ error: "InvalidCode", message: "Enter the 6-digit code from your email." });
     return;
   }
   const otpKey = emailOtpKey(email);
@@ -499,7 +499,7 @@ router.post("/email-otp/verify", requireAuth, async (req: Request, res: Response
     return;
   }
   const allowDevCode = process.env.NODE_ENV === "development" && process.env.ALLOW_DEV_OTP === "true";
-  const isValid = (await verifyOTP(otpKey, code)) || (allowDevCode && code === "1234");
+  const isValid = (await verifyOTP(otpKey, code)) || (allowDevCode && code === "123456");
   if (!isValid) {
     res.status(400).json({ error: "InvalidCode", message: "Invalid or expired verification code." });
     return;

@@ -3,7 +3,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const crypto_1 = require("crypto");
 const express_1 = require("express");
 const express_validator_1 = require("express-validator");
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
@@ -71,7 +70,7 @@ router.post("/signin", [
                 res.status(429).json({ error: "TooManyRequests", message: "Too many code requests. Wait a few minutes and try again." });
                 return;
             }
-            const otp = (0, crypto_1.randomInt)(1000, 10000).toString();
+            const otp = (0, mail_1.createEmailCode)();
             await (0, otpStore_1.setOTP)(otpKey, otp, otpStore_1.EMAIL_OTP_TTL_MINUTES);
             const sent = await (0, mail_1.sendEmailOTP)(email, otp);
             if (!sent) {
@@ -79,7 +78,7 @@ router.post("/signin", [
                 res.status(503).json({ error: "EmailNotConfigured", message: "Could not email a verification code. Try again shortly." });
                 return;
             }
-            res.json({ otpRequired: true, message: "Enter the 4-digit code sent to your email. It works for 10 minutes." });
+            res.json({ otpRequired: true, message: "Enter the 6-digit code sent to your email. It works for 10 minutes." });
             return;
         }
         if (!(await (0, rateLimit_1.rateLimit)(`email-verify:${otpKey}`, 8, 15 * 60 * 1000))) {
@@ -87,7 +86,7 @@ router.post("/signin", [
             return;
         }
         const allowDevCode = process.env.NODE_ENV === "development" && process.env.ALLOW_DEV_OTP === "true";
-        const isValid = (await (0, otpStore_1.verifyOTP)(otpKey, code)) || (allowDevCode && code === "1234");
+        const isValid = (await (0, otpStore_1.verifyOTP)(otpKey, code)) || (allowDevCode && code === "123456");
         if (!isValid) {
             res.status(400).json({ error: "InvalidCode", message: "Invalid or expired verification code." });
             return;

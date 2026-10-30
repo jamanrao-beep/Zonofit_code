@@ -38,7 +38,7 @@ export declare function activatePaidMembership(tx: Tx, userId: string, input: Me
             createdAt: Date;
             updatedAt: Date;
             isActive: boolean;
-            tier: import(".prisma/client").$Enums.MembershipTier;
+            tier: import("@prisma/client").$Enums.MembershipTier;
             monthlyCredits: number;
             priceInPaise: number;
             durationDays: number;
@@ -64,7 +64,7 @@ export declare function activatePaidMembership(tx: Tx, userId: string, input: Me
             creditCost: number;
             isVerified: boolean;
             isActive: boolean;
-            category: import(".prisma/client").$Enums.GymCategory;
+            category: import("@prisma/client").$Enums.GymCategory;
             facilities: Prisma.JsonValue | null;
             services: Prisma.JsonValue | null;
             rules: Prisma.JsonValue | null;
@@ -114,7 +114,7 @@ export declare function activatePaidMembership(tx: Tx, userId: string, input: Me
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        status: import(".prisma/client").$Enums.MembershipStatus;
+        status: import("@prisma/client").$Enums.MembershipStatus;
         planId: string | null;
         gymPlanId: string | null;
         startDate: Date;
@@ -159,7 +159,7 @@ export declare function activatePaidMembership(tx: Tx, userId: string, input: Me
         creditCost: number;
         isVerified: boolean;
         isActive: boolean;
-        category: import(".prisma/client").$Enums.GymCategory;
+        category: import("@prisma/client").$Enums.GymCategory;
         facilities: Prisma.JsonValue | null;
         services: Prisma.JsonValue | null;
         rules: Prisma.JsonValue | null;
@@ -231,7 +231,7 @@ export declare function quotePaidMembership(userId: string, input: MembershipAct
         creditCost: number;
         isVerified: boolean;
         isActive: boolean;
-        category: import(".prisma/client").$Enums.GymCategory;
+        category: import("@prisma/client").$Enums.GymCategory;
         facilities: Prisma.JsonValue | null;
         services: Prisma.JsonValue | null;
         rules: Prisma.JsonValue | null;

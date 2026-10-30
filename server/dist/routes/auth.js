@@ -53,11 +53,11 @@ router.post("/signup", [
     const code = (0, crypto_1.randomInt)(1000, 10000).toString();
     await (0, otpStore_1.setOTP)(phone, code);
     const sent = await (0, sms_1.sendOTP)(phone, code);
-    if (sent) {
+    if (sent.success) {
         res.json({ success: true, message: "OTP sent successfully." });
     }
     else {
-        res.status(500).json({ error: "SMSFailed", message: "Failed to send OTP SMS." });
+        res.status(500).json({ error: "SMSFailed", message: sent.message || "Failed to send OTP SMS." });
     }
 });
 // POST /api/auth/signin
@@ -86,11 +86,11 @@ router.post("/signin", [
     const code = (0, crypto_1.randomInt)(1000, 10000).toString();
     await (0, otpStore_1.setOTP)(phone, code);
     const sent = await (0, sms_1.sendOTP)(phone, code);
-    if (sent) {
+    if (sent.success) {
         res.json({ success: true, message: "OTP sent successfully." });
     }
     else {
-        res.status(500).json({ error: "SMSFailed", message: "Failed to send OTP SMS." });
+        res.status(500).json({ error: "SMSFailed", message: sent.message || "Failed to send OTP SMS." });
     }
 });
 // POST /api/auth/check-user
@@ -417,7 +417,7 @@ router.post("/email-otp/send", auth_1.requireAuth, async (req, res) => {
         res.status(429).json({ error: "TooManyRequests", message: "Too many code requests. Wait a few minutes and try again." });
         return;
     }
-    const code = (0, crypto_1.randomInt)(1000, 10000).toString();
+    const code = (0, mail_1.createEmailCode)();
     await (0, otpStore_1.setOTP)(otpKey, code, otpStore_1.EMAIL_OTP_TTL_MINUTES);
     const sent = await (0, mail_1.sendEmailOTP)(email, code);
     if (!sent) {
@@ -425,14 +425,14 @@ router.post("/email-otp/send", auth_1.requireAuth, async (req, res) => {
         res.status(503).json({ error: "EmailNotConfigured", message: "Could not email a verification code. Try again shortly." });
         return;
     }
-    res.json({ success: true, message: "Enter the 4-digit code sent to your email. It works for 10 minutes." });
+    res.json({ success: true, message: "Enter the 6-digit code sent to your email. It works for 10 minutes." });
 });
 // POST /api/auth/email-otp/verify
 router.post("/email-otp/verify", auth_1.requireAuth, async (req, res) => {
     const email = cleanEmail(req.body?.email);
     const code = typeof req.body?.code === "string" ? req.body.code.trim() : "";
-    if (!email || !/^\d{4}$/.test(code)) {
-        res.status(400).json({ error: "InvalidCode", message: "Enter the 4-digit code from your email." });
+    if (!email || !/^\d{6}$/.test(code)) {
+        res.status(400).json({ error: "InvalidCode", message: "Enter the 6-digit code from your email." });
         return;
     }
     const otpKey = (0, mail_1.emailOtpKey)(email);
@@ -441,7 +441,7 @@ router.post("/email-otp/verify", auth_1.requireAuth, async (req, res) => {
         return;
     }
     const allowDevCode = process.env.NODE_ENV === "development" && process.env.ALLOW_DEV_OTP === "true";
-    const isValid = (await (0, otpStore_1.verifyOTP)(otpKey, code)) || (allowDevCode && code === "1234");
+    const isValid = (await (0, otpStore_1.verifyOTP)(otpKey, code)) || (allowDevCode && code === "123456");
     if (!isValid) {
         res.status(400).json({ error: "InvalidCode", message: "Invalid or expired verification code." });
         return;
