@@ -56,7 +56,15 @@ router.post(
       // 1. Get gym and credit cost
       const gym = await tx.gym.findFirst({
         where: { id: gymId, isActive: true },
-        select: { id: true, name: true, creditCost: true, totalSlots: true },
+        select: {
+          id: true,
+          name: true,
+          creditCost: true,
+          totalSlots: true,
+          cappingMode: true,
+          maxDailyVisits: true,
+          maxSlotVisits: true,
+        },
       });
       if (!gym) throw createError("Gym not found or unavailable.", 404, "GymNotFound");
 
@@ -135,20 +143,35 @@ router.post(
         );
       }
 
-      // 5. Check slot availability
-      const bookedCount = await tx.booking.count({
-        where: {
-          gymId: gym.id,
-          visitDate: { gte: visitDateStart, lte: visitDateEnd },
-          status: { in: ["CONFIRMED", "CHECKED_IN", "COMPLETED"] },
-        },
-      });
-      if (bookedCount >= gym.totalSlots) {
-        throw createError(
-          "No available slots at this gym for the selected date.",
-          409,
-          "NoSlotsAvailable"
-        );
+      // 5. One cap is active. Daily total and per-slot never apply together.
+      if (gym.cappingMode === "PER_SLOT") {
+        if (!timeSlot || typeof timeSlot !== "string") {
+          throw createError("Choose a time slot.", 400, "SlotRequired");
+        }
+        const slotCap = gym.maxSlotVisits ?? 5;
+        const slotBooked = await tx.booking.count({
+          where: {
+            gymId: gym.id,
+            timeSlot,
+            visitDate: { gte: visitDateStart, lte: visitDateEnd },
+            status: { in: ["CONFIRMED", "CHECKED_IN", "COMPLETED"] },
+          },
+        });
+        if (slotBooked >= slotCap) {
+          throw createError("That time slot is full.", 409, "NoSlotsAvailable");
+        }
+      } else {
+        const dayCap = gym.maxDailyVisits ?? gym.totalSlots;
+        const bookedCount = await tx.booking.count({
+          where: {
+            gymId: gym.id,
+            visitDate: { gte: visitDateStart, lte: visitDateEnd },
+            status: { in: ["CONFIRMED", "CHECKED_IN", "COMPLETED"] },
+          },
+        });
+        if (bookedCount >= dayCap) {
+          throw createError("This gym has reached its ZonoFit visits for the day.", 409, "NoSlotsAvailable");
+        }
       }
 
       // 7. Atomically deduct credits (or primary visits)

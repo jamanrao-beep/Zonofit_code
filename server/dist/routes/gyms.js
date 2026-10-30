@@ -7,6 +7,7 @@ const client_1 = require("@prisma/client");
 const express_1 = require("express");
 const express_validator_1 = require("express-validator");
 const prisma_1 = __importDefault(require("../lib/prisma"));
+const gymCommercial_1 = require("../lib/gymCommercial");
 const auth_1 = require("../middleware/auth");
 const router = (0, express_1.Router)();
 // ─── GET /api/gyms ────────────────────────────────────────────────────────────
@@ -274,6 +275,18 @@ router.get("/:id", auth_1.optionalAuth, async (req, res, next) => {
             closingTime: true,
             totalSlots: true,
             contactPhone: true,
+            landmark: true,
+            googleMapsUrl: true,
+            weekdayHours: true,
+            weekendHours: true,
+            monthlyPrice: true,
+            logoUrl: true,
+            exteriorImageUrl: true,
+            interiorImageUrls: true,
+            slotsJson: true,
+            cappingMode: true,
+            maxDailyVisits: true,
+            maxSlotVisits: true,
             partnerSince: true,
             plans: {
                 where: { isActive: true },
@@ -306,9 +319,15 @@ router.get("/:id", auth_1.optionalAuth, async (req, res, next) => {
             status: { in: ["CONFIRMED", "CHECKED_IN", "COMPLETED"] },
         },
     });
+    const { cappingMode, maxDailyVisits, maxSlotVisits, slotsJson, ...publicGym } = gym;
+    const slots = (0, gymCommercial_1.publicBookingSlots)(slotsJson);
+    const availableSlots = cappingMode === "PER_SLOT"
+        ? (maxSlotVisits ?? gym.totalSlots)
+        : Math.max(0, (maxDailyVisits ?? gym.totalSlots) - bookedToday);
     res.json({
-        ...gym,
-        availableSlots: Math.max(0, gym.totalSlots - bookedToday),
+        ...publicGym,
+        slots,
+        availableSlots,
     });
 });
 // ─── GET /api/gyms/analytics/dashboard ─────────────────────────────────────
@@ -341,7 +360,7 @@ router.get("/analytics/dashboard", auth_1.requireAuth, async (req, res) => {
                 visitDate: { gte: todayStart, lte: todayEnd },
                 status: { in: ["CHECKED_IN", "COMPLETED"] }
             },
-            include: { gym: true }
+            include: { gym: { select: { creditCost: true } } }
         });
         const usersToday = todayCheckins.length;
         const creditsToday = todayCheckins.reduce((sum, b) => sum + (b.gym?.creditCost || 0), 0);
@@ -352,7 +371,7 @@ router.get("/analytics/dashboard", auth_1.requireAuth, async (req, res) => {
                 visitDate: { gte: monthStart, lte: todayEnd },
                 status: { in: ["CHECKED_IN", "COMPLETED"] }
             },
-            include: { gym: true }
+            include: { gym: { select: { creditCost: true } } }
         });
         const monthCredits = monthBookings.reduce((sum, b) => sum + (b.gym?.creditCost || 0), 0);
         const salesThisMonth = monthCredits * 10; // Estimated INR
@@ -480,7 +499,17 @@ router.get("/analytics/members", auth_1.requireAuth, async (req, res) => {
 // ─── GET /api/gyms/analytics/payouts ──────────────────────────────────────────
 router.get("/analytics/payouts", auth_1.requireAuth, async (req, res) => {
     try {
-        const gyms = await prisma_1.default.gym.findMany({ where: { ownerId: req.dbUserId, isActive: true }, select: { id: true, creditCost: true } });
+        const gyms = await prisma_1.default.gym.findMany({
+            where: { ownerId: req.dbUserId, isActive: true },
+            select: {
+                id: true,
+                creditCost: true,
+                monthlyPrice: true,
+                payoutModel: true,
+                payoutCommissionRate: true,
+                payoutFixedPerVisit: true,
+            },
+        });
         if (gyms.length === 0) {
             res.status(403).json({ error: "Forbidden", message: "User is not a gym owner." });
             return;
@@ -496,24 +525,12 @@ router.get("/analytics/payouts", auth_1.requireAuth, async (req, res) => {
                 visitDate: { gte: monthStart },
                 status: { in: ["CHECKED_IN", "COMPLETED"] }
             },
-            include: { gym: true }
+            select: { gymId: true },
         });
         const visitsThisMonth = monthBookings.length;
-        // PRD v2.0 Formula: G = (M / 30) * 80% (Gym payout per eligible visit)
-        const plans = await prisma_1.default.gymPlan.findMany({
-            where: { gymId: { in: gymIds }, isActive: true },
-        });
-        const gymPlanMap = new Map();
-        for (const p of plans) {
-            if (p.gymId && p.priceInPaise > 0) {
-                gymPlanMap.set(p.gymId, p.priceInPaise / 100);
-            }
-        }
-        const getGymVisitPayout = (gymId, creditCost) => {
-            const M = gymPlanMap.get(gymId) || (creditCost ? (creditCost * 10 * 30) / 8 : 3000);
-            return (M / 30) * 0.8;
-        };
-        const earningsThisMonth = Math.round(monthBookings.reduce((sum, b) => sum + getGymVisitPayout(b.gymId, b.gym?.creditCost || 8), 0) * 100) / 100;
+        const gymById = new Map(gyms.map((gym) => [gym.id, gym]));
+        const payoutFor = (gymId) => (0, gymCommercial_1.visitPayoutInr)(gymById.get(gymId) ?? { creditCost: 8 });
+        const earningsThisMonth = Math.round(monthBookings.reduce((sum, b) => sum + payoutFor(b.gymId), 0) * 100) / 100;
         // Fetch payouts
         const payouts = await prisma_1.default.gymPayout.findMany({
             where: { gymId: { in: gymIds } },
@@ -525,9 +542,9 @@ router.get("/analytics/payouts", auth_1.requireAuth, async (req, res) => {
                 gymId: { in: gymIds },
                 status: { in: ["CHECKED_IN", "COMPLETED"] }
             },
-            include: { gym: true }
+            select: { gymId: true },
         });
-        const totalEarnedPaise = Math.round(allVerifiedBookings.reduce((sum, b) => sum + getGymVisitPayout(b.gymId, b.gym?.creditCost || 8), 0) * 100);
+        const totalEarnedPaise = Math.round(allVerifiedBookings.reduce((sum, b) => sum + payoutFor(b.gymId), 0) * 100);
         const existingPayouts = await prisma_1.default.gymPayout.aggregate({
             where: {
                 gymId: { in: gymIds },
@@ -735,15 +752,7 @@ router.post("/payouts/request", auth_1.requireAuth, async (req, res) => {
                 status: { in: ["CHECKED_IN", "COMPLETED"] }
             }
         });
-        // PRD v2.0 Formula 2: G = (M / 30) * 80% (Gym payout per eligible visit)
-        const gymPlan = await prisma_1.default.gymPlan.findFirst({
-            where: { gymId: gym.id, isActive: true },
-            orderBy: { createdAt: "desc" }
-        });
-        const M = gymPlan && gymPlan.priceInPaise > 0
-            ? (gymPlan.priceInPaise / 100)
-            : (gym.creditCost ? (gym.creditCost * 10 * 30) / 8 : 3000);
-        const payoutPerVisitINR = (M / 30) * 0.8;
+        const payoutPerVisitINR = (0, gymCommercial_1.visitPayoutInr)(gym);
         const totalEarnedPaise = Math.round(completedBookings * payoutPerVisitINR * 100);
         // Sum already requested or paid payouts
         const existingPayouts = await prisma_1.default.gymPayout.aggregate({

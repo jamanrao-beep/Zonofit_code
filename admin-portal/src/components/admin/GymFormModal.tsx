@@ -41,12 +41,22 @@ export default function GymFormModal({ isOpen, onClose, onSuccess, initialData }
   // Internal Admin Fields (* star marked)
   const [customGymId, setCustomGymId] = useState(initialData?.customGymId || "");
   const [ownerName, setOwnerName] = useState(initialData?.ownerName || "");
+  const [ownerEmail, setOwnerEmail] = useState(initialData?.owner?.email || initialData?.contactEmail || "");
+  const [ownerPassword, setOwnerPassword] = useState("");
+  const storedBank = (() => {
+    const raw = initialData?.bankDetails || initialData?.bankDetailsJson;
+    if (!raw) return {};
+    if (typeof raw === "string") {
+      try { return JSON.parse(raw); } catch { return {}; }
+    }
+    return raw;
+  })();
   const [bankDetails, setBankDetails] = useState({
-    accountHolder: initialData?.bankDetails?.accountHolder || "",
-    bankName: initialData?.bankDetails?.bankName || "",
-    accountNumber: initialData?.bankDetails?.accountNumber || "",
-    ifsc: initialData?.bankDetails?.ifsc || "",
-    upiId: initialData?.bankDetails?.upiId || "",
+    accountHolder: storedBank.accountHolder || "",
+    bankName: storedBank.bankName || "",
+    accountNumber: storedBank.accountNumber || "",
+    ifsc: storedBank.ifsc || "",
+    upiId: storedBank.upiId || "",
   });
 
   // Exclusive Visit Capping Model: "DAILY_TOTAL" or "PER_SLOT" (Never overlap)
@@ -89,9 +99,16 @@ export default function GymFormModal({ isOpen, onClose, onSuccess, initialData }
   );
 
   // Slots
-  const [slots, setSlots] = useState<any[]>(
-    initialData?.slotsJson ? (typeof initialData.slotsJson === "string" ? JSON.parse(initialData.slotsJson) : initialData.slotsJson) : DEFAULT_SLOTS
-  );
+  const [slots, setSlots] = useState<any[]>(() => {
+    const raw = initialData?.slotsJson;
+    if (!raw) return DEFAULT_SLOTS;
+    try {
+      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_SLOTS;
+    } catch {
+      return DEFAULT_SLOTS;
+    }
+  });
 
   // Images
   const [logoUrl, setLogoUrl] = useState(initialData?.logoUrl || "");
@@ -170,6 +187,19 @@ export default function GymFormModal({ isOpen, onClose, onSuccess, initialData }
       setError("Full Address is required");
       return;
     }
+    if (!ownerEmail.trim() || !/^\S+@\S+\.\S+$/.test(ownerEmail.trim())) {
+      setError("Owner email is required. This is the login you give the gym.");
+      return;
+    }
+    const needsNewPassword = !isEdit || !initialData?.owner?.id;
+    if (needsNewPassword && ownerPassword.length < 8) {
+      setError("Set an owner password of at least 8 characters. You will give it to the gym.");
+      return;
+    }
+    if (ownerPassword && (ownerPassword.length < 8 || ownerPassword.length > 72)) {
+      setError("Owner password must be 8 to 72 characters.");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -181,6 +211,8 @@ export default function GymFormModal({ isOpen, onClose, onSuccess, initialData }
         // Internal Admin (* star)
         customGymId: customGymId.trim() || undefined,
         ownerName: ownerName.trim() || undefined,
+        ownerEmail: ownerEmail.trim().toLowerCase(),
+        ownerPassword: ownerPassword || undefined,
         bankDetails,
         cappingMode,
         maxDailyVisits: cappingMode === "DAILY_TOTAL" ? Number(maxDailyVisits) : null,
@@ -317,7 +349,36 @@ export default function GymFormModal({ isOpen, onClose, onSuccess, initialData }
                   className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-300 uppercase mb-1.5">
+                  * Owner login email
+                </label>
+                <input
+                  type="email"
+                  required
+                  placeholder="owner@gym.com"
+                  value={ownerEmail}
+                  onChange={(e) => setOwnerEmail(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-300 uppercase mb-1.5">
+                  * Owner login password
+                </label>
+                <input
+                  type="text"
+                  autoComplete="new-password"
+                  placeholder={isEdit ? "Leave blank to keep the current password" : "At least 8 characters"}
+                  value={ownerPassword}
+                  onChange={(e) => setOwnerPassword(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
             </div>
+            <p className="text-[11px] text-slate-400 -mt-2">
+              Give this email and password to the gym owner. They sign in on the gym portal, then enter the code sent to that inbox.
+            </p>
 
             {/* * Visit Capping Model: Mutually Exclusive (NO overlap) */}
             <div className="bg-slate-800/80 p-4 rounded-xl border border-slate-700/80 space-y-3">

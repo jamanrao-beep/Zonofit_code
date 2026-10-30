@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { apiFetch } from "@/lib/api";
 
 export interface BookingModalGym {
   id: string;
@@ -76,6 +77,25 @@ export default function BookingModal({
   }, []);
 
   const [selectedDateId, setSelectedDateId] = useState(dates[0]?.id || "");
+  const [slotSource, setSlotSource] = useState<string[]>(TIME_SLOTS);
+
+  useEffect(() => {
+    if (!visible || !gym?.id) return;
+    let cancelled = false;
+    setSlotSource(TIME_SLOTS);
+    apiFetch(`/api/gyms/${encodeURIComponent(gym.id)}`, { silent: true })
+      .then((data: { slots?: { startTime?: string }[] }) => {
+        if (cancelled || !Array.isArray(data?.slots)) return;
+        const labels = data.slots
+          .map((slot) => (typeof slot?.startTime === "string" ? slot.startTime.trim() : ""))
+          .filter((label) => label.length > 0);
+        if (labels.length > 0) setSlotSource(labels);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, gym?.id]);
 
   // Check if a time slot has already passed for the selected date (Today)
   const isTimeSlotPassed = (slot: string, dateId: string) => {
@@ -101,8 +121,8 @@ export default function BookingModal({
 
   const isToday = selectedDateId === dates[0]?.id;
   const availableSlotsForDate = useMemo(() => {
-    return TIME_SLOTS.filter((s) => !isTimeSlotPassed(s, selectedDateId));
-  }, [selectedDateId, dates]);
+    return slotSource.filter((s) => !isTimeSlotPassed(s, selectedDateId));
+  }, [selectedDateId, dates, slotSource]);
 
   const [selectedTime, setSelectedTime] = useState(() => {
     const initialSlot = TIME_SLOTS.find((s) => !isTimeSlotPassed(s, dates[0]?.id || ""));
@@ -113,14 +133,10 @@ export default function BookingModal({
 
   // When date changes, if currently selected slot has already passed, auto-select first available future slot
   useEffect(() => {
-    if (isTimeSlotPassed(selectedTime, selectedDateId)) {
-      if (availableSlotsForDate.length > 0) {
-        setSelectedTime(availableSlotsForDate[0]);
-      } else {
-        setSelectedTime("");
-      }
+    if (!slotSource.includes(selectedTime) || isTimeSlotPassed(selectedTime, selectedDateId)) {
+      setSelectedTime(availableSlotsForDate[0] || "");
     }
-  }, [selectedDateId, availableSlotsForDate]);
+  }, [selectedDateId, availableSlotsForDate, selectedTime, slotSource]);
 
   useEffect(() => {
     if (!visible) {

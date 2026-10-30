@@ -100,9 +100,11 @@ export default function AdminGymsPage() {
     }
   };
 
-  const filteredGyms = gyms.filter(g => 
-    g.name?.toLowerCase().includes(search.toLowerCase()) || 
-    g.city?.toLowerCase().includes(search.toLowerCase())
+  const filteredGyms = gyms.filter(g =>
+    g.name?.toLowerCase().includes(search.toLowerCase()) ||
+    g.city?.toLowerCase().includes(search.toLowerCase()) ||
+    g.customGymId?.toLowerCase().includes(search.toLowerCase()) ||
+    g.owner?.email?.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -197,6 +199,9 @@ export default function AdminGymsPage() {
                         )}
                       </div>
                       <div className="text-xs text-gray-500 mt-0.5">{gym.city}, {gym.address}</div>
+                      {gym.owner?.email && (
+                        <div className="text-xs text-slate-600 mt-0.5">Owner login: {gym.owner.email}</div>
+                      )}
                     </td>
                     <td className="py-4">
                       <div className="font-bold text-gray-900">₹{gym.monthlyPrice || 3000}</div>

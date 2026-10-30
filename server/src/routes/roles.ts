@@ -65,7 +65,7 @@ router.post(
 
       const updatedProfile = await prisma.userRoleProfile.findUnique({
         where: { id: profile.id },
-        include: { gyms: { include: { gym: true } } },
+        include: { gyms: { include: { gym: { select: { id: true, name: true, address: true } } } } },
       });
 
       res.json({ message: "Role registered successfully", profile: updatedProfile });

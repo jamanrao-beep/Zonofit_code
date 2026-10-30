@@ -23,6 +23,27 @@ const STATEMENTS = [
     PRIMARY KEY (\`id\`)
   ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
     "ALTER TABLE `otp_codes` MODIFY `phone` VARCHAR(64) NOT NULL",
+    "ALTER TABLE `gyms` ADD COLUMN `customGymId` VARCHAR(191) NULL",
+    "ALTER TABLE `gyms` ADD COLUMN `ownerName` VARCHAR(191) NULL",
+    "ALTER TABLE `gyms` ADD COLUMN `bankDetailsJson` TEXT NULL",
+    "ALTER TABLE `gyms` ADD COLUMN `weekdayHours` VARCHAR(191) NULL",
+    "ALTER TABLE `gyms` ADD COLUMN `weekendHours` VARCHAR(191) NULL",
+    "ALTER TABLE `gyms` ADD COLUMN `googleMapsUrl` TEXT NULL",
+    "ALTER TABLE `gyms` ADD COLUMN `monthlyPrice` INTEGER NULL DEFAULT 3000",
+    "ALTER TABLE `gyms` ADD COLUMN `cappingMode` VARCHAR(191) NULL DEFAULT 'DAILY_TOTAL'",
+    "ALTER TABLE `gyms` ADD COLUMN `maxDailyVisits` INTEGER NULL DEFAULT 25",
+    "ALTER TABLE `gyms` ADD COLUMN `maxSlotVisits` INTEGER NULL",
+    "ALTER TABLE `gyms` ADD COLUMN `slotsJson` TEXT NULL",
+    "ALTER TABLE `gyms` ADD COLUMN `exteriorImageUrl` TEXT NULL",
+    "ALTER TABLE `gyms` ADD COLUMN `interiorImageUrls` JSON NULL",
+    "ALTER TABLE `gyms` ADD COLUMN `payoutModel` VARCHAR(191) NULL DEFAULT 'COMMISSION_PERCENTAGE'",
+    "ALTER TABLE `gyms` ADD COLUMN `payoutCommissionRate` DOUBLE NULL DEFAULT 20",
+    "ALTER TABLE `gyms` ADD COLUMN `payoutFixedPerVisit` DOUBLE NULL",
+    "ALTER TABLE `gyms` ADD COLUMN `paymentCycle` VARCHAR(191) NULL DEFAULT 'WEEKLY'",
+    "ALTER TABLE `gyms` ADD COLUMN `isGstRegistered` BOOLEAN NULL DEFAULT false",
+    "ALTER TABLE `gyms` ADD COLUMN `gstNumber` VARCHAR(191) NULL",
+    "ALTER TABLE `gyms` ADD COLUMN `invoicePrefix` VARCHAR(191) NULL",
+    "CREATE UNIQUE INDEX `gyms_customGymId_key` ON `gyms`(`customGymId`)",
 ];
 function safeDbMessage(err) {
     const message = String(err?.message ?? "");

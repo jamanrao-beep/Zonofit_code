@@ -9,6 +9,37 @@ const auth_1 = require("../middleware/auth");
 const errorHandler_1 = require("../middleware/errorHandler");
 const settings_1 = require("../services/settings");
 const adminAccess_1 = require("../lib/adminAccess");
+const gymOwner_1 = require("../lib/gymOwner");
+function asInt(value, fallback) {
+    if (typeof value === "number" && Number.isFinite(value))
+        return Math.round(value);
+    if (typeof value === "string" && value.trim() !== "") {
+        const n = parseInt(value, 10);
+        if (Number.isFinite(n))
+            return n;
+    }
+    return fallback;
+}
+function asFloat(value, fallback) {
+    if (typeof value === "number" && Number.isFinite(value))
+        return value;
+    if (typeof value === "string" && value.trim() !== "") {
+        const n = parseFloat(value);
+        if (Number.isFinite(n))
+            return n;
+    }
+    return fallback;
+}
+function capMode(value, fallback) {
+    if (value === "PER_SLOT" || value === "DAILY_TOTAL")
+        return value;
+    return fallback === "PER_SLOT" ? "PER_SLOT" : "DAILY_TOTAL";
+}
+function payoutMode(value, fallback) {
+    if (value === "FIXED_PER_VISIT" || value === "COMMISSION_PERCENTAGE")
+        return value;
+    return fallback === "FIXED_PER_VISIT" ? "FIXED_PER_VISIT" : "COMMISSION_PERCENTAGE";
+}
 const router = (0, express_1.Router)();
 const ADMIN_ROLES = ["FOUNDER", "OPS_MANAGER", "SALES_REP", "SUPPORT_AGENT", "FINANCE_ADMIN", "MARKETING_MANAGER"];
 // An admin with no profile keeps full access. A stored role is enforced.
@@ -169,7 +200,8 @@ router.get("/gyms", auth_1.requireAuth, requireAdmin, async (req, res) => {
             include: {
                 _count: {
                     select: { bookings: true }
-                }
+                },
+                owner: { select: { id: true, email: true, name: true } },
             },
             orderBy: { createdAt: "desc" }
         });
@@ -209,22 +241,31 @@ router.post("/gyms", auth_1.requireAuth, requireAdmin, async (req, res) => {
         // * star internal
         customGymId, ownerName, bankDetails, cappingMode, maxDailyVisits, maxSlotVisits, payoutModel, payoutCommissionRate, payoutFixedPerVisit, paymentCycle, isGstRegistered, gstNumber, invoicePrefix, 
         // public / user facing
-        name, address, city, state, landmark, googleMapsUrl, contactPhone, monthlyPrice, weekdayHours, weekendHours, facilities, slots, logoUrl, exteriorImageUrl, interiorImageUrls, lat, lng, isVerified, isActive, } = req.body;
+        name, address, city, state, landmark, googleMapsUrl, contactPhone, monthlyPrice, weekdayHours, weekendHours, facilities, slots, logoUrl, exteriorImageUrl, interiorImageUrls, lat, lng, isVerified, isActive, ownerEmail, ownerPassword, } = req.body;
         if (!name || !address) {
             res.status(400).json({ error: "ValidationError", message: "Gym Name and Full Address are required." });
             return;
         }
-        const priceM = monthlyPrice ? parseInt(monthlyPrice, 10) : 3000;
+        const loginEmail = (0, gymOwner_1.cleanOwnerEmail)(ownerEmail);
+        const loginPassword = (0, gymOwner_1.cleanOwnerPassword)(ownerPassword);
+        if (!loginEmail || !loginPassword) {
+            res.status(400).json({
+                error: "OwnerLoginRequired",
+                message: "Add the gym owner's email and a password of 8 to 72 characters. You will give these to the owner.",
+            });
+            return;
+        }
+        const priceM = asInt(monthlyPrice, 3000);
         // Derive credit cost using PRD v2.0 Formula: U = M / 25, 1 Credit = ₹10
         const derivedCreditCost = Math.max(1, Math.round(priceM / 25 / 10));
-        // Handle exclusive capping mode (do not overlap)
-        const finalCappingMode = cappingMode === "PER_SLOT" ? "PER_SLOT" : "DAILY_TOTAL";
-        const finalMaxDaily = finalCappingMode === "DAILY_TOTAL" ? (maxDailyVisits ? parseInt(maxDailyVisits, 10) : 25) : null;
-        const finalMaxSlot = finalCappingMode === "PER_SLOT" ? (maxSlotVisits ? parseInt(maxSlotVisits, 10) : 5) : null;
-        // Handle exclusive payout model (do not overlap)
-        const finalPayoutModel = payoutModel === "FIXED_PER_VISIT" ? "FIXED_PER_VISIT" : "COMMISSION_PERCENTAGE";
-        const finalCommRate = finalPayoutModel === "COMMISSION_PERCENTAGE" ? (payoutCommissionRate !== undefined ? parseFloat(payoutCommissionRate) : 20.0) : null;
-        const finalFixedPayout = finalPayoutModel === "FIXED_PER_VISIT" ? (payoutFixedPerVisit !== undefined ? parseFloat(payoutFixedPerVisit) : Math.round((priceM / 30) * 0.8)) : null;
+        // One cap is stored. The other side is cleared.
+        const finalCappingMode = capMode(cappingMode, null);
+        const finalMaxDaily = finalCappingMode === "DAILY_TOTAL" ? asInt(maxDailyVisits, 25) : null;
+        const finalMaxSlot = finalCappingMode === "PER_SLOT" ? asInt(maxSlotVisits, 5) : null;
+        // One payout model is stored. The other side is cleared.
+        const finalPayoutModel = payoutMode(payoutModel, null);
+        const finalCommRate = finalPayoutModel === "COMMISSION_PERCENTAGE" ? asFloat(payoutCommissionRate, 20) : null;
+        const finalFixedPayout = finalPayoutModel === "FIXED_PER_VISIT" ? asFloat(payoutFixedPerVisit, Math.round((priceM / 30) * 0.8)) : null;
         const latVal = lat ? parseFloat(lat) : 18.5204;
         const lngVal = lng ? parseFloat(lng) : 73.8567;
         let finalCustomId = customGymId?.trim();
@@ -232,66 +273,97 @@ router.post("/gyms", auth_1.requireAuth, requireAdmin, async (req, res) => {
             const count = await prisma_1.default.gym.count();
             finalCustomId = `ZONO-${String(count + 1).padStart(3, "0")}`;
         }
-        const gym = await prisma_1.default.gym.create({
-            data: {
-                customGymId: finalCustomId,
-                name,
-                address,
-                city: city || "Mumbai",
-                state: state || "Maharashtra",
-                landmark: landmark || null,
-                googleMapsUrl: googleMapsUrl || null,
-                contactPhone: contactPhone || null,
-                monthlyPrice: priceM,
-                creditCost: derivedCreditCost,
-                weekdayHours: weekdayHours || "06:00 AM - 10:00 PM",
-                weekendHours: weekendHours || "07:00 AM - 08:00 PM",
-                facilities: Array.isArray(facilities) ? facilities : (facilities ? [facilities] : ["Strength", "Cardio"]),
-                cappingMode: finalCappingMode,
-                maxDailyVisits: finalMaxDaily,
-                maxSlotVisits: finalMaxSlot,
-                slotsJson: slots ? (typeof slots === "string" ? slots : JSON.stringify(slots)) : null,
-                ownerName: ownerName || null,
-                bankDetailsJson: bankDetails ? (typeof bankDetails === "string" ? bankDetails : JSON.stringify(bankDetails)) : null,
-                logoUrl: logoUrl || null,
-                exteriorImageUrl: exteriorImageUrl || null,
-                interiorImageUrls: Array.isArray(interiorImageUrls) ? interiorImageUrls : (interiorImageUrls ? [interiorImageUrls] : []),
-                imageUrls: [exteriorImageUrl, logoUrl, ...(Array.isArray(interiorImageUrls) ? interiorImageUrls : [])].filter(Boolean),
-                payoutModel: finalPayoutModel,
-                payoutCommissionRate: finalCommRate,
-                payoutFixedPerVisit: finalFixedPayout,
-                paymentCycle: paymentCycle || "WEEKLY",
-                isGstRegistered: !!isGstRegistered,
-                gstNumber: gstNumber || null,
-                invoicePrefix: invoicePrefix || null,
-                lat: latVal,
-                lng: lngVal,
-                isVerified: isVerified !== undefined ? !!isVerified : true,
-                isActive: isActive !== undefined ? !!isActive : true,
+        const interiorList = Array.isArray(interiorImageUrls) ? interiorImageUrls : (interiorImageUrls ? [interiorImageUrls] : []);
+        const ownerDisplayName = (typeof ownerName === "string" && ownerName.trim()) || name;
+        let gym;
+        let owner;
+        try {
+            const created = await prisma_1.default.$transaction(async (tx) => {
+                const gymOwner = await (0, gymOwner_1.createGymOwner)(tx, {
+                    email: loginEmail,
+                    password: loginPassword,
+                    name: ownerDisplayName,
+                });
+                const createdGym = await tx.gym.create({
+                    data: {
+                        customGymId: finalCustomId,
+                        name,
+                        address,
+                        city: city || "Udaipur",
+                        state: state || "Rajasthan",
+                        landmark: landmark || null,
+                        googleMapsUrl: googleMapsUrl || null,
+                        contactPhone: contactPhone || null,
+                        contactEmail: loginEmail,
+                        monthlyPrice: priceM,
+                        creditCost: derivedCreditCost,
+                        weekdayHours: weekdayHours || "06:00 AM - 10:00 PM",
+                        weekendHours: weekendHours || "07:00 AM - 08:00 PM",
+                        facilities: Array.isArray(facilities) ? facilities : (facilities ? [facilities] : ["Strength", "Cardio"]),
+                        totalSlots: finalCappingMode === "DAILY_TOTAL" ? (finalMaxDaily || 25) : (finalMaxSlot || 5),
+                        cappingMode: finalCappingMode,
+                        maxDailyVisits: finalMaxDaily,
+                        maxSlotVisits: finalMaxSlot,
+                        slotsJson: slots ? (typeof slots === "string" ? slots : JSON.stringify(slots)) : null,
+                        ownerId: gymOwner.id,
+                        ownerName: ownerDisplayName,
+                        bankDetailsJson: bankDetails ? (typeof bankDetails === "string" ? bankDetails : JSON.stringify(bankDetails)) : null,
+                        logoUrl: logoUrl || null,
+                        exteriorImageUrl: exteriorImageUrl || null,
+                        interiorImageUrls: interiorList,
+                        imageUrls: [exteriorImageUrl, logoUrl, ...interiorList].filter(Boolean),
+                        payoutModel: finalPayoutModel,
+                        payoutCommissionRate: finalCommRate,
+                        payoutFixedPerVisit: finalFixedPayout,
+                        paymentCycle: paymentCycle || "WEEKLY",
+                        isGstRegistered: !!isGstRegistered,
+                        gstNumber: isGstRegistered ? (gstNumber || null) : null,
+                        invoicePrefix: invoicePrefix || null,
+                        lat: latVal,
+                        lng: lngVal,
+                        isVerified: isVerified !== undefined ? !!isVerified : true,
+                        isActive: isActive !== undefined ? !!isActive : true,
+                        partnerSince: new Date(),
+                    },
+                });
+                await tx.gymPlan.create({
+                    data: {
+                        gymId: createdGym.id,
+                        name: `${createdGym.name} Monthly Membership`,
+                        description: `Full access to ${createdGym.name} facilities with ZonoFit credits.`,
+                        priceInPaise: priceM * 100,
+                        billingCycle: "MONTHLY",
+                        initialPeriodMonths: 1,
+                        initialCutoffDays: 10,
+                        subsequentCutoffDays: 15,
+                        isActive: true,
+                    },
+                });
+                return { gym: createdGym, owner: gymOwner };
+            });
+            gym = created.gym;
+            owner = created.owner;
+        }
+        catch (err) {
+            if (err.code === "P2002") {
+                res.status(409).json({ error: "AccountExists", message: "That owner email or gym ID is already used." });
+                return;
             }
-        });
-        await prisma_1.default.gymPlan.create({
-            data: {
-                gymId: gym.id,
-                name: `${gym.name} Monthly Membership`,
-                description: `Full access to ${gym.name} facilities with ZonoFit credits.`,
-                priceInPaise: priceM * 100,
-                billingCycle: "MONTHLY",
-                initialPeriodMonths: 1,
-                initialCutoffDays: 10,
-                subsequentCutoffDays: 15,
-                isActive: true,
-            }
-        });
+            throw err;
+        }
         await prisma_1.default.adminAuditLog.create({
             data: {
                 adminId: req.dbUserId,
                 actionType: "CREATE_GYM",
                 targetId: gym.id,
-                details: `Created gym ${gym.name} (${finalCustomId})`
-            }
+                details: `Created gym ${gym.name} (${finalCustomId}) with owner login ${owner.email}`,
+            },
         });
-        res.status(201).json({ gym, message: "Gym created successfully" });
+        res.status(201).json({
+            gym,
+            owner: { id: owner.id, email: owner.email, name: owner.name },
+            message: "Gym created. Give the owner that email and password. They sign in on the gym portal, then enter the code sent to that inbox.",
+        });
     }
     catch (err) {
         console.error("Admin create gym error:", err);
@@ -302,65 +374,124 @@ router.post("/gyms", auth_1.requireAuth, requireAdmin, async (req, res) => {
 router.put("/gyms/:id", auth_1.requireAuth, requireAdmin, async (req, res) => {
     try {
         const gymId = req.params.id;
-        const { customGymId, ownerName, bankDetails, cappingMode, maxDailyVisits, maxSlotVisits, payoutModel, payoutCommissionRate, payoutFixedPerVisit, paymentCycle, isGstRegistered, gstNumber, invoicePrefix, name, address, city, state, landmark, googleMapsUrl, contactPhone, monthlyPrice, weekdayHours, weekendHours, facilities, slots, logoUrl, exteriorImageUrl, interiorImageUrls, lat, lng, isVerified, isActive, } = req.body;
+        const { customGymId, ownerName, bankDetails, cappingMode, maxDailyVisits, maxSlotVisits, payoutModel, payoutCommissionRate, payoutFixedPerVisit, paymentCycle, isGstRegistered, gstNumber, invoicePrefix, name, address, city, state, landmark, googleMapsUrl, contactPhone, monthlyPrice, weekdayHours, weekendHours, facilities, slots, logoUrl, exteriorImageUrl, interiorImageUrls, lat, lng, isVerified, isActive, ownerEmail, ownerPassword, } = req.body;
         const existingGym = await prisma_1.default.gym.findUnique({ where: { id: gymId } });
         if (!existingGym) {
             res.status(404).json({ error: "NotFound", message: "Gym not found" });
             return;
         }
-        const priceM = monthlyPrice !== undefined ? parseInt(monthlyPrice, 10) : existingGym.monthlyPrice;
+        const priceM = monthlyPrice !== undefined ? asInt(monthlyPrice, existingGym.monthlyPrice ?? 3000) : existingGym.monthlyPrice;
         const derivedCreditCost = priceM ? Math.max(1, Math.round(priceM / 25 / 10)) : existingGym.creditCost;
-        const finalCappingMode = cappingMode !== undefined ? cappingMode : existingGym.cappingMode;
-        const finalMaxDaily = finalCappingMode === "DAILY_TOTAL" ? (maxDailyVisits !== undefined ? parseInt(maxDailyVisits, 10) : existingGym.maxDailyVisits) : null;
-        const finalMaxSlot = finalCappingMode === "PER_SLOT" ? (maxSlotVisits !== undefined ? parseInt(maxSlotVisits, 10) : existingGym.maxSlotVisits) : null;
-        const finalPayoutModel = payoutModel !== undefined ? payoutModel : existingGym.payoutModel;
-        const finalCommRate = finalPayoutModel === "COMMISSION_PERCENTAGE" ? (payoutCommissionRate !== undefined ? parseFloat(payoutCommissionRate) : existingGym.payoutCommissionRate) : null;
-        const finalFixedPayout = finalPayoutModel === "FIXED_PER_VISIT" ? (payoutFixedPerVisit !== undefined ? parseFloat(payoutFixedPerVisit) : existingGym.payoutFixedPerVisit) : null;
+        const finalCappingMode = capMode(cappingMode, existingGym.cappingMode);
+        const finalMaxDaily = finalCappingMode === "DAILY_TOTAL" ? asInt(maxDailyVisits, existingGym.maxDailyVisits ?? 25) : null;
+        const finalMaxSlot = finalCappingMode === "PER_SLOT" ? asInt(maxSlotVisits, existingGym.maxSlotVisits ?? 5) : null;
+        const finalPayoutModel = payoutMode(payoutModel, existingGym.payoutModel);
+        const finalCommRate = finalPayoutModel === "COMMISSION_PERCENTAGE" ? asFloat(payoutCommissionRate, existingGym.payoutCommissionRate ?? 20) : null;
+        const finalFixedPayout = finalPayoutModel === "FIXED_PER_VISIT" ? asFloat(payoutFixedPerVisit, existingGym.payoutFixedPerVisit ?? Math.round(((priceM || 3000) / 30) * 0.8)) : null;
         const latVal = lat !== undefined ? parseFloat(lat) : existingGym.lat;
         const lngVal = lng !== undefined ? parseFloat(lng) : existingGym.lng;
-        const gym = await prisma_1.default.gym.update({
-            where: { id: gymId },
-            data: {
-                customGymId: customGymId !== undefined ? customGymId : existingGym.customGymId,
-                name: name !== undefined ? name : existingGym.name,
-                address: address !== undefined ? address : existingGym.address,
-                city: city !== undefined ? city : existingGym.city,
-                state: state !== undefined ? state : existingGym.state,
-                landmark: landmark !== undefined ? landmark : existingGym.landmark,
-                googleMapsUrl: googleMapsUrl !== undefined ? googleMapsUrl : existingGym.googleMapsUrl,
-                contactPhone: contactPhone !== undefined ? contactPhone : existingGym.contactPhone,
-                monthlyPrice: priceM,
-                creditCost: derivedCreditCost,
-                weekdayHours: weekdayHours !== undefined ? weekdayHours : existingGym.weekdayHours,
-                weekendHours: weekendHours !== undefined ? weekendHours : existingGym.weekendHours,
-                facilities: facilities !== undefined ? (Array.isArray(facilities) ? facilities : [facilities]) : (existingGym.facilities ?? []),
-                cappingMode: finalCappingMode,
-                maxDailyVisits: finalMaxDaily,
-                maxSlotVisits: finalMaxSlot,
-                slotsJson: slots !== undefined ? (typeof slots === "string" ? slots : JSON.stringify(slots)) : existingGym.slotsJson,
-                ownerName: ownerName !== undefined ? ownerName : existingGym.ownerName,
-                bankDetailsJson: bankDetails !== undefined ? (typeof bankDetails === "string" ? bankDetails : JSON.stringify(bankDetails)) : existingGym.bankDetailsJson,
-                logoUrl: logoUrl !== undefined ? logoUrl : existingGym.logoUrl,
-                exteriorImageUrl: exteriorImageUrl !== undefined ? exteriorImageUrl : existingGym.exteriorImageUrl,
-                interiorImageUrls: interiorImageUrls !== undefined ? (Array.isArray(interiorImageUrls) ? interiorImageUrls : [interiorImageUrls]) : (existingGym.interiorImageUrls ?? []),
-                imageUrls: [
-                    exteriorImageUrl || existingGym.exteriorImageUrl,
-                    logoUrl || existingGym.logoUrl,
-                    ...(Array.isArray(interiorImageUrls) ? interiorImageUrls : (Array.isArray(existingGym.interiorImageUrls) ? existingGym.interiorImageUrls : []))
-                ].filter(Boolean),
-                payoutModel: finalPayoutModel,
-                payoutCommissionRate: finalCommRate,
-                payoutFixedPerVisit: finalFixedPayout,
-                paymentCycle: paymentCycle !== undefined ? paymentCycle : existingGym.paymentCycle,
-                isGstRegistered: isGstRegistered !== undefined ? !!isGstRegistered : existingGym.isGstRegistered,
-                gstNumber: gstNumber !== undefined ? gstNumber : existingGym.gstNumber,
-                invoicePrefix: invoicePrefix !== undefined ? invoicePrefix : existingGym.invoicePrefix,
-                lat: latVal,
-                lng: lngVal,
-                isVerified: isVerified !== undefined ? !!isVerified : existingGym.isVerified,
-                isActive: isActive !== undefined ? !!isActive : existingGym.isActive,
+        let ownerId = existingGym.ownerId;
+        const nextEmail = ownerEmail !== undefined && String(ownerEmail).trim() !== "" ? (0, gymOwner_1.cleanOwnerEmail)(ownerEmail) : null;
+        const passwordText = typeof ownerPassword === "string" ? ownerPassword : "";
+        const nextPassword = passwordText.length > 0 ? (0, gymOwner_1.cleanOwnerPassword)(passwordText) : null;
+        if (ownerEmail !== undefined && String(ownerEmail).trim() !== "" && !nextEmail) {
+            res.status(400).json({ error: "InvalidEmail", message: "Enter a valid owner email." });
+            return;
+        }
+        if (passwordText.length > 0 && !nextPassword) {
+            res.status(400).json({ error: "InvalidPassword", message: "Password must be 8 to 72 characters." });
+            return;
+        }
+        if (!ownerId && nextEmail && !nextPassword) {
+            res.status(400).json({
+                error: "OwnerLoginRequired",
+                message: "This gym has no owner login yet. Set an email and a password of 8 to 72 characters.",
+            });
+            return;
+        }
+        if (nextEmail && ownerId) {
+            const taken = await prisma_1.default.user.findUnique({ where: { email: nextEmail }, select: { id: true } });
+            if (taken && taken.id !== ownerId) {
+                res.status(409).json({ error: "AccountExists", message: "That owner email is already used." });
+                return;
             }
-        });
+        }
+        let gym;
+        try {
+            gym = await prisma_1.default.$transaction(async (tx) => {
+                if (!ownerId && nextEmail && nextPassword) {
+                    const createdOwner = await (0, gymOwner_1.createGymOwner)(tx, {
+                        email: nextEmail,
+                        password: nextPassword,
+                        name: (typeof ownerName === "string" && ownerName.trim()) || existingGym.name,
+                    });
+                    ownerId = createdOwner.id;
+                }
+                else if (ownerId && (nextEmail || nextPassword || (typeof ownerName === "string" && ownerName.trim()))) {
+                    await (0, gymOwner_1.updateGymOwnerLogin)(tx, ownerId, {
+                        email: nextEmail || undefined,
+                        password: nextPassword || undefined,
+                        name: typeof ownerName === "string" && ownerName.trim() ? ownerName.trim() : undefined,
+                    });
+                }
+                return tx.gym.update({
+                    where: { id: gymId },
+                    data: {
+                        customGymId: customGymId !== undefined ? customGymId : existingGym.customGymId,
+                        name: name !== undefined ? name : existingGym.name,
+                        address: address !== undefined ? address : existingGym.address,
+                        city: city !== undefined ? city : existingGym.city,
+                        state: state !== undefined ? state : existingGym.state,
+                        landmark: landmark !== undefined ? landmark : existingGym.landmark,
+                        googleMapsUrl: googleMapsUrl !== undefined ? googleMapsUrl : existingGym.googleMapsUrl,
+                        contactPhone: contactPhone !== undefined ? contactPhone : existingGym.contactPhone,
+                        monthlyPrice: priceM,
+                        creditCost: derivedCreditCost,
+                        weekdayHours: weekdayHours !== undefined ? weekdayHours : existingGym.weekdayHours,
+                        weekendHours: weekendHours !== undefined ? weekendHours : existingGym.weekendHours,
+                        facilities: facilities !== undefined ? (Array.isArray(facilities) ? facilities : [facilities]) : (existingGym.facilities ?? []),
+                        totalSlots: finalCappingMode === "DAILY_TOTAL" ? (finalMaxDaily || 25) : (finalMaxSlot || 5),
+                        cappingMode: finalCappingMode,
+                        maxDailyVisits: finalMaxDaily,
+                        maxSlotVisits: finalMaxSlot,
+                        slotsJson: slots !== undefined ? (typeof slots === "string" ? slots : JSON.stringify(slots)) : existingGym.slotsJson,
+                        ownerId,
+                        contactEmail: nextEmail || existingGym.contactEmail,
+                        ownerName: ownerName !== undefined ? ownerName : existingGym.ownerName,
+                        bankDetailsJson: bankDetails !== undefined ? (typeof bankDetails === "string" ? bankDetails : JSON.stringify(bankDetails)) : existingGym.bankDetailsJson,
+                        logoUrl: logoUrl !== undefined ? logoUrl : existingGym.logoUrl,
+                        exteriorImageUrl: exteriorImageUrl !== undefined ? exteriorImageUrl : existingGym.exteriorImageUrl,
+                        interiorImageUrls: interiorImageUrls !== undefined ? (Array.isArray(interiorImageUrls) ? interiorImageUrls : [interiorImageUrls]) : (existingGym.interiorImageUrls ?? []),
+                        imageUrls: [
+                            exteriorImageUrl || existingGym.exteriorImageUrl,
+                            logoUrl || existingGym.logoUrl,
+                            ...(Array.isArray(interiorImageUrls) ? interiorImageUrls : (Array.isArray(existingGym.interiorImageUrls) ? existingGym.interiorImageUrls : []))
+                        ].filter(Boolean),
+                        payoutModel: finalPayoutModel,
+                        payoutCommissionRate: finalCommRate,
+                        payoutFixedPerVisit: finalFixedPayout,
+                        paymentCycle: paymentCycle !== undefined ? paymentCycle : existingGym.paymentCycle,
+                        isGstRegistered: isGstRegistered !== undefined ? !!isGstRegistered : existingGym.isGstRegistered,
+                        gstNumber: isGstRegistered === false ? null : (gstNumber !== undefined ? gstNumber : existingGym.gstNumber),
+                        invoicePrefix: invoicePrefix !== undefined ? invoicePrefix : existingGym.invoicePrefix,
+                        lat: latVal,
+                        lng: lngVal,
+                        isVerified: isVerified !== undefined ? !!isVerified : existingGym.isVerified,
+                        isActive: isActive !== undefined ? !!isActive : existingGym.isActive,
+                    },
+                    include: {
+                        owner: { select: { id: true, email: true, name: true } },
+                    },
+                });
+            });
+        }
+        catch (err) {
+            if (err.code === "P2002") {
+                res.status(409).json({ error: "AccountExists", message: "That owner email or gym ID is already used." });
+                return;
+            }
+            throw err;
+        }
         res.json({ gym, message: "Gym updated successfully" });
     }
     catch (err) {
@@ -377,7 +508,8 @@ router.get("/gyms/:id", auth_1.requireAuth, requireAdmin, async (req, res) => {
             include: {
                 plans: {
                     orderBy: { createdAt: "asc" }
-                }
+                },
+                owner: { select: { id: true, email: true, name: true } },
             }
         });
         if (!gym)
