@@ -4,7 +4,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useGuestStore } from "@/store/useGuestStore";
 import { apiFetch } from "@/lib/api";
+import { promptGuestAccount } from "@/lib/guestAccount";
 
 interface ReferralData {
   referralCode: string;
@@ -17,6 +19,8 @@ export default function InviteScreen() {
   const router = useRouter();
   const token = useAuthStore((state) => state.token);
   const user = useAuthStore((state) => state.user);
+  const isGuest = useGuestStore((state) => state.isGuest);
+  const endGuestSession = useGuestStore((state) => state.endGuestSession);
 
   const [loading, setLoading] = useState(true);
   const [referralInfo, setReferralInfo] = useState<ReferralData>({
@@ -62,10 +66,18 @@ export default function InviteScreen() {
     };
   }, [token]);
 
-  const activeCode = referralInfo.referralCode || (loading ? "LOADING..." : "ZONO-FIT");
+  const activeCode = referralInfo.referralCode || (loading ? "LOADING..." : "");
 
   const handleShare = async () => {
-    if (!referralInfo.referralCode && loading) return;
+    if (!token || isGuest) {
+      promptGuestAccount(router, endGuestSession, "Create an account to get your own referral code. A shared stand-in code is not issued.");
+      return;
+    }
+    if (loading) return;
+    if (!referralInfo.referralCode) {
+      Alert.alert("Code not ready", "Your referral code is not available yet. Try again in a moment.");
+      return;
+    }
     try {
       await Share.share({
         message: `Join ZonoFit using my code ${activeCode}! Download here and book your first gym visit: https://zonofit.com/app`,
@@ -115,8 +127,10 @@ export default function InviteScreen() {
           <View className="bg-[#F5F7F4] px-8 py-4 rounded-2xl border border-dashed border-black/20 w-full items-center mb-4 min-h-[64px] justify-center">
             {loading ? (
               <ActivityIndicator color="#6BCB77" size="small" />
-            ) : (
+            ) : activeCode ? (
               <Text className="text-2xl font-black tracking-widest text-[#1F2520]">{activeCode}</Text>
+            ) : (
+              <Text className="text-sm font-semibold text-[#6B756E] text-center">Your code appears after you create an account.</Text>
             )}
           </View>
           <Pressable 
@@ -124,7 +138,7 @@ export default function InviteScreen() {
             className="w-full bg-[#6BCB77] h-14 rounded-2xl items-center justify-center flex-row active:bg-emerald-500"
           >
             <Ionicons name="share-social" size={20} color="white" />
-            <Text className="text-white font-bold text-base ml-2">Share Link</Text>
+            <Text className="text-white font-bold text-base ml-2">{token && !isGuest ? "Share Link" : "Create Account"}</Text>
           </Pressable>
         </View>
 

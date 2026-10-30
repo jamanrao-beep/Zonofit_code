@@ -44,18 +44,18 @@ export default function NotificationsScreen() {
           createdAt: new Date().toISOString(),
           category: "Account",
           ctaText: "Explore Gyms",
-          ctaRoute: "/(tabs)/explore",
+          ctaRoute: "/partner-gyms?city=Udaipur",
         },
         {
           id: "guest-how-it-works",
           title: "How ZonoFit Credits Work",
-          body: "1 Credit = ₹10 gym visit value. Buy one membership and gain access to 100+ partner gyms without locking in.",
+          body: "1 Credit = ₹10 gym visit value. The wallet stays locked until you create an account.",
           type: "INFO",
           isRead: true,
           createdAt: new Date(Date.now() - 3600000).toISOString(),
           category: "Credits",
           ctaText: "Learn More",
-          ctaRoute: "/(tabs)/explore",
+          ctaRoute: "/(tabs)/credits",
         },
       ];
       setNotifications(guestNotifs);

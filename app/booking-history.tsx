@@ -5,6 +5,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useBookingStore } from "@/store/useBookingStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
+import { useGuestStore } from "@/store/useGuestStore";
+import { promptGuestAccount } from "@/lib/guestAccount";
 
 
 
@@ -34,6 +36,8 @@ const statusConfig = {
 
 export default function BookingHistoryScreen() {
   const router = useRouter();
+  const isGuest = useGuestStore((state) => state.isGuest);
+  const endGuestSession = useGuestStore((state) => state.endGuestSession);
   const { pastBookings, bookingStatus, bookedGymName, bookedTime, cancelBooking } = useBookingStore();
   const [isProcessingCancel, setIsProcessingCancel] = useState(false);
 
@@ -103,6 +107,42 @@ export default function BookingHistoryScreen() {
   const totalCreditsUsed = allBookings
     .filter((b) => b.status === "checked_in")
     .reduce((sum, b) => sum + b.credits, 0);
+
+  if (isGuest) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F7F4" }} edges={["top"]}>
+        <View className="px-5 pt-3 pb-4 flex-row items-center justify-between">
+          <Pressable
+            onPress={() => router.back()}
+            className="w-9 h-9 rounded-full bg-white items-center justify-center border border-black/5"
+          >
+            <Ionicons name="arrow-back" size={18} color="#1F2520" />
+          </Pressable>
+          <Text className="text-lg font-bold text-[#1F2520]">Booking History</Text>
+          <View className="w-9" />
+        </View>
+        <View className="mx-5 mt-6 bg-white rounded-[24px] p-8 border border-black/5 items-center">
+          <Ionicons name="calendar-outline" size={40} color="#1F7A3E" />
+          <Text className="text-[#1F2520] font-bold text-base mt-3 text-center">No visits yet</Text>
+          <Text className="text-xs text-[#6B756E] mt-2 text-center leading-relaxed">
+            Bookings are saved to an account. You can still open a gym, read the price, and see photos.
+          </Text>
+          <Pressable
+            onPress={() => router.push("/partner-gyms?city=Udaipur" as any)}
+            className="mt-5 w-full py-3.5 bg-[#1F7A3E] rounded-2xl items-center"
+          >
+            <Text className="text-white font-bold text-sm">Browse Udaipur gyms</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => promptGuestAccount(router, endGuestSession, "Create an account to book a visit. Guest mode cannot check in or hold a pass.")}
+            className="mt-3 w-full py-3.5 bg-[#F3F4F6] rounded-2xl items-center"
+          >
+            <Text className="text-[#111827] font-bold text-sm">Create Account</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F7F4" }} edges={["top"]}>

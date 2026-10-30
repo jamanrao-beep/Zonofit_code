@@ -29,6 +29,34 @@ export interface Gym extends NetworkGym {
   images?: string[];
   description?: string;
   openStatus?: string;
+  weekdayHours?: string;
+  weekendHours?: string;
+}
+
+function minutesFromClock(raw: string): number | null {
+  const match = raw.trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i);
+  if (!match) return null;
+  let hour = Number(match[1]);
+  const minute = Number(match[2] || "0");
+  const suffix = match[3]?.toLowerCase();
+  if (suffix === "pm" && hour < 12) hour += 12;
+  if (suffix === "am" && hour === 12) hour = 0;
+  if (hour > 23 || minute > 59) return null;
+  return hour * 60 + minute;
+}
+
+/** null means the gym has no hours the admin saved, so it is not marked closed. */
+function isOpenDuring(range: string | undefined, now: Date): boolean | null {
+  if (!range?.trim()) return null;
+  const parts = range.split(/\s*(?:-|–|to)\s*/i).map((part) => part.trim()).filter(Boolean);
+  if (parts.length < 2) return null;
+  const start = minutesFromClock(parts[0]);
+  const end = minutesFromClock(parts[1]);
+  if (start == null || end == null) return null;
+  const mins = now.getHours() * 60 + now.getMinutes();
+  if (start === end) return true;
+  if (end > start) return mins >= start && mins < end;
+  return mins >= start || mins < end;
 }
 
 const GYMS_PER_PAGE = 5;
@@ -64,7 +92,8 @@ export default function PartnerGymsScreen() {
   const [selectedSort, setSelectedSort] = useState<"distance" | "rating" | "default">("default");
   const [filterRating4Plus, setFilterRating4Plus] = useState(false);
   const [filterOpenNow, setFilterOpenNow] = useState(false);
-  const [selectedArea, setSelectedArea] = useState(isUdaipur ? "Rao Ji Ka Hata" : selectedCity);
+  const [selectedFacility, setSelectedFacility] = useState<string | null>(null);
+  const [facilityMenuOpen, setFacilityMenuOpen] = useState(false);
 
   // Booking Modal State
   const [selectedGym, setSelectedGym] = useState<Gym | null>(null);
@@ -110,6 +139,8 @@ export default function PartnerGymsScreen() {
               isVerified: Boolean(g.isVerified),
               reviewCount: ratings,
               membershipPrice: typeof g.monthlyPrice === "number" ? g.monthlyPrice : undefined,
+              weekdayHours: typeof g.weekdayHours === "string" ? g.weekdayHours : "",
+              weekendHours: typeof g.weekendHours === "string" ? g.weekendHours : "",
             };
           });
           setGyms(formattedGyms);
@@ -303,6 +334,20 @@ export default function PartnerGymsScreen() {
       result = result.filter((g) => g.rating >= 4.0);
     }
 
+    if (selectedFacility) {
+      const facility = selectedFacility.toLowerCase();
+      result = result.filter((g) => g.tags.some((tag) => tag.toLowerCase() === facility));
+    }
+
+    if (filterOpenNow) {
+      const now = new Date();
+      const weekend = now.getDay() === 0 || now.getDay() === 6;
+      result = result.filter((g) => {
+        const hours = weekend ? (g.weekendHours || g.weekdayHours) : (g.weekdayHours || g.weekendHours);
+        return isOpenDuring(hours, now) !== false;
+      });
+    }
+
     // Sort
     if (selectedSort === "distance") {
       result.sort((a, b) => a.distance - b.distance);
@@ -311,7 +356,7 @@ export default function PartnerGymsScreen() {
     }
 
     return result;
-  }, [gyms, selectedCity, searchQuery, filterRating4Plus, selectedSort]);
+  }, [gyms, selectedCity, searchQuery, filterRating4Plus, selectedFacility, filterOpenNow, selectedSort]);
 
   // STRICTLY 5 GYMS PER PAGE
   const totalPages = Math.max(1, Math.ceil(filteredGyms.length / GYMS_PER_PAGE));
@@ -404,7 +449,13 @@ export default function PartnerGymsScreen() {
                 "Choose sort criteria:",
                 [
                   { text: "Default (Recommended)", onPress: () => setSelectedSort("default") },
-                  { text: "Distance (Nearest First)", onPress: () => setSelectedSort("distance") },
+                  { text: "Distance (Nearest First)", onPress: () => {
+                    if (!gyms.some((gym) => gym.distance > 0)) {
+                      Alert.alert("Distance", "These gyms don't include a distance, so they can't be sorted nearest-first.");
+                      return;
+                    }
+                    setSelectedSort("distance");
+                  } },
                   { text: "Rating (Highest Rated)", onPress: () => setSelectedSort("rating") },
                   { text: "Cancel", style: "cancel" }
                 ]
@@ -421,15 +472,19 @@ export default function PartnerGymsScreen() {
           {/* Filter Chip */}
           <Pressable 
             onPress={() => {
-              Alert.alert(
-                "Filter Facilities",
-                "Showing partner gyms in " + selectedArea + " with full network access."
-              );
+              const tags = Array.from(new Set(gyms.flatMap((gym) => gym.tags))).filter(Boolean);
+              if (tags.length === 0) {
+                Alert.alert("Filter", "These gyms don't have facility tags yet. Open a gym to read the facilities the admin saved.");
+                return;
+              }
+              setFacilityMenuOpen((open) => !open);
             }}
-            style={styles.filterChip}
+            style={[styles.filterChip, (facilityMenuOpen || selectedFacility) && styles.filterChipActive]}
           >
-            <Ionicons name="options-outline" size={13} color="#4B5563" />
-            <Text style={styles.filterChipText}>Filter ▾</Text>
+            <Ionicons name="options-outline" size={13} color={selectedFacility ? "#166534" : "#4B5563"} />
+            <Text style={[styles.filterChipText, selectedFacility && styles.filterChipTextActive]}>
+              {selectedFacility ? selectedFacility : "Filter ▾"}
+            </Text>
           </Pressable>
 
           {/* Rating 4.0+ Chip */}
@@ -445,7 +500,14 @@ export default function PartnerGymsScreen() {
 
           {/* Open Now Chip */}
           <Pressable 
-            onPress={() => setFilterOpenNow(prev => !prev)}
+            onPress={() => {
+              const next = !filterOpenNow;
+              if (next && !gyms.some((gym) => gym.weekdayHours || gym.weekendHours)) {
+                Alert.alert("Open now", "These gyms don't have opening hours listed yet. Open a gym to see the hours the admin saved.");
+                return;
+              }
+              setFilterOpenNow(next);
+            }}
             style={[styles.filterChip, filterOpenNow && styles.filterChipActive]}
           >
             <Text style={[styles.filterChipText, filterOpenNow && styles.filterChipTextActive]}>
@@ -456,6 +518,26 @@ export default function PartnerGymsScreen() {
         </ScrollView>
       </View>
 
+      {facilityMenuOpen && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScrollContent}>
+          <Pressable
+            onPress={() => setSelectedFacility(null)}
+            style={[styles.filterChip, !selectedFacility && styles.filterChipActive]}
+          >
+            <Text style={[styles.filterChipText, !selectedFacility && styles.filterChipTextActive]}>All facilities</Text>
+          </Pressable>
+          {Array.from(new Set(gyms.flatMap((gym) => gym.tags))).filter(Boolean).map((tag) => (
+            <Pressable
+              key={tag}
+              onPress={() => setSelectedFacility(tag)}
+              style={[styles.filterChip, selectedFacility === tag && styles.filterChipActive]}
+            >
+              <Text style={[styles.filterChipText, selectedFacility === tag && styles.filterChipTextActive]}>{tag}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      )}
+
       {/* ─── Gym Listing Content (5 per page) ─── */}
       <ScrollView 
         ref={scrollRef}
@@ -463,7 +545,23 @@ export default function PartnerGymsScreen() {
         contentContainerStyle={styles.scrollBody}
       >
         {/* ─── PROMINENT UDAIPUR RESTRICTION BANNER OR TRAVEL BANNER ─── */}
-        {isUdaipur ? (
+        {isGuest && isUdaipur ? (
+          <View style={styles.travelBanner}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <View style={styles.travelPlaneCircle}>
+                <Ionicons name="compass" size={16} color="#166534" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.travelBannerTitle}>Browse Udaipur</Text>
+                <Text style={styles.travelBannerDesc}>
+                  {selectedGymName
+                    ? `Your pick is ${selectedGymName}. Open any gym to compare price and hours. Booking needs an account.`
+                    : "Open a gym to see photos, price, and hours. Select saves it as your pick. Booking needs an account."}
+                </Text>
+              </View>
+            </View>
+          </View>
+        ) : isUdaipur ? (
           <View style={styles.udaipurBanner}>
             <View style={styles.udaipurBannerRow}>
               <View style={styles.udaipurLockIconCircle}>
@@ -529,6 +627,8 @@ export default function PartnerGymsScreen() {
                 setSearchQuery("");
                 setFilterRating4Plus(false);
                 setSelectedSort("default");
+                setSelectedFacility(null);
+                setFilterOpenNow(false);
               }}
               style={styles.resetFiltersBtn}
             >
@@ -543,7 +643,7 @@ export default function PartnerGymsScreen() {
                 <Pressable
                   key={gym.id}
                     onPress={() => {
-                      if (isUdaipur) {
+                      if (isUdaipur && !isGuest) {
                         Alert.alert(
                           "Udaipur Restriction",
                           `You cannot visit ${gym.name} in Udaipur. As per policy, local visits are restricted to your Primary Gym. Network credits can be used in other cities (e.g. Delhi NCR, Mumbai, Jaipur) when traveling.`,
@@ -632,7 +732,19 @@ export default function PartnerGymsScreen() {
                             ₹{gym.membershipPrice.toLocaleString('en-IN')}<Text style={{ fontSize: 10, fontWeight: '600', color: '#64748B' }}>/mo</Text>
                           </Text>
                         )}
-                        {isUdaipur ? (
+                        {isGuest ? (
+                          <Pressable
+                            onPress={() => {
+                              selectGym(gym.id, gym.name);
+                              router.push(`/gym/${gym.id}` as any);
+                            }}
+                            style={styles.bookPillBtn}
+                            hitSlop={6}
+                          >
+                            <Ionicons name={selectedGymId === gym.id ? "checkmark-circle" : "eye-outline"} size={11} color="#166534" />
+                            <Text style={styles.bookPillText}>{selectedGymId === gym.id ? "Your pick" : "Select"}</Text>
+                          </Pressable>
+                        ) : isUdaipur ? (
                           <Pressable 
                             onPress={() => Alert.alert(
                               "Udaipur Restriction",

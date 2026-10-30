@@ -319,7 +319,7 @@ export default function CreditsScreen() {
             </Pressable>
 
             <Pressable
-              onPress={() => router.push("/(tabs)/explore" as any)}
+              onPress={() => router.push("/partner-gyms?city=Udaipur" as any)}
               className="bg-white/10 border border-white/30 rounded-2xl py-3 px-4 items-center justify-center flex-row active:bg-white/20"
             >
               <Ionicons name="compass-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />

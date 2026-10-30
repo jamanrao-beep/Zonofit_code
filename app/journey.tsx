@@ -7,6 +7,8 @@ import { useUserStore } from '@/store/useUserStore';
 import { useCreditsStore } from '@/store/useCreditsStore';
 import { useBookingStore } from '@/store/useBookingStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useGuestStore } from '@/store/useGuestStore';
+import { promptGuestAccount } from '@/lib/guestAccount';
 
 const { width } = Dimensions.get('window');
 
@@ -14,6 +16,8 @@ export default function JourneyScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { token, isSignedIn } = useAuthStore();
+  const isGuest = useGuestStore((state) => state.isGuest);
+  const endGuestSession = useGuestStore((state) => state.endGuestSession);
 
   const { totalWorkouts, currentMonth, totalMonths, streak, identityStage } = useUserStore();
   const { membershipInfo } = useCreditsStore();
@@ -42,6 +46,49 @@ export default function JourneyScreen() {
   const visitsRemaining = Math.max(0, visitsGoal - visitsCompleted);
 
   const monthName = new Date().toLocaleString('default', { month: 'long' });
+
+  if (isGuest) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }} edges={['top']}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 14, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}>
+          <Pressable
+            onPress={() => {
+              if (router.canGoBack()) router.back();
+              else router.replace("/(tabs)");
+            }}
+            style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}
+          >
+            <Ionicons name="arrow-back" size={20} color="#111827" />
+          </Pressable>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 24, fontWeight: '800', color: '#111827' }}>My Journey</Text>
+            <Text style={{ fontSize: 12, fontWeight: '500', color: '#6B7280', marginTop: 1 }}>Starts with a membership</Text>
+          </View>
+        </View>
+        <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
+          <View style={{ backgroundColor: '#F9FCF8', borderRadius: 24, padding: 20, borderWidth: 1, borderColor: '#F0F5EE', marginBottom: 16 }}>
+            <Ionicons name="lock-closed" size={22} color="#1F7A3E" />
+            <Text style={{ fontSize: 20, fontWeight: '800', color: '#111827', marginTop: 12 }}>Your journey is locked</Text>
+            <Text style={{ fontSize: 14, color: '#4B5563', marginTop: 8, lineHeight: 21 }}>
+              Month progress, visit streaks, and the next milestone appear after you create an account and activate a membership. Guest mode can still open gym profiles and prices.
+            </Text>
+          </View>
+          <Pressable
+            onPress={() => router.push("/partner-gyms?city=Udaipur" as any)}
+            style={{ backgroundColor: '#1F7A3E', borderRadius: 16, paddingVertical: 14, alignItems: 'center', marginBottom: 10 }}
+          >
+            <Text style={{ color: 'white', fontWeight: '700' }}>Browse Udaipur gyms</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => promptGuestAccount(router, endGuestSession, "Create an account to start your fitness journey and track visits.")}
+            style={{ backgroundColor: '#F3F4F6', borderRadius: 16, paddingVertical: 14, alignItems: 'center' }}
+          >
+            <Text style={{ color: '#111827', fontWeight: '700' }}>Create Account</Text>
+          </Pressable>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }} edges={['top']}>

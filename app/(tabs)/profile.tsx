@@ -148,7 +148,7 @@ export default function ProfileScreen() {
                 {/* Profile Hero (Dark Container) */}
                 <View className="mx-5 mt-1 mb-5 rounded-[28px] p-5 border shadow-sm" style={[{ backgroundColor: colors.surfaceDark, borderColor: colors.secondaryDark }, styles.softShadowLg]}>
                     <View className="flex-row items-center gap-x-4">
-                        <Pressable onPress={pickImage} className="relative" disabled={uploadingAvatar || isGuest}>
+                        <Pressable onPress={pickImage} className="relative" disabled={uploadingAvatar}>
                             <View className="w-20 h-20 rounded-2xl items-center justify-center overflow-hidden border" style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderColor: colors.secondaryDark }}>
                                 {avatarUrl ? (
                                     <Image source={{ uri: avatarUrl }} className="w-full h-full" resizeMode="cover" />
@@ -213,7 +213,7 @@ export default function ProfileScreen() {
                     <NavRow
                         icon="timeline"
                         label="My Journey"
-                        value={identityStage || "New Member"}
+                        value={isGuest ? "Locked" : (identityStage || "New Member")}
                         onPress={() => router.push("/journey")}
                     />
                     <NavRow
@@ -234,7 +234,7 @@ export default function ProfileScreen() {
                     <NavRow
                         icon="account-balance-wallet"
                         label="Credits & Wallet"
-                        value={`${credits} Credits`}
+                        value={isGuest ? "Locked" : `${credits} Credits`}
                         onPress={() => router.push("/credits")}
                     />
                     <NavRow

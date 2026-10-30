@@ -24,6 +24,7 @@ import { SwipeableTabScreen } from "@/components/SwipeableTabScreen";
 import { Alert, BackHandler, ToastAndroid, Platform } from "react-native";
 import { FALLBACK_NETWORK_GYMS } from "@/constants/fallbackGyms";
 import { calculateMembershipBreakdown, CREDIT_FITNESS_VALUE } from "@/constants/credits";
+import { promptGuestAccount } from "@/lib/guestAccount";
 
 function BlinkingRedDot() {
   return (
@@ -66,7 +67,7 @@ export default function HomeScreen() {
     nextMilestone 
   } = useUserStore();
   const { credits, membershipInfo } = useCreditsStore();
-  const { isGuest, hoursRemaining, checkExpiry, endGuestSession, selectedGymName, selectedGymId } = useGuestStore();
+  const { isGuest, checkExpiry, endGuestSession, selectedGymName, selectedGymId, getHoursRemaining } = useGuestStore();
   const { bookingStatus, bookedGymName, bookedTime, isCancelling } = useBookingStore();
 
   const [isCancellingTodayBooking, setIsCancellingTodayBooking] = React.useState(false);
@@ -216,7 +217,14 @@ export default function HomeScreen() {
     }
   }, [isGuest]);
 
+  const openLiveGyms = () => router.push("/partner-gyms?city=Udaipur" as any);
+  const openGymPick = () => {
+    if (selectedGymId) router.push(`/gym/${selectedGymId}` as any);
+    else openLiveGyms();
+  };
+
   if (isGuest) {
+    const guestHours = getHoursRemaining();
     return (
       <SwipeableTabScreen currentTab="index">
         <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB" }} edges={["top"]}>
@@ -253,7 +261,7 @@ export default function HomeScreen() {
               <Ionicons name="time-outline" size={20} color="#D97706" />
               <View className="ml-2.5 flex-1">
                 <Text className="text-xs font-bold text-amber-900">Guest Access Active</Text>
-                <Text className="text-[11px] text-amber-700">Expires in {hoursRemaining} hours</Text>
+                <Text className="text-[11px] text-amber-700">Expires in {guestHours} hours</Text>
               </View>
             </View>
             <Pressable 
@@ -283,16 +291,24 @@ export default function HomeScreen() {
               Choose a partner gym, activate your membership, and use flexible access based on your plan across our city network.
             </Text>
 
-            {/* Primary CTA: Choose Your Primary Gym */}
+            {selectedGymName ? (
+              <Text className="text-white/90 text-xs font-semibold mb-3">Primary pick: {selectedGymName}</Text>
+            ) : null}
+
             <Pressable 
-              onPress={() => router.push("/explore")}
+              onPress={openGymPick}
               className="bg-white rounded-2xl py-4 px-5 flex-row items-center justify-center shadow-sm active:bg-gray-100"
             >
               <Ionicons name="compass" size={20} color="#1F7A3E" style={{ marginRight: 8 }} />
-              <Text className="text-[#1F7A3E] font-black text-sm tracking-wide">
-                Choose Your Primary Gym
+              <Text className="text-[#1F7A3E] font-black text-sm tracking-wide" numberOfLines={1}>
+                {selectedGymName ? `Continue with ${selectedGymName}` : "Choose Your Primary Gym"}
               </Text>
             </Pressable>
+            {selectedGymName ? (
+              <Pressable onPress={openLiveGyms} className="mt-3 py-2 items-center">
+                <Text className="text-white font-bold text-xs">See other Udaipur gyms</Text>
+              </Pressable>
+            ) : null}
           </View>
 
           {/* PRD Section 8.4: Locked Member Sections (No fake 0 values!) */}
@@ -312,25 +328,40 @@ export default function HomeScreen() {
             </Text>
 
             <View className="flex-row gap-x-2.5 mb-4">
-              <View className="flex-1 bg-gray-50 rounded-2xl p-3 items-center border border-gray-100">
+              <Pressable
+                onPress={() => router.push("/booking-history" as any)}
+                className="flex-1 bg-gray-50 rounded-2xl p-3 items-center border border-gray-100 active:bg-gray-100"
+              >
                 <Ionicons name="calendar-outline" size={20} color="#9CA3AF" />
                 <Text className="text-xs font-bold text-gray-700 mt-1">Visits</Text>
                 <Text className="text-[10px] text-gray-400 mt-0.5">🔒 Locked</Text>
-              </View>
-              <View className="flex-1 bg-gray-50 rounded-2xl p-3 items-center border border-gray-100">
+              </Pressable>
+              <Pressable
+                onPress={() => router.push("/(tabs)/credits" as any)}
+                className="flex-1 bg-gray-50 rounded-2xl p-3 items-center border border-gray-100 active:bg-gray-100"
+              >
                 <Ionicons name="flash-outline" size={20} color="#9CA3AF" />
                 <Text className="text-xs font-bold text-gray-700 mt-1">Credits</Text>
                 <Text className="text-[10px] text-gray-400 mt-0.5">🔒 Locked</Text>
-              </View>
-              <View className="flex-1 bg-gray-50 rounded-2xl p-3 items-center border border-gray-100">
+              </Pressable>
+              <Pressable
+                onPress={() => promptGuestAccount(router, endGuestSession, "The cash wallet unlocks with an account. Credits stay on the server, and a guest cannot spend or convert them.")}
+                className="flex-1 bg-gray-50 rounded-2xl p-3 items-center border border-gray-100 active:bg-gray-100"
+              >
                 <Ionicons name="wallet-outline" size={20} color="#9CA3AF" />
                 <Text className="text-xs font-bold text-gray-700 mt-1">Wallet</Text>
                 <Text className="text-[10px] text-gray-400 mt-0.5">🔒 Locked</Text>
-              </View>
+              </Pressable>
             </View>
 
             <Pressable 
-              onPress={() => router.push("/explore")}
+              onPress={() => promptGuestAccount(
+                router,
+                endGuestSession,
+                selectedGymName
+                  ? `Create an account to activate a membership at ${selectedGymName}. Browsing stays free until then.`
+                  : "Create an account, choose a primary gym, and activate a membership. You can keep browsing prices until you do."
+              )}
               className="bg-[#1F7A3E] rounded-xl py-3 items-center justify-center active:bg-[#165a2d]"
             >
               <Text className="text-white font-bold text-xs">Activate Membership</Text>
@@ -342,41 +373,44 @@ export default function HomeScreen() {
             <Text className="text-base font-black text-[#111827] mb-4">How ZonoFit Works</Text>
             
             <View className="gap-y-4">
-              <View className="flex-row items-start">
+              <Pressable onPress={openLiveGyms} className="flex-row items-start active:opacity-70">
                 <View className="w-8 h-8 rounded-full bg-[#E8F5E9] items-center justify-center mr-3 mt-0.5">
                   <Text className="text-xs font-bold text-[#1F7A3E]">1</Text>
                 </View>
                 <View className="flex-1">
                   <Text className="text-sm font-bold text-[#111827]">Choose Your Primary Gym</Text>
                   <Text className="text-xs text-gray-500 mt-0.5 leading-relaxed">
-                    Pick your home fitness center near work or residence from 100+ verified partner gyms.
+                    Open the Udaipur partner list and pick the gym you want as home.
                   </Text>
                 </View>
-              </View>
+                <Ionicons name="chevron-forward" size={16} color="#9CA3AF" style={{ marginTop: 4 }} />
+              </Pressable>
 
-              <View className="flex-row items-start">
+              <Pressable onPress={() => router.push("/(tabs)/credits" as any)} className="flex-row items-start active:opacity-70">
                 <View className="w-8 h-8 rounded-full bg-[#E8F5E9] items-center justify-center mr-3 mt-0.5">
                   <Text className="text-xs font-bold text-[#1F7A3E]">2</Text>
                 </View>
                 <View className="flex-1">
                   <Text className="text-sm font-bold text-[#111827]">30-Day Flexible Cycle</Text>
                   <Text className="text-xs text-gray-500 mt-0.5 leading-relaxed">
-                    Get mandatory visits for your home gym plus flexible credits in every 30-day membership cycle.
+                    See how credits work. 1 credit is ₹10 of gym value, and the wallet unlocks with an account.
                   </Text>
                 </View>
-              </View>
+                <Ionicons name="chevron-forward" size={16} color="#9CA3AF" style={{ marginTop: 4 }} />
+              </Pressable>
 
-              <View className="flex-row items-start">
+              <Pressable onPress={() => router.push("/partner-cities" as any)} className="flex-row items-start active:opacity-70">
                 <View className="w-8 h-8 rounded-full bg-[#E8F5E9] items-center justify-center mr-3 mt-0.5">
                   <Text className="text-xs font-bold text-[#1F7A3E]">3</Text>
                 </View>
                 <View className="flex-1">
                   <Text className="text-sm font-bold text-[#111827]">Workout Across the Network</Text>
                   <Text className="text-xs text-gray-500 mt-0.5 leading-relaxed">
-                    Travel or explore other gyms anytime using your available ZonoFit credits.
+                    Look through cities. Udaipur is live. Other cities open their gym list when you tap them.
                   </Text>
                 </View>
-              </View>
+                <Ionicons name="chevron-forward" size={16} color="#9CA3AF" style={{ marginTop: 4 }} />
+              </Pressable>
             </View>
           </View>
 

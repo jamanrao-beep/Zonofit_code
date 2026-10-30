@@ -13,6 +13,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { SwipeableTabScreen } from "@/components/SwipeableTabScreen";
+import { PARTNER_CITIES } from "@/constants/fallbackGyms";
 
 export default function ExploreScreen() {
   const router = useRouter();
@@ -20,7 +21,22 @@ export default function ExploreScreen() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const handleSearchSubmit = () => {
-    router.push("/partner-cities" as any);
+    const q = searchQuery.trim();
+    if (!q) {
+      router.push("/partner-cities" as any);
+      return;
+    }
+    const cityHit = PARTNER_CITIES.find((city) => city.name.toLowerCase().includes(q.toLowerCase()));
+    if (cityHit) {
+      router.push(`/partner-gyms?city=${encodeURIComponent(cityHit.name)}` as any);
+      return;
+    }
+    const productHints = ["protein", "whey", "creatine", "gear", "shop", "supplement", "apparel"];
+    if (productHints.some((hint) => q.toLowerCase().includes(hint))) {
+      router.push(`/shop?q=${encodeURIComponent(q)}` as any);
+      return;
+    }
+    router.push(`/partner-gyms?city=${encodeURIComponent("Udaipur")}&q=${encodeURIComponent(q)}` as any);
   };
 
   return (
@@ -52,7 +68,9 @@ export default function ExploreScreen() {
       >
         {/* Search Bar */}
         <View style={styles.searchWrap}>
-          <Ionicons name="search-outline" size={20} color="#9CA3AF" />
+          <Pressable onPress={handleSearchSubmit} hitSlop={8}>
+            <Ionicons name="search-outline" size={20} color="#9CA3AF" />
+          </Pressable>
           <TextInput
             placeholder="Search gyms, products, and more..."
             placeholderTextColor="#9CA3AF"

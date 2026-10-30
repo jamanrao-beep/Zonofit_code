@@ -5,11 +5,14 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { apiFetch, apiPost } from "@/lib/api";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useGuestStore } from "@/store/useGuestStore";
+import { promptGuestAccount } from "@/lib/guestAccount";
 
 export default function TrainerRegisterScreen() {
   const { type } = useLocalSearchParams<{ type: "TRAINER" | "BUDDY" }>();
   const router = useRouter();
   const { token } = useAuthStore();
+  const endGuestSession = useGuestStore((state) => state.endGuestSession);
   
   const isTrainer = type === "TRAINER";
   const title = isTrainer ? "Become a Trainer" : "Be a Workout Buddy";
@@ -24,7 +27,10 @@ export default function TrainerRegisterScreen() {
 
   useEffect(() => {
     async function loadGyms() {
-      if (!token) return;
+      if (!token) {
+        setIsFetchingGyms(false);
+        return;
+      }
       try {
         const data = await apiFetch("/api/gyms", { token });
         setGyms(data.gyms || []);
@@ -44,7 +50,10 @@ export default function TrainerRegisterScreen() {
   };
 
   const handleRegister = async () => {
-    if (!token) return;
+    if (!token) {
+      promptGuestAccount(router, endGuestSession, `Create an account before applying as a ${isTrainer ? "trainer" : "gym buddy"}.`);
+      return;
+    }
     if (!bio.trim()) {
       Alert.alert("Missing Info", "Please write a short bio about yourself.");
       return;
@@ -84,6 +93,36 @@ export default function TrainerRegisterScreen() {
       setIsLoading(false);
     }
   };
+
+  if (!token) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F7F4" }} edges={["top"]}>
+        <View className="px-5 py-4 flex-row items-center border-b border-black/5 bg-white">
+          <Pressable onPress={() => router.back()} className="mr-4">
+            <Ionicons name="arrow-back" size={24} color="#1F2520" />
+          </Pressable>
+          <Text className="text-lg font-black text-[#1F2520]">{title}</Text>
+        </View>
+        <View className="px-5 py-8">
+          <View className="bg-white rounded-[24px] p-6 border border-black/5">
+            <Ionicons name="person-add-outline" size={28} color="#1F7A3E" />
+            <Text className="text-xl font-black text-[#1F2520] mt-4">Account required</Text>
+            <Text className="text-sm text-[#6B756E] mt-2 leading-relaxed">
+              {isTrainer
+                ? "Trainer applications are reviewed by ZonoFit and need an account so we can reach you."
+                : "Gym buddy profiles are tied to an account so members know who they are meeting."}
+            </Text>
+            <Pressable
+              onPress={() => promptGuestAccount(router, endGuestSession, "Create an account to send this application.")}
+              className="mt-6 bg-[#1F7A3E] py-3.5 rounded-2xl items-center"
+            >
+              <Text className="text-white font-bold">Create Account</Text>
+            </Pressable>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F7F4" }} edges={["top"]}>
