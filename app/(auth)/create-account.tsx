@@ -1,1165 +1,930 @@
-import React, { useState, useEffect, useRef } from "react";
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  Pressable, 
-  Image, 
-  StatusBar, 
-  Alert, 
-  Platform, 
-  ActivityIndicator, 
-  Modal, 
-  TextInput, 
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  TextInput,
   KeyboardAvoidingView,
+  Platform,
+  StatusBar,
+  Alert,
   ScrollView,
-  Keyboard
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { requestGoogleIdToken } from "@/lib/googleAuth";
+import { apiFetch } from "@/lib/api";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useGuestStore } from "@/store/useGuestStore";
+
+const PHONE_OK = /^[6-9]\d{9}$/;
+const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+function digitsOnly(value: string, max: number) {
+  return value.replace(/\D/g, "").slice(0, max);
+}
+
+function dobStatus(day: string, month: string, year: string): "incomplete" | "invalid" | "young" | "ok" {
+  if (!day || !month || year.length < 4) return "incomplete";
+  const d = Number(day);
+  const m = Number(month);
+  const y = Number(year);
+  const date = new Date(y, m - 1, d);
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
+  if (
+    date.getFullYear() !== y ||
+    date.getMonth() !== m - 1 ||
+    date.getDate() !== d ||
+    y < 1900 ||
+    date > today
+  ) {
+    return "invalid";
+  }
+  const adultOn = new Date(y + 18, m - 1, d);
+  return adultOn <= new Date() ? "ok" : "young";
+}
+
+function isRealEmail(value?: string | null) {
+  if (!value) return false;
+  const email = value.trim().toLowerCase();
+  return EMAIL_OK.test(email) && !email.endsWith("@zonofit.com");
+}
 
 export default function CreateAccountScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ mode?: string }>();
-  const [mode, setMode] = useState<"signup" | "signin">(
-    params.mode === "signin" ? "signin" : "signup"
-  );
-
-  const [phone, setPhone] = useState("");
-  const [phoneFocused, setPhoneFocused] = useState(false);
-  const [otpSending, setOtpSending] = useState(false);
-  const phoneInputRef = useRef<TextInput>(null);
-
-  const sendOTP = useAuthStore(state => state.sendOTP);
-  const googleSignIn = useAuthStore(state => state.googleSignIn);
-  const signInWithEmail = useAuthStore(state => state.signInWithEmail);
-  const appleSignIn = useAuthStore(state => state.appleSignIn);
-  const loading = useAuthStore(state => state.loading);
+  const token = useAuthStore((state) => state.token);
+  const user = useAuthStore((state) => state.user);
+  const sendOTP = useAuthStore((state) => state.sendOTP);
+  const verifyOTP = useAuthStore((state) => state.verifyOTP);
+  const checkUserExists = useAuthStore((state) => state.checkUserExists);
+  const updateProfile = useAuthStore((state) => state.updateProfile);
+  const googleSignIn = useAuthStore((state) => state.googleSignIn);
   const { startGuestSession, isGuest, endGuestSession } = useGuestStore();
 
-  const [guestLoading, setGuestLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
-  const [appleLoading, setAppleLoading] = useState(false);
-  const [showAppleModal, setShowAppleModal] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [phoneOtpOpen, setPhoneOtpOpen] = useState(false);
+  const [phoneCode, setPhoneCode] = useState("");
+  const [phoneHint, setPhoneHint] = useState("Needed for gym check-in and passes.");
+  const [phoneBad, setPhoneBad] = useState(false);
+  const [phoneResend, setPhoneResend] = useState(0);
+  const [phoneBusy, setPhoneBusy] = useState(false);
 
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [emailOtpStep, setEmailOtpStep] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [emailFromGoogle, setEmailFromGoogle] = useState(false);
+  const [emailOtpOpen, setEmailOtpOpen] = useState(false);
   const [emailCode, setEmailCode] = useState("");
+  const [emailHint, setEmailHint] = useState("For receipts and account recovery.");
+  const [emailBad, setEmailBad] = useState(false);
+  const [emailResend, setEmailResend] = useState(0);
   const [emailBusy, setEmailBusy] = useState(false);
-  const [resendIn, setResendIn] = useState(0);
+
+  const [name, setName] = useState("");
+  const [day, setDay] = useState("");
+  const [month, setMonth] = useState("");
+  const [year, setYear] = useState("");
+  const [referralOpen, setReferralOpen] = useState(false);
+  const [referral, setReferral] = useState("");
+  const [referralApplied, setReferralApplied] = useState(false);
+  const [referralHint, setReferralHint] = useState("");
+  const [referralBad, setReferralBad] = useState(false);
+  const [referralBusy, setReferralBusy] = useState(false);
+
+  const [googleBusy, setGoogleBusy] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [guestBusy, setGuestBusy] = useState(false);
+  const [done, setDone] = useState<{ title: string; sub: string } | null>(null);
+  const [focus, setFocus] = useState<string | null>(null);
+
+  const monthRef = useRef<TextInput>(null);
+  const yearRef = useRef<TextInput>(null);
+  const dayRef = useRef<TextInput>(null);
+  const prefilled = useRef(false);
+  const leaving = useRef(false);
 
   useEffect(() => {
-    if (params.mode === "signin" || params.mode === "signup") {
-      setMode(params.mode as "signup" | "signin");
+    if (params.mode === "signin") {
+      router.replace({ pathname: "/(auth)/verify-number", params: { mode: "signin" } });
     }
-  }, [params.mode]);
+  }, [params.mode, router]);
 
   useEffect(() => {
-    setEmailOtpStep(false);
-    setEmailCode("");
-    setResendIn(0);
-  }, [mode]);
+    if (isGuest) void endGuestSession();
+  }, [endGuestSession, isGuest]);
 
   useEffect(() => {
-    if (resendIn <= 0) return;
-    const timer = setTimeout(() => setResendIn((seconds) => seconds - 1), 1000);
+    if (phoneResend <= 0) return;
+    const timer = setTimeout(() => setPhoneResend((seconds) => seconds - 1), 1000);
     return () => clearTimeout(timer);
-  }, [resendIn]);
+  }, [phoneResend]);
 
-  // When a guest navigates here to create a full account, end guest session
   useEffect(() => {
-    if (isGuest) {
-      endGuestSession();
-    }
-  }, []);
+    if (emailResend <= 0) return;
+    const timer = setTimeout(() => setEmailResend((seconds) => seconds - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [emailResend]);
 
-  const handlePhoneSubmit = async () => {
-    Keyboard.dismiss();
-    const cleanPhone = phone.replace(/[^0-9]/g, "");
-    if (cleanPhone.length !== 10) {
-      Alert.alert(
-        "Invalid Mobile Number",
-        "Please enter a valid 10-digit Indian mobile number."
-      );
-      return;
-    }
+  useEffect(() => {
+    if (!token || prefilled.current) return;
+    prefilled.current = true;
+    apiFetch("/api/users/me", { token, silent: true })
+      .then((me) => {
+        if (!me) return;
+        const savedPhone = String(me.phone || "").replace(/\D/g, "").slice(-10);
+        if (PHONE_OK.test(savedPhone)) {
+          setPhone(savedPhone);
+          setPhoneVerified(true);
+          setPhoneHint("");
+        }
+        if (isRealEmail(me.email)) {
+          setEmail(String(me.email).trim().toLowerCase());
+          setEmailVerified(true);
+          setEmailHint(user?.authMethod === "google" ? "Verified by Google. No code needed." : "");
+          if (user?.authMethod === "google") setEmailFromGoogle(true);
+        }
+        if (me.name && me.name !== "ZonoFit Member" && me.name !== "Google User") {
+          setName((current) => (current.trim().length > 1 ? current : me.name));
+        }
+        if (typeof me.dob === "string" && me.dob.includes("/")) {
+          const [savedDay, savedMonth, savedYear] = me.dob.split("/");
+          setDay(savedDay || "");
+          setMonth(savedMonth || "");
+          setYear(savedYear || "");
+        }
+        if (me.referralApplied) {
+          setReferralOpen(true);
+          setReferralApplied(true);
+          setReferral("Applied");
+        }
+      })
+      .catch(() => {});
+  }, [token, user?.authMethod]);
 
+  const birth = dobStatus(day, month, year);
+  const nameOk = name.trim().length > 1;
+  const phoneOk = PHONE_OK.test(phone);
+  const emailOk = EMAIL_OK.test(email.trim().toLowerCase());
+  const steps = useMemo(
+    () => [phoneVerified, emailVerified, nameOk, birth === "ok"],
+    [phoneVerified, emailVerified, nameOk, birth],
+  );
+  const stepsLeft = steps.filter((ready) => !ready).length;
+
+  const dobHint =
+    birth === "invalid"
+      ? "That date doesn't look right."
+      : birth === "young"
+        ? "You need to be 18 or older to join."
+        : "You need to be 18 or older.";
+
+  const goSignIn = () => {
+    router.push({ pathname: "/(auth)/verify-number", params: { mode: "signin" } });
+  };
+
+  const offerSignIn = (number: string) => {
+    Alert.alert(
+      "Account already exists",
+      `+91 ${number} is already registered.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Sign in",
+          onPress: () => {
+            router.push({
+              pathname: "/(auth)/verify-number",
+              params: { mode: "signin", phone: number },
+            });
+          },
+        },
+      ],
+    );
+  };
+
+  const sendPhoneCode = async () => {
+    if (!phoneOk || phoneVerified || phoneBusy) return;
+    setPhoneBusy(true);
+    setPhoneBad(false);
     try {
-      setOtpSending(true);
-      const isSignIn = mode === "signin";
-
-      // Verify if account already exists with this phone number
-      const checkResult = await useAuthStore.getState().checkUserExists(cleanPhone);
-
-      // SCENARIO 1: User is on "Create Account" (signup), but phone is already registered!
-      if (!isSignIn && checkResult.phoneExists) {
-        setOtpSending(false);
-        Alert.alert(
-          "Account Already Exists",
-          `An account with mobile number +91 ${cleanPhone} is already registered.\n\nPlease Sign In to continue.`,
-          [
-            { text: "Cancel", style: "cancel" },
-            {
-              text: "Sign In Instead",
-              onPress: async () => {
-                setMode("signin");
-                try {
-                  setOtpSending(true);
-                  await sendOTP(cleanPhone, true);
-                  router.push({
-                    pathname: "/(auth)/verify-number",
-                    params: { phone: cleanPhone, autoSend: "1", mode: "signin" },
-                  } as any);
-                } catch (err: any) {
-                  Alert.alert("Sign In Error", err?.message || "Failed to send sign-in OTP.");
-                } finally {
-                  setOtpSending(false);
-                }
-              },
-            },
-          ]
-        );
-        return;
-      }
-
-      // SCENARIO 2: User is on "Sign In", but no account exists with this phone number!
-      if (isSignIn && !checkResult.phoneExists) {
-        setOtpSending(false);
-        Alert.alert(
-          "Account Not Found",
-          `No account found with mobile number +91 ${cleanPhone}.\n\nPlease create an account to get started.`,
-          [
-            { text: "Cancel", style: "cancel" },
-            {
-              text: "Create Account",
-              onPress: async () => {
-                setMode("signup");
-                try {
-                  setOtpSending(true);
-                  await sendOTP(cleanPhone, false);
-                  router.push({
-                    pathname: "/(auth)/verify-number",
-                    params: { phone: cleanPhone, autoSend: "1", mode: "signup" },
-                  } as any);
-                } catch (err: any) {
-                  Alert.alert("Sign Up Error", err?.message || "Failed to send signup OTP.");
-                } finally {
-                  setOtpSending(false);
-                }
-              },
-            },
-          ]
-        );
-        return;
-      }
-
-      // Send OTP with the respective mode
-      await sendOTP(cleanPhone, isSignIn);
-      router.push({
-        pathname: "/(auth)/verify-number",
-        params: { phone: cleanPhone, autoSend: "1", mode },
-      } as any);
-    } catch (e: any) {
-      Alert.alert("Error Sending OTP", e?.message || "Failed to send OTP code.");
-    } finally {
-      setOtpSending(false);
-    }
-  };
-
-  const openSignedInScreen = (isOnboarded: boolean) => {
-    if (isOnboarded) {
-      router.replace("/(tabs)");
-    } else {
-      router.replace("/(auth)/profile-details");
-    }
-  };
-
-  const handleGoogleSignInPress = async () => {
-    if (googleLoading || loading) return;
-    try {
-      setGoogleLoading(true);
-      const idToken = await requestGoogleIdToken();
-      const res = await googleSignIn(idToken);
-      openSignedInScreen(Boolean(res?.isOnboarded));
-    } catch (e: any) {
-      Alert.alert("Google Sign-In", e?.message || "Could not sign in with Google.");
-    } finally {
-      setGoogleLoading(false);
-    }
-  };
-
-  const handleEmailSubmit = async () => {
-    Keyboard.dismiss();
-    const trimmed = email.trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-      Alert.alert("Email", "Enter a valid email address.");
-      return;
-    }
-    if (password.length < 8 || password.length > 72) {
-      Alert.alert("Password", "Use a password between 8 and 72 characters.");
-      return;
-    }
-    if (mode === "signup" && password !== confirmPassword) {
-      Alert.alert("Password", "Those passwords do not match.");
-      return;
-    }
-
-    try {
-      setEmailBusy(true);
-      const result = await signInWithEmail({ email: trimmed, password, mode });
-      if (result.otpRequired) {
-        setEmailOtpStep(true);
-        setEmailCode("");
-        setResendIn(5 * 60);
-        return;
-      }
-      openSignedInScreen(result.isOnboarded);
-    } catch (e: any) {
-      if (typeof e?.retryAfterSeconds === "number" && e.retryAfterSeconds > 0) {
-        setEmailOtpStep(true);
-        setResendIn(e.retryAfterSeconds);
-      }
-      Alert.alert(mode === "signup" ? "Create Account" : "Sign In", e?.message || "Could not continue with that email.");
-    } finally {
-      setEmailBusy(false);
-    }
-  };
-
-  const handleEmailCodeSubmit = async () => {
-    Keyboard.dismiss();
-    if (!/^\d{4}$/.test(emailCode.trim())) {
-      Alert.alert("Code", "Enter the 4-digit code from your email.");
-      return;
-    }
-    try {
-      setEmailBusy(true);
-      const result = await signInWithEmail({
-        email: email.trim().toLowerCase(),
-        password,
-        code: emailCode.trim(),
-        mode,
-      });
-      if (result.otpRequired) return;
-      openSignedInScreen(result.isOnboarded);
-    } catch (e: any) {
-      Alert.alert("Code", e?.message || "That code is not valid.");
-    } finally {
-      setEmailBusy(false);
-    }
-  };
-
-  const handleAppleSignInPress = () => {
-    if (appleLoading || loading) return;
-    setShowAppleModal(true);
-  };
-
-  const handleConfirmAppleSignIn = async () => {
-    try {
-      setAppleLoading(true);
-      setShowAppleModal(false);
-      const res = await appleSignIn();
-      const userPhone = useAuthStore.getState().user?.phone;
-      if (!userPhone || userPhone.trim().length < 10) {
-        // Mobile number is strictly mandatory for all members!
-        router.replace("/(auth)/verify-number");
-      } else if (res?.isOnboarded) {
-        router.replace("/(tabs)");
+      const mine = (user?.phone || "").replace(/\D/g, "").slice(-10) === phone;
+      if (!mine) {
+        const existing = await checkUserExists(phone);
+        if (existing.phoneExists) {
+          offerSignIn(phone);
+          return;
+        }
+        await sendOTP(phone, false);
       } else {
-        router.replace("/(auth)/profile-details");
+        setPhoneVerified(true);
+        setPhoneHint("");
+        return;
       }
-    } catch (e: any) {
-      Alert.alert("Apple Sign-In", e?.message || "Failed to sign in with Apple.");
+      setPhoneCode("");
+      setPhoneOtpOpen(true);
+      setPhoneResend(30);
+      setPhoneHint(`Code sent to +91 ${phone}`);
+    } catch (error: any) {
+      setPhoneBad(true);
+      setPhoneHint(error?.message || "Couldn't send the code.");
     } finally {
-      setAppleLoading(false);
+      setPhoneBusy(false);
     }
   };
 
-  const handleContinueAsGuest = async () => {
+  const confirmPhone = async () => {
+    if (phoneCode.length !== 4 || phoneBusy) return;
+    setPhoneBusy(true);
+    setPhoneBad(false);
     try {
-      setGuestLoading(true);
-      await startGuestSession();
-      router.replace("/(tabs)");
-    } catch (e) {
-      console.warn("Error starting guest session:", e);
+      const sessionToken = useAuthStore.getState().token;
+      const ok = await verifyOTP(phoneCode, false, { attachPhone: !!sessionToken });
+      if (!ok) {
+        setPhoneBad(true);
+        setPhoneHint(useAuthStore.getState().error || "That code is not valid.");
+        return;
+      }
+      setPhoneVerified(true);
+      setPhoneOtpOpen(false);
+      setPhoneResend(0);
+      setPhoneHint("");
     } finally {
-      setGuestLoading(false);
+      setPhoneBusy(false);
     }
   };
 
-  const isSignUp = mode === "signup";
+  const sendEmailCode = async () => {
+    if (!emailOk || emailVerified || emailBusy || emailFromGoogle) return;
+    const sessionToken = useAuthStore.getState().token;
+    if (!sessionToken) {
+      setEmailBad(true);
+      setEmailHint("Verify your mobile first.");
+      return;
+    }
+    setEmailBusy(true);
+    setEmailBad(false);
+    try {
+      await apiFetch("/api/auth/email-otp/send", {
+        method: "POST",
+        token: sessionToken,
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      });
+      setEmailCode("");
+      setEmailOtpOpen(true);
+      setEmailResend(5 * 60);
+      setEmailHint("Code sent to your email");
+    } catch (error: any) {
+      if (typeof error?.retryAfterSeconds === "number" && error.retryAfterSeconds > 0) {
+        setEmailResend(error.retryAfterSeconds);
+        setEmailOtpOpen(true);
+      }
+      setEmailBad(true);
+      setEmailHint(error?.message || "Couldn't send the code.");
+    } finally {
+      setEmailBusy(false);
+    }
+  };
+
+  const confirmEmail = async () => {
+    if (emailCode.length !== 4 || emailBusy) return;
+    const sessionToken = useAuthStore.getState().token;
+    if (!sessionToken) {
+      setEmailHint("Verify your mobile first.");
+      setEmailBad(true);
+      return;
+    }
+    setEmailBusy(true);
+    setEmailBad(false);
+    try {
+      await apiFetch("/api/auth/email-otp/verify", {
+        method: "POST",
+        token: sessionToken,
+        body: JSON.stringify({ email: email.trim().toLowerCase(), code: emailCode }),
+      });
+      setEmailVerified(true);
+      setEmailOtpOpen(false);
+      setEmailResend(0);
+      setEmailHint("");
+    } catch (error: any) {
+      setEmailBad(true);
+      setEmailHint(error?.message || "That code is not valid.");
+    } finally {
+      setEmailBusy(false);
+    }
+  };
+
+  const applyReferral = async () => {
+    const code = referral.trim().toUpperCase();
+    if (!code || referralApplied || referralBusy) return;
+    const sessionToken = useAuthStore.getState().token;
+    if (!sessionToken) {
+      setReferralBad(true);
+      setReferralHint("Verify your mobile first, then apply the code.");
+      return;
+    }
+    setReferralBusy(true);
+    setReferralBad(false);
+    try {
+      await apiFetch("/api/users/referral/apply", {
+        method: "POST",
+        token: sessionToken,
+        body: JSON.stringify({ code }),
+      });
+      setReferral(code);
+      setReferralApplied(true);
+      setReferralHint("");
+    } catch (error: any) {
+      setReferralBad(true);
+      setReferralHint(error?.message || "That referral code isn't valid.");
+    } finally {
+      setReferralBusy(false);
+    }
+  };
+
+  const continueWithGoogle = async () => {
+    if (googleBusy) return;
+    setGoogleBusy(true);
+    try {
+      const idToken = await requestGoogleIdToken();
+      const code = referralApplied ? referral.trim().toUpperCase() : undefined;
+      const result = await googleSignIn(idToken, code);
+      if (result?.isOnboarded) {
+        router.replace("/(tabs)");
+        return;
+      }
+      const signedIn = useAuthStore.getState().user;
+      const googleEmail = signedIn?.email?.trim().toLowerCase() || "";
+      if (isRealEmail(googleEmail)) {
+        setEmail(googleEmail);
+        setEmailVerified(true);
+        setEmailFromGoogle(true);
+        setEmailOtpOpen(false);
+        setEmailBad(false);
+        setEmailHint("Verified by Google. No code needed.");
+      }
+      const googleName = signedIn?.username || "";
+      if (
+        googleName &&
+        googleName !== "Google User" &&
+        googleName !== "ZonoFit Member" &&
+        name.trim().length < 2
+      ) {
+        setName(googleName);
+      }
+      const savedPhone = (signedIn?.phone || "").replace(/\D/g, "").slice(-10);
+      if (PHONE_OK.test(savedPhone)) {
+        setPhone(savedPhone);
+        setPhoneVerified(true);
+        setPhoneHint("");
+      }
+    } catch (error: any) {
+      const message = error?.message || "Google sign-in failed.";
+      if (!/closed before/i.test(message)) {
+        Alert.alert("Google", message);
+      }
+    } finally {
+      setGoogleBusy(false);
+    }
+  };
+
+  const createAccount = async () => {
+    if (stepsLeft > 0 || submitting || leaving.current) return;
+    setSubmitting(true);
+    try {
+      await updateProfile({
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        dob: `${day.padStart(2, "0")}/${month.padStart(2, "0")}/${year}`,
+      });
+      leaving.current = true;
+      setDone({ title: "Welcome to Zonofit", sub: "Next: pick your first gym." });
+      setTimeout(() => router.replace("/onboarding/select-city"), 800);
+    } catch (error: any) {
+      Alert.alert("Couldn't create the account", error?.message || "Try again.");
+      setSubmitting(false);
+    }
+  };
+
+  const browseAsGuest = async () => {
+    if (guestBusy || leaving.current) return;
+    setGuestBusy(true);
+    leaving.current = true;
+    setDone({ title: "Browsing as guest", sub: "You can look around partner gyms." });
+    try {
+      await useAuthStore.getState().signOut();
+      await startGuestSession();
+    } catch {
+      // The guest session still opens if sign-out already cleared the account.
+    }
+    setTimeout(() => router.replace("/(tabs)"), 700);
+  };
+
+  const boxStyle = (key: string, locked: boolean, bad: boolean) => [
+    styles.box,
+    focus === key && styles.boxFocus,
+    locked && styles.boxLocked,
+    bad && styles.boxBad,
+  ];
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+    <SafeAreaView style={styles.screen} edges={["top", "bottom"]}>
       <StatusBar barStyle="dark-content" />
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === "ios" ? "padding" : undefined} 
-        style={{ flex: 1 }}
+      <KeyboardAvoidingView
+        style={styles.screen}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <ScrollView 
-          contentContainerStyle={styles.scrollContent} 
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="always"
-        >
-          {/* Top bar with mode switcher & tour */}
-          <View style={styles.topBar}>
-            {/* Segmented Switcher */}
-            <View style={styles.segmentContainer}>
-              <Pressable 
-                style={[styles.segmentBtn, isSignUp && styles.segmentBtnActive]}
-                onPress={() => setMode("signup")}
-              >
-                <Text style={[styles.segmentText, isSignUp && styles.segmentTextActive]}>
-                  Create Account
-                </Text>
-              </Pressable>
-              <Pressable 
-                style={[styles.segmentBtn, !isSignUp && styles.segmentBtnActive]}
-                onPress={() => setMode("signin")}
-              >
-                <Text style={[styles.segmentText, !isSignUp && styles.segmentTextActive]}>
-                  Sign In
-                </Text>
-              </Pressable>
+        <View style={styles.top}>
+          <View style={styles.logoRow}>
+            <View style={styles.logoMark}>
+              <Text style={styles.logoLetter}>Z</Text>
             </View>
-
-            <Pressable 
-              onPress={() => router.push("/intro" as any)}
-              style={styles.tourBtn}
-              accessibilityLabel="Tour ZonoFit Intro Screens"
-            >
-              <Ionicons name="sparkles" size={13} color="#1F7A3E" />
-              <Text style={styles.tourText}>Tour</Text>
-            </Pressable>
+            <Text style={styles.logoText}>Zonofit</Text>
           </View>
-
-          {/* Logo & Header */}
-          <View style={styles.header}>
-            <Image
-              /* eslint-disable-next-line @typescript-eslint/no-require-imports */
-              source={require("@/assets/Zonofit_final_logo.jpeg")}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-            <Text style={styles.title}>
-              {isSignUp ? "Create Your Account" : "Welcome Back"}
-            </Text>
-            <Text style={styles.subtitle}>
-              {isSignUp
-                ? "Use your mobile number, or set an email and password."
-                : "Use your mobile number, or sign in with email."}
-            </Text>
-          </View>
-
-          {/* ======================================================== */}
-          {/* HERO SECTION: MOBILE NUMBER LOGIN (PRIORITIZED #1)       */}
-          {/* ======================================================== */}
-          <View style={styles.phoneSection}>
-            <Pressable 
-              style={[styles.phoneInputCard, phoneFocused && styles.phoneInputCardFocused]}
-              onPress={() => phoneInputRef.current?.focus()}
-              accessible={false}
-            >
-              <Pressable 
-                style={styles.countryCodeBadge}
-                onPress={() => phoneInputRef.current?.focus()}
-              >
-                <Text style={styles.flagEmoji}>🇮🇳</Text>
-                <Text style={styles.countryCodeText}>+91</Text>
-              </Pressable>
-              <TextInput
-                ref={phoneInputRef}
-                style={styles.phoneInput}
-                placeholder="Enter 10-digit mobile number"
-                placeholderTextColor="#9CA3AF"
-                keyboardType={Platform.OS === "ios" ? "number-pad" : "numeric"}
-                maxLength={10}
-                value={phone}
-                onChangeText={(text) => setPhone(text.replace(/[^0-9]/g, ""))}
-                onFocus={() => setPhoneFocused(true)}
-                onBlur={() => setPhoneFocused(false)}
-                returnKeyType="done"
-                onSubmitEditing={handlePhoneSubmit}
-                showSoftInputOnFocus={true}
-                editable={!otpSending}
-                autoCorrect={false}
-              />
-              {phone.length > 0 && (
-                <Pressable onPress={() => setPhone("")} style={styles.clearBtn} hitSlop={10}>
-                  <Ionicons name="close-circle" size={18} color="#9CA3AF" />
-                </Pressable>
-              )}
-            </Pressable>
-
-            {/* Primary Hero Button: Continue with OTP */}
-            <Pressable 
-              style={[
-                styles.primaryOtpButton, 
-                (phone.length !== 10 || otpSending) && styles.primaryOtpButtonDisabled
-              ]}
-              onPress={handlePhoneSubmit}
-              disabled={phone.length !== 10 || otpSending}
-            >
-              {otpSending ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <View style={styles.btnRowContent}>
-                  <Text style={styles.primaryOtpButtonText}>Continue with OTP</Text>
-                  <Ionicons name="arrow-forward" size={18} color="#FFFFFF" style={{ marginLeft: 6 }} />
-                </View>
-              )}
-            </Pressable>
-
-            <Text style={styles.phoneSecurityNote}>
-              <Ionicons name="shield-checkmark-outline" size={12} color="#1F7A3E" /> Mobile verification is mandatory for gym check-in & passes
-            </Text>
-          </View>
-
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerLabel}>OR USE EMAIL</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          <View style={styles.emailSection}>
-            {emailOtpStep ? (
-              <View>
-                <Text style={styles.emailHint}>
-                  Enter the 4-digit code sent to {email.trim().toLowerCase()}. It works for 10 minutes.
-                </Text>
-                <TextInput
-                  style={styles.emailInput}
-                  placeholder="4-digit code"
-                  placeholderTextColor="#9CA3AF"
-                  keyboardType={Platform.OS === "ios" ? "number-pad" : "numeric"}
-                  maxLength={4}
-                  value={emailCode}
-                  onChangeText={(text) => setEmailCode(text.replace(/[^0-9]/g, ""))}
-                  editable={!emailBusy}
-                  autoCorrect={false}
-                />
-                <Pressable
-                  style={[styles.primaryOtpButton, (emailCode.length !== 4 || emailBusy) && styles.primaryOtpButtonDisabled]}
-                  onPress={handleEmailCodeSubmit}
-                  disabled={emailCode.length !== 4 || emailBusy}
-                >
-                  {emailBusy ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <Text style={styles.primaryOtpButtonText}>Verify Email</Text>
-                  )}
-                </Pressable>
-                <View style={styles.emailOtpActions}>
-                  <Pressable
-                    onPress={handleEmailSubmit}
-                    disabled={emailBusy || resendIn > 0}
-                  >
-                    <Text style={[styles.emailActionText, (emailBusy || resendIn > 0) && styles.emailActionTextDisabled]}>
-                      {resendIn > 0
-                        ? `Resend OTP in ${Math.floor(resendIn / 60)}:${String(resendIn % 60).padStart(2, "0")}`
-                        : "Resend OTP"}
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => {
-                      setEmailOtpStep(false);
-                      setEmailCode("");
-                      setResendIn(0);
-                    }}
-                    disabled={emailBusy}
-                  >
-                    <Text style={styles.emailActionText}>Edit email</Text>
-                  </Pressable>
-                </View>
-              </View>
-            ) : (
-              <View>
-                <TextInput
-                  style={styles.emailInput}
-                  placeholder="Email address"
-                  placeholderTextColor="#9CA3AF"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  autoComplete="email"
-                  value={email}
-                  onChangeText={setEmail}
-                  editable={!emailBusy}
-                />
-                <TextInput
-                  style={styles.emailInput}
-                  placeholder="Password"
-                  placeholderTextColor="#9CA3AF"
-                  secureTextEntry
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  autoComplete={isSignUp ? "password-new" : "password"}
-                  value={password}
-                  onChangeText={setPassword}
-                  editable={!emailBusy}
-                />
-                {isSignUp ? (
-                  <TextInput
-                    style={styles.emailInput}
-                    placeholder="Confirm password"
-                    placeholderTextColor="#9CA3AF"
-                    secureTextEntry
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    autoComplete="password-new"
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    editable={!emailBusy}
-                  />
-                ) : null}
-                <Pressable
-                  style={[styles.primaryOtpButton, emailBusy && styles.primaryOtpButtonDisabled]}
-                  onPress={handleEmailSubmit}
-                  disabled={emailBusy}
-                >
-                  {emailBusy ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <Text style={styles.primaryOtpButtonText}>
-                      {isSignUp ? "Create Account" : "Sign In"}
-                    </Text>
-                  )}
-                </Pressable>
-                <Text style={styles.emailHint}>
-                  We email a 4-digit code before opening the account. Google sign-in does not ask for that code.
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {/* Divider */}
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerLabel}>OR CONTINUE WITH</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          {/* Social Buttons */}
-          <View style={styles.socialButtonsContainer}>
-            {/* Google Button */}
-            <Pressable 
-              style={[styles.socialButton, (loading || googleLoading) && { opacity: 0.7 }]}
-              onPress={handleGoogleSignInPress}
-              disabled={loading || googleLoading}
-            >
-              {googleLoading ? (
-                <ActivityIndicator size="small" color="#EA4335" style={styles.socialBtnIcon} />
-              ) : (
-                <Ionicons name="logo-google" size={20} color="#EA4335" style={styles.socialBtnIcon} />
-              )}
-              <Text style={styles.socialButtonText}>
-                {googleLoading 
-                  ? "Connecting..." 
-                  : (isSignUp ? "Continue with Google" : "Sign in with Google")}
-              </Text>
-            </Pressable>
-
-            {/* Apple Button */}
-            <Pressable 
-              style={[styles.socialButtonDark, (loading || appleLoading) && { opacity: 0.7 }]}
-              onPress={handleAppleSignInPress}
-              disabled={loading || appleLoading}
-            >
-              {appleLoading ? (
-                <ActivityIndicator size="small" color="#FFFFFF" style={styles.socialBtnIcon} />
-              ) : (
-                <Ionicons name="logo-apple" size={20} color="#FFFFFF" style={styles.socialBtnIcon} />
-              )}
-              <Text style={styles.socialButtonDarkText}>
-                {appleLoading 
-                  ? "Connecting..." 
-                  : (isSignUp ? "Continue with Apple" : "Sign in with Apple")}
-              </Text>
-            </Pressable>
-          </View>
-
-          {/* Guest Button */}
-          <Pressable 
-            style={({ pressed }) => [
-              styles.guestButton,
-              pressed && { opacity: 0.75, transform: [{ scale: 0.98 }] },
-              guestLoading && { opacity: 0.6 }
-            ]}
-            onPress={handleContinueAsGuest}
-            disabled={guestLoading || loading}
-          >
-            <Ionicons name="compass-outline" size={18} color="#1F7A3E" style={{ marginRight: 8 }} />
-            <Text style={styles.guestButtonText}>
-              {guestLoading ? "Entering Guest Mode..." : "Explore as Guest"}
-            </Text>
+          <Pressable onPress={goSignIn} hitSlop={8}>
+            <Text style={styles.signIn}>Sign in</Text>
           </Pressable>
+        </View>
 
-          {/* Toggle between Sign Up and Sign In */}
-          <View style={styles.loginRow}>
-            <Text style={styles.loginRowText}>
-              {isSignUp ? "Already have a ZonoFit account? " : "New to ZonoFit? "}
-            </Text>
-            <Pressable onPress={() => setMode(isSignUp ? "signin" : "signup")}>
-              <Text style={styles.loginRowLink}>
-                {isSignUp ? "Sign In" : "Create Account"}
-              </Text>
-            </Pressable>
-          </View>
-
-          {/* Footer */}
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>
-              By continuing you agree to our{" "}
-              <Text 
-                style={[styles.linkText, { textDecorationLine: "underline" }]}
-                onPress={() => router.push({ pathname: "/content", params: { type: "terms_and_conditions", title: "Terms & Conditions" } } as any)}
-              >
-                Terms
-              </Text>{" "}
-              and{" "}
-              <Text 
-                style={[styles.linkText, { textDecorationLine: "underline" }]}
-                onPress={() => router.push({ pathname: "/content", params: { type: "privacy_policy", title: "Privacy Policy" } } as any)}
-              >
-                Privacy Policy
-              </Text>.
-            </Text>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-
-      {/* ======================================================== */}
-      {/* APPLE ID 1-TAP SHEET                                     */}
-      {/* ======================================================== */}
-      <Modal
-        visible={showAppleModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowAppleModal(false)}
-      >
-        <View style={styles.sheetOverlay}>
-          <Pressable style={styles.sheetBackdrop} onPress={() => setShowAppleModal(false)} />
-          <View style={styles.sheetContent}>
-            <View style={styles.handleBar} />
-
-            <View style={styles.appleSheetHeader}>
-              <View style={styles.appleIconBox}>
-                <Ionicons name="logo-apple" size={32} color="#FFFFFF" />
-              </View>
-              <Text style={styles.sheetTitle}>Sign in with Apple</Text>
-              <Text style={styles.sheetSubtitle}>
-                Use your Apple ID to sign in securely to ZonoFit.
-              </Text>
+        {done ? (
+          <View style={styles.done}>
+            <View style={styles.tick}>
+              <Ionicons name="checkmark" size={34} color="#FFFFFF" />
             </View>
-
-            <Pressable 
-              style={styles.appleConfirmBtn}
-              onPress={handleConfirmAppleSignIn}
-            >
-              <Ionicons name="logo-apple" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-              <Text style={styles.appleConfirmText}>Continue with Apple ID</Text>
-            </Pressable>
+            <Text style={styles.doneTitle}>{done.title}</Text>
+            <Text style={styles.sub}>{done.sub}</Text>
+          </View>
+        ) : (
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <Text style={styles.title}>Pay per visit.{"\n"}Not per month.</Text>
+            <Text style={styles.sub}>Create your account in under a minute.</Text>
 
             <Pressable
-              style={styles.sheetCancelBtn}
-              onPress={() => setShowAppleModal(false)}
+              style={({ pressed }) => [styles.google, pressed && styles.pressed]}
+              onPress={continueWithGoogle}
+              disabled={googleBusy}
             >
-              <Text style={styles.sheetCancelText}>Cancel</Text>
+              {googleBusy ? (
+                <ActivityIndicator color="#0F2417" />
+              ) : (
+                <>
+                  <Ionicons name="logo-google" size={20} color="#EA4335" />
+                  <Text style={styles.googleText}>Continue with Google</Text>
+                </>
+              )}
+            </Pressable>
+
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or fill in your details</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Mobile number</Text>
+              <View style={boxStyle("phone", phoneVerified, phoneBad && !phoneVerified)}>
+                <Text style={styles.code}>🇮🇳 +91</Text>
+                <TextInput
+                  style={styles.input}
+                  value={phone}
+                  editable={!phoneVerified}
+                  keyboardType="number-pad"
+                  maxLength={10}
+                  placeholder="10-digit number"
+                  placeholderTextColor="#8A978E"
+                  onFocus={() => setFocus("phone")}
+                  onBlur={() => setFocus(null)}
+                  onChangeText={(value) => {
+                    setPhone(digitsOnly(value, 10));
+                    setPhoneOtpOpen(false);
+                    setPhoneCode("");
+                    setPhoneBad(false);
+                    setPhoneHint("Needed for gym check-in and passes.");
+                  }}
+                />
+                {phoneVerified ? (
+                  <Text style={styles.verified}>✓ Verified</Text>
+                ) : (
+                  <Pressable
+                    style={[styles.chip, (!phoneOk || phoneBusy) && styles.chipDisabled]}
+                    onPress={sendPhoneCode}
+                    disabled={!phoneOk || phoneBusy}
+                  >
+                    <Text style={styles.chipText}>{phoneBusy && !phoneOtpOpen ? "..." : "Send OTP"}</Text>
+                  </Pressable>
+                )}
+              </View>
+              {phoneOtpOpen && !phoneVerified ? (
+                <View style={[boxStyle("phoneCode", false, phoneBad), styles.otpBox]}>
+                  <TextInput
+                    style={[styles.input, styles.otpInput]}
+                    value={phoneCode}
+                    keyboardType="number-pad"
+                    maxLength={4}
+                    placeholder="4-digit code"
+                    placeholderTextColor="#8A978E"
+                    textContentType="oneTimeCode"
+                    onFocus={() => setFocus("phoneCode")}
+                    onBlur={() => setFocus(null)}
+                    onChangeText={(value) => setPhoneCode(digitsOnly(value, 4))}
+                  />
+                  <Pressable
+                    style={[styles.chip, (phoneCode.length !== 4 || phoneBusy) && styles.chipDisabled]}
+                    onPress={confirmPhone}
+                    disabled={phoneCode.length !== 4 || phoneBusy}
+                  >
+                    <Text style={styles.chipText}>Verify</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+              <Text style={[styles.hint, phoneBad && styles.hintBad]}>
+                {phoneHint}
+                {phoneOtpOpen && !phoneVerified && phoneResend > 0 ? `  Resend in ${phoneResend}s` : ""}
+                {phoneOtpOpen && !phoneVerified && phoneResend <= 0 ? "  " : ""}
+                {phoneOtpOpen && !phoneVerified && phoneResend <= 0 ? (
+                  <Text style={styles.hintLink} onPress={sendPhoneCode}>Resend</Text>
+                ) : null}
+              </Text>
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Email</Text>
+              <View style={boxStyle("email", emailVerified, emailBad && !emailVerified)}>
+                <TextInput
+                  style={styles.input}
+                  value={email}
+                  editable={!emailVerified}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="email-address"
+                  placeholder="name@gmail.com"
+                  placeholderTextColor="#8A978E"
+                  onFocus={() => setFocus("email")}
+                  onBlur={() => setFocus(null)}
+                  onChangeText={(value) => {
+                    if (emailFromGoogle) return;
+                    setEmail(value.replace(/\s/g, ""));
+                    setEmailVerified(false);
+                    setEmailOtpOpen(false);
+                    setEmailCode("");
+                    setEmailBad(false);
+                    setEmailHint("For receipts and account recovery.");
+                  }}
+                />
+                {emailVerified ? (
+                  <Text style={styles.verified}>✓ Verified</Text>
+                ) : (
+                  <Pressable
+                    style={[styles.chip, (!emailOk || emailBusy) && styles.chipDisabled]}
+                    onPress={sendEmailCode}
+                    disabled={!emailOk || emailBusy}
+                  >
+                    <Text style={styles.chipText}>{emailBusy && !emailOtpOpen ? "..." : "Verify"}</Text>
+                  </Pressable>
+                )}
+              </View>
+              {emailOtpOpen && !emailVerified ? (
+                <View style={[boxStyle("emailCode", false, emailBad), styles.otpBox]}>
+                  <TextInput
+                    style={[styles.input, styles.otpInput]}
+                    value={emailCode}
+                    keyboardType="number-pad"
+                    maxLength={4}
+                    placeholder="4-digit code"
+                    placeholderTextColor="#8A978E"
+                    textContentType="oneTimeCode"
+                    onFocus={() => setFocus("emailCode")}
+                    onBlur={() => setFocus(null)}
+                    onChangeText={(value) => setEmailCode(digitsOnly(value, 4))}
+                  />
+                  <Pressable
+                    style={[styles.chip, (emailCode.length !== 4 || emailBusy) && styles.chipDisabled]}
+                    onPress={confirmEmail}
+                    disabled={emailCode.length !== 4 || emailBusy}
+                  >
+                    <Text style={styles.chipText}>Confirm</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+              <Text style={[styles.hint, emailBad && styles.hintBad]}>
+                {emailHint}
+                {emailOtpOpen && !emailVerified && emailResend > 0
+                  ? `  Resend in ${emailResend >= 60 ? `${Math.ceil(emailResend / 60)}m` : `${emailResend}s`}`
+                  : ""}
+                {emailOtpOpen && !emailVerified && emailResend <= 0 ? (
+                  <Text style={styles.hintLink} onPress={sendEmailCode}> Resend</Text>
+                ) : null}
+              </Text>
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Full name</Text>
+              <View style={boxStyle("name", false, false)}>
+                <TextInput
+                  style={styles.input}
+                  value={name}
+                  autoCapitalize="words"
+                  placeholder="As on your ID"
+                  placeholderTextColor="#8A978E"
+                  onFocus={() => setFocus("name")}
+                  onBlur={() => setFocus(null)}
+                  onChangeText={setName}
+                />
+              </View>
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Date of birth</Text>
+              <View style={styles.dobRow}>
+                <View style={[boxStyle("day", false, birth === "invalid" || birth === "young"), styles.dobBox]}>
+                  <TextInput
+                    ref={dayRef}
+                    style={styles.dobInput}
+                    value={day}
+                    keyboardType="number-pad"
+                    maxLength={2}
+                    placeholder="DD"
+                    placeholderTextColor="#8A978E"
+                    onFocus={() => setFocus("day")}
+                    onBlur={() => setFocus(null)}
+                    onChangeText={(value) => {
+                      const next = digitsOnly(value, 2);
+                      setDay(next);
+                      if (next.length === 2) monthRef.current?.focus();
+                    }}
+                    onKeyPress={({ nativeEvent }) => {
+                      if (nativeEvent.key === "Backspace" && !day) dayRef.current?.focus();
+                    }}
+                  />
+                </View>
+                <View style={[boxStyle("month", false, birth === "invalid" || birth === "young"), styles.dobBox]}>
+                  <TextInput
+                    ref={monthRef}
+                    style={styles.dobInput}
+                    value={month}
+                    keyboardType="number-pad"
+                    maxLength={2}
+                    placeholder="MM"
+                    placeholderTextColor="#8A978E"
+                    onFocus={() => setFocus("month")}
+                    onBlur={() => setFocus(null)}
+                    onChangeText={(value) => {
+                      const next = digitsOnly(value, 2);
+                      setMonth(next);
+                      if (next.length === 2) yearRef.current?.focus();
+                    }}
+                    onKeyPress={({ nativeEvent }) => {
+                      if (nativeEvent.key === "Backspace" && !month) dayRef.current?.focus();
+                    }}
+                  />
+                </View>
+                <View style={[boxStyle("year", false, birth === "invalid" || birth === "young"), styles.yearBox]}>
+                  <TextInput
+                    ref={yearRef}
+                    style={styles.dobInput}
+                    value={year}
+                    keyboardType="number-pad"
+                    maxLength={4}
+                    placeholder="YYYY"
+                    placeholderTextColor="#8A978E"
+                    onFocus={() => setFocus("year")}
+                    onBlur={() => setFocus(null)}
+                    onChangeText={(value) => setYear(digitsOnly(value, 4))}
+                    onKeyPress={({ nativeEvent }) => {
+                      if (nativeEvent.key === "Backspace" && !year) monthRef.current?.focus();
+                    }}
+                  />
+                </View>
+              </View>
+              <Text style={[styles.hint, (birth === "invalid" || birth === "young") && styles.hintBad]}>{dobHint}</Text>
+            </View>
+
+            <View style={styles.field}>
+              {referralOpen ? (
+                <>
+                  <View style={boxStyle("referral", referralApplied, referralBad)}>
+                    <TextInput
+                      style={styles.input}
+                      value={referral}
+                      editable={!referralApplied}
+                      autoCapitalize="characters"
+                      placeholder="Enter code"
+                      placeholderTextColor="#8A978E"
+                      onFocus={() => setFocus("referral")}
+                      onBlur={() => setFocus(null)}
+                      onChangeText={(value) => {
+                        setReferral(value.toUpperCase());
+                        setReferralApplied(false);
+                        setReferralBad(false);
+                        setReferralHint("");
+                      }}
+                    />
+                    <Pressable
+                      style={[styles.chip, (referralApplied || referralBusy || !referral.trim()) && styles.chipDisabled]}
+                      onPress={applyReferral}
+                      disabled={referralApplied || referralBusy || !referral.trim()}
+                    >
+                      <Text style={styles.chipText}>{referralApplied ? "Applied" : "Apply"}</Text>
+                    </Pressable>
+                  </View>
+                  {referralHint ? <Text style={[styles.hint, referralBad && styles.hintBad]}>{referralHint}</Text> : null}
+                </>
+              ) : (
+                <Pressable onPress={() => setReferralOpen(true)} hitSlop={6}>
+                  <Text style={styles.referralLink}>Have a referral code?</Text>
+                </Pressable>
+              )}
+            </View>
+          </ScrollView>
+        )}
+
+        {done ? null : (
+          <View style={styles.dock}>
+            <View style={styles.progress}>
+              {steps.map((on, index) => (
+                <View key={index} style={[styles.bar, on && styles.barOn]} />
+              ))}
+            </View>
+            <Pressable
+              style={({ pressed }) => [
+                styles.cta,
+                (stepsLeft > 0 || submitting) && styles.ctaDisabled,
+                pressed && stepsLeft === 0 && styles.pressed,
+              ]}
+              onPress={createAccount}
+              disabled={stepsLeft > 0 || submitting}
+            >
+              {submitting ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.ctaText}>
+                  {stepsLeft > 0 ? `${stepsLeft} ${stepsLeft === 1 ? "step" : "steps"} left` : "Create account"}
+                </Text>
+              )}
+            </Pressable>
+            <Text style={styles.legal}>
+              By continuing you agree to our{" "}
+              <Text
+                style={styles.legalLink}
+                onPress={() =>
+                  router.push({ pathname: "/content", params: { type: "terms_and_conditions", title: "Terms & Conditions" } } as any)
+                }
+              >
+                Terms
+              </Text>
+              {" "}and{" "}
+              <Text
+                style={styles.legalLink}
+                onPress={() =>
+                  router.push({ pathname: "/content", params: { type: "privacy_policy", title: "Privacy Policy" } } as any)
+                }
+              >
+                Privacy Policy
+              </Text>
+              .
+            </Text>
+            <Pressable onPress={browseAsGuest} disabled={guestBusy}>
+              <Text style={styles.guest}>Explore as guest</Text>
             </Pressable>
           </View>
-        </View>
-      </Modal>
+        )}
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-  },
-  scrollContent: {
+  screen: { flex: 1, backgroundColor: "#F5F7F2" },
+  top: {
+    height: 44,
     paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 28,
-  },
-  topBar: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 16,
   },
-  segmentContainer: {
-    flexDirection: "row",
-    backgroundColor: "#F3F4F6",
-    borderRadius: 24,
-    padding: 3,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-  },
-  segmentBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 7,
-    borderRadius: 20,
-  },
-  segmentBtnActive: {
-    backgroundColor: "#FFFFFF",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  segmentText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#6B7280",
-  },
-  segmentTextActive: {
-    color: "#111827",
-    fontWeight: "700",
-  },
-  tourBtn: {
-    flexDirection: "row",
+  logoRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  logoMark: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    backgroundColor: "#2F7D1F",
     alignItems: "center",
-    backgroundColor: "#ECFDF5",
-    borderWidth: 1,
-    borderColor: "#A7F3D0",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 16,
-    gap: 4,
+    justifyContent: "center",
   },
-  tourText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#065F46",
-  },
-  header: {
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  logo: {
-    width: 60,
-    height: 60,
-    borderRadius: 16,
-    marginBottom: 14,
-  },
+  logoLetter: { color: "#FFFFFF", fontSize: 18, fontWeight: "700" },
+  logoText: { color: "#0F2417", fontSize: 20, fontWeight: "700", letterSpacing: -0.4 },
+  signIn: { color: "#5E6F63", fontSize: 14, fontWeight: "500", paddingVertical: 10, paddingHorizontal: 4 },
+  scroll: { flex: 1 },
+  scrollContent: { paddingHorizontal: 24, paddingBottom: 12 },
   title: {
-    fontSize: 26,
-    fontWeight: "800",
-    color: "#111827",
-    marginBottom: 6,
-    textAlign: "center",
+    marginTop: 26,
+    marginBottom: 8,
+    color: "#0F2417",
+    fontSize: 34,
+    lineHeight: 37,
+    fontWeight: "700",
+    letterSpacing: -1,
   },
-  subtitle: {
-    fontSize: 14,
-    color: "#6B7280",
-    fontWeight: "500",
-    textAlign: "center",
-    paddingHorizontal: 16,
-  },
-
-  /* Hero Phone Section */
-  phoneSection: {
-    width: "100%",
-    marginBottom: 18,
-  },
-  phoneInputCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    height: 56,
+  sub: { color: "#5E6F63", fontSize: 16, lineHeight: 23, marginBottom: 22 },
+  google: {
+    height: 54,
+    borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: "#E5E7EB",
-    borderRadius: 16,
-    backgroundColor: "#F9FAFB",
-    paddingHorizontal: 12,
-    marginBottom: 12,
-  },
-  phoneInputCardFocused: {
-    borderColor: "#1F7A3E",
+    borderColor: "#DFE6DB",
     backgroundColor: "#FFFFFF",
-    shadowColor: "#1F7A3E",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  countryCodeBadge: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+  },
+  googleText: { color: "#0F2417", fontSize: 16, fontWeight: "600" },
+  pressed: { transform: [{ scale: 0.985 }] },
+  divider: { flexDirection: "row", alignItems: "center", gap: 12, marginVertical: 20 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: "#DFE6DB" },
+  dividerText: { color: "#5E6F63", fontSize: 13 },
+  field: { marginBottom: 16 },
+  label: { color: "#0F2417", fontSize: 14, fontWeight: "600", marginBottom: 8 },
+  box: {
+    minHeight: 54,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: "#DFE6DB",
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  boxFocus: { borderColor: "#2F7D1F" },
+  boxLocked: { backgroundColor: "#E6F2DF", borderColor: "transparent" },
+  boxBad: { borderColor: "#B3261E" },
+  otpBox: { marginTop: 8 },
+  code: {
+    color: "#0F2417",
+    fontWeight: "600",
     paddingRight: 10,
     borderRightWidth: 1,
-    borderRightColor: "#E5E7EB",
-    marginRight: 10,
+    borderRightColor: "#DFE6DB",
   },
-  flagEmoji: {
-    fontSize: 18,
-    marginRight: 4,
-  },
-  countryCodeText: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  phoneInput: {
+  input: { flex: 1, minWidth: 0, color: "#0F2417", fontSize: 17, fontWeight: "500", paddingVertical: 12 },
+  otpInput: { textAlign: "center", letterSpacing: 4, fontWeight: "600" },
+  chip: { backgroundColor: "#E6F2DF", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
+  chipDisabled: { opacity: 0.4 },
+  chipText: { color: "#2F7D1F", fontSize: 14, fontWeight: "600" },
+  verified: { color: "#2F7D1F", fontSize: 13, fontWeight: "600" },
+  hint: { color: "#5E6F63", fontSize: 13, marginTop: 6, marginHorizontal: 2 },
+  hintBad: { color: "#B3261E" },
+  hintLink: { color: "#2F7D1F", fontWeight: "600" },
+  dobRow: { flexDirection: "row", gap: 8 },
+  dobBox: { flex: 1 },
+  yearBox: { flex: 1.5 },
+  dobInput: {
     flex: 1,
-    height: 56,
+    textAlign: "center",
+    color: "#0F2417",
     fontSize: 16,
-    fontWeight: "600",
-    color: "#111827",
-    paddingVertical: 0,
-  },
-  clearBtn: {
-    padding: 4,
-  },
-  primaryOtpButton: {
-    height: 54,
-    backgroundColor: "#1F7A3E",
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#1F7A3E",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  primaryOtpButtonDisabled: {
-    backgroundColor: "#9CA3AF",
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  btnRowContent: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  primaryOtpButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  phoneSecurityNote: {
-    fontSize: 11,
     fontWeight: "500",
-    color: "#15803D",
-    marginTop: 8,
-    textAlign: "center",
+    paddingVertical: 14,
   },
-  emailSection: {
-    width: "100%",
-    marginBottom: 8,
-  },
-  emailInput: {
-    height: 52,
-    borderWidth: 1.5,
-    borderColor: "#E5E7EB",
-    borderRadius: 16,
-    backgroundColor: "#F9FAFB",
-    paddingHorizontal: 14,
-    marginBottom: 10,
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#111827",
-  },
-  emailHint: {
-    fontSize: 12,
-    lineHeight: 18,
-    color: "#6B7280",
-    textAlign: "center",
-    marginTop: 10,
-  },
-  emailOtpActions: {
-    marginTop: 12,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  emailActionText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#1F7A3E",
-  },
-  emailActionTextDisabled: {
-    color: "#9CA3AF",
-  },
-
-  /* Divider */
-  dividerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 12,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "#E5E7EB",
-  },
-  dividerLabel: {
-    paddingHorizontal: 12,
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#9CA3AF",
-    letterSpacing: 0.5,
-  },
-
-  /* Social Buttons */
-  socialButtonsContainer: {
-    gap: 10,
-    marginBottom: 12,
-  },
-  socialButton: {
-    flexDirection: "row",
-    height: 50,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  socialBtnIcon: {
-    position: "absolute",
-    left: 18,
-  },
-  socialButtonText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  socialButtonDark: {
-    flexDirection: "row",
-    height: 50,
-    backgroundColor: "#111827",
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  socialButtonDarkText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#FFFFFF",
-  },
-
-  /* Guest Button */
-  guestButton: {
-    flexDirection: "row",
-    height: 44,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#F0FDF4",
-    borderWidth: 1,
-    borderColor: "#BBF7D0",
-    marginBottom: 12,
-  },
-  guestButtonText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#1F7A3E",
-  },
-  loginRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
-  },
-  loginRowText: {
-    fontSize: 13,
-    color: "#6B7280",
-    fontWeight: "500",
-  },
-  loginRowLink: {
-    fontSize: 13,
-    color: "#1F7A3E",
-    fontWeight: "700",
-  },
-  footer: {
-    alignItems: "center",
-    marginTop: 4,
-  },
-  footerText: {
-    fontSize: 11,
-    color: "#9CA3AF",
-    textAlign: "center",
-    lineHeight: 16,
-  },
-  linkText: {
-    color: "#6B7280",
-    fontWeight: "600",
-  },
-
-  /* Bottom sheet styles (Apple ID) */
-  sheetOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "flex-end",
-  },
-  sheetBackdrop: {
-    flex: 1,
-  },
-  sheetContent: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+  referralLink: { color: "#2F7D1F", fontSize: 14, fontWeight: "600", paddingVertical: 4 },
+  dock: {
     paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 32,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 10,
+    paddingTop: 14,
+    paddingBottom: 8,
+    backgroundColor: "#F5F7F2",
   },
-  handleBar: {
-    width: 38,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "#D1D5DB",
-    alignSelf: "center",
-    marginBottom: 16,
-  },
-  appleSheetHeader: {
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  appleIconBox: {
-    width: 56,
+  progress: { flexDirection: "row", gap: 6, marginBottom: 10 },
+  bar: { flex: 1, height: 4, borderRadius: 4, backgroundColor: "#DFE6DB" },
+  barOn: { backgroundColor: "#2F7D1F" },
+  cta: {
     height: 56,
-    borderRadius: 28,
-    backgroundColor: "#111827",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-  },
-  sheetTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 4,
-  },
-  sheetSubtitle: {
-    fontSize: 13,
-    color: "#6B7280",
-    textAlign: "center",
-  },
-  accountList: {
-    gap: 10,
-    marginBottom: 16,
-  },
-  accountCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    backgroundColor: "#F9FAFB",
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-  },
-  avatarCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  avatarText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-    fontSize: 16,
-  },
-  accountInfo: {
-    flex: 1,
-  },
-  accountName: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  accountEmail: {
-    fontSize: 12,
-    color: "#6B7280",
-    marginTop: 1,
-  },
-  anotherAccountBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 14,
-  },
-  addIconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: "#F3F4F6",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  anotherAccountText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#4B5563",
-  },
-  customInputBox: {
-    marginTop: 8,
-    gap: 10,
-  },
-  sheetInput: {
-    height: 48,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: "#D1D5DB",
-    paddingHorizontal: 14,
-    fontSize: 14,
-    color: "#111827",
-  },
-  sheetConfirmBtn: {
-    height: 46,
-    borderRadius: 12,
-    backgroundColor: "#1F7A3E",
+    borderRadius: 16,
+    backgroundColor: "#2F7D1F",
     alignItems: "center",
     justifyContent: "center",
   },
-  sheetConfirmText: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  appleConfirmBtn: {
-    flexDirection: "row",
-    height: 52,
-    backgroundColor: "#111827",
-    borderRadius: 14,
+  ctaDisabled: { opacity: 0.35 },
+  ctaText: { color: "#FFFFFF", fontSize: 17, fontWeight: "600" },
+  legal: { textAlign: "center", color: "#5E6F63", fontSize: 12, marginTop: 8, marginBottom: 2 },
+  legalLink: { color: "#0F2417", textDecorationLine: "underline" },
+  guest: { textAlign: "center", color: "#0F2417", fontSize: 15, fontWeight: "600", paddingVertical: 12 },
+  done: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 24 },
+  tick: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "#2F7D1F",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
+    marginBottom: 18,
   },
-  appleConfirmText: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  sheetCancelBtn: {
-    height: 46,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#F9FAFB",
-  },
-  sheetCancelText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#6B7280",
-  },
+  doneTitle: { color: "#0F2417", fontSize: 28, fontWeight: "700", marginBottom: 6, textAlign: "center" },
 });

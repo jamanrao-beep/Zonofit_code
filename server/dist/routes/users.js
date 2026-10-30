@@ -12,6 +12,32 @@ const prisma_1 = __importDefault(require("../lib/prisma"));
 const phone_1 = require("../lib/phone");
 const auth_1 = require("../middleware/auth");
 const referral_1 = require("../lib/referral");
+const otpStore_1 = require("../lib/otpStore");
+function parseDob(value) {
+    const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value.trim());
+    if (!match)
+        return null;
+    const day = Number(match[1]);
+    const month = Number(match[2]);
+    const year = Number(match[3]);
+    const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+    if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day)
+        return null;
+    if (year < 1900 || date.getTime() > Date.now())
+        return null;
+    return date;
+}
+function isAtLeast18(date) {
+    const cutoff = new Date(Date.UTC(date.getUTCFullYear() + 18, date.getUTCMonth(), date.getUTCDate(), 12, 0, 0));
+    return cutoff.getTime() <= Date.now();
+}
+function formatDob(value) {
+    if (!value)
+        return null;
+    const day = String(value.getUTCDate()).padStart(2, "0");
+    const month = String(value.getUTCMonth() + 1).padStart(2, "0");
+    return `${day}/${month}/${value.getUTCFullYear()}`;
+}
 const router = (0, express_1.Router)();
 // Avatars are stored on this server's disk (server/uploads) and served from /uploads by index.ts.
 const uploadsDir = path_1.default.join(__dirname, "../../uploads");
@@ -101,6 +127,8 @@ router.get("/me", auth_1.requireAuth, async (req, res) => {
         email: user.email,
         name: user.name,
         phone: user.phone,
+        dob: formatDob(user.dob),
+        referralApplied: !!user.referredByUserId,
         avatarUrl: user.avatarUrl,
         referralCode: userReferralCode,
         createdAt: user.createdAt,
@@ -194,14 +222,53 @@ router.get("/referral", auth_1.requireAuth, async (req, res) => {
         res.status(500).json({ error: "ServerError", message: err.message });
     }
 });
+// ─── POST /api/users/referral/apply ───────────────────────────────────────────
+// Stores who invited this member. It does not add credits.
+router.post("/referral/apply", auth_1.requireAuth, async (req, res) => {
+    const code = typeof req.body?.code === "string" ? req.body.code.trim().toUpperCase() : "";
+    if (!code || code.length > 32) {
+        res.status(400).json({ error: "InvalidCode", message: "Enter a referral code." });
+        return;
+    }
+    const referrer = await prisma_1.default.user.findUnique({
+        where: { referralCode: code },
+        select: { id: true },
+    });
+    if (!referrer) {
+        res.status(404).json({ error: "InvalidCode", message: "That referral code isn't valid." });
+        return;
+    }
+    if (referrer.id === req.dbUserId) {
+        res.status(400).json({ error: "InvalidCode", message: "You can't use your own referral code." });
+        return;
+    }
+    const me = await prisma_1.default.user.findUnique({
+        where: { id: req.dbUserId },
+        select: { referredByUserId: true },
+    });
+    if (!me) {
+        res.status(404).json({ error: "UserNotFound", message: "Account not found." });
+        return;
+    }
+    if (me.referredByUserId) {
+        res.json({ applied: true, already: true });
+        return;
+    }
+    await prisma_1.default.user.update({
+        where: { id: req.dbUserId },
+        data: { referredByUserId: referrer.id },
+    });
+    res.json({ applied: true });
+});
 // ─── PATCH /api/users/me ──────────────────────────────────────────────────────
 /**
- * Update the authenticated user's profile (name, phone, avatarUrl).
+ * Update the authenticated user's profile (name, phone, email, date of birth).
  */
 router.patch("/me", auth_1.requireAuth, [
     (0, express_validator_1.body)("name").optional().isString().trim().isLength({ min: 2, max: 100 }),
     (0, express_validator_1.body)("phone").optional().isString(),
     (0, express_validator_1.body)("email").optional().isEmail(),
+    (0, express_validator_1.body)("dob").optional().isString().trim(),
     (0, express_validator_1.body)("avatarUrl").optional().isURL(),
     (0, express_validator_1.body)("expoPushToken").optional().isString(),
 ], async (req, res) => {
@@ -210,7 +277,39 @@ router.patch("/me", auth_1.requireAuth, [
         res.status(400).json({ error: "ValidationError", details: errors.array() });
         return;
     }
-    const { name, phone, email, avatarUrl, expoPushToken } = req.body;
+    const { name, phone, email, dob, avatarUrl, expoPushToken } = req.body;
+    const current = await prisma_1.default.user.findUnique({
+        where: { id: req.dbUserId },
+        select: { email: true },
+    });
+    if (!current) {
+        res.status(404).json({ error: "UserNotFound", message: "Account not found." });
+        return;
+    }
+    let nextDob;
+    if (dob !== undefined) {
+        const parsed = parseDob(dob);
+        if (!parsed) {
+            res.status(400).json({ error: "InvalidDob", message: "That date doesn't look right." });
+            return;
+        }
+        if (!isAtLeast18(parsed)) {
+            res.status(400).json({ error: "TooYoung", message: "You need to be 18 or older to join." });
+            return;
+        }
+        nextDob = parsed;
+    }
+    const nextEmail = email?.trim().toLowerCase();
+    if (nextEmail && nextEmail !== current.email.trim().toLowerCase()) {
+        const proved = await (0, otpStore_1.verifyOTP)(`verified-email:${req.dbUserId}`, nextEmail);
+        if (!proved) {
+            res.status(400).json({
+                error: "EmailNotVerified",
+                message: "Verify that email before saving it.",
+            });
+            return;
+        }
+    }
     let nextPhone;
     if (phone === undefined) {
         nextPhone = undefined;
@@ -236,9 +335,9 @@ router.patch("/me", auth_1.requireAuth, [
             return;
         }
     }
-    if (email) {
+    if (nextEmail) {
         const taken = await prisma_1.default.user.findFirst({
-            where: { email, NOT: { id: req.dbUserId } },
+            where: { email: nextEmail, NOT: { id: req.dbUserId } },
             select: { id: true },
         });
         if (taken) {
@@ -252,13 +351,14 @@ router.patch("/me", auth_1.requireAuth, [
             data: {
                 ...(name !== undefined && { name }),
                 ...(nextPhone !== undefined && { phone: nextPhone }),
-                ...(email !== undefined && { email }),
+                ...(nextEmail !== undefined && { email: nextEmail }),
+                ...(nextDob !== undefined && { dob: nextDob }),
                 ...(avatarUrl !== undefined && { avatarUrl }),
                 ...(expoPushToken !== undefined && { expoPushToken }),
             },
-            select: { id: true, name: true, phone: true, avatarUrl: true, email: true, expoPushToken: true },
+            select: { id: true, name: true, phone: true, avatarUrl: true, email: true, dob: true, expoPushToken: true },
         });
-        res.json({ user: updated });
+        res.json({ user: { ...updated, dob: formatDob(updated.dob) } });
     }
     catch (err) {
         if (err.code === "P2002") {

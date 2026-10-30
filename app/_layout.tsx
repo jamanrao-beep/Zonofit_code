@@ -56,33 +56,34 @@ function AuthGate() {
       const user = useAuthStore.getState().user;
       const hasPhone = !!(user?.phone && user.phone.trim().length >= 10);
 
-      // Mobile number is strictly mandatory before login can complete
-      if (!hasPhone) {
-        if (secondSegment !== "verify-number") {
-          router.replace("/(auth)/verify-number" as any);
+      if (isOnboarded) {
+        // Stay on sign-in long enough for the "You're signed in" step.
+        // Continue on that screen sends them into the app.
+        if (inAuthGroup && secondSegment !== "verify-number") {
+          router.replace("/(tabs)");
         }
         return;
       }
 
-      if (isOnboarded) {
-        // Fully onboarded user shouldn't be in auth screens
-        if (inAuthGroup) {
-          router.replace("/(tabs)");
-        }
-      } else {
-        // Signed in with verified phone, but profile/gym onboarding not finished
-        if (inTabs) {
-          const needsProfile = !user?.username || user.username === "ZonoFit Member" || user.username === "Google User";
-          if (needsProfile) {
-            router.replace("/(auth)/profile-details" as any);
-          } else {
-            router.replace("/onboarding/select-city" as any);
-          }
-        } else if (inAuthGroup) {
-          if (secondSegment === "create-account") {
-            router.replace("/(auth)/profile-details" as any);
-          }
-          // On profile-details or verify-number: DO NOT redirect away!
+      // Join collects mobile, email, name, and date of birth on create-account.
+      // Leave that screen, profile details, and phone sign-in alone.
+      if (inAuthGroup && (secondSegment === "create-account" || secondSegment === "profile-details" || secondSegment === "verify-number")) {
+        return;
+      }
+
+      // Mobile number is strictly mandatory before the rest of the app
+      if (!hasPhone) {
+        router.replace("/(auth)/create-account" as any);
+        return;
+      }
+
+      // Signed in with a verified phone, but profile/gym onboarding not finished
+      if (inTabs) {
+        const needsProfile = !user?.username || user.username === "ZonoFit Member" || user.username === "Google User";
+        if (needsProfile) {
+          router.replace("/(auth)/create-account" as any);
+        } else {
+          router.replace("/onboarding/select-city" as any);
         }
       }
     }

@@ -39,7 +39,7 @@ interface AuthState {
   // Actions
   initialize: () => Promise<void>;
   sendOTP: (phone: string, isSignIn?: boolean) => Promise<void>;
-  verifyOTP: (code: string, isSignIn?: boolean) => Promise<boolean>;
+  verifyOTP: (code: string, isSignIn?: boolean, extras?: { referralCode?: string; attachPhone?: boolean }) => Promise<boolean>;
   checkUserExists: (phone?: string, email?: string) => Promise<{ exists: boolean; phoneExists: boolean; emailExists: boolean; isOnboarded: boolean; user?: any }>;
   updateProfile: (details: { name: string, dob?: string, email?: string, referral?: string }) => Promise<void>;
   completeOnboarding: (
@@ -48,7 +48,7 @@ interface AuthState {
     plan: string,
     options?: { price?: number; visits?: number; credits?: number; gymName?: string; cycleNumber?: number }
   ) => Promise<void>;
-  googleSignIn: (idToken: string) => Promise<{ success: boolean; isOnboarded: boolean }>;
+  googleSignIn: (idToken: string, referralCode?: string) => Promise<{ success: boolean; isOnboarded: boolean }>;
   signInWithEmail: (input: {
     email: string;
     password: string;
@@ -238,7 +238,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  verifyOTP: async (code, isSignIn = false) => {
+  verifyOTP: async (code, isSignIn = false, extras) => {
     set({ loading: true, error: null });
     const phone = get().verificationPhone?.trim();
     if (!phone) {
@@ -253,23 +253,28 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       try {
         const data = await apiFetch("/api/auth/verify", {
           method: "POST",
+          token: extras?.attachPhone ? get().token : undefined,
           body: JSON.stringify({
             phone,
             code,
             isSignIn,
             username: "ZonoFit Member",
+            ...(extras?.referralCode ? { referralCode: extras.referralCode } : {}),
+            ...(extras?.attachPhone ? { attachPhone: true } : {}),
           }),
         });
 
         if (data.token) {
           authToken = data.token;
           isOnboarded = Boolean(data.isOnboarded || data.user?.isOnboarded);
+          const keepGoogle = extras?.attachPhone && get().user?.authMethod === "google";
           authUser = {
             id: data.user?.id || "usr_" + Date.now(),
             username: data.user?.username || (isSignIn ? "Member" : "ZonoFit Member"),
             phone,
-            email: data.user?.email,
-            authMethod: "phone",
+            email: data.user?.email || get().user?.email,
+            authMethod: keepGoogle ? "google" : "phone",
+            dob: get().user?.dob,
             isOnboarded,
           };
         }
@@ -340,8 +345,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       const token = get().token;
       if (!token || token.startsWith("mock_")) {
-        set({ loading: false, error: "Sign in with your phone number before saving your profile." });
-        return;
+        const message = "Sign in with your phone number before saving your profile.";
+        set({ loading: false, error: message });
+        throw new Error(message);
       }
       await apiFetch("/api/users/me", {
         method: "PATCH",
@@ -350,6 +356,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           name: details.name,
           phone: updatedUser.phone,
           ...(details.email ? { email: details.email } : {}),
+          ...(details.dob ? { dob: details.dob } : {}),
         }),
       });
       await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(updatedUser));
@@ -367,6 +374,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
     } catch (err: any) {
       set({ loading: false, error: err.message || "Failed to update profile." });
+      throw err;
     }
   },
 
@@ -461,7 +469,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  googleSignIn: async (idToken: string) => {
+  googleSignIn: async (idToken: string, referralCode?: string) => {
     set({ loading: true, error: null });
     try {
       if (!idToken?.trim()) {
@@ -470,7 +478,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       const data = await apiFetch("/api/auth/google", {
         method: "POST",
-        body: JSON.stringify({ idToken }),
+        body: JSON.stringify({
+          idToken,
+          ...(referralCode ? { referralCode } : {}),
+        }),
       });
 
       if (!data?.token || !data?.user?.id) {
@@ -621,7 +632,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await SecureStore.deleteItemAsync("zonofit_guest_session");
     } catch {}
     try {
-      useGuestStore.getState().endGuestSession();
+      await useGuestStore.getState().endGuestSession();
     } catch {}
     try {
       // Lazy load to prevent circular dependencies

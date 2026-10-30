@@ -7,6 +7,31 @@ import prisma from "../lib/prisma";
 import { normalizePhone } from "../lib/phone";
 import { requireAuth } from "../middleware/auth";
 import { generateUniqueReferralCode } from "../lib/referral";
+import { verifyOTP } from "../lib/otpStore";
+
+function parseDob(value: string): Date | null {
+    const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value.trim());
+    if (!match) return null;
+    const day = Number(match[1]);
+    const month = Number(match[2]);
+    const year = Number(match[3]);
+    const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+    if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
+    if (year < 1900 || date.getTime() > Date.now()) return null;
+    return date;
+}
+
+function isAtLeast18(date: Date): boolean {
+    const cutoff = new Date(Date.UTC(date.getUTCFullYear() + 18, date.getUTCMonth(), date.getUTCDate(), 12, 0, 0));
+    return cutoff.getTime() <= Date.now();
+}
+
+function formatDob(value: Date | null): string | null {
+    if (!value) return null;
+    const day = String(value.getUTCDate()).padStart(2, "0");
+    const month = String(value.getUTCMonth() + 1).padStart(2, "0");
+    return `${day}/${month}/${value.getUTCFullYear()}`;
+}
 
 const router = Router();
 
@@ -108,6 +133,8 @@ router.get(
             email: user.email,
             name: user.name,
             phone: user.phone,
+            dob: formatDob(user.dob),
+            referralApplied: !!user.referredByUserId,
             avatarUrl: user.avatarUrl,
             referralCode: userReferralCode,
             createdAt: user.createdAt,
@@ -211,9 +238,52 @@ router.get(
     }
 );
 
+// ─── POST /api/users/referral/apply ───────────────────────────────────────────
+// Stores who invited this member. It does not add credits.
+router.post(
+    "/referral/apply",
+    requireAuth,
+    async (req: Request, res: Response): Promise<void> => {
+        const code = typeof req.body?.code === "string" ? req.body.code.trim().toUpperCase() : "";
+        if (!code || code.length > 32) {
+            res.status(400).json({ error: "InvalidCode", message: "Enter a referral code." });
+            return;
+        }
+        const referrer = await prisma.user.findUnique({
+            where: { referralCode: code },
+            select: { id: true },
+        });
+        if (!referrer) {
+            res.status(404).json({ error: "InvalidCode", message: "That referral code isn't valid." });
+            return;
+        }
+        if (referrer.id === req.dbUserId) {
+            res.status(400).json({ error: "InvalidCode", message: "You can't use your own referral code." });
+            return;
+        }
+        const me = await prisma.user.findUnique({
+            where: { id: req.dbUserId! },
+            select: { referredByUserId: true },
+        });
+        if (!me) {
+            res.status(404).json({ error: "UserNotFound", message: "Account not found." });
+            return;
+        }
+        if (me.referredByUserId) {
+            res.json({ applied: true, already: true });
+            return;
+        }
+        await prisma.user.update({
+            where: { id: req.dbUserId! },
+            data: { referredByUserId: referrer.id },
+        });
+        res.json({ applied: true });
+    }
+);
+
 // ─── PATCH /api/users/me ──────────────────────────────────────────────────────
 /**
- * Update the authenticated user's profile (name, phone, avatarUrl).
+ * Update the authenticated user's profile (name, phone, email, date of birth).
  */
 router.patch(
     "/me",
@@ -222,6 +292,7 @@ router.patch(
         body("name").optional().isString().trim().isLength({ min: 2, max: 100 }),
         body("phone").optional().isString(),
         body("email").optional().isEmail(),
+        body("dob").optional().isString().trim(),
         body("avatarUrl").optional().isURL(),
         body("expoPushToken").optional().isString(),
     ],
@@ -232,13 +303,49 @@ router.patch(
             return;
         }
 
-        const { name, phone, email, avatarUrl, expoPushToken } = req.body as {
+        const { name, phone, email, dob, avatarUrl, expoPushToken } = req.body as {
             name?: string;
             phone?: string;
             email?: string;
+            dob?: string;
             avatarUrl?: string;
             expoPushToken?: string;
         };
+
+        const current = await prisma.user.findUnique({
+            where: { id: req.dbUserId! },
+            select: { email: true },
+        });
+        if (!current) {
+            res.status(404).json({ error: "UserNotFound", message: "Account not found." });
+            return;
+        }
+
+        let nextDob: Date | undefined;
+        if (dob !== undefined) {
+            const parsed = parseDob(dob);
+            if (!parsed) {
+                res.status(400).json({ error: "InvalidDob", message: "That date doesn't look right." });
+                return;
+            }
+            if (!isAtLeast18(parsed)) {
+                res.status(400).json({ error: "TooYoung", message: "You need to be 18 or older to join." });
+                return;
+            }
+            nextDob = parsed;
+        }
+
+        const nextEmail = email?.trim().toLowerCase();
+        if (nextEmail && nextEmail !== current.email.trim().toLowerCase()) {
+            const proved = await verifyOTP(`verified-email:${req.dbUserId}`, nextEmail);
+            if (!proved) {
+                res.status(400).json({
+                    error: "EmailNotVerified",
+                    message: "Verify that email before saving it.",
+                });
+                return;
+            }
+        }
 
         let nextPhone: string | null | undefined;
         if (phone === undefined) {
@@ -263,9 +370,9 @@ router.patch(
                 return;
             }
         }
-        if (email) {
+        if (nextEmail) {
             const taken = await prisma.user.findFirst({
-                where: { email, NOT: { id: req.dbUserId! } },
+                where: { email: nextEmail, NOT: { id: req.dbUserId! } },
                 select: { id: true },
             });
             if (taken) {
@@ -280,13 +387,14 @@ router.patch(
                 data: {
                     ...(name !== undefined && { name }),
                     ...(nextPhone !== undefined && { phone: nextPhone }),
-                    ...(email !== undefined && { email }),
+                    ...(nextEmail !== undefined && { email: nextEmail }),
+                    ...(nextDob !== undefined && { dob: nextDob }),
                     ...(avatarUrl !== undefined && { avatarUrl }),
                     ...(expoPushToken !== undefined && { expoPushToken }),
                 },
-                select: { id: true, name: true, phone: true, avatarUrl: true, email: true, expoPushToken: true },
+                select: { id: true, name: true, phone: true, avatarUrl: true, email: true, dob: true, expoPushToken: true },
             });
-            res.json({ user: updated });
+            res.json({ user: { ...updated, dob: formatDob(updated.dob) } });
         } catch (err: unknown) {
             if ((err as { code?: string }).code === "P2002") {
                 res.status(409).json({ error: "PhoneInUse", message: "That phone number is already on another account." });

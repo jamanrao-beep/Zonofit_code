@@ -21,7 +21,7 @@ function makeNonce(): string {
 export async function requestGoogleIdToken(): Promise<string> {
   const clientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID?.trim();
   if (!clientId) {
-    throw new Error("Google sign-in is not set up yet. Use your email and password, or your phone number.");
+    throw new Error("Google sign-in is not set up yet. Use your mobile number.");
   }
 
   const redirectUri = "https://api.zonofit.com/oauth/google";

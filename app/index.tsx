@@ -127,9 +127,10 @@ export default function SplashAnimationScreen() {
           return;
         } else {
           // User signed in but didn't finish onboarding: resume onboarding directly
-          const needsProfile = !user?.username || user.username === "ZonoFit Member" || user.username === "Google User";
+          const phoneDigits = (user?.phone || "").replace(/\D/g, "");
+          const needsProfile = phoneDigits.length < 10 || !user?.username || user.username === "ZonoFit Member" || user.username === "Google User";
           if (needsProfile) {
-            router.replace("/(auth)/profile-details" as any);
+            router.replace("/(auth)/create-account" as any);
           } else {
             router.replace("/onboarding/select-city" as any);
           }

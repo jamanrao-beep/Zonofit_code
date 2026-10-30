@@ -256,7 +256,7 @@ export default function DeliveryAddressModal({
       }
     }
     if (fullName.trim() && (!currentUser?.username || currentUser.username === "ZonoFit Member" || currentUser.username === "Google User")) {
-      useAuthStore.getState().updateProfile({ name: fullName.trim() });
+      void useAuthStore.getState().updateProfile({ name: fullName.trim() }).catch(() => {});
     }
 
     if (onSelectAddress) {
