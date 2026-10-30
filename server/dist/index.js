@@ -31,6 +31,7 @@ const admin_1 = __importDefault(require("./routes/admin"));
 const trial_gyms_1 = __importDefault(require("./routes/trial-gyms"));
 const coupons_1 = __importDefault(require("./routes/coupons"));
 const content_1 = __importDefault(require("./routes/content"));
+const googleOAuthReturn_1 = __importDefault(require("./routes/googleOAuthReturn"));
 const prisma_1 = __importDefault(require("./lib/prisma"));
 // Process level safety guards
 process.on("unhandledRejection", (reason) => {
@@ -106,6 +107,9 @@ app.get("/health", async (_req, res) => {
         timestamp: new Date().toISOString(),
     });
 });
+// Google's web client only accepts an https redirect. This page hands the
+// chosen account back to the app. The token stays in the browser hash.
+app.use("/oauth", googleOAuthReturn_1.default);
 // ─── API Routes ────────────────────────────────────────────────────────────────
 // Auth routes (public)
 app.use("/api/auth/portal", auth_portal_1.default);

@@ -72,8 +72,11 @@ export async function apiFetch(path: string, options: RequestOptions = {}) {
         }
       }
       
-      const error = new Error(errorMessage);
-      (error as any).status = response.status;
+      const error = new Error(errorMessage) as Error & { status?: number; retryAfterSeconds?: number };
+      error.status = response.status;
+      if (typeof data?.retryAfterSeconds === "number") {
+        error.retryAfterSeconds = data.retryAfterSeconds;
+      }
       throw error;
     }
 

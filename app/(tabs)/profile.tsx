@@ -340,7 +340,7 @@ export default function ProfileScreen() {
                         <NavRow
                             icon="mail-outline"
                             label="Email"
-                            value={isGuest ? "Not Registered" : "Google Connected"}
+                            value={isGuest ? "Not Registered" : (user?.email || "Connected")}
                             showChevron={false}
                         />
                     )}

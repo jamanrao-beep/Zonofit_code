@@ -18,12 +18,9 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import * as WebBrowser from "expo-web-browser";
-import * as Linking from "expo-linking";
+import { requestGoogleIdToken } from "@/lib/googleAuth";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useGuestStore } from "@/store/useGuestStore";
-
-WebBrowser.maybeCompleteAuthSession();
 
 export default function CreateAccountScreen() {
   const router = useRouter();
@@ -39,6 +36,7 @@ export default function CreateAccountScreen() {
 
   const sendOTP = useAuthStore(state => state.sendOTP);
   const googleSignIn = useAuthStore(state => state.googleSignIn);
+  const signInWithEmail = useAuthStore(state => state.signInWithEmail);
   const appleSignIn = useAuthStore(state => state.appleSignIn);
   const loading = useAuthStore(state => state.loading);
   const { startGuestSession, isGuest, endGuestSession } = useGuestStore();
@@ -46,19 +44,33 @@ export default function CreateAccountScreen() {
   const [guestLoading, setGuestLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [appleLoading, setAppleLoading] = useState(false);
-  
-  // 1-tap social chooser modal states
-  const [showGoogleModal, setShowGoogleModal] = useState(false);
   const [showAppleModal, setShowAppleModal] = useState(false);
-  const [googleDialogMode, setGoogleDialogMode] = useState<"choose" | "type_new">("choose");
-  const [customGoogleEmail, setCustomGoogleEmail] = useState("");
-  const [customGoogleName, setCustomGoogleName] = useState("");
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [emailOtpStep, setEmailOtpStep] = useState(false);
+  const [emailCode, setEmailCode] = useState("");
+  const [emailBusy, setEmailBusy] = useState(false);
+  const [resendIn, setResendIn] = useState(0);
 
   useEffect(() => {
     if (params.mode === "signin" || params.mode === "signup") {
       setMode(params.mode as "signup" | "signin");
     }
   }, [params.mode]);
+
+  useEffect(() => {
+    setEmailOtpStep(false);
+    setEmailCode("");
+    setResendIn(0);
+  }, [mode]);
+
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const timer = setTimeout(() => setResendIn((seconds) => seconds - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendIn]);
 
   // When a guest navigates here to create a full account, end guest session
   useEffect(() => {
@@ -160,141 +172,85 @@ export default function CreateAccountScreen() {
     }
   };
 
+  const openSignedInScreen = (isOnboarded: boolean) => {
+    if (isOnboarded) {
+      router.replace("/(tabs)");
+    } else {
+      router.replace("/(auth)/profile-details");
+    }
+  };
+
   const handleGoogleSignInPress = async () => {
     if (googleLoading || loading) return;
-    const clientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
-
-    if (clientId) {
-      try {
-        setGoogleLoading(true);
-        const redirectUri = Linking.createURL("oauth/google");
-        const authUrl =
-          `https://accounts.google.com/o/oauth2/v2/auth?` +
-          `client_id=${encodeURIComponent(clientId)}` +
-          `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-          `&response_type=token` +
-          `&scope=${encodeURIComponent("openid email profile")}`;
-
-        const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
-        if (result.type === "success" && result.url) {
-          const hashIndex = result.url.indexOf("#");
-          const paramsString =
-            hashIndex !== -1
-              ? result.url.substring(hashIndex + 1)
-              : result.url.split("?")[1] || "";
-          const urlParams = new URLSearchParams(paramsString);
-          const accessToken = urlParams.get("access_token");
-
-          if (accessToken) {
-            const userRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
-              headers: { Authorization: `Bearer ${accessToken}` },
-            });
-            const userData = await userRes.json();
-            if (userData?.email) {
-              const res = await googleSignIn(userData.email, userData.name || userData.email.split("@")[0]);
-              const userPhone = useAuthStore.getState().user?.phone;
-              if (!userPhone || userPhone.trim().length < 10) {
-                // Mobile number is strictly mandatory!
-                router.replace("/(auth)/verify-number");
-              } else if (res?.isOnboarded) {
-                router.replace("/(tabs)");
-              } else {
-                router.replace("/(auth)/profile-details");
-              }
-              return;
-            }
-          }
-        }
-      } catch (e: any) {
-        console.warn("[Google Sign-In]", e);
-      } finally {
-        setGoogleLoading(false);
-      }
-    } else {
-      setGoogleDialogMode("type_new");
-      setCustomGoogleEmail("");
-      setCustomGoogleName("");
-      setShowGoogleModal(true);
-    }
-  };
-
-  const handleSelectGoogleAccount = async (email: string, name: string) => {
     try {
       setGoogleLoading(true);
-      setShowGoogleModal(false);
-      const res = await googleSignIn(email, name);
-      const userPhone = useAuthStore.getState().user?.phone;
-      if (!userPhone || userPhone.trim().length < 10) {
-        // Mobile number is strictly mandatory for all members!
-        router.replace("/(auth)/verify-number");
-      } else if (res?.isOnboarded) {
-        router.replace("/(tabs)");
-      } else {
-        router.replace("/(auth)/profile-details");
-      }
+      const idToken = await requestGoogleIdToken();
+      const res = await googleSignIn(idToken);
+      openSignedInScreen(Boolean(res?.isOnboarded));
     } catch (e: any) {
-      Alert.alert("Google Sign-In", e?.message || "Failed to sign in with Google.");
+      Alert.alert("Google Sign-In", e?.message || "Could not sign in with Google.");
     } finally {
       setGoogleLoading(false);
     }
   };
 
-  const handleConfirmCustomGoogleEmail = async () => {
-    const trimmed = customGoogleEmail.trim().toLowerCase();
-    if (!trimmed || !trimmed.includes("@") || !trimmed.includes(".")) {
-      Alert.alert("Invalid Email", "Please enter a valid Google / Gmail address.");
+  const handleEmailSubmit = async () => {
+    Keyboard.dismiss();
+    const trimmed = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      Alert.alert("Email", "Enter a valid email address.");
       return;
     }
-    const derivedName = customGoogleName.trim() || trimmed.split("@")[0].replace(/[._]/g, " ");
+    if (password.length < 8 || password.length > 72) {
+      Alert.alert("Password", "Use a password between 8 and 72 characters.");
+      return;
+    }
+    if (mode === "signup" && password !== confirmPassword) {
+      Alert.alert("Password", "Those passwords do not match.");
+      return;
+    }
 
-    setGoogleLoading(true);
     try {
-      const isSignIn = mode === "signin";
-      const checkResult = await useAuthStore.getState().checkUserExists(undefined, trimmed);
-
-      // If signup mode but email already registered
-      if (!isSignIn && checkResult.emailExists) {
-        Alert.alert(
-          "Account Already Exists",
-          `An account with email ${trimmed} is already registered.\n\nPlease Sign In to continue.`,
-          [
-            { text: "Cancel", style: "cancel" },
-            {
-              text: "Sign In Instead",
-              onPress: () => {
-                setMode("signin");
-                handleSelectGoogleAccount(trimmed, derivedName);
-              },
-            },
-          ]
-        );
+      setEmailBusy(true);
+      const result = await signInWithEmail({ email: trimmed, password, mode });
+      if (result.otpRequired) {
+        setEmailOtpStep(true);
+        setEmailCode("");
+        setResendIn(5 * 60);
         return;
       }
-
-      // If signin mode but email not registered
-      if (isSignIn && !checkResult.emailExists) {
-        Alert.alert(
-          "Account Not Found",
-          `No account found with email ${trimmed}.\n\nPlease create an account to get started.`,
-          [
-            { text: "Cancel", style: "cancel" },
-            {
-              text: "Create Account",
-              onPress: () => {
-                setMode("signup");
-                handleSelectGoogleAccount(trimmed, derivedName);
-              },
-            },
-          ]
-        );
-        return;
+      openSignedInScreen(result.isOnboarded);
+    } catch (e: any) {
+      if (typeof e?.retryAfterSeconds === "number" && e.retryAfterSeconds > 0) {
+        setEmailOtpStep(true);
+        setResendIn(e.retryAfterSeconds);
       }
-
-      await handleSelectGoogleAccount(trimmed, derivedName);
-      setCustomGoogleEmail("");
-      setCustomGoogleName("");
+      Alert.alert(mode === "signup" ? "Create Account" : "Sign In", e?.message || "Could not continue with that email.");
     } finally {
-      setGoogleLoading(false);
+      setEmailBusy(false);
+    }
+  };
+
+  const handleEmailCodeSubmit = async () => {
+    Keyboard.dismiss();
+    if (!/^\d{4}$/.test(emailCode.trim())) {
+      Alert.alert("Code", "Enter the 4-digit code from your email.");
+      return;
+    }
+    try {
+      setEmailBusy(true);
+      const result = await signInWithEmail({
+        email: email.trim().toLowerCase(),
+        password,
+        code: emailCode.trim(),
+        mode,
+      });
+      if (result.otpRequired) return;
+      openSignedInScreen(result.isOnboarded);
+    } catch (e: any) {
+      Alert.alert("Code", e?.message || "That code is not valid.");
+    } finally {
+      setEmailBusy(false);
     }
   };
 
@@ -394,9 +350,9 @@ export default function CreateAccountScreen() {
               {isSignUp ? "Create Your Account" : "Welcome Back"}
             </Text>
             <Text style={styles.subtitle}>
-              {isSignUp 
-                ? "Enter your mobile number to get started." 
-                : "Enter your registered mobile number to sign in."}
+              {isSignUp
+                ? "Use your mobile number, or set an email and password."
+                : "Use your mobile number, or sign in with email."}
             </Text>
           </View>
 
@@ -462,6 +418,123 @@ export default function CreateAccountScreen() {
             <Text style={styles.phoneSecurityNote}>
               <Ionicons name="shield-checkmark-outline" size={12} color="#1F7A3E" /> Mobile verification is mandatory for gym check-in & passes
             </Text>
+          </View>
+
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerLabel}>OR USE EMAIL</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <View style={styles.emailSection}>
+            {emailOtpStep ? (
+              <View>
+                <Text style={styles.emailHint}>
+                  Enter the 4-digit code sent to {email.trim().toLowerCase()}. It works for 10 minutes.
+                </Text>
+                <TextInput
+                  style={styles.emailInput}
+                  placeholder="4-digit code"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType={Platform.OS === "ios" ? "number-pad" : "numeric"}
+                  maxLength={4}
+                  value={emailCode}
+                  onChangeText={(text) => setEmailCode(text.replace(/[^0-9]/g, ""))}
+                  editable={!emailBusy}
+                  autoCorrect={false}
+                />
+                <Pressable
+                  style={[styles.primaryOtpButton, (emailCode.length !== 4 || emailBusy) && styles.primaryOtpButtonDisabled]}
+                  onPress={handleEmailCodeSubmit}
+                  disabled={emailCode.length !== 4 || emailBusy}
+                >
+                  {emailBusy ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.primaryOtpButtonText}>Verify Email</Text>
+                  )}
+                </Pressable>
+                <View style={styles.emailOtpActions}>
+                  <Pressable
+                    onPress={handleEmailSubmit}
+                    disabled={emailBusy || resendIn > 0}
+                  >
+                    <Text style={[styles.emailActionText, (emailBusy || resendIn > 0) && styles.emailActionTextDisabled]}>
+                      {resendIn > 0
+                        ? `Resend OTP in ${Math.floor(resendIn / 60)}:${String(resendIn % 60).padStart(2, "0")}`
+                        : "Resend OTP"}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      setEmailOtpStep(false);
+                      setEmailCode("");
+                      setResendIn(0);
+                    }}
+                    disabled={emailBusy}
+                  >
+                    <Text style={styles.emailActionText}>Edit email</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : (
+              <View>
+                <TextInput
+                  style={styles.emailInput}
+                  placeholder="Email address"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="email"
+                  value={email}
+                  onChangeText={setEmail}
+                  editable={!emailBusy}
+                />
+                <TextInput
+                  style={styles.emailInput}
+                  placeholder="Password"
+                  placeholderTextColor="#9CA3AF"
+                  secureTextEntry
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete={isSignUp ? "password-new" : "password"}
+                  value={password}
+                  onChangeText={setPassword}
+                  editable={!emailBusy}
+                />
+                {isSignUp ? (
+                  <TextInput
+                    style={styles.emailInput}
+                    placeholder="Confirm password"
+                    placeholderTextColor="#9CA3AF"
+                    secureTextEntry
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoComplete="password-new"
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    editable={!emailBusy}
+                  />
+                ) : null}
+                <Pressable
+                  style={[styles.primaryOtpButton, emailBusy && styles.primaryOtpButtonDisabled]}
+                  onPress={handleEmailSubmit}
+                  disabled={emailBusy}
+                >
+                  {emailBusy ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.primaryOtpButtonText}>
+                      {isSignUp ? "Create Account" : "Sign In"}
+                    </Text>
+                  )}
+                </Pressable>
+                <Text style={styles.emailHint}>
+                  We email a 4-digit code before opening the account. Google sign-in does not ask for that code.
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* Divider */}
@@ -559,181 +632,6 @@ export default function CreateAccountScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-
-      {/* ======================================================== */}
-      {/* NATIVE GOOGLE ACCOUNT CHOOSER (EXISTING & NEW MAIL TYPE) */}
-      {/* ======================================================== */}
-      <Modal
-        visible={showGoogleModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          setShowGoogleModal(false);
-          setGoogleDialogMode("choose");
-        }}
-      >
-        <Pressable 
-          style={styles.googleDialogOverlay}
-          onPress={() => {
-            setShowGoogleModal(false);
-            setGoogleDialogMode("choose");
-          }}
-        >
-          <Pressable 
-            style={styles.googleDialogCard} 
-            onPress={(e) => e.stopPropagation()}
-          >
-            {googleDialogMode === "choose" ? (
-              /* VIEW 1: SELECT EXISTING MAIL ACCOUNTS */
-              <View>
-                {/* App Logo */}
-                <View style={styles.googleAppLogoContainer}>
-                  <Image 
-                    source={require("@/assets/Zonofit_final_logo.jpeg")} 
-                    style={styles.googleAppLogo} 
-                    resizeMode="cover"
-                  />
-                </View>
-
-                {/* Title & Subtitle */}
-                <Text style={styles.googleDialogTitle}>Choose an account</Text>
-                <Text style={styles.googleDialogSubtitle}>to continue to ZonoFit</Text>
-
-                {/* Existing Accounts List */}
-                <ScrollView 
-                  style={{ maxHeight: 280 }} 
-                  showsVerticalScrollIndicator={false}
-                  keyboardShouldPersistTaps="handled"
-                >
-                  <View style={styles.googleAccountList}>
-                    {[
-                      { name: "SARANSH PANDYA", email: "saranshpandya148@gmail.com", initial: "S", color: "#2E7D32" },
-                      { name: "Saransh Pandya", email: "saranshp34@gmail.com", initial: "S", color: "#1976D2" },
-                      { name: "rock star", email: "hacker692006@gmail.com", initial: "r", color: "#8D6E63" },
-                      { name: "Rahul Jain", email: "rahulalkeshkumar@gmail.com", initial: "R", color: "#C2185B" },
-                      { name: "EDU", email: "eduapp1256@gmail.com", initial: "E", color: "#0D47A1" },
-                      { name: "Zono Fit", email: "zonofitofficial@gmail.com", initial: "Z", color: "#1B5E20" },
-                    ].map((acc, index) => (
-                      <Pressable
-                        key={index}
-                        style={({ pressed }) => [
-                          styles.googleAccountRow,
-                          pressed && { backgroundColor: "#F3F4F6" }
-                        ]}
-                        onPress={() => handleSelectGoogleAccount(acc.email, acc.name)}
-                      >
-                        <View style={[styles.googleAvatar, { backgroundColor: acc.color }]}>
-                          <Text style={styles.googleAvatarText}>{acc.initial}</Text>
-                        </View>
-                        <View style={styles.googleAccountDetails}>
-                          <Text style={styles.googleAccountName} numberOfLines={1}>
-                            {acc.name}
-                          </Text>
-                          <Text style={styles.googleAccountEmail} numberOfLines={1}>
-                            {acc.email}
-                          </Text>
-                        </View>
-                      </Pressable>
-                    ))}
-
-                    {/* Option to Type New Mail */}
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.googleAddAccountRow,
-                        pressed && { backgroundColor: "#F3F4F6" }
-                      ]}
-                      onPress={() => setGoogleDialogMode("type_new")}
-                    >
-                      <View style={styles.googleAddIconBox}>
-                        <Ionicons name="person-add-outline" size={20} color="#5F6368" />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.googleAddAccountText}>Add another account</Text>
-                        <Text style={{ fontSize: 11, color: "#9CA3AF" }}>Type a new Google email</Text>
-                      </View>
-                      <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
-                    </Pressable>
-                  </View>
-                </ScrollView>
-              </View>
-            ) : (
-              /* VIEW 2: TYPE NEW MAIL FORM */
-              <View>
-                <View style={styles.googleTypeNewHeader}>
-                  <Pressable 
-                    onPress={() => setGoogleDialogMode("choose")}
-                    style={styles.googleBackIconBtn}
-                    hitSlop={10}
-                  >
-                    <Ionicons name="arrow-back" size={20} color="#3C4043" />
-                  </Pressable>
-                  <Image 
-                    source={require("@/assets/Zonofit_final_logo.jpeg")} 
-                    style={styles.googleAppLogoSmall} 
-                    resizeMode="cover"
-                  />
-                  <View style={{ width: 32 }} />
-                </View>
-
-                <Text style={styles.googleDialogTitle}>Sign in</Text>
-                <Text style={styles.googleDialogSubtitle}>
-                  Type your Google Account to continue to ZonoFit
-                </Text>
-
-                <View style={styles.googleInputGroup}>
-                  <Text style={styles.inputFieldLabel}>Email address *</Text>
-                  <TextInput
-                    style={styles.googleInputField}
-                    placeholder="e.g. name@gmail.com"
-                    placeholderTextColor="#9CA3AF"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    autoFocus
-                    value={customGoogleEmail}
-                    onChangeText={setCustomGoogleEmail}
-                  />
-                </View>
-
-                <View style={[styles.googleInputGroup, { marginTop: 12 }]}>
-                  <Text style={styles.inputFieldLabel}>Full Name (Optional)</Text>
-                  <TextInput
-                    style={styles.googleInputField}
-                    placeholder="e.g. Rahul Sharma"
-                    placeholderTextColor="#9CA3AF"
-                    value={customGoogleName}
-                    onChangeText={setCustomGoogleName}
-                  />
-                </View>
-
-                <View style={styles.googleTypeNewActionRow}>
-                  <Pressable 
-                    onPress={() => setGoogleDialogMode("choose")}
-                    style={styles.googleBackTextBtn}
-                  >
-                    <Text style={styles.googleBackTextBtnLabel}>Back to accounts</Text>
-                  </Pressable>
-
-                  <Pressable 
-                    onPress={handleConfirmCustomGoogleEmail}
-                    style={[styles.googleNextBtn, (!customGoogleEmail.trim() || googleLoading) && { opacity: 0.6 }]}
-                    disabled={!customGoogleEmail.trim() || googleLoading}
-                  >
-                    {googleLoading ? (
-                      <ActivityIndicator size="small" color="#FFFFFF" />
-                    ) : (
-                      <>
-                        <Text style={styles.googleNextBtnText}>Continue</Text>
-                        <Ionicons name="arrow-forward" size={15} color="#FFFFFF" style={{ marginLeft: 4 }} />
-                      </>
-                    )}
-                  </Pressable>
-                </View>
-              </View>
-            )}
-          </Pressable>
-        </Pressable>
-      </Modal>
 
       {/* ======================================================== */}
       {/* APPLE ID 1-TAP SHEET                                     */}
@@ -953,6 +851,43 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: "center",
   },
+  emailSection: {
+    width: "100%",
+    marginBottom: 8,
+  },
+  emailInput: {
+    height: 52,
+    borderWidth: 1.5,
+    borderColor: "#E5E7EB",
+    borderRadius: 16,
+    backgroundColor: "#F9FAFB",
+    paddingHorizontal: 14,
+    marginBottom: 10,
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#111827",
+  },
+  emailHint: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: "#6B7280",
+    textAlign: "center",
+    marginTop: 10,
+  },
+  emailOtpActions: {
+    marginTop: 12,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  emailActionText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#1F7A3E",
+  },
+  emailActionTextDisabled: {
+    color: "#9CA3AF",
+  },
 
   /* Divider */
   dividerRow: {
@@ -1028,7 +963,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#1F7A3E",
   },
-
   loginRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1058,175 +992,6 @@ const styles = StyleSheet.create({
   linkText: {
     color: "#6B7280",
     fontWeight: "600",
-  },
-
-  /* Native Android Google Dialog Styles */
-  googleDialogOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.45)",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 24,
-  },
-  googleDialogCard: {
-    width: "100%",
-    maxWidth: 360,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    paddingTop: 24,
-    paddingBottom: 16,
-    paddingHorizontal: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    elevation: 16,
-  },
-  googleAppLogoContainer: {
-    alignItems: "center",
-    marginBottom: 14,
-  },
-  googleAppLogo: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-  },
-  googleDialogTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#202124",
-    textAlign: "center",
-    marginBottom: 4,
-  },
-  googleDialogSubtitle: {
-    fontSize: 13.5,
-    color: "#5F6368",
-    textAlign: "center",
-    marginBottom: 16,
-  },
-  googleAccountList: {
-    marginBottom: 4,
-  },
-  googleAccountRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 6,
-    borderRadius: 8,
-  },
-  googleAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 14,
-  },
-  googleAvatarText: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  googleAccountDetails: {
-    flex: 1,
-  },
-  googleAccountName: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#202124",
-  },
-  googleAccountEmail: {
-    fontSize: 12,
-    color: "#5F6368",
-    marginTop: 1.5,
-  },
-  googleAddAccountRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 6,
-    borderRadius: 8,
-    marginTop: 4,
-  },
-  googleAddIconBox: {
-    width: 36,
-    alignItems: "center",
-    marginRight: 14,
-  },
-  googleAddAccountText: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#202124",
-  },
-  /* View 2: Type New Mail Form Styles */
-  googleTypeNewHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 12,
-  },
-  googleBackIconBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#F3F4F6",
-  },
-  googleAppLogoSmall: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-  },
-  googleInputGroup: {
-    marginTop: 10,
-  },
-  inputFieldLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#374151",
-    marginBottom: 5,
-  },
-  googleInputField: {
-    height: 46,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: "#D1D5DB",
-    paddingHorizontal: 12,
-    fontSize: 14,
-    color: "#111827",
-    backgroundColor: "#F9FAFB",
-  },
-  googleTypeNewActionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: 20,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#F3F4F6",
-  },
-  googleBackTextBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-  },
-  googleBackTextBtnLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#5F6368",
-  },
-  googleNextBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#1A73E8",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-  },
-  googleNextBtnText: {
-    color: "#FFFFFF",
-    fontSize: 13.5,
-    fontWeight: "700",
   },
 
   /* Bottom sheet styles (Apple ID) */

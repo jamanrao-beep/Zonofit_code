@@ -1,7 +1,8 @@
+import { requestGoogleIdToken } from "@/lib/googleAuth";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { ActivityIndicator, Pressable, Text } from "react-native";
+import { ActivityIndicator, Alert, Pressable, Text } from "react-native";
 
 export function GoogleAuthButton() {
     const router = useRouter();
@@ -10,7 +11,8 @@ export function GoogleAuthButton() {
     const onPress = async () => {
         setLoading(true);
         try {
-            const res = await useAuthStore.getState().googleSignIn();
+            const idToken = await requestGoogleIdToken();
+            const res = await useAuthStore.getState().googleSignIn(idToken);
             if (useAuthStore.getState().isSignedIn) {
                 if (res?.isOnboarded) {
                     router.replace("/(tabs)");
@@ -18,8 +20,8 @@ export function GoogleAuthButton() {
                     router.replace("/(auth)/profile-details");
                 }
             }
-        } catch (err) {
-            console.error("Google sign-in error", err);
+        } catch (err: any) {
+            Alert.alert("Google Sign-In", err?.message || "Could not sign in with Google.");
         } finally {
             setLoading(false);
         }

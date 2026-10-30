@@ -13,7 +13,7 @@ export interface User {
   id: string;
   username: string;
   phone: string;
-  authMethod: "phone" | "google" | "apple";
+  authMethod: "phone" | "google" | "apple" | "email";
   email?: string;
   dob?: string;
   city?: string;
@@ -48,12 +48,48 @@ interface AuthState {
     plan: string,
     options?: { price?: number; visits?: number; credits?: number; gymName?: string; cycleNumber?: number }
   ) => Promise<void>;
-  googleSignIn: (email?: string, name?: string) => Promise<{ success: boolean; isOnboarded: boolean }>;
+  googleSignIn: (idToken: string) => Promise<{ success: boolean; isOnboarded: boolean }>;
+  signInWithEmail: (input: {
+    email: string;
+    password: string;
+    code?: string;
+    mode: "signup" | "signin";
+  }) => Promise<{ otpRequired: boolean; isOnboarded: boolean }>;
   appleSignIn: (email?: string, name?: string) => Promise<{ success: boolean; isOnboarded: boolean }>;
   signOut: () => Promise<void>;
   setError: (msg: string | null) => void;
   setVerificationPhone: (phone: string) => void;
   setIsViewingOnboardingGym: (val: boolean) => void;
+}
+
+async function saveSignedInSession(
+  set: (partial: Partial<AuthState>) => void,
+  authUser: User,
+  authToken: string,
+  isOnboarded: boolean,
+) {
+  if (isOnboarded) {
+    await SecureStore.setItemAsync(ONBOARDED_KEY, "true");
+  }
+  await SecureStore.setItemAsync(TOKEN_KEY, authToken);
+  await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(authUser));
+  set({
+    user: authUser,
+    token: authToken,
+    loading: false,
+    isSignedIn: true,
+    isOnboarded,
+    hasVerifiedOTP: true,
+  });
+  if (authUser.username && authUser.username !== "Google User" && authUser.username !== "ZonoFit Member") {
+    try {
+      const { useUserStore } = require("./useUserStore");
+      useUserStore.setState({ name: authUser.username });
+    } catch {
+      // The profile screen refetches the name.
+    }
+  }
+  await useGuestStore.getState().convertGuest();
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -425,83 +461,74 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  googleSignIn: async (customEmail?: string, customName?: string) => {
+  googleSignIn: async (idToken: string) => {
     set({ loading: true, error: null });
     try {
-      if (!customEmail || !customEmail.trim()) {
-        throw new Error("Sign in with your phone number. Google sign-in needs a verified Google token, which this build does not send.");
+      if (!idToken?.trim()) {
+        throw new Error("Google did not return a verified account.");
       }
 
-      let authToken: string | null = null;
-      let authUser: User | null = null;
-      let isOnboarded = false;
-
-      const email = customEmail.trim().toLowerCase();
-      const name = customName?.trim() || email.split("@")[0] || "";
-
-      try {
-        const data = await apiFetch("/api/auth/google", {
-          method: "POST",
-          body: JSON.stringify({
-            email,
-            name,
-          }),
-        });
-
-        if (data.token) {
-          authToken = data.token;
-          const storedOnboardedFlag = await SecureStore.getItemAsync(ONBOARDED_KEY);
-          isOnboarded = data.isOnboarded || storedOnboardedFlag === "true" || false;
-          authUser = {
-            id: data.user?.id || "usr_" + Date.now(),
-            username: data.user?.username || name,
-            phone: data.user?.phone || "",
-            email: email,
-            authMethod: "google",
-            city: data.user?.city,
-            primaryGym: data.user?.primaryGymId,
-          };
-        }
-      } catch (apiErr: any) {
-        set({ loading: false, error: apiErr?.message || "Google sign-in failed. Use your phone number." });
-        throw apiErr;
-      }
-
-      if (!authToken || !authUser) {
-        const message = "Sign in with your phone number. Google sign-in needs a verified Google token.";
-        set({ loading: false, error: message });
-        throw new Error(message);
-      }
-
-      if (isOnboarded) {
-        await SecureStore.setItemAsync(ONBOARDED_KEY, "true");
-      }
-
-      await SecureStore.setItemAsync(TOKEN_KEY, authToken);
-      await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(authUser));
-
-      set({
-        user: authUser,
-        token: authToken,
-        loading: false,
-        isSignedIn: true,
-        isOnboarded,
-        hasVerifiedOTP: true,
+      const data = await apiFetch("/api/auth/google", {
+        method: "POST",
+        body: JSON.stringify({ idToken }),
       });
 
-      // Sync username to useUserStore if real name provided
-      if (authUser.username && authUser.username !== "Google User") {
-        try {
-          const { useUserStore } = require("./useUserStore");
-          useUserStore.setState({ name: authUser.username });
-        } catch {}
+      if (!data?.token || !data?.user?.id) {
+        throw new Error("Google sign-in did not start a session.");
       }
 
-      // Also convert guest session if active per PRD Section 14
-      await useGuestStore.getState().convertGuest();
+      const isOnboarded = Boolean(data.isOnboarded);
+      const authUser: User = {
+        id: data.user.id,
+        username: data.user.username || "Google User",
+        phone: data.user.phone || "",
+        email: data.user.email,
+        authMethod: "google",
+        primaryGym: data.user.primaryGymId || undefined,
+        isOnboarded,
+      };
+      await saveSignedInSession(set, authUser, data.token, isOnboarded);
       return { success: true, isOnboarded };
     } catch (err: any) {
-      set({ loading: false, error: err.message || "Google sign-in failed." });
+      set({ loading: false, error: err?.message || "Google sign-in failed." });
+      throw err;
+    }
+  },
+
+  signInWithEmail: async ({ email, password, code, mode }) => {
+    set({ loading: true, error: null });
+    try {
+      const data = await apiFetch(mode === "signup" ? "/api/auth/email/signup" : "/api/auth/email/signin", {
+        method: "POST",
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          password,
+          ...(code ? { code } : {}),
+        }),
+      });
+
+      if (data?.otpRequired) {
+        set({ loading: false });
+        return { otpRequired: true, isOnboarded: false };
+      }
+
+      if (!data?.token || !data?.user?.id) {
+        throw new Error("Sign-in did not start a session.");
+      }
+
+      const isOnboarded = Boolean(data.isOnboarded || data.user?.isOnboarded);
+      const authUser: User = {
+        id: data.user.id,
+        username: data.user.username || "ZonoFit Member",
+        phone: data.user.phone || "",
+        email: data.user.email,
+        authMethod: "email",
+        isOnboarded,
+      };
+      await saveSignedInSession(set, authUser, data.token, isOnboarded);
+      return { otpRequired: false, isOnboarded };
+    } catch (err: any) {
+      set({ loading: false, error: err?.message || "Could not sign in with that email." });
       throw err;
     }
   },

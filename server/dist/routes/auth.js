@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const crypto_1 = require("crypto");
 const express_1 = require("express");
 const express_validator_1 = require("express-validator");
+const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const jwt_1 = require("../lib/jwt");
 const prisma_1 = __importDefault(require("../lib/prisma"));
 const phone_1 = require("../lib/phone");
@@ -329,6 +330,7 @@ router.post("/google", async (req, res) => {
                 id: user.id,
                 username: user.name,
                 phone: user.phone || "",
+                email: user.email,
                 authMethod: "google",
                 isOnboarded,
                 primaryGymId: user.membership?.primaryGymId || null,
@@ -349,6 +351,191 @@ function cleanEmail(value) {
         return null;
     return email;
 }
+function cleanPassword(value) {
+    if (typeof value !== "string")
+        return null;
+    if (value.length < 8 || value.length > 72)
+        return null;
+    return value;
+}
+function readEmailCode(value) {
+    return typeof value === "string" ? value.trim() : "";
+}
+function memberEmailSession(user) {
+    const isOnboarded = !!(user.name && user.name !== "ZonoFit Member" && user.name !== "Google User");
+    return {
+        token: (0, jwt_1.signToken)({ dbUserId: user.id, phone: user.phone || undefined }),
+        user: {
+            id: user.id,
+            username: user.name,
+            phone: user.phone || "",
+            email: user.email,
+            authMethod: "email",
+            isOnboarded,
+        },
+        isOnboarded,
+    };
+}
+async function beginEmailOtp(email, res) {
+    const otpKey = (0, mail_1.emailOtpKey)(email);
+    const wait = await (0, otpStore_1.emailResendWaitSeconds)(otpKey);
+    if (wait > 0) {
+        const minutes = Math.max(1, Math.ceil(wait / 60));
+        res.status(429).json({
+            error: "ResendTooSoon",
+            message: `Wait ${minutes} minute${minutes === 1 ? "" : "s"} before requesting another code.`,
+            retryAfterSeconds: wait,
+        });
+        return;
+    }
+    if (!(await (0, rateLimit_1.rateLimit)(`email-otp:${otpKey}`, 5, 15 * 60 * 1000))) {
+        res.status(429).json({ error: "TooManyRequests", message: "Too many code requests. Wait a few minutes and try again." });
+        return;
+    }
+    const otp = (0, crypto_1.randomInt)(1000, 10000).toString();
+    await (0, otpStore_1.setOTP)(otpKey, otp, otpStore_1.EMAIL_OTP_TTL_MINUTES);
+    const sent = await (0, mail_1.sendEmailOTP)(email, otp);
+    if (!sent) {
+        await (0, otpStore_1.deleteOTP)(otpKey);
+        res.status(503).json({ error: "EmailNotConfigured", message: "Could not email a verification code. Try again shortly." });
+        return;
+    }
+    res.json({ otpRequired: true, message: "Enter the 4-digit code sent to your email. It works for 10 minutes." });
+}
+async function consumeEmailOtp(email, code, res) {
+    const otpKey = (0, mail_1.emailOtpKey)(email);
+    if (!(await (0, rateLimit_1.rateLimit)(`email-verify:${otpKey}`, 8, 15 * 60 * 1000))) {
+        res.status(429).json({ error: "TooManyRequests", message: "Too many attempts. Request a new code." });
+        return false;
+    }
+    const allowDevCode = process.env.NODE_ENV === "development" && process.env.ALLOW_DEV_OTP === "true";
+    const isValid = (await (0, otpStore_1.verifyOTP)(otpKey, code)) || (allowDevCode && code === "1234");
+    if (!isValid) {
+        res.status(400).json({ error: "InvalidCode", message: "Invalid or expired verification code." });
+        return false;
+    }
+    return true;
+}
+// POST /api/auth/email/signup
+// Creates a member only after the emailed code is verified. No token before that.
+router.post("/email/signup", async (req, res) => {
+    try {
+        const email = cleanEmail(req.body?.email);
+        const password = cleanPassword(req.body?.password);
+        const code = readEmailCode(req.body?.code);
+        if (!email) {
+            res.status(400).json({ error: "InvalidEmail", message: "Enter a valid email address." });
+            return;
+        }
+        if (!password) {
+            res.status(400).json({ error: "InvalidPassword", message: "Use a password between 8 and 72 characters." });
+            return;
+        }
+        if (code && !/^\d{4}$/.test(code)) {
+            res.status(400).json({ error: "InvalidCode", message: "Enter the 4-digit code from your email." });
+            return;
+        }
+        const existing = await prisma_1.default.user.findUnique({ where: { email } });
+        if (existing) {
+            res.status(409).json({
+                error: "AccountExists",
+                message: existing.passwordHash
+                    ? "An account with this email already exists. Sign in."
+                    : "This email is already used. Sign in with Google or your phone number.",
+            });
+            return;
+        }
+        const settings = await prisma_1.default.systemSettings.findUnique({ where: { id: "default" } });
+        if (settings && !settings.signupsEnabled) {
+            res.status(403).json({ error: "SignupsDisabled", message: "New signups are currently disabled." });
+            return;
+        }
+        if (!code) {
+            await beginEmailOtp(email, res);
+            return;
+        }
+        if (!(await consumeEmailOtp(email, code, res)))
+            return;
+        const taken = await prisma_1.default.user.findUnique({ where: { email } });
+        if (taken) {
+            res.status(409).json({ error: "AccountExists", message: "An account with this email already exists. Sign in." });
+            return;
+        }
+        const passwordHash = await bcryptjs_1.default.hash(password, 12);
+        const referralCode = await (0, referral_1.generateUniqueReferralCode)();
+        try {
+            const user = await prisma_1.default.user.create({
+                data: {
+                    email,
+                    name: "ZonoFit Member",
+                    passwordHash,
+                    referralCode,
+                    wallet: {
+                        create: {
+                            balance: 0,
+                            convertibleCashBalanceInPaise: 0,
+                            nonConvertibleCashBalanceInPaise: 0,
+                        },
+                    },
+                },
+            });
+            res.json(memberEmailSession(user));
+        }
+        catch (err) {
+            if (err.code === "P2002") {
+                res.status(409).json({ error: "AccountExists", message: "An account with this email already exists. Sign in." });
+                return;
+            }
+            throw err;
+        }
+    }
+    catch (err) {
+        console.error("[Email Signup Error]", err);
+        res.status(500).json({ error: "EmailSignupFailed", message: "Could not create the account." });
+    }
+});
+// POST /api/auth/email/signin
+// Password is checked twice: once to send the code, again when the code is submitted.
+router.post("/email/signin", async (req, res) => {
+    try {
+        const email = cleanEmail(req.body?.email);
+        const password = typeof req.body?.password === "string" ? req.body.password : "";
+        const code = readEmailCode(req.body?.code);
+        if (!email || password.length < 8 || password.length > 72) {
+            res.status(401).json({ error: "InvalidCredentials", message: "Invalid email or password." });
+            return;
+        }
+        if (code && !/^\d{4}$/.test(code)) {
+            res.status(400).json({ error: "InvalidCode", message: "Enter the 4-digit code from your email." });
+            return;
+        }
+        const user = await prisma_1.default.user.findUnique({ where: { email } });
+        if (!user?.passwordHash || user.systemRole !== "MEMBER") {
+            res.status(401).json({ error: "InvalidCredentials", message: "Invalid email or password." });
+            return;
+        }
+        const isMatch = await bcryptjs_1.default.compare(password, user.passwordHash);
+        if (!isMatch) {
+            res.status(401).json({ error: "InvalidCredentials", message: "Invalid email or password." });
+            return;
+        }
+        if (user.isSuspended) {
+            res.status(403).json({ error: "AccountSuspended", message: "Your account has been suspended by an administrator." });
+            return;
+        }
+        if (!code) {
+            await beginEmailOtp(email, res);
+            return;
+        }
+        if (!(await consumeEmailOtp(email, code, res)))
+            return;
+        res.json(memberEmailSession(user));
+    }
+    catch (err) {
+        console.error("[Email Signin Error]", err);
+        res.status(500).json({ error: "EmailSigninFailed", message: "Could not sign in." });
+    }
+});
 // POST /api/auth/email-otp/send
 // Used while a member is registering an email address. The code goes to that inbox.
 router.post("/email-otp/send", auth_1.requireAuth, async (req, res) => {

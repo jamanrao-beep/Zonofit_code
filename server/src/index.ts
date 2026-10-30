@@ -28,6 +28,7 @@ import adminRoutes from "./routes/admin";
 import trialGymsRouter from "./routes/trial-gyms";
 import couponsRouter from "./routes/coupons";
 import contentRouter from "./routes/content";
+import googleOAuthReturnRoutes from "./routes/googleOAuthReturn";
 
 import prisma from "./lib/prisma";
 
@@ -115,6 +116,10 @@ app.get("/health", async (_req, res) => {
         timestamp: new Date().toISOString(),
     });
 });
+
+// Google's web client only accepts an https redirect. This page hands the
+// chosen account back to the app. The token stays in the browser hash.
+app.use("/oauth", googleOAuthReturnRoutes);
 
 // ─── API Routes ────────────────────────────────────────────────────────────────
 // Auth routes (public)
