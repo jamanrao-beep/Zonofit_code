@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Search, CheckCircle, XCircle, TrendingUp, Ban, Check, X, Trash, Plus, Edit3, Shield } from "lucide-react";
+import { Search, CheckCircle, XCircle, TrendingUp, Ban, Check, X, Trash, Plus, Edit3, Shield, Clock } from "lucide-react";
 import GymFormModal from "@/components/admin/GymFormModal";
+import SlotManagerModal from "@/components/admin/SlotManagerModal";
 
 export default function AdminGymsPage() {
   const [gyms, setGyms] = useState<any[]>([]);
@@ -11,6 +12,7 @@ export default function AdminGymsPage() {
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editingGym, setEditingGym] = useState<any>(null);
+  const [slotGym, setSlotGym] = useState<any>(null);
 
   const fetchGyms = async () => {
     try {
@@ -108,7 +110,7 @@ export default function AdminGymsPage() {
   );
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8">
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-8 min-w-0">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-black mb-2">Gym Management</h1>
@@ -156,7 +158,7 @@ export default function AdminGymsPage() {
         </div>
       )}
 
-      <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+      <div className="bg-white p-4 sm:p-6 rounded-3xl border border-gray-100 shadow-sm min-w-0">
         <div className="flex items-center gap-4 mb-6">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -174,7 +176,7 @@ export default function AdminGymsPage() {
           <div className="text-center py-12 text-gray-500">Loading Gyms...</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full min-w-[760px] text-left border-collapse">
               <thead>
                 <tr className="border-b border-gray-100 text-xs text-gray-500 uppercase tracking-wider">
                   <th className="pb-4 font-bold">Gym Info</th>
@@ -244,7 +246,14 @@ export default function AdminGymsPage() {
                       )}
                     </td>
                     <td className="py-4">
-                      <div className="flex justify-end gap-1.5">
+                      <div className="flex justify-end gap-1.5 flex-wrap">
+                        <button
+                          onClick={() => setSlotGym(gym)}
+                          className="p-2 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors"
+                          title="Add, edit, or remove slots"
+                        >
+                          <Clock size={16} />
+                        </button>
                         <button
                           onClick={() => {
                             setEditingGym(gym);
@@ -315,6 +324,7 @@ export default function AdminGymsPage() {
 
       {/* Comprehensive Add / Edit Gym Modal */}
       <GymFormModal
+        key={editingGym?.id || "new-gym"}
         isOpen={showModal}
         onClose={() => {
           setShowModal(false);
@@ -322,6 +332,11 @@ export default function AdminGymsPage() {
         }}
         onSuccess={fetchGyms}
         initialData={editingGym}
+      />
+      <SlotManagerModal
+        gym={slotGym}
+        onClose={() => setSlotGym(null)}
+        onSaved={fetchGyms}
       />
     </div>
   );

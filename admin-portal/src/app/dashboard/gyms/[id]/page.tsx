@@ -2,7 +2,33 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Save, Trash2, Plus } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Plus, Pencil } from "lucide-react";
+import GymFormModal from "@/components/admin/GymFormModal";
+
+function profilePhotos(gym: {
+  exteriorImageUrl?: string | null;
+  imageUrls?: unknown;
+  interiorImageUrls?: unknown;
+  logoUrl?: string | null;
+}): string[] {
+  const logo = typeof gym.logoUrl === "string" ? gym.logoUrl.trim() : "";
+  const pool = [
+    gym.exteriorImageUrl,
+    ...(Array.isArray(gym.imageUrls) ? gym.imageUrls : []),
+    ...(Array.isArray(gym.interiorImageUrls) ? gym.interiorImageUrls : []),
+  ];
+  const seen = new Set<string>();
+  const photos: string[] = [];
+  for (const item of pool) {
+    if (typeof item !== "string") continue;
+    const url = item.trim();
+    if (!/^https?:\/\//i.test(url) || url === logo || seen.has(url)) continue;
+    seen.add(url);
+    photos.push(url);
+  }
+  if (photos.length === 0 && /^https?:\/\//i.test(logo)) photos.push(logo);
+  return photos;
+}
 
 export default function AdminGymDetailPage() {
   const params = useParams();
@@ -31,6 +57,7 @@ export default function AdminGymDetailPage() {
     subsequentCutoffDays: ""
   });
   const [savingPlan, setSavingPlan] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(false);
 
   const fetchGym = async () => {
     try {
@@ -144,15 +171,37 @@ export default function AdminGymDetailPage() {
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-8">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 flex-wrap">
         <button onClick={() => router.back()} className="p-2 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors">
           <ArrowLeft size={20} />
         </button>
-        <div>
+        <div className="min-w-0 flex-1">
           <h1 className="text-3xl font-bold text-black mb-1">{gym.name}</h1>
           <p className="text-gray-600">{gym.city}, {gym.state}</p>
         </div>
+        <button
+          type="button"
+          onClick={() => setEditingProfile(true)}
+          className="ml-auto shrink-0 bg-black hover:bg-gray-800 text-white px-4 py-2.5 rounded-xl font-bold flex items-center gap-2"
+        >
+          <Pencil size={16} /> Edit profile
+        </button>
       </div>
+
+      <AppProfilePreview gym={gym} />
+
+      {editingProfile && (
+        <GymFormModal
+          key={gym.updatedAt || gym.id}
+          isOpen
+          initialData={gym}
+          onClose={() => setEditingProfile(false)}
+          onSuccess={() => {
+            setEditingProfile(false);
+            fetchGym();
+          }}
+        />
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Economy Overrides Section */}
@@ -338,5 +387,64 @@ export default function AdminGymDetailPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function AppProfilePreview({ gym }: { gym: any }) {
+  const photos = profilePhotos(gym);
+  const facilities = Array.isArray(gym.facilities) ? gym.facilities.filter((item: unknown) => typeof item === "string") : [];
+  return (
+    <section className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="px-6 pt-6 pb-2">
+        <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">What members see</p>
+        <h2 className="text-xl font-bold text-black mt-1">Gym profile</h2>
+      </div>
+      {photos.length > 0 ? (
+        <div className="flex gap-3 overflow-x-auto px-6 py-4">
+          {photos.map((url) => (
+            <img key={url} src={url} alt="" className="h-36 w-52 shrink-0 rounded-2xl object-cover bg-gray-100" />
+          ))}
+        </div>
+      ) : (
+        <div className="mx-6 my-4 rounded-2xl bg-emerald-50 text-emerald-900 px-4 py-8 text-center text-sm">
+          No photos yet. Edit the profile and paste an exterior photo link.
+        </div>
+      )}
+      <div className="px-6 pb-6 space-y-4 text-sm">
+        <div>
+          <p className="text-xs font-bold uppercase text-gray-500">About</p>
+          <p className="mt-1 text-gray-800 whitespace-pre-wrap">{gym.description?.trim() || "Hidden in the app until you write this."}</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase text-gray-500">Address</p>
+            <p className="mt-1 text-gray-800">{[gym.address, gym.landmark, gym.city].filter(Boolean).join(" · ")}</p>
+          </div>
+          <div>
+            <p className="text-xs font-bold uppercase text-gray-500">Hours</p>
+            <p className="mt-1 text-gray-800">Weekdays: {gym.weekdayHours || "Not set"}</p>
+            <p className="text-gray-800">Weekends: {gym.weekendHours || "Not set"}</p>
+          </div>
+        </div>
+        <div>
+          <p className="text-xs font-bold uppercase text-gray-500">Facilities</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {facilities.length > 0 ? facilities.map((item: string) => (
+              <span key={item} className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">{item}</span>
+            )) : <span className="text-gray-500">None selected</span>}
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-6">
+          <div>
+            <p className="text-xs font-bold uppercase text-gray-500">Monthly price</p>
+            <p className="mt-1 font-bold text-black">₹{Number(gym.monthlyPrice || 0).toLocaleString("en-IN")}</p>
+          </div>
+          <div>
+            <p className="text-xs font-bold uppercase text-gray-500">Credits per visit</p>
+            <p className="mt-1 font-bold text-black">{gym.creditCost ?? "—"}</p>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }

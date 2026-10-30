@@ -81,6 +81,7 @@ export default function GymFormModal({ isOpen, onClose, onSuccess, initialData }
 
   // Public Gym Fields (Displayed to User)
   const [name, setName] = useState(initialData?.name || "");
+  const [description, setDescription] = useState(initialData?.description || "");
   const [address, setAddress] = useState(initialData?.address || "");
   const [city, setCity] = useState(initialData?.city || "Mumbai");
   const [state, setState] = useState(initialData?.state || "Maharashtra");
@@ -227,6 +228,7 @@ export default function GymFormModal({ isOpen, onClose, onSuccess, initialData }
 
         // Public Facing (Displayed to user)
         name: name.trim(),
+        description: description.trim(),
         address: address.trim(),
         city: city.trim(),
         state: state.trim(),
@@ -272,16 +274,16 @@ export default function GymFormModal({ isOpen, onClose, onSuccess, initialData }
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl border border-gray-100 my-8 overflow-hidden flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
+      <div className="bg-white w-full max-w-4xl rounded-t-3xl sm:rounded-3xl shadow-2xl border border-gray-100 my-0 sm:my-8 overflow-hidden flex flex-col max-h-[100dvh] sm:max-h-[92vh]">
         {/* Modal Header */}
-        <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-slate-50/80 sticky top-0 z-10 backdrop-blur-md">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-700 text-white flex items-center justify-center font-bold">
+        <div className="p-4 sm:p-6 border-b border-gray-100 flex items-start justify-between gap-3 bg-slate-50/80 sticky top-0 z-10 backdrop-blur-md">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 shrink-0 rounded-xl bg-emerald-700 text-white flex items-center justify-center font-bold">
               <Building2 size={20} />
             </div>
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">
+            <div className="min-w-0">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900">
                 {isEdit ? "Edit Partner Gym" : "Add New Partner Gym"}
               </h2>
               <p className="text-xs text-gray-500">
@@ -291,14 +293,14 @@ export default function GymFormModal({ isOpen, onClose, onSuccess, initialData }
           </div>
           <button
             onClick={onClose}
-            className="w-9 h-9 rounded-full bg-white border border-gray-200 text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex items-center justify-center transition-all"
+            className="w-9 h-9 shrink-0 rounded-full bg-white border border-gray-200 text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex items-center justify-center transition-all"
           >
             <X size={18} />
           </button>
         </div>
 
         {/* Modal Scrollable Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-8 overflow-y-auto flex-1">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-8 overflow-y-auto overflow-x-hidden flex-1 min-w-0">
           {error && (
             <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm font-medium">
               {error}
@@ -309,14 +311,14 @@ export default function GymFormModal({ isOpen, onClose, onSuccess, initialData }
           {/* SECTION 1: INTERNAL ADMIN CONTROLS (* Starred Fields) */}
           {/* ───────────────────────────────────────────────────────────── */}
           <div className="p-5 rounded-2xl bg-slate-900 text-white space-y-6 border border-slate-800 shadow-sm">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <div className="flex items-center gap-2">
-                <Shield size={18} className="text-amber-400" />
-                <h3 className="font-bold text-base text-white">
+            <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-start gap-2 min-w-0">
+                <Shield size={18} className="text-amber-400 shrink-0 mt-0.5" />
+                <h3 className="font-bold text-sm sm:text-base text-white">
                   Internal Admin Configuration (* Strictly Admin Only)
                 </h3>
               </div>
-              <span className="text-[11px] font-bold px-2.5 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-lg">
+              <span className="text-[11px] font-bold px-2.5 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-lg shrink-0">
                 Hidden from Public App
               </span>
             </div>
@@ -387,7 +389,7 @@ export default function GymFormModal({ isOpen, onClose, onSuccess, initialData }
                   * ZonoFit Visit Capping Model (Non-Overlapping)
                 </label>
                 {/* Mode Selector Tabs */}
-                <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-700">
+                <div className="grid grid-cols-2 w-full sm:flex sm:w-auto bg-slate-900 p-1 rounded-lg border border-slate-700">
                   <button
                     type="button"
                     onClick={() => setCappingMode("DAILY_TOTAL")}
@@ -418,7 +420,7 @@ export default function GymFormModal({ isOpen, onClose, onSuccess, initialData }
                   <div className="text-[11px] text-slate-400 mb-2">
                     Active Mode: <strong>Max Daily ZonoFit Visits</strong>. Per-slot capping is disabled.
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-3">
                     <input
                       type="number"
                       min="1"
@@ -435,7 +437,7 @@ export default function GymFormModal({ isOpen, onClose, onSuccess, initialData }
                   <div className="text-[11px] text-slate-400 mb-2">
                     Active Mode: <strong>Capped Per Slot</strong>. Daily total limit is disabled.
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-3">
                     <input
                       type="number"
                       min="1"
@@ -456,7 +458,7 @@ export default function GymFormModal({ isOpen, onClose, onSuccess, initialData }
                 <label className="text-xs font-bold text-slate-200 uppercase flex items-center gap-1.5">
                   * Partner Payout Settlement Model (Non-Overlapping)
                 </label>
-                <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-700">
+                <div className="grid grid-cols-2 w-full sm:flex sm:w-auto bg-slate-900 p-1 rounded-lg border border-slate-700">
                   <button
                     type="button"
                     onClick={() => setPayoutModel("COMMISSION_PERCENTAGE")}
@@ -487,7 +489,7 @@ export default function GymFormModal({ isOpen, onClose, onSuccess, initialData }
                   <div className="text-[11px] text-slate-400 mb-2">
                     Active Mode: <strong>ZonoFit Commission %</strong> (Gym receives remaining share). Fixed payout is disabled.
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-3">
                     <input
                       type="number"
                       step="0.5"
@@ -507,7 +509,7 @@ export default function GymFormModal({ isOpen, onClose, onSuccess, initialData }
                   <div className="text-[11px] text-slate-400 mb-2">
                     Active Mode: <strong>Fixed ₹ Payout Per Visit</strong>. Commission % is disabled.
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-3">
                     <input
                       type="number"
                       min="1"
@@ -685,6 +687,19 @@ export default function GymFormModal({ isOpen, onClose, onSuccess, initialData }
                   U = M/25: <strong>₹{derivedVisitRateU}</strong> ({derivedCredits} Cr) &bull; G = 80%: <strong>₹{derivedGymPayoutG}</strong>
                 </div>
               </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">
+                About the gym
+              </label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={4}
+                placeholder="What members should know before they visit. Leave blank to hide this section in the app."
+                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+              />
             </div>
 
             {/* Address, Landmark & City */}
@@ -888,8 +903,11 @@ export default function GymFormModal({ isOpen, onClose, onSuccess, initialData }
             {/* Image Links (Logo, Exterior, Interior) */}
             <div className="space-y-4">
               <h4 className="text-xs font-bold text-gray-900 uppercase pb-1 border-b border-gray-100 flex items-center gap-1.5">
-                <ImageIcon size={14} className="text-emerald-700" /> Image Links (Logo, Exterior, Interior)
+                <ImageIcon size={14} className="text-emerald-700" /> Photos members see
               </h4>
+              <p className="text-[11px] text-gray-500 -mt-2">
+                Paste a link for each photo. The exterior photo is the first image on the gym profile. The logo is used on the card, and as the profile photo only when no other photo is set.
+              </p>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -898,7 +916,7 @@ export default function GymFormModal({ isOpen, onClose, onSuccess, initialData }
                   </label>
                   <input
                     type="url"
-                    placeholder="https://images.unsplash.com/... (Logo)"
+                    placeholder="https://... logo"
                     value={logoUrl}
                     onChange={(e) => setLogoUrl(e.target.value)}
                     className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-xs font-mono"
@@ -911,7 +929,7 @@ export default function GymFormModal({ isOpen, onClose, onSuccess, initialData }
                   </label>
                   <input
                     type="url"
-                    placeholder="https://images.unsplash.com/... (Exterior front)"
+                    placeholder="https://... exterior, shown first"
                     value={exteriorImageUrl}
                     onChange={(e) => setExteriorImageUrl(e.target.value)}
                     className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-xs font-mono"
@@ -937,13 +955,13 @@ export default function GymFormModal({ isOpen, onClose, onSuccess, initialData }
                 </div>
 
                 {interiorImageUrls.map((url, i) => (
-                  <div key={i} className="flex items-center gap-2">
+                  <div key={i} className="flex items-center gap-2 min-w-0">
                     <input
                       type="url"
                       placeholder={`Interior photo ${i + 1} URL`}
                       value={url}
                       onChange={(e) => updateInteriorUrl(i, e.target.value)}
-                      className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-xs font-mono"
+                      className="min-w-0 flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-xs font-mono"
                     />
                     {interiorImageUrls.length > 1 && (
                       <button
@@ -961,19 +979,19 @@ export default function GymFormModal({ isOpen, onClose, onSuccess, initialData }
           </div>
 
           {/* Modal Actions */}
-          <div className="pt-4 border-t border-gray-100 flex items-center justify-end gap-3 sticky bottom-0 bg-white py-2">
+          <div className="pt-4 border-t border-gray-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-3 sticky bottom-0 bg-white py-2">
             <button
               type="button"
               onClick={onClose}
               disabled={saving}
-              className="px-5 py-2.5 rounded-xl border border-gray-200 font-bold text-sm text-gray-600 hover:bg-gray-100 transition-colors"
+              className="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-gray-200 font-bold text-sm text-gray-600 hover:bg-gray-100 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="px-6 py-2.5 rounded-xl bg-black text-white font-bold text-sm hover:bg-gray-800 transition-colors disabled:opacity-50 shadow-md flex items-center gap-2"
+              className="w-full sm:w-auto justify-center px-6 py-2.5 rounded-xl bg-black text-white font-bold text-sm hover:bg-gray-800 transition-colors disabled:opacity-50 shadow-md flex items-center gap-2"
             >
               {saving ? "Saving Partner Gym..." : isEdit ? "Update Gym Profile" : "Create Partner Gym"}
             </button>
