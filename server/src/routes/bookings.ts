@@ -3,6 +3,7 @@ import { body, validationResult } from "express-validator";
 import { v4 as uuidv4 } from "uuid";
 import prisma from "../lib/prisma";
 import { bookingDiscountCredits, isCancellationTooLate } from "../lib/couponMath";
+import { bookingMatchesSlot, readStoredSlots, slotKey } from "../lib/gymCommercial";
 import { decrementCredits } from "../lib/wallet";
 import { requireAuth } from "../middleware/auth";
 import { sendPushNotification } from "../services/notifications";
@@ -64,6 +65,7 @@ router.post(
           cappingMode: true,
           maxDailyVisits: true,
           maxSlotVisits: true,
+          slotsJson: true,
         },
       });
       if (!gym) throw createError("Gym not found or unavailable.", 404, "GymNotFound");
@@ -145,18 +147,30 @@ router.post(
 
       // 5. One cap is active. Daily total and per-slot never apply together.
       if (gym.cappingMode === "PER_SLOT") {
-        if (!timeSlot || typeof timeSlot !== "string") {
+        if (!timeSlot || typeof timeSlot !== "string" || !timeSlot.trim()) {
           throw createError("Choose a time slot.", 400, "SlotRequired");
         }
-        const slotCap = gym.maxSlotVisits ?? 5;
-        const slotBooked = await tx.booking.count({
+        const savedSlots = readStoredSlots(gym.slotsJson);
+        const namedSlot = savedSlots.find((slot) => bookingMatchesSlot(timeSlot, slot));
+        if (namedSlot && !namedSlot.isEnabled) {
+          throw createError("That time slot is closed.", 409, "SlotClosed");
+        }
+        const slotCap = namedSlot?.capacity && namedSlot.capacity > 0
+          ? namedSlot.capacity
+          : (gym.maxSlotVisits ?? 5);
+        const daySlotBookings = await tx.booking.findMany({
           where: {
             gymId: gym.id,
-            timeSlot,
             visitDate: { gte: visitDateStart, lte: visitDateEnd },
             status: { in: ["CONFIRMED", "CHECKED_IN", "COMPLETED"] },
           },
+          select: { timeSlot: true },
         });
+        const slotBooked = daySlotBookings.filter((booking) => (
+          namedSlot
+            ? bookingMatchesSlot(booking.timeSlot, namedSlot)
+            : slotKey(booking.timeSlot) === slotKey(timeSlot)
+        )).length;
         if (slotBooked >= slotCap) {
           throw createError("That time slot is full.", 409, "NoSlotsAvailable");
         }

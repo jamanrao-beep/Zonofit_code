@@ -8,6 +8,7 @@ const express_validator_1 = require("express-validator");
 const uuid_1 = require("uuid");
 const prisma_1 = __importDefault(require("../lib/prisma"));
 const couponMath_1 = require("../lib/couponMath");
+const gymCommercial_1 = require("../lib/gymCommercial");
 const wallet_1 = require("../lib/wallet");
 const auth_1 = require("../middleware/auth");
 const notifications_1 = require("../services/notifications");
@@ -55,6 +56,7 @@ router.post("/", auth_1.requireAuth, [
                 cappingMode: true,
                 maxDailyVisits: true,
                 maxSlotVisits: true,
+                slotsJson: true,
             },
         });
         if (!gym)
@@ -118,18 +120,28 @@ router.post("/", auth_1.requireAuth, [
         }
         // 5. One cap is active. Daily total and per-slot never apply together.
         if (gym.cappingMode === "PER_SLOT") {
-            if (!timeSlot || typeof timeSlot !== "string") {
+            if (!timeSlot || typeof timeSlot !== "string" || !timeSlot.trim()) {
                 throw (0, errorHandler_1.createError)("Choose a time slot.", 400, "SlotRequired");
             }
-            const slotCap = gym.maxSlotVisits ?? 5;
-            const slotBooked = await tx.booking.count({
+            const savedSlots = (0, gymCommercial_1.readStoredSlots)(gym.slotsJson);
+            const namedSlot = savedSlots.find((slot) => (0, gymCommercial_1.bookingMatchesSlot)(timeSlot, slot));
+            if (namedSlot && !namedSlot.isEnabled) {
+                throw (0, errorHandler_1.createError)("That time slot is closed.", 409, "SlotClosed");
+            }
+            const slotCap = namedSlot?.capacity && namedSlot.capacity > 0
+                ? namedSlot.capacity
+                : (gym.maxSlotVisits ?? 5);
+            const daySlotBookings = await tx.booking.findMany({
                 where: {
                     gymId: gym.id,
-                    timeSlot,
                     visitDate: { gte: visitDateStart, lte: visitDateEnd },
                     status: { in: ["CONFIRMED", "CHECKED_IN", "COMPLETED"] },
                 },
+                select: { timeSlot: true },
             });
+            const slotBooked = daySlotBookings.filter((booking) => (namedSlot
+                ? (0, gymCommercial_1.bookingMatchesSlot)(booking.timeSlot, namedSlot)
+                : (0, gymCommercial_1.slotKey)(booking.timeSlot) === (0, gymCommercial_1.slotKey)(timeSlot))).length;
             if (slotBooked >= slotCap) {
                 throw (0, errorHandler_1.createError)("That time slot is full.", 409, "NoSlotsAvailable");
             }

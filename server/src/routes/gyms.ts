@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { Router, Request, Response, NextFunction } from "express";
 import { query, validationResult } from "express-validator";
 import prisma from "../lib/prisma";
-import { publicBookingSlots, visitPayoutInr } from "../lib/gymCommercial";
+import { bookingMatchesSlot, publicBookingSlots, readStoredSlots, visitPayoutInr } from "../lib/gymCommercial";
 import { requireAuth, optionalAuth } from "../middleware/auth";
 
 const router = Router();
@@ -174,6 +174,12 @@ router.get(
           category: true,
           facilities: true,
           imageUrls: true,
+          logoUrl: true,
+          exteriorImageUrl: true,
+          landmark: true,
+          monthlyPrice: true,
+          weekdayHours: true,
+          weekendHours: true,
           rating: true,
           totalRatings: true,
           isVerified: true,
@@ -307,7 +313,7 @@ router.get(
   optionalAuth,
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const gymId = req.params.id as string;
-    const reserved = new Set(["favorites", "offers", "support", "analytics", "profile", "applications", "payouts", "explore"]);
+    const reserved = new Set(["favorites", "offers", "support", "analytics", "profile", "applications", "payouts", "explore", "slots", "today-visitors"]);
     if (reserved.has(gymId)) {
       next();
       return;
@@ -395,6 +401,144 @@ router.get(
     });
   }
 );
+
+const BOOKED_STATUSES = ["PENDING", "CONFIRMED", "CHECKED_IN", "COMPLETED"] as const;
+
+function todayBounds(): { start: Date; end: Date; label: string } {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+  const label = start.toLocaleDateString("en-IN", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  return { start, end, label };
+}
+
+async function gymsOwnedBy(userId: string | undefined) {
+  if (!userId) return [];
+  return prisma.gym.findMany({
+    where: { ownerId: userId, isActive: true },
+    select: {
+      id: true,
+      name: true,
+      cappingMode: true,
+      maxDailyVisits: true,
+      maxSlotVisits: true,
+      slotsJson: true,
+    },
+    orderBy: { name: "asc" },
+  });
+}
+
+// ─── GET /api/gyms/slots ──────────────────────────────────────────────────────
+router.get("/slots", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const gyms = await gymsOwnedBy(req.dbUserId);
+    if (gyms.length === 0) {
+      res.status(403).json({ error: "Forbidden", message: "User is not a gym owner." });
+      return;
+    }
+    res.json({
+      gyms: gyms.map((gym) => ({
+        id: gym.id,
+        name: gym.name,
+        cappingMode: gym.cappingMode === "PER_SLOT" ? "PER_SLOT" : "DAILY_TOTAL",
+        maxDailyVisits: gym.maxDailyVisits,
+        maxSlotVisits: gym.maxSlotVisits,
+        slots: readStoredSlots(gym.slotsJson),
+      })),
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
+// ─── GET /api/gyms/today-visitors ─────────────────────────────────────────────
+router.get("/today-visitors", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const gyms = await gymsOwnedBy(req.dbUserId);
+    if (gyms.length === 0) {
+      res.status(403).json({ error: "Forbidden", message: "User is not a gym owner." });
+      return;
+    }
+    const today = todayBounds();
+    const bookings = await prisma.booking.findMany({
+      where: {
+        gymId: { in: gyms.map((gym) => gym.id) },
+        visitDate: { gte: today.start, lte: today.end },
+        status: { in: [...BOOKED_STATUSES] },
+      },
+      select: {
+        id: true,
+        gymId: true,
+        timeSlot: true,
+        status: true,
+        passCode: true,
+        user: { select: { name: true } },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    res.json({
+      date: today.label,
+      gyms: gyms.map((gym) => {
+        const slots = readStoredSlots(gym.slotsJson);
+        const mine = bookings.filter((booking) => booking.gymId === gym.id);
+        const used = new Set<string>();
+        const slotRows = slots.map((slot) => {
+          const visitors = mine.filter((booking) => {
+            if (used.has(booking.id) || !bookingMatchesSlot(booking.timeSlot, slot)) return false;
+            used.add(booking.id);
+            return true;
+          }).map((booking) => ({
+            bookingId: booking.id,
+            name: booking.user?.name?.trim() || "Member",
+            status: booking.status,
+            passCode: booking.passCode,
+            timeSlot: booking.timeSlot,
+          }));
+          return { ...slot, booked: visitors.length, visitors };
+        });
+        const otherMap = new Map<string, typeof slotRows[number]["visitors"]>();
+        mine.forEach((booking) => {
+          if (used.has(booking.id)) return;
+          const label = booking.timeSlot?.trim() || "Unspecified time";
+          const list = otherMap.get(label) ?? [];
+          list.push({
+            bookingId: booking.id,
+            name: booking.user?.name?.trim() || "Member",
+            status: booking.status,
+            passCode: booking.passCode,
+            timeSlot: booking.timeSlot,
+          });
+          otherMap.set(label, list);
+        });
+        const checkedInToday = mine.filter((booking) => booking.status === "CHECKED_IN" || booking.status === "COMPLETED").length;
+        return {
+          id: gym.id,
+          name: gym.name,
+          cappingMode: gym.cappingMode === "PER_SLOT" ? "PER_SLOT" : "DAILY_TOTAL",
+          maxDailyVisits: gym.maxDailyVisits,
+          maxSlotVisits: gym.maxSlotVisits,
+          bookedToday: mine.length,
+          checkedInToday,
+          slots: slotRows,
+          otherTimes: Array.from(otherMap.entries()).map(([timeSlot, visitors]) => ({
+            timeSlot,
+            booked: visitors.length,
+            visitors,
+          })),
+        };
+      }),
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
 
 // ─── GET /api/gyms/analytics/dashboard ─────────────────────────────────────
 /**

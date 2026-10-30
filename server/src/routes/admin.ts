@@ -4,6 +4,7 @@ import { requireAuth } from "../middleware/auth";
 import { createError } from "../middleware/errorHandler";
 import { getSystemSettings } from "../services/settings";
 import { roleCanAccess } from "../lib/adminAccess";
+import { slotsPayloadToJson } from "../lib/gymCommercial";
 import { cleanOwnerEmail, cleanOwnerPassword, createGymOwner, updateGymOwnerLogin } from "../lib/gymOwner";
 
 function asInt(value: unknown, fallback: number): number {
@@ -261,6 +262,7 @@ router.post("/gyms", requireAuth, requireAdmin, async (req: Request, res: Respon
 
       // public / user facing
       name,
+      description,
       address,
       city,
       state,
@@ -323,6 +325,13 @@ router.post("/gyms", requireAuth, requireAdmin, async (req: Request, res: Respon
 
     const interiorList = Array.isArray(interiorImageUrls) ? interiorImageUrls : (interiorImageUrls ? [interiorImageUrls] : []);
     const ownerDisplayName = (typeof ownerName === "string" && ownerName.trim()) || name;
+    const storedSlots = slots === undefined || slots === null || slots === ""
+      ? { ok: true as const, slotsJson: null }
+      : slotsPayloadToJson(slots);
+    if (!storedSlots.ok) {
+      res.status(400).json({ error: "InvalidSlots", message: storedSlots.message });
+      return;
+    }
 
     let gym;
     let owner;
@@ -337,6 +346,7 @@ router.post("/gyms", requireAuth, requireAdmin, async (req: Request, res: Respon
           data: {
             customGymId: finalCustomId,
             name,
+            description: typeof description === "string" && description.trim() ? description.trim() : null,
             address,
             city: city || "Udaipur",
             state: state || "Rajasthan",
@@ -353,7 +363,7 @@ router.post("/gyms", requireAuth, requireAdmin, async (req: Request, res: Respon
             cappingMode: finalCappingMode,
             maxDailyVisits: finalMaxDaily,
             maxSlotVisits: finalMaxSlot,
-            slotsJson: slots ? (typeof slots === "string" ? slots : JSON.stringify(slots)) : null,
+            slotsJson: storedSlots.slotsJson,
             ownerId: gymOwner.id,
             ownerName: ownerDisplayName,
             bankDetailsJson: bankDetails ? (typeof bankDetails === "string" ? bankDetails : JSON.stringify(bankDetails)) : null,
@@ -420,6 +430,40 @@ router.post("/gyms", requireAuth, requireAdmin, async (req: Request, res: Respon
   }
 });
 
+// ─── PUT /api/admin/gyms/:id/slots ────────────────────────────────────────────
+router.put("/gyms/:id/slots", requireAuth, requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const gymId = req.params.id as string;
+    const storedSlots = slotsPayloadToJson(req.body?.slots);
+    if (!storedSlots.ok) {
+      res.status(400).json({ error: "InvalidSlots", message: storedSlots.message });
+      return;
+    }
+    const existing = await prisma.gym.findUnique({ where: { id: gymId }, select: { id: true, name: true } });
+    if (!existing) {
+      res.status(404).json({ error: "GymNotFound", message: "Gym not found." });
+      return;
+    }
+    const gym = await prisma.gym.update({
+      where: { id: gymId },
+      data: { slotsJson: storedSlots.slotsJson },
+      select: { id: true, name: true, slotsJson: true },
+    });
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.dbUserId!,
+        actionType: "UPDATE_GYM_SLOTS",
+        targetId: gym.id,
+        details: `Saved ${JSON.parse(storedSlots.slotsJson).length} booking slots for ${existing.name}`,
+      },
+    });
+    res.json({ gym, message: "Slots saved." });
+  } catch (err: any) {
+    console.error("Admin update gym slots error:", err);
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
 // ─── PUT /api/admin/gyms/:id ──────────────────────────────────────────────────
 router.put("/gyms/:id", requireAuth, requireAdmin, async (req: Request, res: Response): Promise<void> => {
   try {
@@ -440,6 +484,7 @@ router.put("/gyms/:id", requireAuth, requireAdmin, async (req: Request, res: Res
       invoicePrefix,
 
       name,
+      description,
       address,
       city,
       state,
@@ -509,6 +554,18 @@ router.put("/gyms/:id", requireAuth, requireAdmin, async (req: Request, res: Res
       }
     }
 
+    let nextSlotsJson = existingGym.slotsJson;
+    if (slots !== undefined) {
+      const storedSlots = slots === null || slots === ""
+        ? { ok: true as const, slotsJson: null }
+        : slotsPayloadToJson(slots);
+      if (!storedSlots.ok) {
+        res.status(400).json({ error: "InvalidSlots", message: storedSlots.message });
+        return;
+      }
+      nextSlotsJson = storedSlots.slotsJson;
+    }
+
     let gym;
     try {
       gym = await prisma.$transaction(async (tx) => {
@@ -532,6 +589,9 @@ router.put("/gyms/:id", requireAuth, requireAdmin, async (req: Request, res: Res
       data: {
         customGymId: customGymId !== undefined ? customGymId : existingGym.customGymId,
         name: name !== undefined ? name : existingGym.name,
+        description: description !== undefined
+          ? (typeof description === "string" && description.trim() ? description.trim() : null)
+          : existingGym.description,
         address: address !== undefined ? address : existingGym.address,
         city: city !== undefined ? city : existingGym.city,
         state: state !== undefined ? state : existingGym.state,
@@ -548,7 +608,7 @@ router.put("/gyms/:id", requireAuth, requireAdmin, async (req: Request, res: Res
         maxDailyVisits: finalMaxDaily,
         maxSlotVisits: finalMaxSlot,
 
-        slotsJson: slots !== undefined ? (typeof slots === "string" ? slots : JSON.stringify(slots)) : existingGym.slotsJson,
+        slotsJson: nextSlotsJson,
 
         ownerId,
         contactEmail: nextEmail || existingGym.contactEmail,

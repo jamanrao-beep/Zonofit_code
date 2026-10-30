@@ -9,6 +9,7 @@ const auth_1 = require("../middleware/auth");
 const errorHandler_1 = require("../middleware/errorHandler");
 const settings_1 = require("../services/settings");
 const adminAccess_1 = require("../lib/adminAccess");
+const gymCommercial_1 = require("../lib/gymCommercial");
 const gymOwner_1 = require("../lib/gymOwner");
 function asInt(value, fallback) {
     if (typeof value === "number" && Number.isFinite(value))
@@ -241,7 +242,7 @@ router.post("/gyms", auth_1.requireAuth, requireAdmin, async (req, res) => {
         // * star internal
         customGymId, ownerName, bankDetails, cappingMode, maxDailyVisits, maxSlotVisits, payoutModel, payoutCommissionRate, payoutFixedPerVisit, paymentCycle, isGstRegistered, gstNumber, invoicePrefix, 
         // public / user facing
-        name, address, city, state, landmark, googleMapsUrl, contactPhone, monthlyPrice, weekdayHours, weekendHours, facilities, slots, logoUrl, exteriorImageUrl, interiorImageUrls, lat, lng, isVerified, isActive, ownerEmail, ownerPassword, } = req.body;
+        name, description, address, city, state, landmark, googleMapsUrl, contactPhone, monthlyPrice, weekdayHours, weekendHours, facilities, slots, logoUrl, exteriorImageUrl, interiorImageUrls, lat, lng, isVerified, isActive, ownerEmail, ownerPassword, } = req.body;
         if (!name || !address) {
             res.status(400).json({ error: "ValidationError", message: "Gym Name and Full Address are required." });
             return;
@@ -275,6 +276,13 @@ router.post("/gyms", auth_1.requireAuth, requireAdmin, async (req, res) => {
         }
         const interiorList = Array.isArray(interiorImageUrls) ? interiorImageUrls : (interiorImageUrls ? [interiorImageUrls] : []);
         const ownerDisplayName = (typeof ownerName === "string" && ownerName.trim()) || name;
+        const storedSlots = slots === undefined || slots === null || slots === ""
+            ? { ok: true, slotsJson: null }
+            : (0, gymCommercial_1.slotsPayloadToJson)(slots);
+        if (!storedSlots.ok) {
+            res.status(400).json({ error: "InvalidSlots", message: storedSlots.message });
+            return;
+        }
         let gym;
         let owner;
         try {
@@ -288,6 +296,7 @@ router.post("/gyms", auth_1.requireAuth, requireAdmin, async (req, res) => {
                     data: {
                         customGymId: finalCustomId,
                         name,
+                        description: typeof description === "string" && description.trim() ? description.trim() : null,
                         address,
                         city: city || "Udaipur",
                         state: state || "Rajasthan",
@@ -304,7 +313,7 @@ router.post("/gyms", auth_1.requireAuth, requireAdmin, async (req, res) => {
                         cappingMode: finalCappingMode,
                         maxDailyVisits: finalMaxDaily,
                         maxSlotVisits: finalMaxSlot,
-                        slotsJson: slots ? (typeof slots === "string" ? slots : JSON.stringify(slots)) : null,
+                        slotsJson: storedSlots.slotsJson,
                         ownerId: gymOwner.id,
                         ownerName: ownerDisplayName,
                         bankDetailsJson: bankDetails ? (typeof bankDetails === "string" ? bankDetails : JSON.stringify(bankDetails)) : null,
@@ -370,11 +379,45 @@ router.post("/gyms", auth_1.requireAuth, requireAdmin, async (req, res) => {
         res.status(500).json({ error: "ServerError", message: err.message });
     }
 });
+// ─── PUT /api/admin/gyms/:id/slots ────────────────────────────────────────────
+router.put("/gyms/:id/slots", auth_1.requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const gymId = req.params.id;
+        const storedSlots = (0, gymCommercial_1.slotsPayloadToJson)(req.body?.slots);
+        if (!storedSlots.ok) {
+            res.status(400).json({ error: "InvalidSlots", message: storedSlots.message });
+            return;
+        }
+        const existing = await prisma_1.default.gym.findUnique({ where: { id: gymId }, select: { id: true, name: true } });
+        if (!existing) {
+            res.status(404).json({ error: "GymNotFound", message: "Gym not found." });
+            return;
+        }
+        const gym = await prisma_1.default.gym.update({
+            where: { id: gymId },
+            data: { slotsJson: storedSlots.slotsJson },
+            select: { id: true, name: true, slotsJson: true },
+        });
+        await prisma_1.default.adminAuditLog.create({
+            data: {
+                adminId: req.dbUserId,
+                actionType: "UPDATE_GYM_SLOTS",
+                targetId: gym.id,
+                details: `Saved ${JSON.parse(storedSlots.slotsJson).length} booking slots for ${existing.name}`,
+            },
+        });
+        res.json({ gym, message: "Slots saved." });
+    }
+    catch (err) {
+        console.error("Admin update gym slots error:", err);
+        res.status(500).json({ error: "ServerError", message: err.message });
+    }
+});
 // ─── PUT /api/admin/gyms/:id ──────────────────────────────────────────────────
 router.put("/gyms/:id", auth_1.requireAuth, requireAdmin, async (req, res) => {
     try {
         const gymId = req.params.id;
-        const { customGymId, ownerName, bankDetails, cappingMode, maxDailyVisits, maxSlotVisits, payoutModel, payoutCommissionRate, payoutFixedPerVisit, paymentCycle, isGstRegistered, gstNumber, invoicePrefix, name, address, city, state, landmark, googleMapsUrl, contactPhone, monthlyPrice, weekdayHours, weekendHours, facilities, slots, logoUrl, exteriorImageUrl, interiorImageUrls, lat, lng, isVerified, isActive, ownerEmail, ownerPassword, } = req.body;
+        const { customGymId, ownerName, bankDetails, cappingMode, maxDailyVisits, maxSlotVisits, payoutModel, payoutCommissionRate, payoutFixedPerVisit, paymentCycle, isGstRegistered, gstNumber, invoicePrefix, name, description, address, city, state, landmark, googleMapsUrl, contactPhone, monthlyPrice, weekdayHours, weekendHours, facilities, slots, logoUrl, exteriorImageUrl, interiorImageUrls, lat, lng, isVerified, isActive, ownerEmail, ownerPassword, } = req.body;
         const existingGym = await prisma_1.default.gym.findUnique({ where: { id: gymId } });
         if (!existingGym) {
             res.status(404).json({ error: "NotFound", message: "Gym not found" });
@@ -416,6 +459,17 @@ router.put("/gyms/:id", auth_1.requireAuth, requireAdmin, async (req, res) => {
                 return;
             }
         }
+        let nextSlotsJson = existingGym.slotsJson;
+        if (slots !== undefined) {
+            const storedSlots = slots === null || slots === ""
+                ? { ok: true, slotsJson: null }
+                : (0, gymCommercial_1.slotsPayloadToJson)(slots);
+            if (!storedSlots.ok) {
+                res.status(400).json({ error: "InvalidSlots", message: storedSlots.message });
+                return;
+            }
+            nextSlotsJson = storedSlots.slotsJson;
+        }
         let gym;
         try {
             gym = await prisma_1.default.$transaction(async (tx) => {
@@ -439,6 +493,9 @@ router.put("/gyms/:id", auth_1.requireAuth, requireAdmin, async (req, res) => {
                     data: {
                         customGymId: customGymId !== undefined ? customGymId : existingGym.customGymId,
                         name: name !== undefined ? name : existingGym.name,
+                        description: description !== undefined
+                            ? (typeof description === "string" && description.trim() ? description.trim() : null)
+                            : existingGym.description,
                         address: address !== undefined ? address : existingGym.address,
                         city: city !== undefined ? city : existingGym.city,
                         state: state !== undefined ? state : existingGym.state,
@@ -454,7 +511,7 @@ router.put("/gyms/:id", auth_1.requireAuth, requireAdmin, async (req, res) => {
                         cappingMode: finalCappingMode,
                         maxDailyVisits: finalMaxDaily,
                         maxSlotVisits: finalMaxSlot,
-                        slotsJson: slots !== undefined ? (typeof slots === "string" ? slots : JSON.stringify(slots)) : existingGym.slotsJson,
+                        slotsJson: nextSlotsJson,
                         ownerId,
                         contactEmail: nextEmail || existingGym.contactEmail,
                         ownerName: ownerName !== undefined ? ownerName : existingGym.ownerName,
