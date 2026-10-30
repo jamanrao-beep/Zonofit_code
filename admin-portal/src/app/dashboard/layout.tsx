@@ -3,12 +3,98 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { 
-  LayoutDashboard, Users, Dumbbell, ShieldAlert, 
-  CreditCard, Tag, FileText, Settings, AlertTriangle, 
-  ScrollText, BellRing, UserCheck, Menu, X, LogOut, ShieldCheck
+import {
+  LayoutDashboard,
+  Users,
+  Dumbbell,
+  ShieldAlert,
+  CreditCard,
+  Layers,
+  Tag,
+  FileText,
+  Settings,
+  AlertTriangle,
+  ScrollText,
+  BellRing,
+  UserCheck,
+  Menu,
+  LogOut,
+  LifeBuoy,
+  Store,
+  MapPin,
+  type LucideIcon,
 } from "lucide-react";
 import { useAuthStore } from "@/store/useAuthStore";
+
+type NavItem = { label: string; path: string; icon: LucideIcon; badge?: "gyms" | "support" };
+
+const NAV: { group: string; items: NavItem[] }[] = [
+  { group: "Overview", items: [{ label: "Dashboard", path: "/dashboard", icon: LayoutDashboard }] },
+  {
+    group: "People",
+    items: [
+      { label: "Users", path: "/dashboard/users", icon: Users },
+      { label: "Memberships", path: "/dashboard/memberships", icon: UserCheck },
+      { label: "Plans", path: "/dashboard/plans", icon: Layers },
+    ],
+  },
+  {
+    group: "Network",
+    items: [
+      { label: "Gyms & Approvals", path: "/dashboard/gyms", icon: Dumbbell, badge: "gyms" },
+      { label: "Trial Gyms", path: "/dashboard/trial-gyms", icon: MapPin },
+      { label: "Financial Center", path: "/dashboard/finance", icon: CreditCard },
+    ],
+  },
+  {
+    group: "Commerce",
+    items: [
+      { label: "Marketplace", path: "/dashboard/marketplace", icon: Store },
+      { label: "Marketing & Offers", path: "/dashboard/marketing", icon: Tag },
+    ],
+  },
+  {
+    group: "Platform",
+    items: [
+      { label: "Content Manager", path: "/dashboard/content", icon: ScrollText },
+      { label: "Notifications", path: "/dashboard/notifications", icon: BellRing },
+      { label: "Support", path: "/dashboard/support", icon: LifeBuoy, badge: "support" },
+      { label: "Audit Logs", path: "/dashboard/audit", icon: FileText },
+      { label: "Fraud & Risk", path: "/dashboard/risk", icon: ShieldAlert },
+      { label: "Settings", path: "/dashboard/settings", icon: Settings },
+    ],
+  },
+];
+
+function pageTitle(pathname: string) {
+  if (pathname.startsWith("/dashboard/gyms/") && pathname !== "/dashboard/gyms") return "Gym";
+  const hit = NAV.flatMap((group) => group.items).find(
+    (item) => item.path !== "/dashboard" && (pathname === item.path || pathname.startsWith(`${item.path}/`))
+  );
+  if (hit) return hit.label;
+  if (pathname === "/dashboard") return "Dashboard";
+  return "Admin";
+}
+
+function Mark() {
+  return (
+    <div
+      className="grid h-11 w-11 shrink-0 place-items-center rounded-[13px]"
+      style={{ background: "linear-gradient(#92BB2B, #3F8230)" }}
+    >
+      <svg width="22" height="22" viewBox="0 0 40 40" aria-hidden="true">
+        <path
+          d="M11 14h17c2 0 2.5 2.4.6 3H17M11 21h8"
+          stroke="#fff"
+          strokeWidth="3.4"
+          strokeLinecap="round"
+          fill="none"
+        />
+        <circle cx="14" cy="28" r="2.6" fill="#fff" />
+      </svg>
+    </div>
+  );
+}
 
 export default function AdminDashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -16,7 +102,14 @@ export default function AdminDashboardLayout({ children }: { children: React.Rea
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [badges, setBadges] = useState({ gyms: 0, support: 0 });
   const logout = useAuthStore((state) => state.logout);
+  const user = useAuthStore((state) => state.user);
+  const initialize = useAuthStore((state) => state.initialize);
+
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
 
   useEffect(() => {
     const token = localStorage.getItem("zonofit_portal_token");
@@ -25,22 +118,29 @@ export default function AdminDashboardLayout({ children }: { children: React.Rea
       return;
     }
 
-    // Basic verify
     fetch("/api/admin/dashboard", {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { Authorization: `Bearer ${token}` },
     })
-    .then(res => {
-      if (res.ok) {
+      .then(async (res) => {
+        if (!res.ok) {
+          router.push("/auth/login");
+          return;
+        }
         setIsAdmin(true);
-      } else {
-        router.push("/auth/login");
-      }
-    })
-    .catch(() => router.push("/auth/login"))
-    .finally(() => setLoading(false));
+        try {
+          const json = await res.json();
+          setBadges({
+            gyms: Number(json?.pendingApplications) || 0,
+            support: Number(json?.pendingTickets) || 0,
+          });
+        } catch {
+          setBadges({ gyms: 0, support: 0 });
+        }
+      })
+      .catch(() => router.push("/auth/login"))
+      .finally(() => setLoading(false));
   }, [router]);
 
-  // Close mobile drawer on route navigation
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [pathname]);
@@ -52,213 +152,128 @@ export default function AdminDashboardLayout({ children }: { children: React.Rea
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background text-muted font-medium">
-        Verifying Admin Access...
+      <div className="flex min-h-dvh items-center justify-center bg-[#F6F8F5] font-medium text-[#66756B]">
+        Verifying admin access...
       </div>
     );
   }
 
   if (!isAdmin) return null;
 
-  const navItems = [
-    { label: "Dashboard", path: "/dashboard", icon: <LayoutDashboard size={18} /> },
-    { label: "Users", path: "/dashboard/users", icon: <Users size={18} /> },
-    { label: "Memberships", path: "/dashboard/memberships", icon: <UserCheck size={18} /> },
-    { label: "Gyms & Approvals", path: "/dashboard/gyms", icon: <Dumbbell size={18} /> },
-    { label: "Financial Center", path: "/dashboard/finance", icon: <CreditCard size={18} /> },
-    { label: "Marketplace", path: "/dashboard/marketplace", icon: <Tag size={18} /> },
-    { label: "Trial Gyms", path: "/dashboard/trial-gyms", icon: <Dumbbell size={18} /> },
-    { label: "Marketing & Offers", path: "/dashboard/marketing", icon: <Tag size={18} /> },
-    { label: "Content Manager", path: "/dashboard/content", icon: <ScrollText size={18} /> },
-    { label: "Notifications", path: "/dashboard/notifications", icon: <BellRing size={18} /> },
-    { label: "Audit Logs", path: "/dashboard/audit", icon: <FileText size={18} /> },
-    { label: "Fraud & Risk", path: "/dashboard/risk", icon: <ShieldAlert size={18} /> },
-    { label: "Settings", path: "/dashboard/settings", icon: <Settings size={18} /> },
-  ];
+  const active = (path: string) =>
+    path === "/dashboard" ? pathname === "/dashboard" : pathname === path || pathname.startsWith(`${path}/`);
 
   return (
-    <div className="flex-1 w-full min-h-screen bg-background flex flex-col md:flex-row">
-      {/* ─── Desktop Sidebar ────────────────────────────────────────── */}
-      <aside className="hidden md:flex md:w-64 bg-[#1C1C1E] border-r border-[#2C2C2E] flex-col z-20 shrink-0 min-h-screen md:h-screen md:sticky md:top-0">
-        <div className="p-6 border-b border-secondary-dark flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-brand-green emerald-glow-sm">
-            <span className="text-white font-black text-base">Z</span>
-          </div>
+    <div className="zf-admin flex h-dvh min-h-0 w-full overflow-hidden bg-[#F6F8F5] text-[#0F2417]">
+      {mobileMenuOpen ? (
+        <button
+          type="button"
+          className="fixed inset-0 z-20 bg-[rgba(8,16,11,0.45)] min-[900px]:hidden"
+          aria-label="Close menu"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      ) : null}
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-30 flex w-[260px] flex-col overflow-y-auto bg-[#0C1F14] px-3.5 py-4 text-white transition-transform duration-300 min-[900px]:static min-[900px]:translate-x-0 ${
+          mobileMenuOpen ? "translate-x-0 shadow-[0_0_0_100vmax_rgba(8,16,11,0.4)]" : "-translate-x-full"
+        }`}
+        style={{
+          paddingTop: "max(16px, env(safe-area-inset-top))",
+          paddingBottom: "max(16px, env(safe-area-inset-bottom))",
+          paddingLeft: "max(14px, env(safe-area-inset-left))",
+        }}
+      >
+        <div className="mb-2 flex items-center gap-3 px-2">
+          <Mark />
           <div>
-            <span className="font-bold text-lg text-text-light tracking-wide block leading-none">ZonoFit Admin</span>
-            <span className="text-[10px] text-brand-lime font-semibold uppercase tracking-wider">Console</span>
+            <b className="zf-num block text-[19px] leading-none text-white">Zonofit</b>
+            <small className="text-[#8fa596]">Admin</small>
           </div>
         </div>
-        
-        <nav className="flex-1 overflow-y-auto py-5 px-4 space-y-1.5 custom-scrollbar">
-          {navItems.map((item) => {
-            const isActive = pathname === item.path;
-            return (
-              <Link 
-                key={item.path} 
-                href={item.path}
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-xl font-medium transition-all duration-200 ${
-                  isActive 
-                    ? "bg-white/10 text-brand-lime border border-white/10 shadow-sm" 
-                    : "text-muted hover:bg-white/5 hover:text-white"
-                }`}
-              >
-                <div className={isActive ? "text-brand-lime" : "text-muted"}>
-                  {item.icon}
-                </div>
-                <span className="text-sm">{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
 
-        <div className="p-4 border-t border-secondary-dark space-y-2">
-          <Link 
-            href="/dashboard/settings" 
-            className="flex items-center justify-center gap-2 p-2.5 bg-red-500/10 text-brand-coral border border-red-500/20 hover:bg-red-500/20 rounded-xl transition-colors font-bold text-xs"
-          >
-            <AlertTriangle size={15} />
-            Emergency Controls
-          </Link>
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 p-2.5 bg-white/5 hover:bg-red-500/15 text-gray-300 hover:text-red-400 border border-white/10 hover:border-red-500/30 rounded-xl transition-all font-semibold text-xs"
-          >
-            <LogOut size={15} />
-            Sign Out
-          </button>
-        </div>
-      </aside>
-
-      {/* ─── Mobile Sticky Header with Hamburger ──────────────────────── */}
-      <header className="md:hidden bg-surface-dark border-b border-secondary-dark px-4 py-3.5 flex items-center justify-between sticky top-0 z-30 shadow-md">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-brand-green emerald-glow-sm">
-            <span className="text-white font-bold text-sm">Z</span>
-          </div>
-          <span className="font-bold text-base text-white tracking-wide">ZonoFit Admin</span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleLogout}
-            className="p-2 text-gray-400 hover:text-red-400 hover:bg-white/5 rounded-xl transition-colors"
-            title="Sign Out"
-            aria-label="Sign Out"
-          >
-            <LogOut size={18} />
-          </button>
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 text-white bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl transition-all focus:outline-none focus:ring-2 focus:ring-brand-lime"
-            aria-label="Toggle navigation menu"
-          >
-            {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
-          </button>
-        </div>
-      </header>
-
-      {/* ─── Mobile Slide-out Drawer ─────────────────────────────────── */}
-      {mobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 z-50 flex">
-          {/* Backdrop */}
-          <div 
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity" 
-            onClick={() => setMobileMenuOpen(false)}
-          />
-
-          {/* Drawer Content */}
-          <div className="relative ml-auto w-[85%] max-w-xs bg-surface-dark border-l border-secondary-dark flex flex-col h-full shadow-2xl z-50">
-            {/* Drawer Header */}
-            <div className="p-5 border-b border-secondary-dark flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-brand-green">
-                  <span className="text-white font-bold text-sm">Z</span>
-                </div>
-                <div>
-                  <span className="font-bold text-sm text-white block">ZonoFit Admin</span>
-                  <span className="text-[10px] text-brand-lime font-bold uppercase">Role: Founder</span>
-                </div>
+        <nav className="flex-1">
+          {NAV.map((group) => (
+            <div key={group.group}>
+              <div className="mb-1.5 mt-4 px-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-[#6f8777]">
+                {group.group}
               </div>
-              <button 
-                onClick={() => setMobileMenuOpen(false)}
-                className="p-2 text-muted hover:text-white rounded-lg transition-colors"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Drawer Navigation Links */}
-            <nav className="flex-1 overflow-y-auto p-4 space-y-1">
-              {navItems.map((item) => {
-                const isActive = pathname === item.path;
+              {group.items.map((item) => {
+                const on = active(item.path);
+                const Icon = item.icon;
+                const count = item.badge ? badges[item.badge] : 0;
                 return (
                   <Link
                     key={item.path}
                     href={item.path}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all text-sm ${
-                      isActive
-                        ? "bg-white/15 text-brand-lime border border-white/15 font-bold"
-                        : "text-muted hover:bg-white/5 hover:text-white"
+                    className={`mb-0.5 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold ${
+                      on ? "bg-[rgba(79,224,140,0.14)] text-[#4fe08c]" : "text-[#b3c6b8] hover:bg-white/5"
                     }`}
                   >
-                    <div className={isActive ? "text-brand-lime" : "text-muted"}>
-                      {item.icon}
-                    </div>
-                    <span>{item.label}</span>
+                    <Icon size={20} strokeWidth={1.8} />
+                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                    {count > 0 ? (
+                      <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#E5484D] px-1.5 text-[11px] font-bold text-white">
+                        {count}
+                      </span>
+                    ) : null}
                   </Link>
                 );
               })}
-            </nav>
-
-            {/* Drawer Footer with Emergency Controls & Sign Out */}
-            <div className="p-4 border-t border-secondary-dark space-y-2.5 bg-black/30">
-              <Link
-                href="/dashboard/settings"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-center gap-2 p-3 bg-red-500/10 text-brand-coral border border-red-500/20 hover:bg-red-500/20 rounded-xl transition-colors font-bold text-xs"
-              >
-                <AlertTriangle size={15} />
-                Emergency Controls
-              </Link>
-              <button
-                onClick={handleLogout}
-                className="w-full flex items-center justify-center gap-2 p-3 bg-red-600 hover:bg-red-700 text-white rounded-xl transition-all font-bold text-sm shadow-md"
-              >
-                <LogOut size={16} />
-                Sign Out
-              </button>
             </div>
-          </div>
+          ))}
+        </nav>
+
+        <div className="mt-4 space-y-1 pt-2">
+          <Link
+            href="/dashboard/settings"
+            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#f0b4ae] hover:bg-white/5"
+          >
+            <AlertTriangle size={20} strokeWidth={1.8} />
+            Emergency controls
+          </Link>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[#b3c6b8] hover:bg-white/5"
+          >
+            <LogOut size={20} strokeWidth={1.8} />
+            Sign out
+          </button>
         </div>
-      )}
+      </aside>
 
-      {/* ─── Main Content Area ───────────────────────────────────────── */}
-      <main className="flex-1 flex flex-col min-h-0 overflow-hidden bg-background">
-        {/* Desktop Top Navbar */}
-        <header className="hidden md:flex bg-surface border-b border-secondary px-8 py-4 items-center justify-between z-10 soft-shadow">
-          <h2 className="text-xl font-bold text-foreground">ZonoFit Headquarters</h2>
-          <div className="flex items-center gap-3">
-            <div className="px-4 py-2 bg-background border border-secondary rounded-xl text-sm font-medium text-foreground flex items-center gap-2">
-              <ShieldCheck size={16} className="text-brand-green" />
-              Role: <span className="text-brand-green font-bold">Founder</span>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-red-500/10 text-red-600 hover:bg-red-500/20 border border-red-500/20 transition-all cursor-pointer"
-            >
-              <LogOut size={16} />
-              <span>Sign Out</span>
-            </button>
-          </div>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header
+          className="sticky top-0 z-10 flex items-center gap-3 border-b border-[#E4EAE1] bg-[rgba(246,248,245,0.9)] px-4 py-3 backdrop-blur-md min-[900px]:px-8"
+          style={{ paddingTop: "max(12px, env(safe-area-inset-top))" }}
+        >
+          <button
+            type="button"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] border border-[#E4EAE1] bg-white text-[#66756B] min-[900px]:hidden"
+            aria-label="Menu"
+            onClick={() => setMobileMenuOpen((open) => !open)}
+          >
+            <Menu size={20} strokeWidth={1.8} />
+          </button>
+          <h2 className="min-w-0 truncate text-[17px]">{pageTitle(pathname)}</h2>
+          <span className="flex-1" />
+          <span className="hidden rounded-full border border-[#E4EAE1] bg-white px-3.5 py-1.5 text-[13px] text-[#66756B] sm:inline">
+            Role: <b className="text-[#1F7A3F]">{user?.name || "Admin"}</b>
+          </span>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] border border-[#E4EAE1] bg-white text-[#66756B] hover:border-[#f0c4c0] hover:text-[#C2362D]"
+            aria-label="Sign out"
+            title="Sign out"
+          >
+            <LogOut size={18} strokeWidth={1.8} />
+          </button>
         </header>
-        
-        {/* Page Content */}
-        <div className="flex-1 overflow-y-auto">
-          {children}
-        </div>
-      </main>
+
+        <div className="zf-admin-view min-h-0 flex-1 overflow-x-hidden overflow-y-auto">{children}</div>
+      </div>
     </div>
   );
 }

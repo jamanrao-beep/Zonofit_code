@@ -1,43 +1,43 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-primary: #1F7A3E;
-  --color-primary-dark: #165A2E;
-  --color-background: #F8FAFC;
-  --color-foreground: #0F172A;
+  --color-primary: #1F7A3F;
+  --color-primary-dark: #176432;
+  --color-background: #F6F8F5;
+  --color-foreground: #0F2417;
   
-  /* Additional ZonoFit Brand Colors - Premium Emerald Palette */
-  --color-brand-green: #0B6E4F;
-  --color-brand-lime: #10B981;
-  --color-brand-coral: #EF4444;
-  --color-brand-amber: #F59E0B;
+  /* Additional ZonoFit Brand Colors - Admin console palette */
+  --color-brand-green: #1F7A3F;
+  --color-brand-lime: #2B8A4B;
+  --color-brand-coral: #C2362D;
+  --color-brand-amber: #8A5A00;
   
   /* Surface colors */
   --color-surface: #FFFFFF;
-  --color-surface-dark: #1C1C1E;
+  --color-surface-dark: #0C1F14;
   
   /* Text and muted */
-  --color-muted: #8E8E93;
-  --color-muted-foreground: #8E8E93;
+  --color-muted: #66756B;
+  --color-muted-foreground: #66756B;
   --color-text-light: #F2F2F7;
   --color-primary-foreground: #FFFFFF;
   
   /* Borders */
-  --color-secondary: #E5E5EA;
-  --color-secondary-dark: #2C2C2E;
-  --color-border: #E5E5EA;
+  --color-secondary: #E4EAE1;
+  --color-secondary-dark: #1A3324;
+  --color-border: #E4EAE1;
 
   /* Custom Backgrounds */
-  --color-light-green: #E8F5E9;
-  --color-dark-bg: #1A1A1A;
+  --color-light-green: #E8F4EA;
+  --color-dark-bg: #0C1F14;
 
-  --font-sans: var(--font-jakarta);
+  --font-sans: var(--font-dm), "DM Sans", system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
 }
 
 :root {
-  --background: #ffffff;
-  --foreground: #111111;
+  --background: #F6F8F5;
+  --foreground: #0F2417;
 }
 
 body {
@@ -45,6 +45,36 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
   overflow-x: hidden;
+}
+
+h1, h2, h3,
+.zf-num {
+  font-family: var(--font-bricolage), "Bricolage Grotesque", sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+:focus-visible {
+  outline: 2px solid #1F7A3F;
+  outline-offset: 2px;
+}
+
+/* Phone pages keep the desktop card padding from overflowing the notch. */
+@media (max-width: 899px) {
+  .zf-admin-view > * {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    padding-top: 20px !important;
+    padding-bottom: calc(64px + env(safe-area-inset-bottom)) !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zf-admin,
+  .zf-admin * {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 
 .glass {
