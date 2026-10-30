@@ -238,7 +238,7 @@ export default function ProfileDetailsScreen() {
       return;
     }
     if (!isEmailVerified) {
-      Alert.alert("Verify your email", "Enter the 4-digit code we send to that Gmail address.");
+      Alert.alert("Verify your email", "Enter the 6-digit code we send to that email address.");
       return;
     }
 
@@ -641,7 +641,7 @@ export default function ProfileDetailsScreen() {
 
             <Text style={styles.emailOtpTitle}>Verify Your Email</Text>
             <Text style={styles.emailOtpSubtitle}>
-              Enter the 4-digit verification code sent to:{"\n"}
+              Enter the 6-digit verification code sent to:{"\n"}
               <Text style={{ fontWeight: "700", color: "#111827" }}>{email}</Text>
               {"\n"}It works for 10 minutes.
             </Text>
@@ -661,13 +661,13 @@ export default function ProfileDetailsScreen() {
             <View style={styles.emailOtpInputWrapper}>
               <TextInput
                 style={styles.emailOtpInput}
-                placeholder="4-digit code"
+                placeholder="6-digit code"
                 placeholderTextColor="#9CA3AF"
                 keyboardType="number-pad"
-                maxLength={4}
+                maxLength={6}
                 autoFocus
                 value={emailOtp}
-                onChangeText={setEmailOtp}
+                onChangeText={(value) => setEmailOtp(value.replace(/\D/g, "").slice(0, 6))}
               />
             </View>
 
@@ -683,9 +683,9 @@ export default function ProfileDetailsScreen() {
                 onPress={handleVerifyEmailOtp}
                 style={[
                   styles.calendarConfirmBtn,
-                  emailOtp.trim().length < 4 && { opacity: 0.5 }
+                  emailOtp.trim().length < 6 && { opacity: 0.5 }
                 ]}
-                disabled={emailOtp.trim().length < 4}
+                disabled={emailOtp.trim().length < 6}
               >
                 <Text style={styles.calendarConfirmText}>Verify</Text>
               </Pressable>

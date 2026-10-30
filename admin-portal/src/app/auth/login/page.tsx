@@ -112,22 +112,22 @@ export default function LoginPage() {
         <h1 className="mb-1.5 mt-4 text-[28px] text-[#0F2417]">{otpStep ? "Verify it’s you" : "Zonofit Admin"}</h1>
         <p className="mb-5 text-[#66756B]">
           {otpStep
-            ? "Enter the 4-digit code we emailed you. It works for 10 minutes."
+            ? "Enter the 6-digit code we emailed you. It works for 10 minutes."
             : "Restricted area. Sign in with your admin account."}
         </p>
 
         {otpStep ? (
           <label className="mb-3.5 block">
-            <span className="mb-1.5 block text-[12.5px] font-bold text-[#66756B]">4-digit code</span>
+            <span className="mb-1.5 block text-[12.5px] font-bold text-[#66756B]">6-digit code</span>
             <input
-              className="h-12 w-full rounded-[14px] border-[1.5px] border-[#E4EAE1] px-3.5 outline-none focus:border-[#1F7A3F] focus:shadow-[0_0_0_4px_rgba(31,122,63,0.12)]"
+              className="h-12 w-full rounded-[14px] border-[1.5px] border-[#E4EAE1] px-3.5 tracking-[0.3em] outline-none focus:border-[#1F7A3F] focus:shadow-[0_0_0_4px_rgba(31,122,63,0.12)]"
               inputMode="numeric"
               autoComplete="one-time-code"
-              maxLength={4}
-              placeholder="0000"
+              maxLength={6}
+              placeholder="000000"
               required
               value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
             />
           </label>
         ) : (
@@ -173,7 +173,7 @@ export default function LoginPage() {
 
         <button
           type="submit"
-          disabled={loading || (otpStep && code.length < 4)}
+          disabled={loading || (otpStep && code.length < 6)}
           className="flex h-[50px] w-full items-center justify-center rounded-[13px] bg-[#1F7A3F] text-base font-bold text-white disabled:cursor-not-allowed disabled:opacity-45"
         >
           {loading ? "Please wait..." : otpStep ? "Verify and continue" : "Sign in"}

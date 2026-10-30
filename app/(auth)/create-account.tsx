@@ -290,7 +290,7 @@ export default function CreateAccountScreen() {
   };
 
   const confirmEmail = async () => {
-    if (emailCode.length !== 4 || emailBusy) return;
+    if (emailCode.length !== 6 || emailBusy) return;
     const sessionToken = useAuthStore.getState().token;
     if (!sessionToken) {
       setEmailHint("Verify your mobile first.");
@@ -597,18 +597,18 @@ export default function CreateAccountScreen() {
                     style={[styles.input, styles.otpInput]}
                     value={emailCode}
                     keyboardType="number-pad"
-                    maxLength={4}
-                    placeholder="4-digit code"
+                    maxLength={6}
+                    placeholder="6-digit code"
                     placeholderTextColor="#8A978E"
                     textContentType="oneTimeCode"
                     onFocus={() => setFocus("emailCode")}
                     onBlur={() => setFocus(null)}
-                    onChangeText={(value) => setEmailCode(digitsOnly(value, 4))}
+                    onChangeText={(value) => setEmailCode(digitsOnly(value, 6))}
                   />
                   <Pressable
-                    style={[styles.chip, (emailCode.length !== 4 || emailBusy) && styles.chipDisabled]}
+                    style={[styles.chip, (emailCode.length !== 6 || emailBusy) && styles.chipDisabled]}
                     onPress={confirmEmail}
-                    disabled={emailCode.length !== 4 || emailBusy}
+                    disabled={emailCode.length !== 6 || emailBusy}
                   >
                     <Text style={styles.chipText}>Confirm</Text>
                   </Pressable>

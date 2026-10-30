@@ -56,7 +56,7 @@ export function PartnerPortal({ fontClass }: { fontClass: string }) {
   const t = (key: string) => COPY[lang][key] ?? key;
   const emailValid = emailOk(email.trim());
   const passwordValid = password.length >= 8;
-  const codeValid = code.length === 4;
+  const codeValid = code.length === 6;
   const ready = emailValid && passwordValid && (!otpStep || codeValid);
   const charge = otpStep
     ? (emailValid ? 34 : 0) + (passwordValid ? 33 : 0) + (codeValid ? 33 : 0)
@@ -338,10 +338,10 @@ export function PartnerPortal({ fontClass }: { fontClass: string }) {
                   inputMode="numeric"
                   autoComplete="one-time-code"
                   placeholder=" "
-                  maxLength={4}
+                  maxLength={6}
                   value={code}
                   aria-label={t("lc")}
-                  onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 4))}
+                  onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
                 />
                 <label htmlFor="partner-code">{t("lc")}</label>
               </div>

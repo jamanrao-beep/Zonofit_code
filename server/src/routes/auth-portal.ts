@@ -1,9 +1,8 @@
-import { randomInt } from "crypto";
 import { Request, Response, Router } from "express";
 import { body, validationResult } from "express-validator";
 import bcrypt from "bcryptjs";
 import { signToken } from "../lib/jwt";
-import { emailOtpKey, sendEmailOTP } from "../lib/mail";
+import { createEmailCode, emailOtpKey, sendEmailOTP } from "../lib/mail";
 import { EMAIL_OTP_TTL_MINUTES, deleteOTP, emailResendWaitSeconds, setOTP, verifyOTP } from "../lib/otpStore";
 import prisma from "../lib/prisma";
 import { rateLimit } from "../lib/rateLimit";
@@ -80,7 +79,7 @@ router.post(
           res.status(429).json({ error: "TooManyRequests", message: "Too many code requests. Wait a few minutes and try again." });
           return;
         }
-        const otp = randomInt(1000, 10000).toString();
+        const otp = createEmailCode();
         await setOTP(otpKey, otp, EMAIL_OTP_TTL_MINUTES);
         const sent = await sendEmailOTP(email, otp);
         if (!sent) {
@@ -88,7 +87,7 @@ router.post(
           res.status(503).json({ error: "EmailNotConfigured", message: "Could not email a verification code. Try again shortly." });
           return;
         }
-        res.json({ otpRequired: true, message: "Enter the 4-digit code sent to your email. It works for 10 minutes." });
+        res.json({ otpRequired: true, message: "Enter the 6-digit code sent to your email. It works for 10 minutes." });
         return;
       }
 
@@ -97,7 +96,7 @@ router.post(
         return;
       }
       const allowDevCode = process.env.NODE_ENV === "development" && process.env.ALLOW_DEV_OTP === "true";
-      const isValid = (await verifyOTP(otpKey, code)) || (allowDevCode && code === "1234");
+      const isValid = (await verifyOTP(otpKey, code)) || (allowDevCode && code === "123456");
       if (!isValid) {
         res.status(400).json({ error: "InvalidCode", message: "Invalid or expired verification code." });
         return;
