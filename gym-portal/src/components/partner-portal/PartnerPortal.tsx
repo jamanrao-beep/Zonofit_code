@@ -1,11 +1,11 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/useAuthStore";
 import { COPY, type Lang } from "./copy";
-import { PARTNER_CITIES, PARTNER_GYMS, SHOW_SAMPLE_GYMS } from "./network";
+import { PARTNER_GYMS, SHOW_SAMPLE_GYMS } from "./network";
 import "./partner-portal.css";
 
 const ART = [
@@ -16,12 +16,7 @@ const ART = [
   "linear-gradient(135deg,#3F8230,#14532B)",
 ];
 
-const STEP_ICON: Record<string, ReactNode> = {
-  f1: <svg className="i" viewBox="0 0 24 24"><path d="M9 11a3.5 3.5 0 100-7 3.5 3.5 0 000 7zM2.5 20c.5-3.5 3-5.5 6.5-5.5S15 16.5 15.5 20M19 8v6M16 11h6" /></svg>,
-  f2: <svg className="i" viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6zM9 12l2 2 4-4" /></svg>,
-  f3: <svg className="i" viewBox="0 0 24 24"><path d="M6 8v8M3 10v4M18 8v8M21 10v4M6 12h12" /></svg>,
-  f4: <svg className="i" viewBox="0 0 24 24"><path d="M7 4h10M7 9h10M7 4c5 0 6 5 0 5l7 8" /></svg>,
-};
+const UDAIPUR_ART = "M5 38h38M10 38V27h28v11M10 27v-5a3 3 0 016 0v5M32 27v-5a3 3 0 016 0v5M20 27v-8a4 4 0 018 0v8M24 15v-4M19 38v-4a2 2 0 014 0v4M25 38v-4a2 2 0 014 0v4M8 43c3-2 5 2 8 0s5 2 8 0 5 2 8 0 5 2 8 0";
 
 const MOUTH: Record<string, string> = {
   idle: "M104 144q16 14 32 0",
@@ -30,13 +25,6 @@ const MOUTH: Record<string, string> = {
   joy: "M96 138q24 34 48 0z",
   sad: "M104 154q16-14 32 0",
 };
-
-function mapX(lon: number) {
-  return 40 + ((lon - 72.3) / 4.5) * 480;
-}
-function mapY(lat: number) {
-  return 40 + ((28.3 - lat) / 5.4) * 440;
-}
 
 function emailOk(value: string) {
   return /^\S+@\S+\.\S+$/.test(value);
@@ -56,7 +44,6 @@ export function PartnerPortal({ fontClass }: { fontClass: string }) {
   const [badField, setBadField] = useState<"email" | "password" | "code" | "">("");
   const [loading, setLoading] = useState(false);
   const [resendIn, setResendIn] = useState(0);
-  const [selected, setSelected] = useState("udr");
   const [mascot, setMascot] = useState("");
   const [mouth, setMouth] = useState("idle");
   const [bubble, setBubble] = useState("b_idle");
@@ -65,7 +52,6 @@ export function PartnerPortal({ fontClass }: { fontClass: string }) {
   const [marqueePause, setMarqueePause] = useState(false);
   const mascotRef = useRef<HTMLDivElement>(null);
   const pupilRef = useRef<SVGGElement>(null);
-  const flowRef = useRef<HTMLDivElement>(null);
 
   const t = (key: string) => COPY[lang][key] ?? key;
   const emailValid = emailOk(email.trim());
@@ -75,8 +61,9 @@ export function PartnerPortal({ fontClass }: { fontClass: string }) {
   const charge = otpStep
     ? (emailValid ? 34 : 0) + (passwordValid ? 33 : 0) + (codeValid ? 33 : 0)
     : (emailValid ? 50 : 0) + (passwordValid ? 50 : 0);
-  const city = PARTNER_CITIES.find((item) => item.id === selected) ?? PARTNER_CITIES[0];
   const cards = useMemo(() => [...PARTNER_GYMS, ...PARTNER_GYMS], []);
+  const quoteWords = t("q_text").split(" ");
+  const quoteHits = new Set(t("q_hl").split("|"));
 
   useEffect(() => {
     try {
@@ -128,15 +115,6 @@ export function PartnerPortal({ fontClass }: { fontClass: string }) {
     }, { threshold: 0.12 });
     nodes.forEach((node) => observer.observe(node));
     return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    const flow = flowRef.current;
-    if (!flow) return;
-    const measure = () => flow.style.setProperty("--h", `${Math.max(0, flow.offsetHeight - 60)}px`);
-    measure();
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
   }, []);
 
   const lookAlongEmail = (value: string) => {
@@ -237,9 +215,6 @@ export function PartnerPortal({ fontClass }: { fontClass: string }) {
     event.preventDefault();
     void signIn(otpStep);
   };
-
-  const udaipur = PARTNER_CITIES[0];
-  const origin = { x: mapX(udaipur.lon), y: mapY(udaipur.lat) };
 
   return (
     <div className={`zf-portal ${fontClass}`} lang={lang}>
@@ -410,75 +385,26 @@ export function PartnerPortal({ fontClass }: { fontClass: string }) {
       <section className="s2" id="net">
         <div className="in">
           <div className="rv">
-            <div className="eyebrow">{t("n_e")}</div>
-            <h2>{t("n_h")}</h2>
-            <p className="lead">{t("n_p")}</p>
+            <div className="eyebrow">{t("c_e")}</div>
+            <h2>{t("c_h")}</h2>
           </div>
-          <div className="net rv">
-            <div className="cons">
-              <div className="wm">RAJASTHAN</div>
-              <svg viewBox="0 0 560 520" role="img" aria-label="ZonoFit cities">
-                <defs>
-                  <linearGradient id="zfp-lg" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0" stopColor="#8DBE2A" />
-                    <stop offset="1" stopColor="#2B8A4B" stopOpacity="0.25" />
-                  </linearGradient>
-                </defs>
-                {PARTNER_CITIES.slice(1).map((item) => {
-                  const cx = mapX(item.lon);
-                  const cy = mapY(item.lat);
-                  const mx = (origin.x + cx) / 2 + (cy - origin.y) * 0.12;
-                  const my = (origin.y + cy) / 2 - (cx - origin.x) * 0.12;
-                  return <path key={item.id} className="lnk" d={`M${origin.x},${origin.y} Q${mx},${my} ${cx},${cy}`} />;
-                })}
-                {PARTNER_CITIES.map((item) => {
-                  const cx = mapX(item.lon);
-                  const cy = mapY(item.lat);
-                  const right = cx < 560 * 0.62;
-                  return (
-                    <g
-                      key={item.id}
-                      className={`nd${item.live ? " live" : ""}${item.id === selected ? " on" : ""}`}
-                      onClick={() => {
-                        setSelected(item.id);
-                        if (item.id === "udr") document.getElementById("partner-gyms")?.scrollIntoView({ behavior: "smooth", block: "center" });
-                      }}
-                    >
-                      <circle className="ring" cx={cx} cy={cy} r={item.live ? 9 : 7} />
-                      <circle className="core" cx={cx} cy={cy} r={item.live ? 9 : 6} />
-                      <circle cx={cx} cy={cy} r="26" fill="transparent" />
-                      <text x={right ? cx + 16 : cx - 16} y={cy + 5} textAnchor={right ? "start" : "end"}>
-                        {lang === "hi" ? item.nameHi : item.name}
-                      </text>
-                    </g>
-                  );
-                })}
-              </svg>
+          <article className="hp rv">
+            <div className="hp-t">
+              <span className="live"><i />{t("live")}</span>
+              <h3>{t("c_city")}</h3>
+              <p>{t("c_lp")}</p>
+              <div className="stub"><span>ZONOFIT</span><span>PARTNER NETWORK</span><span>UDAIPUR</span></div>
             </div>
-            <div>
-              <div className="cc pop" key={city.id}>
-                <span className={`st${city.live ? "" : " soon"}`}><i />{city.live ? t("live") : t("soon")}</span>
-                <h3>{lang === "hi" ? city.nameHi : city.name}</h3>
-                <p>{city.live ? t("livep") : t("soonp")}</p>
-              </div>
-              <div className="chs">
-                {PARTNER_CITIES.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={item.id === selected ? "on" : ""}
-                    onClick={() => {
-                      setSelected(item.id);
-                      if (item.id === "udr") document.getElementById("partner-gyms")?.scrollIntoView({ behavior: "smooth", block: "center" });
-                    }}
-                  >
-                    <span className={`d${item.live ? " l" : ""}`} />
-                    {lang === "hi" ? item.nameHi : item.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+            <svg className="hp-a" viewBox="0 0 48 48" aria-hidden="true">
+              <defs>
+                <linearGradient id="zfp-art" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stopColor="#8DBE2A" />
+                  <stop offset="1" stopColor="#2B8A4B" />
+                </linearGradient>
+              </defs>
+              <path d={UDAIPUR_ART} stroke="url(#zfp-art)" />
+            </svg>
+          </article>
           <div className="mqh rv"><h3>{t("mq_h")}</h3></div>
           <div
             id="partner-gyms"
@@ -514,25 +440,38 @@ export function PartnerPortal({ fontClass }: { fontClass: string }) {
       </section>
 
       <section className="s3">
-        <div className="in">
-          <div className="rv">
-            <div className="eyebrow">{t("w_e")}</div>
-            <h2>{t("w_h")}</h2>
-          </div>
-          <div className="flow" ref={flowRef}>
-            {(["f1", "f2", "f3", "f4"] as const).map((key) => (
-              <div className="fs rv" key={key}>
-                <div className="n">{STEP_ICON[key]}</div>
-                <div><b>{t(key)}</b><span>{t(`${key}p`)}</span></div>
-              </div>
-            ))}
-          </div>
-          <div className="pills rv">
-            <span>{t("p1")}</span><span>{t("p2")}</span><span>{t("p3")}</span><span>{t("p4")}</span>
-          </div>
+        <div className="in quote-wrap">
+          <figure className="q rv">
+            <div className="qm" aria-hidden="true">&ldquo;</div>
+            <blockquote>
+              {quoteWords.map((word, index) => (
+                <span
+                  key={`${word}-${index}`}
+                  className={quoteHits.has(word.replace(/[.,।]/g, "")) ? "hl" : undefined}
+                  style={{ "--i": index } as CSSProperties}
+                >
+                  {word}
+                </span>
+              ))}
+            </blockquote>
+            <figcaption>
+              <span className="lg" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 40 40">
+                  <path d="M11 14h17c2 0 2.5 2.4.6 3H17M11 21h8" stroke="#fff" strokeWidth="3.4" strokeLinecap="round" fill="none" />
+                  <circle cx="14" cy="28" r="2.6" fill="#fff" />
+                </svg>
+              </span>
+              <span>{t("q_by")}</span>
+            </figcaption>
+            <div className="qc">
+              <span><svg className="i" viewBox="0 0 24 24"><path d="M12 21a9 9 0 100-18 9 9 0 000 18zM12 7v5l3 2" /></svg><b>{t("qc1")}</b></span>
+              <span><svg className="i" viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6zM9 12l2 2 4-4" /></svg><b>{t("qc2")}</b></span>
+              <span><svg className="i" viewBox="0 0 24 24"><path d="M7 4h10M7 9h10M7 4c5 0 6 5 0 5l7 8" /></svg><b>{t("qc3")}</b></span>
+            </div>
+          </figure>
           <div className="back rv">
             <span>{t("bk")}</span>
-            <a href="#login">{t("bk2")}</a>
+            <a href="#login">{t("bk2")}<svg className="i" viewBox="0 0 24 24"><path d="M18 15l-6-6-6 6" /></svg></a>
           </div>
         </div>
       </section>
