@@ -20,7 +20,8 @@ import { apiFetch } from "@/lib/api";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useGuestStore } from "@/store/useGuestStore";
 import { useUserStore } from "@/store/useUserStore";
-import { FALLBACK_NETWORK_GYMS, NetworkGym } from "@/constants/fallbackGyms";
+import { NetworkGym } from "@/constants/fallbackGyms";
+import { gymPhotoUrls, httpUrl, stringList } from "@/lib/gymPhotos";
 import BookingConfirmedModal from "@/components/BookingConfirmedModal";
 import BookingModal from "@/components/BookingModal";
 
@@ -89,44 +90,32 @@ export default function PartnerGymsScreen() {
       try {
         const data = await apiFetch("/api/gyms", token ? { token } : undefined);
         const gymsData = data?.gyms || [];
-        if (isMounted && gymsData.length > 0) {
-          const formattedGyms: Gym[] = gymsData.map((g: any, index: number) => {
-            const fallbackMatch = FALLBACK_NETWORK_GYMS.find(fb => fb.id === g.id || fb.name.toLowerCase() === g.name?.toLowerCase());
+        if (isMounted) {
+          const formattedGyms: Gym[] = gymsData.map((g: any) => {
+            const photos = gymPhotoUrls(g);
+            const ratings = Number(g.totalRatings) || 0;
             return {
               id: g.id,
               name: g.name,
-              address: g.address || g.city || "Udaipur",
-              city: g.city || fallbackMatch?.city || "Udaipur",
-              rating: g.rating || (4.6 + (index % 4) * 0.1),
-              distance: g.distanceKm || fallbackMatch?.distance || (0.8 + index * 0.4),
-              cost: g.creditCost || fallbackMatch?.cost || 8,
-              slots: g.totalSlots || 20,
-              image: g.imageUrls?.[0] || fallbackMatch?.image || FALLBACK_NETWORK_GYMS[index % FALLBACK_NETWORK_GYMS.length]?.image,
-              logo: fallbackMatch?.logo || FALLBACK_NETWORK_GYMS[index % FALLBACK_NETWORK_GYMS.length]?.logo || g.imageUrls?.[0],
-              tags: Array.isArray(g.facilities) && g.facilities.length > 0 ? g.facilities : (fallbackMatch?.tags || ["Strength", "Cardio", "Lockers"]),
-              type: g.facilities?.includes("Turf") ? "turf" : g.facilities?.includes("Swimming") ? "sports" : "gym",
-              isPremium: g.category === "PREMIUM" || fallbackMatch?.isPremium || index === 2,
-              isBeginnerFriendly: true,
-              isBestValue: (g.creditCost || 8) <= 6 || fallbackMatch?.isBestValue,
-              isNearPrimary: false,
-              isVerified: true,
-              reviewCount: g.totalRatings || fallbackMatch?.reviewCount || 50 + (index * 19),
-              membershipPrice: g.monthlyPrice || fallbackMatch?.membershipPrice || 3000,
-              openStatus: "Open Now",
-              ambience: index % 2 === 1,
-              rank: index < 3 ? index + 1 : undefined,
+              address: g.address || g.city || "",
+              city: g.city || "",
+              rating: ratings > 0 ? Number(g.rating) || 0 : 0,
+              distance: typeof g.distanceKm === "number" ? g.distanceKm : 0,
+              cost: Number(g.creditCost) || 0,
+              slots: Number(g.totalSlots) || 0,
+              image: photos[0] || "",
+              logo: httpUrl(g.logoUrl) || "",
+              tags: stringList(g.facilities),
+              type: "gym",
+              isVerified: Boolean(g.isVerified),
+              reviewCount: ratings,
+              membershipPrice: typeof g.monthlyPrice === "number" ? g.monthlyPrice : undefined,
             };
           });
-          const combined = [
-            ...formattedGyms,
-            ...FALLBACK_NETWORK_GYMS.filter(fb => !formattedGyms.some(fg => fg.id === fb.id))
-          ];
-          setGyms(combined);
-        } else {
-          setGyms(FALLBACK_NETWORK_GYMS);
+          setGyms(formattedGyms);
         }
       } catch {
-        setGyms(FALLBACK_NETWORK_GYMS);
+        if (isMounted) setGyms([]);
       } finally {
         if (isMounted) setIsLoading(false);
       }
@@ -297,16 +286,7 @@ export default function PartnerGymsScreen() {
       return gCity === cityTarget || gAddr.includes(cityTarget);
     });
 
-    if (cityMatches.length > 0) {
-      result = cityMatches;
-    } else {
-      const fallbackMatches = FALLBACK_NETWORK_GYMS.filter(
-        (g) => (g.city || "").toLowerCase() === cityTarget
-      );
-      if (fallbackMatches.length > 0) {
-        result = fallbackMatches;
-      }
-    }
+    result = cityMatches;
 
     // Search query
     const q = searchQuery.toLowerCase().trim();
@@ -581,33 +561,47 @@ export default function PartnerGymsScreen() {
                   >
                     {/* Big Gym Photo */}
                     <View style={styles.gymImageWrap}>
-                      <Image 
-                        source={{ uri: gym.image }} 
-                        style={styles.gymImage}
-                        resizeMode="cover"
-                      />
-                      {/* Highlighted Membership Price Badge */}
-                      <View style={styles.priceFloatingBadge}>
-                        <Text style={styles.priceFloatingText}>
-                          ₹{(gym.membershipPrice || 3000).toLocaleString('en-IN')}
-                          <Text style={styles.priceFloatingMonth}>/mo</Text>
-                        </Text>
-                      </View>
+                      {gym.image ? (
+                        <Image 
+                          source={{ uri: gym.image }} 
+                          style={styles.gymImage}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View style={[styles.gymImage, styles.photoEmpty]}>
+                          <Ionicons name="images-outline" size={32} color="#1F7A3E" />
+                        </View>
+                      )}
+                      {typeof gym.membershipPrice === "number" && gym.membershipPrice > 0 && (
+                        <View style={styles.priceFloatingBadge}>
+                          <Text style={styles.priceFloatingText}>
+                            ₹{gym.membershipPrice.toLocaleString('en-IN')}
+                            <Text style={styles.priceFloatingMonth}>/mo</Text>
+                          </Text>
+                        </View>
+                      )}
                     </View>
 
                     {/* Bottom Strip: Circular Logo + Checkmark + Info */}
                     <View style={styles.gymBottomInfo}>
                       {/* Logo with Blue Verified Checkmark */}
                       <View style={styles.logoWrap}>
-                        <Image 
-                          source={{ uri: gym.logo || gym.image }} 
-                          style={styles.logoImg}
-                          resizeMode="cover"
-                        />
-                        {/* Blue Verified Checkmark Badge */}
-                        <View style={styles.blueCheckBadge}>
-                          <Ionicons name="checkmark-circle" size={14} color="#2563EB" />
-                        </View>
+                        {gym.logo || gym.image ? (
+                          <Image 
+                            source={{ uri: gym.logo || gym.image }} 
+                            style={styles.logoImg}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <View style={[styles.logoImg, styles.photoEmpty]}>
+                            <Text style={styles.logoLetter}>{gym.name.slice(0, 1).toUpperCase()}</Text>
+                          </View>
+                        )}
+                        {gym.isVerified && (
+                          <View style={styles.blueCheckBadge}>
+                            <Ionicons name="checkmark-circle" size={14} color="#2563EB" />
+                          </View>
+                        )}
                       </View>
 
                       {/* Name & Details */}
@@ -616,24 +610,28 @@ export default function PartnerGymsScreen() {
                           {gym.name}
                         </Text>
                         <Text style={styles.gymLocationText} numberOfLines={1}>
-                          {gym.address} • {gym.distance ? `${gym.distance.toFixed(2)} km` : "1.42 km"}
+                          {gym.address}{gym.distance > 0 ? ` • ${gym.distance.toFixed(2)} km` : ""}
                         </Text>
-                        <View style={styles.ratingRow}>
-                          <Ionicons name="star" size={12} color="#F59E0B" />
-                          <Text style={styles.ratingScoreText}>
-                            {gym.rating?.toFixed(1) || "4.8"}
-                          </Text>
-                          <Text style={styles.reviewCountText}>
-                            ({gym.reviewCount || 50})
-                          </Text>
-                        </View>
+                        {(gym.reviewCount || 0) > 0 && (
+                          <View style={styles.ratingRow}>
+                            <Ionicons name="star" size={12} color="#F59E0B" />
+                            <Text style={styles.ratingScoreText}>
+                              {gym.rating.toFixed(1)}
+                            </Text>
+                            <Text style={styles.reviewCountText}>
+                              ({gym.reviewCount})
+                            </Text>
+                          </View>
+                        )}
                       </View>
 
                       {/* Quick Action / Credits Pill & Price */}
                       <View style={styles.actionColumn}>
-                        <Text style={styles.membershipPriceHighlight}>
-                          ₹{(gym.membershipPrice || 3000).toLocaleString('en-IN')}<Text style={{ fontSize: 10, fontWeight: '600', color: '#64748B' }}>/mo</Text>
-                        </Text>
+                        {typeof gym.membershipPrice === "number" && gym.membershipPrice > 0 && (
+                          <Text style={styles.membershipPriceHighlight}>
+                            ₹{gym.membershipPrice.toLocaleString('en-IN')}<Text style={{ fontSize: 10, fontWeight: '600', color: '#64748B' }}>/mo</Text>
+                          </Text>
+                        )}
                         {isUdaipur ? (
                           <Pressable 
                             onPress={() => Alert.alert(
@@ -657,7 +655,7 @@ export default function PartnerGymsScreen() {
                             hitSlop={6}
                           >
                             <Ionicons name="flash" size={11} color="#166534" />
-                            <Text style={styles.bookPillText}>{gym.cost || 8} Credits</Text>
+                            <Text style={styles.bookPillText}>{gym.cost > 0 ? `${gym.cost} Credits` : "Book"}</Text>
                           </Pressable>
                         )}
                       </View>
@@ -955,6 +953,16 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     backgroundColor: "#F1F5F9",
+  },
+  photoEmpty: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#E7F3EA",
+  },
+  logoLetter: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#1F7A3E",
   },
   blueCheckBadge: {
     position: "absolute",

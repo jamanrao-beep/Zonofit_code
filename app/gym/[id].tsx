@@ -1,45 +1,64 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, ScrollView, Image, Pressable, Dimensions, StatusBar, StyleSheet, Platform, Alert } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, Image, Pressable, Dimensions, StatusBar, StyleSheet, Alert, Linking, ActivityIndicator } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useGuestStore } from '@/store/useGuestStore';
 import { useBookingStore } from '@/store/useBookingStore';
 import { useCreditsStore } from '@/store/useCreditsStore';
 import { useUserStore } from '@/store/useUserStore';
-import { FALLBACK_NETWORK_GYMS } from '@/constants/fallbackGyms';
 import { apiFetch } from '@/lib/api';
+import { gymPhotoUrls, httpUrl, stringList } from '@/lib/gymPhotos';
 import BookingConfirmedModal from '@/components/BookingConfirmedModal';
 import BookingModal from '@/components/BookingModal';
 
 const { width } = Dimensions.get('window');
 
-// Default Fallback Data
-const DEFAULT_GYM_DATA = {
-  id: "gym-default",
-  name: "Being Fitness",
-  rating: 4.7,
-  reviews: 128,
-  distance: "2.4 km away",
-  status: "Open",
-  closesAt: "11:00 PM",
-  isPartner: true,
-  images: [
-    "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1470&auto=format&fit=crop",
-    "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=1470&auto=format&fit=crop",
-    "https://images.unsplash.com/photo-1540497077202-7c8a3999166f?q=80&w=1470&auto=format&fit=crop"
-  ],
-  about: "Spacious gym with a strong strength-training setup, cardio equipment and functional training area.",
-  photos: [
-    "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=400&auto=format&fit=crop",
-    "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=400&auto=format&fit=crop",
-    "https://images.unsplash.com/photo-1540497077202-7c8a3999166f?q=80&w=400&auto=format&fit=crop",
-    "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=400&auto=format&fit=crop"
-  ],
-  credits: 8,
-  visitsAvailable: 1
+type PublicGym = {
+  id: string;
+  name: string;
+  description?: string | null;
+  address?: string | null;
+  city?: string | null;
+  landmark?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  creditCost?: number | null;
+  facilities?: unknown;
+  imageUrls?: unknown;
+  rating?: number | null;
+  totalRatings?: number | null;
+  isVerified?: boolean;
+  openingTime?: string | null;
+  closingTime?: string | null;
+  weekdayHours?: string | null;
+  weekendHours?: string | null;
+  monthlyPrice?: number | null;
+  logoUrl?: string | null;
+  exteriorImageUrl?: string | null;
+  interiorImageUrls?: unknown;
+  googleMapsUrl?: string | null;
+  availableSlots?: number | null;
 };
+
+function placeLine(gym: PublicGym): string {
+  const parts = [gym.address, gym.landmark, gym.city]
+    .map((part) => (typeof part === "string" ? part.trim() : ""))
+    .filter(Boolean);
+  return [...new Set(parts)].join(" · ");
+}
+
+function mapSearchUrl(gym: PublicGym): string | null {
+  const direct = httpUrl(gym.googleMapsUrl);
+  if (direct) return direct;
+  const query = [gym.name, gym.address, gym.landmark, gym.city]
+    .map((part) => (typeof part === "string" ? part.trim() : ""))
+    .filter(Boolean)
+    .join(", ");
+  if (!query) return null;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
 
 export default function GymDetailScreen() {
   const router = useRouter();
@@ -67,6 +86,9 @@ export default function GymDetailScreen() {
   const visitsRemaining = useUserStore(state => state.visitsRemaining);
   const insets = useSafeAreaInsets();
   const [activeImage, setActiveImage] = useState(0);
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const [live, setLive] = useState<PublicGym | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [showConfirmedModal, setShowConfirmedModal] = useState(false);
   const [confirmedBookingData, setConfirmedBookingData] = useState<{
@@ -77,37 +99,57 @@ export default function GymDetailScreen() {
     remainingCredits: number;
   } | null>(null);
 
-  // Find gym in fallback dataset if available by id or by name
-  const matchedGym = FALLBACK_NETWORK_GYMS.find(g => 
-    g.id === id || 
-    (params.name && g.name.toLowerCase() === params.name.toLowerCase()) ||
-    (id && g.id.toLowerCase().includes(id.toLowerCase()))
-  );
+  useEffect(() => {
+    if (!id) {
+      setLoaded(true);
+      return;
+    }
+    let cancelled = false;
+    setLoaded(false);
+    setLive(null);
+    apiFetch(`/api/gyms/${encodeURIComponent(String(id))}`, { silent: true })
+      .then((data: PublicGym) => {
+        if (!cancelled && data?.id) setLive(data);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
-  const gymName = params.name || matchedGym?.name || DEFAULT_GYM_DATA.name;
-  const gymRating = params.rating ? parseFloat(params.rating) : (matchedGym?.rating || DEFAULT_GYM_DATA.rating);
-  const gymDistance = params.distance 
-    ? (params.distance.includes("km") ? params.distance : `${params.distance} km away`) 
-    : (matchedGym ? `${matchedGym.distance} km away` : DEFAULT_GYM_DATA.distance);
-  const gymImage = params.image || matchedGym?.image || DEFAULT_GYM_DATA.images[0];
+  const photos = live ? gymPhotoUrls(live) : [];
+  const facilities = stringList(live?.facilities);
+  const about = live?.description?.trim() || "";
+  const place = live ? placeLine(live) : (typeof params.address === "string" ? params.address : "");
+  const gymName = live?.name || (typeof params.name === "string" ? params.name : "") || "Gym";
+  const visitCredits = typeof live?.creditCost === "number" ? live.creditCost : 0;
+  const reviewCount = live?.totalRatings || 0;
+  const hours = [
+    live?.weekdayHours?.trim() ? { label: "Weekdays", value: live.weekdayHours.trim() } : null,
+    live?.weekendHours?.trim() ? { label: "Weekends", value: live.weekendHours.trim() } : null,
+  ].filter((row): row is { label: string; value: string } => Boolean(row));
+  if (hours.length === 0 && live?.openingTime && live?.closingTime) {
+    hours.push({ label: "Hours", value: `${live.openingTime} – ${live.closingTime}` });
+  }
 
-  const GYM_DATA = useMemo(() => ({
-    ...DEFAULT_GYM_DATA,
-    id: id || matchedGym?.id || DEFAULT_GYM_DATA.id,
-    name: gymName,
-    rating: gymRating,
-    distance: gymDistance,
-    credits: matchedGym?.cost || DEFAULT_GYM_DATA.credits,
-    images: [gymImage, ...DEFAULT_GYM_DATA.images.slice(1)],
-    about: matchedGym?.policies ? matchedGym.policies.join(" ") : DEFAULT_GYM_DATA.about,
-  }), [id, matchedGym, gymName, gymRating, gymDistance, gymImage]);
+  useEffect(() => {
+    setActiveImage(0);
+    setAboutOpen(false);
+  }, [live?.id]);
 
-  const isPrimaryGym = Boolean(primaryGymId && (primaryGymId === id || primaryGymId === matchedGym?.id));
+  const isPrimaryGym = Boolean(primaryGymId && primaryGymId === id);
   const isMandatoryVisit = isPrimaryGym && visitsRemaining > 0;
 
   const handleOpenBooking = () => {
+    if (!live) {
+      Alert.alert("Gym unavailable", loaded ? "This gym could not be loaded." : "Gym details are still loading.");
+      return;
+    }
     if (isGuest) {
-      selectGym(GYM_DATA.id, GYM_DATA.name);
+      selectGym(live.id, live.name);
       Alert.alert(
         "Account Required",
         "Create an account and activate your membership to book gym visits.",
@@ -133,10 +175,10 @@ export default function GymDetailScreen() {
       return;
     }
 
-    if (!isMandatoryVisit && credits < GYM_DATA.credits) {
+    if (!isMandatoryVisit && credits < visitCredits) {
       Alert.alert(
         "Insufficient Credits",
-        `This booking requires ${GYM_DATA.credits} credits, but you currently have ${credits} credits. Please buy credits to continue.`,
+        `This booking requires ${visitCredits} credits, but you currently have ${credits} credits. Please buy credits to continue.`,
         [
           { text: "Cancel", style: "cancel" },
           { text: "Buy Credits", onPress: () => router.push("/credits") }
@@ -149,11 +191,12 @@ export default function GymDetailScreen() {
   };
 
   const handleConfirmBooking = async (slotTime: string, dateIso?: string) => {
-    const effectiveCost = isMandatoryVisit ? 0 : GYM_DATA.credits;
+    if (!live) return;
+    const effectiveCost = isMandatoryVisit ? 0 : visitCredits;
     const dateToUse = dateIso || new Date().toISOString();
     const success = await bookVisit(
-      GYM_DATA.id,
-      GYM_DATA.name,
+      live.id,
+      live.name,
       dateToUse,
       slotTime,
       effectiveCost
@@ -176,88 +219,104 @@ export default function GymDetailScreen() {
     }
   };
 
+  const openMap = () => {
+    if (!live) return;
+    const url = mapSearchUrl(live);
+    if (!url) return;
+    Linking.openURL(url).catch(() => {
+      Alert.alert("Map unavailable", "The map link for this gym could not be opened.");
+    });
+  };
+
+  const goBack = () => {
+    if (isFromOnboarding) {
+      useAuthStore.getState().setIsViewingOnboardingGym(false);
+    }
+    if (router.canGoBack()) {
+      router.back();
+    } else if (isFromOnboarding) {
+      router.replace("/onboarding/choose-gym" as any);
+    } else {
+      router.replace("/partner-gyms" as any);
+    }
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+      <StatusBar barStyle={photos.length > 0 ? "light-content" : "dark-content"} translucent backgroundColor="transparent" />
       <ScrollView 
         showsVerticalScrollIndicator={false} 
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}
         bounces={false}
       >
-        
-        {/* Header Images Carousel */}
-        <View style={{ width, height: 260, position: 'relative' }}>
-          <ScrollView
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            onScroll={(e) => {
-              const newIndex = Math.round(e.nativeEvent.contentOffset.x / width);
-              setActiveImage((prev) => (prev !== newIndex ? newIndex : prev));
-            }}
-            scrollEventThrottle={16}
-          >
-            {GYM_DATA.images.map((img, idx) => (
-              <Image key={idx} source={{ uri: img }} style={{ width, height: 260 }} resizeMode="cover" />
-            ))}
-          </ScrollView>
-
-          {/* Top Actions */}
-          <View style={{ position: 'absolute', top: Math.max(insets.top, 40), left: 16, right: 16, flexDirection: 'row', justifyContent: 'flex-start' }}>
-            <Pressable 
-              onPress={() => {
-                if (isFromOnboarding) {
-                  useAuthStore.getState().setIsViewingOnboardingGym(false);
-                }
-                if (router.canGoBack()) {
-                  router.back();
-                } else if (isFromOnboarding) {
-                  router.replace("/onboarding/choose-gym" as any);
-                } else {
-                  router.replace("/partner-gyms" as any);
-                }
-              }} 
-              style={styles.iconButton}
+        <View style={{ width, height: 260, position: 'relative', backgroundColor: '#E7F3EA' }}>
+          {photos.length > 0 ? (
+            <ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onScroll={(e) => {
+                const newIndex = Math.round(e.nativeEvent.contentOffset.x / width);
+                setActiveImage((prev) => (prev !== newIndex ? newIndex : prev));
+              }}
+              scrollEventThrottle={16}
             >
+              {photos.map((img) => (
+                <Image key={img} source={{ uri: img }} style={{ width, height: 260 }} resizeMode="cover" />
+              ))}
+            </ScrollView>
+          ) : (
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
+              {loaded ? (
+                <>
+                  <Ionicons name="images-outline" size={36} color="#1F7A3E" />
+                  <Text style={{ marginTop: 8, color: '#1F7A3E', fontWeight: '700', textAlign: 'center' }}>No photos yet</Text>
+                </>
+              ) : (
+                <ActivityIndicator color="#1F7A3E" />
+              )}
+            </View>
+          )}
+
+          <View style={{ position: 'absolute', top: Math.max(insets.top, 16), left: 16, right: 16 }}>
+            <Pressable onPress={goBack} style={styles.iconButton} hitSlop={8}>
               <Ionicons name="arrow-back" size={20} color="#000" />
             </Pressable>
           </View>
 
-          {/* Pagination Dots */}
-          <View style={{ position: 'absolute', bottom: 12, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 6 }}>
-            {GYM_DATA.images.map((_, idx) => (
-              <View key={idx} style={[styles.dot, activeImage === idx ? styles.activeDot : styles.inactiveDot]} />
-            ))}
-          </View>
+          {photos.length > 1 && (
+            <View style={{ position: 'absolute', bottom: 12, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 6 }}>
+              {photos.map((img, idx) => (
+                <View key={img} style={[styles.dot, activeImage === idx ? styles.activeDot : styles.inactiveDot]} />
+              ))}
+            </View>
+          )}
         </View>
 
         <View style={{ padding: 16 }}>
-          {/* Title Section */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-            <View style={{ flex: 1, marginRight: 8 }}>
-              <Text style={{ fontSize: 24, fontWeight: '800', color: '#111827', letterSpacing: -0.5 }}>{GYM_DATA.name}</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8, gap: 8 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 24, fontWeight: '800', color: '#111827', letterSpacing: -0.5 }}>{gymName}</Text>
               {!isFromOnboarding && isPrimaryGym && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                  <View style={{ backgroundColor: '#1F7A3E', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 }}>
-                    <Text style={{ fontSize: 10, fontWeight: '800', color: '#FFF' }}>PRIMARY GYM</Text>
-                  </View>
+                <View style={{ alignSelf: 'flex-start', backgroundColor: '#1F7A3E', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, marginTop: 6 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '800', color: '#FFF' }}>PRIMARY GYM</Text>
                 </View>
               )}
             </View>
-            <View style={{ alignItems: 'flex-end', gap: 6 }}>
-              {GYM_DATA.isPartner && (
+            <View style={{ alignItems: 'flex-end', gap: 6, maxWidth: 140 }}>
+              {live?.isVerified && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0FDF4', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 16 }}>
                   <Ionicons name="shield-checkmark" size={12} color="#16A34A" />
-                  <Text style={{ fontSize: 11, fontWeight: '700', color: '#16A34A', marginLeft: 4 }}>Partner Gym</Text>
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: '#16A34A', marginLeft: 4 }}>Partner gym</Text>
                 </View>
               )}
-              {!isFromOnboarding && !isPrimaryGym && (
+              {!isFromOnboarding && live && !isPrimaryGym && (
                 <Pressable
                   onPress={() => {
-                    useUserStore.getState().setPrimaryGym(GYM_DATA.id, GYM_DATA.name);
-                    Alert.alert("Primary Gym Set", `${GYM_DATA.name} has been set as your Primary Gym.`);
+                    useUserStore.getState().setPrimaryGym(live.id, live.name);
+                    Alert.alert("Primary Gym Set", `${live.name} has been set as your Primary Gym.`);
                   }}
-                  style={{ backgroundColor: '#ECFDF5', borderWidth: 1, borderColor: '#A7F3D0', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}
+                  style={{ backgroundColor: '#ECFDF5', borderWidth: 1, borderColor: '#A7F3D0', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 }}
                 >
                   <Text style={{ fontSize: 11, fontWeight: '700', color: '#1F7A3E' }}>Set as Primary</Text>
                 </Pressable>
@@ -265,172 +324,131 @@ export default function GymDetailScreen() {
             </View>
           </View>
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-            <Ionicons name="star" size={14} color="#16A34A" />
-            <Text style={{ fontSize: 13, fontWeight: '700', color: '#374151', marginLeft: 4 }}>{GYM_DATA.rating}</Text>
-            <Text style={{ fontSize: 13, color: '#6B7280' }}>  ·  {GYM_DATA.reviews} reviews</Text>
-          </View>
-
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-            <Ionicons name="location-outline" size={14} color="#6B7280" />
-            <Text style={{ fontSize: 13, color: '#6B7280', marginLeft: 4 }}>{GYM_DATA.distance}</Text>
-          </View>
-
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24 }}>
-            <Ionicons name="diamond" size={12} color="#16A34A" />
-            <Text style={{ fontSize: 13, fontWeight: '600', color: '#16A34A', marginLeft: 4 }}>{GYM_DATA.status}</Text>
-            <Text style={{ fontSize: 13, color: '#6B7280' }}>  ·  Closes {GYM_DATA.closesAt}</Text>
-          </View>
-
-          {/* Quick Info Grid */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 3, marginBottom: 24, borderWidth: 1, borderColor: '#F3F4F6' }}>
-            <View style={{ alignItems: 'center', flex: 1 }}>
-              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#F0FDF4', justifyContent: 'center', alignItems: 'center', marginBottom: 8 }}>
-                <Ionicons name="barbell" size={20} color="#16A34A" />
-              </View>
-              <Text style={{ fontSize: 12, fontWeight: '700', color: '#111827', marginBottom: 4 }}>Equipment</Text>
-              <Text style={{ fontSize: 10, color: '#6B7280', textAlign: 'center', lineHeight: 14 }}>Strength · Cardio{'\n'}Functional</Text>
+          {reviewCount > 0 && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+              <Ionicons name="star" size={14} color="#16A34A" />
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#374151', marginLeft: 4 }}>{Number(live?.rating || 0).toFixed(1)}</Text>
+              <Text style={{ fontSize: 13, color: '#6B7280' }}>  ·  {reviewCount} reviews</Text>
             </View>
-            <View style={{ width: 1, backgroundColor: '#F3F4F6', marginHorizontal: 4 }} />
-            <View style={{ alignItems: 'center', flex: 1 }}>
-              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#F0FDF4', justifyContent: 'center', alignItems: 'center', marginBottom: 8 }}>
-                <Ionicons name="water" size={20} color="#111827" />
-              </View>
-              <Text style={{ fontSize: 12, fontWeight: '700', color: '#111827', marginBottom: 4 }}>Facilities</Text>
-              <Text style={{ fontSize: 10, color: '#6B7280', textAlign: 'center', lineHeight: 14 }}>Shower · Changing{'\n'}Parking</Text>
-            </View>
-            <View style={{ width: 1, backgroundColor: '#F3F4F6', marginHorizontal: 4 }} />
-            <View style={{ alignItems: 'center', flex: 1 }}>
-              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#F9FAFB', justifyContent: 'center', alignItems: 'center', marginBottom: 8 }}>
-                <Ionicons name="people-outline" size={20} color="#111827" />
-              </View>
-              <Text style={{ fontSize: 12, fontWeight: '700', color: '#111827', marginBottom: 4 }}>Crowd</Text>
-              <Text style={{ fontSize: 10, color: '#6B7280', textAlign: 'center', lineHeight: 14 }}>Moderate</Text>
-              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#FBBF24', marginTop: 4 }} />
-            </View>
-            <View style={{ width: 1, backgroundColor: '#F3F4F6', marginHorizontal: 4 }} />
-            <View style={{ alignItems: 'center', flex: 1 }}>
-              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#F9FAFB', justifyContent: 'center', alignItems: 'center', marginBottom: 8 }}>
-                <Ionicons name="time-outline" size={20} color="#111827" />
-              </View>
-              <Text style={{ fontSize: 12, fontWeight: '700', color: '#111827', marginBottom: 4 }}>Timings</Text>
-              <Text style={{ fontSize: 10, color: '#6B7280', textAlign: 'center', lineHeight: 14 }}>5:30 AM –{'\n'}11:00 PM</Text>
-            </View>
-          </View>
+          )}
 
-          {/* About the Gym */}
-          <View style={{ marginBottom: 24 }}>
-            <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 8 }}>About the Gym</Text>
-            <Text style={{ fontSize: 13, color: '#374151', lineHeight: 20, marginBottom: 8 }}>{GYM_DATA.about}</Text>
-            <Pressable>
-              <Text style={{ fontSize: 13, fontWeight: '600', color: '#16A34A' }}>Read more {'>'}</Text>
-            </Pressable>
-          </View>
+          {!!place && (
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16 }}>
+              <Ionicons name="location-outline" size={16} color="#6B7280" style={{ marginTop: 1 }} />
+              <Text style={{ flex: 1, fontSize: 13, color: '#4B5563', marginLeft: 6, lineHeight: 18 }}>{place}</Text>
+            </View>
+          )}
 
-          {/* Gym Photos */}
-          <View style={{ marginBottom: 24 }}>
-            <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 12 }}>Gym Photos</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
-              {GYM_DATA.photos.map((photo, idx) => (
-                <Image key={idx} source={{ uri: photo }} style={{ width: 120, height: 80, borderRadius: 12, backgroundColor: '#F3F4F6' }} />
+          {loaded && !live && (
+            <View style={{ backgroundColor: '#F9FAFB', borderRadius: 14, padding: 14, marginBottom: 16 }}>
+              <Text style={{ color: '#374151', fontWeight: '600' }}>This gym profile is not available right now.</Text>
+            </View>
+          )}
+
+          {hours.length > 0 && (
+            <View style={{ backgroundColor: '#F9FAFB', borderRadius: 16, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: '#F3F4F6' }}>
+              {hours.map((row) => (
+                <View key={row.label} style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 }}>
+                  <Ionicons name="time-outline" size={16} color="#1F7A3E" style={{ marginTop: 1 }} />
+                  <Text style={{ width: 84, marginLeft: 8, fontSize: 13, fontWeight: '700', color: '#111827' }}>{row.label}</Text>
+                  <Text style={{ flex: 1, fontSize: 13, color: '#374151', lineHeight: 18 }}>{row.value}</Text>
+                </View>
               ))}
-            </ScrollView>
-          </View>
-
-          {/* Gym Rules */}
-          <View style={{ marginBottom: 24 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-              <Ionicons name="shield-checkmark" size={18} color="#16A34A" />
-              <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827', marginLeft: 8 }}>Gym Rules</Text>
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 16, paddingRight: 16, paddingBottom: 16 }}>
-              <View style={styles.ruleItem}>
-                <View style={styles.ruleIconWrapper}>
-                  <Ionicons name="id-card-outline" size={22} color="#4B5563" />
-                </View>
-                <Text style={styles.ruleText}>Carry your{'\n'}ZonoFit booking</Text>
-              </View>
-              <View style={styles.ruleItem}>
-                <View style={styles.ruleIconWrapper}>
-                  <Ionicons name="shirt-outline" size={22} color="#4B5563" />
-                </View>
-                <Text style={styles.ruleText}>Follow gym{'\n'}dress code</Text>
-              </View>
-              <View style={styles.ruleItem}>
-                <View style={styles.ruleIconWrapper}>
-                  <Ionicons name="layers-outline" size={22} color="#4B5563" />
-                </View>
-                <Text style={styles.ruleText}>Carry towel{'\n'}if required</Text>
-              </View>
-              <View style={styles.ruleItem}>
-                <View style={styles.ruleIconWrapper}>
-                  <Ionicons name="shield-checkmark-outline" size={22} color="#4B5563" />
-                </View>
-                <Text style={styles.ruleText}>Use equipment{'\n'}safely</Text>
-              </View>
-              <View style={styles.ruleItem}>
-                <View style={styles.ruleIconWrapper}>
-                  <Ionicons name="people-outline" size={22} color="#4B5563" />
-                </View>
-                <Text style={styles.ruleText}>Respect gym{'\n'}staff & members</Text>
-              </View>
-            </ScrollView>
-            <Pressable onPress={handleOpenBooking} style={{ alignItems: 'center', marginTop: 8 }}>
-              <Text style={{ fontSize: 13, fontWeight: '600', color: '#16A34A' }}>View all rules & booking details {'>'}</Text>
-            </Pressable>
-          </View>
+          )}
 
-          <View style={{ height: 1, backgroundColor: '#F3F4F6', marginBottom: 24 }} />
-
-          {/* Location */}
-          <View style={{ marginBottom: 24 }}>
-            <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 12 }}>Location</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F9FAFB', borderRadius: 12, padding: 12, justifyContent: 'space-between' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Ionicons name="location-outline" size={20} color="#4B5563" />
-                <Text style={{ fontSize: 13, color: '#4B5563', marginLeft: 8 }}>{GYM_DATA.distance}</Text>
-              </View>
-              <View style={{ width: 140, height: 48, borderRadius: 8, overflow: 'hidden', position: 'relative' }}>
-                <Image source={{ uri: "https://maps.googleapis.com/maps/api/staticmap?center=40.714728,-73.998672&zoom=13&size=400x150&maptype=roadmap" }} style={{ width: '100%', height: '100%' }} />
-                <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.6)', justifyContent: 'center', alignItems: 'center' }}>
-                  <View style={{ backgroundColor: 'white', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, flexDirection: 'row', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 }}>
-                    <Ionicons name="location" size={12} color="#16A34A" />
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#16A34A', marginLeft: 4 }}>View on Map</Text>
+          {facilities.length > 0 && (
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 10 }}>Facilities</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {facilities.map((item) => (
+                  <View key={item} style={{ backgroundColor: '#F0FDF4', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#166534' }}>{item}</Text>
                   </View>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {about.length > 0 && (
+            <View style={{ marginBottom: 24 }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 8 }}>About the gym</Text>
+              <Text style={{ fontSize: 14, color: '#374151', lineHeight: 21 }} numberOfLines={aboutOpen ? 20 : 4}>
+                {about}
+              </Text>
+              {about.length > 180 && (
+                <Pressable onPress={() => setAboutOpen((open) => !open)} hitSlop={8} style={{ marginTop: 8 }}>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#16A34A' }}>{aboutOpen ? "Show less" : "Read more"}</Text>
+                </Pressable>
+              )}
+            </View>
+          )}
+
+          {photos.length > 1 && (
+            <View style={{ marginBottom: 24 }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 12 }}>Photos</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+                {photos.map((photo) => (
+                  <Image key={photo} source={{ uri: photo }} style={{ width: 132, height: 88, borderRadius: 14, backgroundColor: '#E7F3EA' }} />
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          <View style={{ marginBottom: 24 }}>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 12 }}>Before you visit</Text>
+            <Text style={{ fontSize: 13, color: '#4B5563', lineHeight: 20 }}>
+              Carry your ZonoFit booking, follow the gym dress code, and use the equipment safely. These are ZonoFit visit rules for every partner gym.
+            </Text>
+          </View>
+
+          {live && (
+            <Pressable onPress={openMap} style={{ marginBottom: 24, backgroundColor: '#F9FAFB', borderRadius: 16, padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 4 }}>Location</Text>
+                <Text style={{ fontSize: 13, color: '#4B5563', lineHeight: 18 }}>{place || gymName}</Text>
+              </View>
+              <View style={{ backgroundColor: '#FFFFFF', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB' }}>
+                <Ionicons name="map-outline" size={14} color="#1F7A3E" />
+                <Text style={{ fontSize: 12, fontWeight: '700', color: '#1F7A3E', marginLeft: 4 }}>Map</Text>
+              </View>
+            </Pressable>
+          )}
+
+          {live && (
+            <View style={{ marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                  <Ionicons name="calendar-outline" size={20} color="#111827" />
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827', marginLeft: 8 }}>Your visit</Text>
                 </View>
+                <Text style={{ fontSize: 13, fontWeight: '600', color: '#16A34A', marginLeft: 28 }}>
+                  {typeof live.availableSlots === "number" ? `${live.availableSlots} open today` : "Check times when you book"}
+                </Text>
+              </View>
+              <View style={{ backgroundColor: '#F0FDF4', paddingHorizontal: 18, paddingVertical: 12, borderRadius: 14, alignItems: 'center', minWidth: 108 }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827' }}>{visitCredits} credits</Text>
+                {typeof live.monthlyPrice === "number" && live.monthlyPrice > 0 && (
+                  <Text style={{ fontSize: 12, color: '#4B5563', marginTop: 4 }}>₹{live.monthlyPrice.toLocaleString("en-IN")}/mo</Text>
+                )}
               </View>
             </View>
-          </View>
-
-          <View style={{ height: 1, backgroundColor: '#F3F4F6', marginBottom: 24 }} />
-
-          {/* Your Visit */}
-          <View style={{ marginBottom: 40, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                <Ionicons name="calendar-outline" size={20} color="#111827" />
-                <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827', marginLeft: 8 }}>Your Visit</Text>
-              </View>
-              <Text style={{ fontSize: 13, fontWeight: '600', color: '#16A34A', marginLeft: 28 }}>Available to book</Text>
-            </View>
-            <View style={{ backgroundColor: '#F0FDF4', paddingHorizontal: 32, paddingVertical: 14, borderRadius: 12, alignItems: 'center' }}>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827' }}>{GYM_DATA.visitsAvailable} Visit</Text>
-              <Text style={{ fontSize: 13, color: '#4B5563', marginTop: 4 }}>{GYM_DATA.credits} Credits</Text>
-            </View>
-          </View>
-
+          )}
         </View>
       </ScrollView>
 
-      {/* Bottom Fixed Action Bar */}
       {isGuest ? (
         <Pressable 
-          style={{ position: 'absolute', bottom: Math.max(insets.bottom, 16), left: 16, right: 16, backgroundColor: '#1F7A3E', borderRadius: 14, flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 16, justifyContent: 'center', shadowColor: '#1F7A3E', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 4 }}
+          style={[styles.bottomBar, { bottom: Math.max(insets.bottom, 16) }]}
           onPress={() => {
-            selectGym((id as string) || "gym_1", GYM_DATA.name);
+            if (!live) {
+              Alert.alert("Gym unavailable", "This gym could not be loaded.");
+              return;
+            }
+            selectGym(live.id, live.name);
             Alert.alert(
               "Activate Membership",
-              `Create an account to continue with activating your membership at ${GYM_DATA.name}.`,
+              `Create an account to continue with activating your membership at ${live.name}.`,
               [
                 { text: "Cancel", style: "cancel" },
                 { 
@@ -444,83 +462,73 @@ export default function GymDetailScreen() {
             );
           }}
         >
-          <Text style={{ color: 'white', fontSize: 16, fontWeight: '700', marginRight: 8 }}>Activate Membership</Text>
+          <Text style={styles.bottomLabel}>Activate Membership</Text>
           <Ionicons name="arrow-forward" size={18} color="white" />
         </Pressable>
       ) : isFromOnboarding ? (
         <Pressable 
-          style={{ position: 'absolute', bottom: Math.max(insets.bottom, 16), left: 16, right: 16, backgroundColor: '#1F7A3E', borderRadius: 12, flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 16, justifyContent: 'center', shadowColor: '#1F7A3E', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 }}
+          style={[styles.bottomBar, { bottom: Math.max(insets.bottom, 16) }]}
           onPress={() => {
-            selectGym(GYM_DATA.id, GYM_DATA.name);
+            if (!live) {
+              Alert.alert("Gym unavailable", loaded ? "This gym could not be loaded." : "Gym details are still loading.");
+              return;
+            }
+            selectGym(live.id, live.name);
             useAuthStore.getState().setIsViewingOnboardingGym(false);
             router.push({
               pathname: '/onboarding/eligibility',
               params: {
-                gymId: GYM_DATA.id,
-                gymName: GYM_DATA.name,
-                city: (GYM_DATA as any).city || 'Udaipur',
-                address: params.address || (GYM_DATA as any).address || 'Sukher, Udaipur • 1.2 km',
-                price: params.price || String(matchedGym?.membershipPrice || 3000),
+                gymId: live.id,
+                gymName: live.name,
+                city: live.city || 'Udaipur',
+                address: place || live.city || '',
+                price: String(live.monthlyPrice || params.price || ''),
               },
             } as any);
           }}
         >
-          <Text style={{ color: 'white', fontSize: 16, fontWeight: '700', marginRight: 8 }}>Next</Text>
+          <Text style={styles.bottomLabel}>Next</Text>
           <Ionicons name="arrow-forward" size={18} color="white" />
         </Pressable>
       ) : (
         <Pressable 
           onPress={handleOpenBooking}
-          style={({ pressed }) => [{
-            position: 'absolute', 
-            bottom: Math.max(insets.bottom, 16), 
-            left: 16, 
-            right: 16, 
-            backgroundColor: isMandatoryVisit ? '#1F7A3E' : '#4C9A2A', 
-            borderRadius: 12, 
-            flexDirection: 'row', 
-            alignItems: 'center', 
-            paddingVertical: 14, 
-            paddingHorizontal: 16, 
-            shadowColor: isMandatoryVisit ? '#1F7A3E' : '#4C9A2A', 
-            shadowOffset: { width: 0, height: 4 }, 
-            shadowOpacity: 0.2, 
-            shadowRadius: 8, 
-            elevation: 4,
-            opacity: pressed ? 0.9 : 1
+          style={({ pressed }) => [styles.bookBar, {
+            bottom: Math.max(insets.bottom, 16),
+            backgroundColor: isMandatoryVisit ? '#1F7A3E' : '#4C9A2A',
+            opacity: pressed ? 0.9 : 1,
           }]}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
             <Ionicons name={isMandatoryVisit ? "shield-checkmark" : "ticket-outline"} size={24} color="white" />
-            <View style={{ marginLeft: 12 }}>
+            <View style={{ marginLeft: 12, flex: 1 }}>
               <Text style={{ color: 'white', fontSize: 13, fontWeight: '700' }}>
                 {isMandatoryVisit ? `${visitsRemaining} Mandatory Visits Left` : 'Credit Visit'}
               </Text>
               <Text style={{ color: 'white', fontSize: 12, opacity: 0.9 }}>
-                {isMandatoryVisit ? 'Included (0 Credits)' : `${GYM_DATA.credits} Credits`}
+                {isMandatoryVisit ? 'Included (0 Credits)' : `${visitCredits} Credits`}
               </Text>
             </View>
           </View>
-          <View style={{ width: 1, height: 32, backgroundColor: 'rgba(255,255,255,0.3)', marginHorizontal: 16 }} />
+          <View style={{ width: 1, height: 32, backgroundColor: 'rgba(255,255,255,0.3)', marginHorizontal: 12 }} />
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={{ color: 'white', fontSize: 14, fontWeight: '700', marginRight: 8, letterSpacing: 0.5 }}>BOOK VISIT</Text>
+            <Text style={{ color: 'white', fontSize: 14, fontWeight: '700', marginRight: 6 }}>BOOK VISIT</Text>
             <Ionicons name="arrow-forward" size={16} color="white" />
           </View>
         </Pressable>
       )}
 
-      {/* Booking Dialog Modal with Rules & Mandatory vs Credit Logic */}
       <BookingModal
         visible={showBookingModal}
         onClose={() => setShowBookingModal(false)}
         onConfirm={handleConfirmBooking}
-        gym={{
-          id: GYM_DATA.id,
-          name: GYM_DATA.name,
-          address: GYM_DATA.distance,
-          image: GYM_DATA.images[0],
-          cost: GYM_DATA.credits,
-        }}
+        gym={live ? {
+          id: live.id,
+          name: live.name,
+          address: place,
+          image: photos[0],
+          cost: visitCredits,
+        } : null}
         isPrimaryGym={isPrimaryGym}
         visitsRemaining={visitsRemaining}
         mandatoryVisitsTotal={membershipInfo?.mandatoryVisits || 10}
@@ -528,13 +536,12 @@ export default function GymDetailScreen() {
         cashBalance={cashBalance}
       />
 
-      {/* Booking Confirmed Modal */}
-      {confirmedBookingData && (
+      {confirmedBookingData && live && (
         <BookingConfirmedModal
           visible={showConfirmedModal}
-          gymName={GYM_DATA.name}
-          gymAddress={GYM_DATA.distance}
-          gymImage={GYM_DATA.images[0]}
+          gymName={live.name}
+          gymAddress={place}
+          gymImage={photos[0]}
           timeSlot={confirmedBookingData.timeSlot}
           isMandatoryVisit={confirmedBookingData.isMandatoryVisit}
           mandatoryVisitsLeft={confirmedBookingData.mandatoryVisitsLeft}
@@ -578,30 +585,38 @@ const styles = StyleSheet.create({
   },
   activeDot: {
     width: 24,
-    backgroundColor: '#84CC16', // A brighter green like the image
+    backgroundColor: '#84CC16',
   },
   inactiveDot: {
     width: 8,
     backgroundColor: 'rgba(255,255,255,0.6)',
   },
-  ruleItem: {
+  bottomBar: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    backgroundColor: '#1F7A3E',
+    borderRadius: 14,
+    flexDirection: 'row',
     alignItems: 'center',
-    width: 80,
-  },
-  ruleIconWrapper: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
     justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    gap: 8,
   },
-  ruleText: {
-    fontSize: 10,
-    color: '#111827',
-    textAlign: 'center',
-    lineHeight: 14,
-  }
+  bottomLabel: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  bookBar: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
 });

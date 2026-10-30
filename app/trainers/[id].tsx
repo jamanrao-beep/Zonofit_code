@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { apiFetch } from "@/lib/api";
+import { gymPhotoUrls } from "@/lib/gymPhotos";
 import { useAuthStore } from "@/store/useAuthStore";
 
 export default function TrainerDetailScreen() {
@@ -140,10 +141,16 @@ export default function TrainerDetailScreen() {
                 onPress={() => router.push(`/gym/${g.gym.id}` as any)}
                 className="bg-white p-4 rounded-[24px] border border-black/5 shadow-sm flex-row items-center mb-3 active:opacity-90"
               >
-                <Image
-                  source={{ uri: g.gym.imageUrls?.[0] || "https://images.unsplash.com/photo-1534438327276-14e5300c3a48" }}
-                  className="w-16 h-16 rounded-2xl mr-4"
-                />
+                {gymPhotoUrls(g.gym)[0] ? (
+                  <Image
+                    source={{ uri: gymPhotoUrls(g.gym)[0] }}
+                    className="w-16 h-16 rounded-2xl mr-4"
+                  />
+                ) : (
+                  <View className="w-16 h-16 rounded-2xl mr-4 bg-[#E7F3EA] items-center justify-center">
+                    <Ionicons name="images-outline" size={22} color="#1F7A3E" />
+                  </View>
+                )}
                 <View className="flex-1">
                   <Text className="text-base font-bold text-[#1F2520]">{g.gym.name}</Text>
                   <Text className="text-xs text-[#6B756E] mt-1" numberOfLines={1}>📍 {g.gym.address}</Text>

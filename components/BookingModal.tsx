@@ -334,12 +334,12 @@ export default function BookingModal({
               <View style={styles.sectionWrap}>
                 <Text style={styles.sectionHeader}>Select Time</Text>
                 <View style={styles.timeGrid}>
-                  {TIME_SLOTS.map((slot) => {
+                  {slotSource.map((slot, index) => {
                     const isPassed = isTimeSlotPassed(slot, selectedDateId);
                     const isSelected = selectedTime === slot;
                     return (
                       <Pressable
-                        key={slot}
+                        key={`${slot}-${index}`}
                         disabled={isPassed}
                         onPress={() => {
                           if (!isPassed) setSelectedTime(slot);

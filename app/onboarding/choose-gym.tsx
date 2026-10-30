@@ -1,20 +1,66 @@
-import React, { useState, useMemo } from "react";
-import { View, Text, StyleSheet, Pressable, TextInput, ScrollView, Image, StatusBar } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { View, Text, StyleSheet, Pressable, TextInput, ScrollView, Image, StatusBar, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useGuestStore } from "@/store/useGuestStore";
-import { FALLBACK_NETWORK_GYMS, NetworkGym } from "@/constants/fallbackGyms";
+import { apiFetch } from "@/lib/api";
+import { gymPhotoUrls, httpUrl, stringList } from "@/lib/gymPhotos";
+
+type PreviewGym = {
+  id: string;
+  name: string;
+  address: string;
+  city: string;
+  image: string;
+  logo: string;
+  rating: number;
+  reviewCount: number;
+  membershipPrice?: number;
+  facilities: string[];
+  isVerified: boolean;
+};
 
 export default function ChooseGymScreen() {
   const router = useRouter();
   const [search, setSearch] = useState("");
+  const [gymsList, setGymsList] = useState<PreviewGym[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Load real network gyms (Udaipur partner gyms prioritized for home city)
-  const gymsList = useMemo(() => {
-    const udaipurGyms = FALLBACK_NETWORK_GYMS.filter(g => g.city === "Udaipur" || !g.city);
-    return udaipurGyms.length > 0 ? udaipurGyms : FALLBACK_NETWORK_GYMS;
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch("/api/gyms", { silent: true })
+      .then((data: { gyms?: any[] }) => {
+        if (cancelled) return;
+        const rows = Array.isArray(data?.gyms) ? data.gyms : [];
+        setGymsList(rows.map((gym) => {
+          const photos = gymPhotoUrls(gym);
+          const reviews = Number(gym.totalRatings) || 0;
+          return {
+            id: gym.id,
+            name: gym.name || "Gym",
+            address: gym.address || gym.city || "",
+            city: gym.city || "",
+            image: photos[0] || "",
+            logo: httpUrl(gym.logoUrl) || "",
+            rating: reviews > 0 ? Number(gym.rating) || 0 : 0,
+            reviewCount: reviews,
+            membershipPrice: typeof gym.monthlyPrice === "number" ? gym.monthlyPrice : undefined,
+            facilities: stringList(gym.facilities),
+            isVerified: Boolean(gym.isVerified),
+          };
+        }));
+      })
+      .catch(() => {
+        if (!cancelled) setGymsList([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const filteredGyms = useMemo(() => {
@@ -23,24 +69,21 @@ export default function ChooseGymScreen() {
     return gymsList.filter(gym => 
       gym.name.toLowerCase().includes(q) ||
       gym.address.toLowerCase().includes(q) ||
-      (gym.city && gym.city.toLowerCase().includes(q)) ||
-      (gym.tags && gym.tags.some(t => t.toLowerCase().includes(q)))
+      gym.city.toLowerCase().includes(q) ||
+      gym.facilities.some(item => item.toLowerCase().includes(q))
     );
   }, [gymsList, search]);
 
-  const handleSelectGym = (gym: NetworkGym) => {
+  const handleSelectGym = (gym: PreviewGym) => {
     useGuestStore.getState().selectGym(gym.id, gym.name);
-    // Navigate to gym details page in onboarding mode
     useAuthStore.getState().setIsViewingOnboardingGym(true);
     router.push({
       pathname: `/gym/${gym.id}`,
       params: {
         name: gym.name,
-        rating: String(gym.rating),
-        distance: String(gym.distance),
-        image: gym.image,
         address: gym.address,
-        price: String(gym.membershipPrice || 3000),
+        image: gym.image,
+        price: gym.membershipPrice ? String(gym.membershipPrice) : "",
       }
     } as any);
   };
@@ -94,6 +137,11 @@ export default function ChooseGymScreen() {
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.listContainer}>
+          {loading && (
+            <View style={styles.emptyContainer}>
+              <ActivityIndicator color="#1F7A3E" />
+            </View>
+          )}
           {filteredGyms.map((gym) => (
             <Pressable 
               key={gym.id} 
@@ -105,26 +153,23 @@ export default function ChooseGymScreen() {
             >
               {/* Big Gym Photo */}
               <View style={styles.gymImageWrap}>
-                <Image 
-                  source={{ uri: gym.image }} 
-                  style={styles.gymImage} 
-                  resizeMode="cover" 
-                />
-                {/* Floating Highlighted Membership Price Badge */}
-                <View style={styles.priceFloatingBadge}>
-                  <Text style={styles.priceFloatingText}>
-                    ₹{(gym.membershipPrice || 3000).toLocaleString('en-IN')}
-                    <Text style={styles.priceFloatingMonth}>/mo</Text>
-                  </Text>
-                </View>
-                {gym.isBestValue && (
-                  <View style={styles.topBadge}>
-                    <Text style={styles.topBadgeText}>Best Value</Text>
+                {gym.image ? (
+                  <Image 
+                    source={{ uri: gym.image }} 
+                    style={styles.gymImage} 
+                    resizeMode="cover" 
+                  />
+                ) : (
+                  <View style={[styles.gymImage, styles.photoEmpty]}>
+                    <Ionicons name="images-outline" size={32} color="#1F7A3E" />
                   </View>
                 )}
-                {gym.isPremium && (
-                  <View style={[styles.topBadge, { backgroundColor: '#FEF3C7' }]}>
-                    <Text style={[styles.topBadgeText, { color: '#B45309' }]}>Premium</Text>
+                {typeof gym.membershipPrice === "number" && gym.membershipPrice > 0 && (
+                  <View style={styles.priceFloatingBadge}>
+                    <Text style={styles.priceFloatingText}>
+                      ₹{gym.membershipPrice.toLocaleString('en-IN')}
+                      <Text style={styles.priceFloatingMonth}>/mo</Text>
+                    </Text>
                   </View>
                 )}
               </View>
@@ -133,14 +178,22 @@ export default function ChooseGymScreen() {
               <View style={styles.gymBottomInfo}>
                 {/* Logo with Blue Verified Checkmark */}
                 <View style={styles.logoWrap}>
-                  <Image 
-                    source={{ uri: gym.logo || gym.image }} 
-                    style={styles.logoImg} 
-                    resizeMode="cover" 
-                  />
-                  <View style={styles.blueCheckBadge}>
-                    <Ionicons name="checkmark-circle" size={14} color="#2563EB" />
-                  </View>
+                  {gym.logo || gym.image ? (
+                    <Image 
+                      source={{ uri: gym.logo || gym.image }} 
+                      style={styles.logoImg} 
+                      resizeMode="cover" 
+                    />
+                  ) : (
+                    <View style={[styles.logoImg, styles.photoEmpty]}>
+                      <Text style={styles.logoLetter}>{gym.name.slice(0, 1).toUpperCase()}</Text>
+                    </View>
+                  )}
+                  {gym.isVerified && (
+                    <View style={styles.blueCheckBadge}>
+                      <Ionicons name="checkmark-circle" size={14} color="#2563EB" />
+                    </View>
+                  )}
                 </View>
 
                 {/* Name & Details */}
@@ -149,17 +202,19 @@ export default function ChooseGymScreen() {
                     {gym.name}
                   </Text>
                   <Text style={styles.gymLocationText} numberOfLines={1}>
-                    {gym.address} • {typeof gym.distance === 'number' ? `${gym.distance.toFixed(2)} km` : gym.distance}
+                    {[gym.address, gym.city].filter(Boolean).join(" · ")}
                   </Text>
-                  <View style={styles.ratingRow}>
-                    <Ionicons name="star" size={12} color="#F59E0B" />
-                    <Text style={styles.ratingScoreText}>
-                      {gym.rating?.toFixed(1) || "4.8"}
-                    </Text>
-                    <Text style={styles.reviewCountText}>
-                      ({gym.reviewCount || 50})
-                    </Text>
-                  </View>
+                  {gym.reviewCount > 0 && (
+                    <View style={styles.ratingRow}>
+                      <Ionicons name="star" size={12} color="#F59E0B" />
+                      <Text style={styles.ratingScoreText}>
+                        {gym.rating.toFixed(1)}
+                      </Text>
+                      <Text style={styles.reviewCountText}>
+                        ({gym.reviewCount})
+                      </Text>
+                    </View>
+                  )}
                 </View>
 
                 {/* Right Action: Select Pill with Monthly Price */}
@@ -168,15 +223,17 @@ export default function ChooseGymScreen() {
                     <Text style={styles.selectPillText}>Select</Text>
                     <Ionicons name="chevron-forward" size={12} color="#166534" />
                   </View>
-                  <Text style={styles.priceSubtitle}>
-                    ₹{(gym.membershipPrice || 3000).toLocaleString('en-IN')}/mo
-                  </Text>
+                  {typeof gym.membershipPrice === "number" && gym.membershipPrice > 0 && (
+                    <Text style={styles.priceSubtitle}>
+                      ₹{gym.membershipPrice.toLocaleString('en-IN')}/mo
+                    </Text>
+                  )}
                 </View>
               </View>
             </Pressable>
           ))}
 
-          {filteredGyms.length === 0 && (
+          {!loading && filteredGyms.length === 0 && (
             <View style={styles.emptyContainer}>
               <Ionicons name="barbell-outline" size={42} color="#9CA3AF" />
               <Text style={styles.emptyTitle}>No gyms found</Text>
@@ -315,6 +372,16 @@ const styles = StyleSheet.create({
     height: 46,
     borderRadius: 23,
     backgroundColor: "#F1F5F9",
+  },
+  photoEmpty: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#E7F3EA",
+  },
+  logoLetter: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#1F7A3E",
   },
   blueCheckBadge: {
     position: "absolute",
