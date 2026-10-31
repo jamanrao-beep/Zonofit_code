@@ -119,7 +119,7 @@ export default function ExploreScreen() {
             style={styles.featureCard}
           >
             <View style={styles.partnerGymIconWrap}>
-              <Ionicons name="barbell" size={24} color="#EA580C" />
+              <Ionicons name="barbell-outline" size={24} color="#EA580C" />
             </View>
 
             <Text style={styles.featureTitle}>Partner Gyms</Text>
@@ -185,7 +185,7 @@ export default function ExploreScreen() {
         >
           <View style={styles.unlockLeft}>
             <View style={styles.unlockIconWrap}>
-              <Ionicons name="fitness-outline" size={22} color="#9CA3AF" />
+              <Ionicons name="heart-outline" size={22} color="#9CA3AF" />
             </View>
             <View>
               <Text style={styles.unlockTitle}>Studio Classes</Text>
