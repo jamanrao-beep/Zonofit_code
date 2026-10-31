@@ -1,52 +1,94 @@
 /**
- * Utility to send SMS using Fast2SMS API.
- * Fast2SMS is a popular and cost-effective SMS gateway in India.
+ * Utility to send OTP via APITxT (supports SMS and WhatsApp without requiring custom DLT registration)
+ * with graceful fallback to Fast2SMS.
  */
 export interface SMSResult {
   success: boolean;
   message?: string;
-  fast2smsResponse?: any;
+  response?: any;
 }
 
 export async function sendOTP(phone: string, code: string): Promise<SMSResult> {
-  const apiKey = process.env.FAST2SMS_API_KEY;
+  const apitxtKey = (process.env.APITXT_AUTH_KEY || "LfoDh9dYrJrDmuLt2KXMkCe12gd8MzAqoUOhjJ4laMg").trim();
+  const fast2smsKey = (process.env.FAST2SMS_API_KEY || "").trim();
+  const channel = (process.env.OTP_CHANNEL || "sms").trim().toLowerCase(); // "sms" or "whatsapp"
 
-  if (!apiKey || apiKey.includes("placeholder") || apiKey.length < 8) {
-    if (process.env.NODE_ENV === "development" && process.env.ALLOW_DEV_OTP === "true") {
-      console.warn("[SMS] Dev OTP is enabled. The code was not logged.");
-      return { success: true, message: "Dev OTP simulated." };
-    }
-    const msg = "FAST2SMS_API_KEY is not set or invalid in server environment.";
-    console.error(`[SMS] ${msg}`);
-    return { success: false, message: msg };
+  // Sanitize phone number (extract digits only)
+  let cleanPhone = phone.replace(/\D/g, "");
+  if (cleanPhone.length > 10 && cleanPhone.startsWith("91")) {
+    cleanPhone = cleanPhone.slice(2);
   }
 
-  try {
-    const response = await fetch("https://www.fast2sms.com/dev/bulkV2", {
-      method: "POST",
-      headers: {
-        "authorization": apiKey.trim(),
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        route: "otp",
-        variables_values: code,
-        numbers: phone,
-      })
-    });
+  // 1. Primary Route: APITxT
+  if (apitxtKey && !apitxtKey.includes("placeholder") && apitxtKey.length > 10) {
+    try {
+      const queryParams = new URLSearchParams({
+        authkey: apitxtKey,
+        mobile: cleanPhone,
+        otp: code,
+        channel: channel === "whatsapp" ? "whatsapp" : "sms"
+      });
 
-    const data = await response.json() as any;
-    
-    if (data.return) {
-      console.log(`[SMS] Successfully sent OTP to ${phone}`);
-      return { success: true, message: "Sent successfully." };
-    } else {
-      const errMsg = Array.isArray(data.message) ? data.message.join(", ") : (data.message || JSON.stringify(data));
-      console.error(`[SMS] Failed to send OTP to ${phone}:`, errMsg);
-      return { success: false, message: errMsg, fast2smsResponse: data };
+      if (channel === "whatsapp") {
+        queryParams.set("country", "91");
+      }
+
+      const response = await fetch(`https://apitxt.com/api/sendOTP?${queryParams.toString()}`, {
+        method: "GET"
+      });
+
+      const data = await response.json() as any;
+
+      if (data && (data.status === "success" || data.code === 200 || data.type === "success")) {
+        console.log(`[OTP] Successfully dispatched ${channel.toUpperCase()} OTP to ${cleanPhone} via APITxT`);
+        return { success: true, message: "OTP sent successfully." };
+      } else {
+        const errorMsg = data.message || JSON.stringify(data);
+        console.error(`[OTP] APITxT returned error for ${cleanPhone}:`, errorMsg);
+        
+        // If it's a balance issue or failure, try Fast2SMS fallback if configured
+        if (!fast2smsKey || fast2smsKey.includes("placeholder")) {
+          return { success: false, message: errorMsg, response: data };
+        }
+      }
+    } catch (error: any) {
+      console.error(`[OTP] Exception calling APITxT for ${cleanPhone}:`, error);
+      if (!fast2smsKey || fast2smsKey.includes("placeholder")) {
+        return { success: false, message: error.message || "Network error contacting OTP provider." };
+      }
     }
-  } catch (error: any) {
-    console.error(`[SMS] Exception sending OTP to ${phone}:`, error);
-    return { success: false, message: error.message || "Network exception contacting Fast2SMS." };
   }
+
+  // 2. Secondary Fallback Route: Fast2SMS (if configured)
+  if (fast2smsKey && !fast2smsKey.includes("placeholder") && fast2smsKey.length >= 8) {
+    try {
+      const response = await fetch("https://www.fast2sms.com/dev/bulkV2", {
+        method: "POST",
+        headers: {
+          "authorization": fast2smsKey,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          route: "otp",
+          variables_values: code,
+          numbers: cleanPhone,
+        })
+      });
+
+      const data = await response.json() as any;
+      if (data.return) {
+        console.log(`[OTP] Successfully sent OTP to ${cleanPhone} via Fast2SMS`);
+        return { success: true, message: "OTP sent successfully." };
+      } else {
+        const errMsg = Array.isArray(data.message) ? data.message.join(", ") : (data.message || JSON.stringify(data));
+        console.error(`[OTP] Fast2SMS error:`, errMsg);
+        return { success: false, message: errMsg, response: data };
+      }
+    } catch (error: any) {
+      console.error(`[OTP] Exception calling Fast2SMS:`, error);
+      return { success: false, message: error.message || "Fast2SMS error." };
+    }
+  }
+
+  return { success: false, message: "No valid OTP provider configured." };
 }
