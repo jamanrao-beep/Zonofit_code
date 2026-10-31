@@ -3,7 +3,10 @@ import * as FileSystem from 'expo-file-system/legacy';
 
 const getBaseUrl = () => {
   const envUrl = process.env.EXPO_PUBLIC_API_URL;
-  return envUrl || "https://api.zonofit.com";
+  if (!envUrl || envUrl.includes("100.31.236.208") || envUrl.includes("amazonaws")) {
+    return "https://api.zonofit.com";
+  }
+  return envUrl;
 };
 
 export const API_URL = getBaseUrl();
