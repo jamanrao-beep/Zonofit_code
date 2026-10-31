@@ -6,8 +6,6 @@ import {
   Pressable, 
   Image,
   StyleSheet,
-  Animated,
-  Modal,
   ActivityIndicator
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -20,6 +18,16 @@ import { useGuestStore } from "@/store/useGuestStore";
 import { useBookingStore } from "@/store/useBookingStore";
 import BookingModal from "@/components/BookingModal";
 import BookingConfirmedModal from "@/components/BookingConfirmedModal";
+import CancelBookingSheet from "@/components/CancelBookingSheet";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from "react-native-reanimated";
 import { SwipeableTabScreen } from "@/components/SwipeableTabScreen";
 import { Alert, BackHandler, ToastAndroid, Platform } from "react-native";
 import { FALLBACK_NETWORK_GYMS } from "@/constants/fallbackGyms";
@@ -44,6 +52,39 @@ function getGreeting(): string {
   if (hour < 12) return "Good Morning,";
   if (hour < 17) return "Good Afternoon,";
   return "Good Evening,";
+}
+
+function BookVisitShine() {
+  const travel = useSharedValue(-90);
+
+  useEffect(() => {
+    travel.value = withDelay(
+      1500,
+      withRepeat(
+        withSequence(
+          withTiming(-90, { duration: 2400 }),
+          withTiming(480, { duration: 1600, easing: Easing.linear }),
+          withTiming(-90, { duration: 0 })
+        ),
+        -1,
+        false
+      )
+    );
+  }, [travel]);
+
+  const bandStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: travel.value }, { skewX: "-20deg" }],
+  }));
+
+  return (
+    <Animated.View pointerEvents="none" style={[styles.shineBand, bandStyle]}>
+      <View style={styles.shineEdge} />
+      <View style={styles.shineSoft} />
+      <View style={styles.shineCore} />
+      <View style={styles.shineSoft} />
+      <View style={styles.shineEdge} />
+    </Animated.View>
+  );
 }
 
 export default function HomeScreen() {
@@ -71,6 +112,10 @@ export default function HomeScreen() {
   const { bookingStatus, bookedGymName, bookedTime, isCancelling } = useBookingStore();
 
   const [isCancellingTodayBooking, setIsCancellingTodayBooking] = React.useState(false);
+  const [cancelPrompt, setCancelPrompt] = React.useState<{
+    isMandatory: boolean;
+    refundAmount: number;
+  } | null>(null);
   const [showBookingModal, setShowBookingModal] = React.useState(false);
   const [showConfirmedModal, setShowConfirmedModal] = React.useState(false);
   const [confirmedBookingData, setConfirmedBookingData] = React.useState<{
@@ -155,6 +200,50 @@ export default function HomeScreen() {
     homeScrollRef.current?.scrollTo({ y: 0, animated: false });
     guestScrollRef.current?.scrollTo({ y: 0, animated: false });
   }, []);
+
+  const askCancelToday = () => {
+    if (isCancellingTodayBooking) return;
+    const bookedCost = useBookingStore.getState().bookedCost;
+    const isMandatory = bookedCost === 0 || bookedCost === undefined;
+    const currentCredits = useCreditsStore.getState().credits;
+
+    if (isMandatory && currentCredits < 2) {
+      Alert.alert(
+        "Cannot Cancel Booking",
+        `Cancelling a mandatory visit requires a flat 2 Credits fee, but your wallet balance is only ${currentCredits} Credits.\n\nPlease buy credits to cancel this booking.`,
+        [
+          { text: "OK", style: "cancel" },
+          { text: "Buy Credits", onPress: () => router.push("/credits") }
+        ]
+      );
+      return;
+    }
+
+    setCancelPrompt({
+      isMandatory,
+      refundAmount: Math.max(0, (bookedCost || 8) - 2),
+    });
+  };
+
+  const confirmCancelToday = async () => {
+    if (!cancelPrompt || isCancellingTodayBooking) return;
+    setIsCancellingTodayBooking(true);
+    try {
+      const result = await useBookingStore.getState().cancelBooking();
+      if (!result?.success) {
+        Alert.alert("Cancellation Failed", result?.message || "Could not cancel booking.");
+        return;
+      }
+      setCancelPrompt(null);
+    } catch (err: unknown) {
+      const message = typeof err === "object" && err !== null && "message" in err && typeof err.message === "string"
+        ? err.message
+        : "Could not cancel booking.";
+      Alert.alert("Cancellation Failed", message);
+    } finally {
+      setIsCancellingTodayBooking(false);
+    }
+  };
 
   const handleOpenPrimaryBooking = () => {
     if (bookingStatus !== "Not Booked") {
@@ -580,8 +669,10 @@ export default function HomeScreen() {
           <Pressable 
             onPress={handleOpenPrimaryBooking}
             className="bg-white rounded-2xl py-3.5 flex-row justify-center items-center shadow-sm active:opacity-90"
+            style={styles.bookVisitBtn}
           >
-            <Ionicons name="calendar-outline" size={18} color="#1F7A3E" className="mr-2" />
+            <BookVisitShine />
+            <Ionicons name="calendar-outline" size={18} color="#1F7A3E" style={{ marginRight: 8 }} />
             <Text className="text-[#1F7A3E] font-bold text-sm tracking-wide">Book Visit</Text>
           </Pressable>
         </View>
@@ -619,57 +710,7 @@ export default function HomeScreen() {
               <View className="flex-row items-center gap-x-2">
                 <Pressable 
                   disabled={isCancellingTodayBooking}
-                  onPress={() => {
-                    if (isCancellingTodayBooking) return;
-                    const bookedCost = useBookingStore.getState().bookedCost;
-                    const isMandatory = bookedCost === 0 || bookedCost === undefined;
-                    const currentCredits = useCreditsStore.getState().credits;
-
-                    if (isMandatory && currentCredits < 2) {
-                      Alert.alert(
-                        "Cannot Cancel Booking",
-                        `Cancelling a mandatory visit requires a flat 2 Credits fee, but your wallet balance is only ${currentCredits} Credits.\n\nPlease buy credits to cancel this booking.`,
-                        [
-                          { text: "OK", style: "cancel" },
-                          { text: "Buy Credits", onPress: () => router.push("/credits") }
-                        ]
-                      );
-                      return;
-                    }
-
-                    const refundAmount = Math.max(0, (bookedCost || 8) - 2);
-                    const confirmMessage = isMandatory
-                      ? `Cancelling this booking will incur a flat 2 Credits fee from your wallet.\n\nYour 1 mandatory visit will be restored.\n\nDo you want to proceed?`
-                      : `Cancelling this booking will incur a flat 2 Credits fee.\n\nYou will receive a refund of ${refundAmount} Credits to your wallet.\n\nDo you want to proceed?`;
-
-                    Alert.alert(
-                      "Cancel Workout Booking?",
-                      confirmMessage,
-                      [
-                        { text: "No", style: "cancel" },
-                        {
-                          text: "Yes, Cancel",
-                          style: "destructive",
-                          onPress: async () => {
-                            setIsCancellingTodayBooking(true);
-                            try {
-                              await useBookingStore.getState().cancelBooking();
-                              setIsCancellingTodayBooking(false);
-                              Alert.alert(
-                                "Booking Cancelled", 
-                                isMandatory
-                                  ? "Your booking was cancelled. 1 mandatory visit has been restored and flat 2 credits were deducted."
-                                  : `Your booking was cancelled. ${refundAmount} credits were refunded to your wallet (flat 2 credits fee applied).`
-                              );
-                            } catch (err: any) {
-                              setIsCancellingTodayBooking(false);
-                              Alert.alert("Cancellation Failed", err?.message || "Could not cancel booking.");
-                            }
-                          }
-                        }
-                      ]
-                    );
-                  }}
+                  onPress={askCancelToday}
                   className={`bg-red-50 border border-red-200 px-2.5 py-2 rounded-xl active:opacity-80 ${isCancellingTodayBooking ? "opacity-60" : ""}`}
                 >
                   {isCancellingTodayBooking ? (
@@ -1020,26 +1061,43 @@ export default function HomeScreen() {
         />
       )}
 
-      {/* Cancellation Loading HUD */}
-      <Modal visible={isCancellingTodayBooking} transparent animationType="fade">
-        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.65)", alignItems: "center", justifyContent: "center", paddingHorizontal: 24 }}>
-          <View style={{ backgroundColor: "#FFFFFF", borderRadius: 24, padding: 24, alignItems: "center", width: "100%", maxWidth: 320, elevation: 12, shadowColor: "#000", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.25, shadowRadius: 16 }}>
-            <ActivityIndicator size="large" color="#1F7A3E" />
-            <Text style={{ fontSize: 17, fontWeight: "800", color: "#111827", marginTop: 16, textAlign: "center" }}>
-              Cancelling Workout...
-            </Text>
-            <Text style={{ fontSize: 12.5, color: "#6B7280", marginTop: 6, textAlign: "center", lineHeight: 18 }}>
-              Processing cancellation & flat 2 credits fee. Please wait...
-            </Text>
-          </View>
-        </View>
-      </Modal>
+      <CancelBookingSheet
+        visible={cancelPrompt !== null}
+        loading={isCancellingTodayBooking}
+        isMandatory={cancelPrompt?.isMandatory ?? false}
+        refundCredits={cancelPrompt?.refundAmount ?? 0}
+        onKeep={() => setCancelPrompt(null)}
+        onConfirm={confirmCancelToday}
+      />
       </SafeAreaView>
     </SwipeableTabScreen>
   );
 }
 
 const styles = StyleSheet.create({
+  bookVisitBtn: {
+    overflow: "hidden",
+    position: "relative",
+  },
+  shineBand: {
+    position: "absolute",
+    top: -12,
+    bottom: -12,
+    width: 64,
+    flexDirection: "row",
+  },
+  shineEdge: {
+    flex: 1,
+    backgroundColor: "rgba(31,122,63,0)",
+  },
+  shineSoft: {
+    flex: 1,
+    backgroundColor: "rgba(31,122,63,0.08)",
+  },
+  shineCore: {
+    width: 16,
+    backgroundColor: "rgba(31,122,63,0.18)",
+  },
   cardShadow: {
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },

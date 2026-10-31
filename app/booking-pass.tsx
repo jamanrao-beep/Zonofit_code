@@ -9,12 +9,12 @@ import {
   StyleSheet, 
   Dimensions,
   StatusBar,
-  Modal,
   ActivityIndicator
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import CancelBookingSheet from "@/components/CancelBookingSheet";
 import { useBookingStore } from "@/store/useBookingStore";
 import { useUserStore } from "@/store/useUserStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
@@ -41,6 +41,10 @@ export default function BookingPassScreen() {
   const { primaryGymId, primaryGymName } = useUserStore();
   const [copied, setCopied] = useState(false);
   const [isProcessingCancel, setIsProcessingCancel] = useState(false);
+  const [cancelPrompt, setCancelPrompt] = useState<{
+    isMandatory: boolean;
+    refundAmount: number;
+  } | null>(null);
 
   // Fallback gym resolution
   const matchedGym = FALLBACK_NETWORK_GYMS.find(
@@ -110,39 +114,31 @@ export default function BookingPassScreen() {
       return;
     }
 
-    const refundAmount = Math.max(0, (bookedCost || 8) - 2);
-    const confirmMessage = isMandatory
-      ? `Cancelling this booking will incur a flat 2 Credits fee from your wallet.\n\nYour 1 mandatory visit will be restored.\n\nDo you want to proceed?`
-      : `Cancelling this booking will incur a flat 2 Credits fee.\n\nYou will receive a refund of ${refundAmount} Credits to your wallet.\n\nDo you want to proceed?`;
+    setCancelPrompt({
+      isMandatory,
+      refundAmount: Math.max(0, (bookedCost || 8) - 2),
+    });
+  };
 
-    Alert.alert(
-      "Cancel Booking?",
-      confirmMessage,
-      [
-        { text: "No", style: "cancel" },
-        {
-          text: "Yes, Cancel",
-          style: "destructive",
-          onPress: async () => {
-            setIsProcessingCancel(true);
-            try {
-              await cancelBooking();
-              setIsProcessingCancel(false);
-              Alert.alert(
-                "Booking Cancelled",
-                isMandatory 
-                  ? "Your booking was cancelled. 1 mandatory visit has been restored and flat 2 credits were deducted."
-                  : `Your booking was cancelled. ${refundAmount} credits were refunded to your wallet (flat 2 credits fee applied).`,
-                [{ text: "OK", onPress: () => router.replace("/(tabs)") }]
-              );
-            } catch (err: any) {
-              setIsProcessingCancel(false);
-              Alert.alert("Cancellation Failed", err?.message || "Could not cancel booking.");
-            }
-          }
-        }
-      ]
-    );
+  const confirmCancelBooking = async () => {
+    if (!cancelPrompt || isProcessingCancel) return;
+    setIsProcessingCancel(true);
+    try {
+      const result = await cancelBooking();
+      if (!result?.success) {
+        Alert.alert("Cancellation Failed", result?.message || "Could not cancel booking.");
+        return;
+      }
+      setCancelPrompt(null);
+      router.replace("/(tabs)");
+    } catch (err: unknown) {
+      const message = typeof err === "object" && err !== null && "message" in err && typeof err.message === "string"
+        ? err.message
+        : "Could not cancel booking.";
+      Alert.alert("Cancellation Failed", message);
+    } finally {
+      setIsProcessingCancel(false);
+    }
   };
 
   const hasActiveBooking = bookingStatus === "Booked" || bookingStatus === "Checked In" || bookingId !== null;
@@ -389,18 +385,14 @@ export default function BookingPassScreen() {
         )}
       </ScrollView>
 
-      {/* Cancellation Loading HUD */}
-      <Modal visible={isProcessingCancel} transparent animationType="fade">
-        <View style={styles.loadingModalOverlay}>
-          <View style={styles.loadingModalCard}>
-            <ActivityIndicator size="large" color="#1F7A3E" />
-            <Text style={styles.loadingModalTitle}>Cancelling Booking...</Text>
-            <Text style={styles.loadingModalSubtitle}>
-              Processing cancellation & flat 2 credits fee. Please wait...
-            </Text>
-          </View>
-        </View>
-      </Modal>
+      <CancelBookingSheet
+        visible={cancelPrompt !== null}
+        loading={isProcessingCancel}
+        isMandatory={cancelPrompt?.isMandatory ?? false}
+        refundCredits={cancelPrompt?.refundAmount ?? 0}
+        onKeep={() => setCancelPrompt(null)}
+        onConfirm={confirmCancelBooking}
+      />
     </SafeAreaView>
   );
 }
@@ -868,39 +860,5 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     fontSize: 12.5,
     fontWeight: "600",
-  },
-  loadingModalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.65)",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 24,
-  },
-  loadingModalCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    padding: 24,
-    alignItems: "center",
-    width: "100%",
-    maxWidth: 320,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 12,
-  },
-  loadingModalTitle: {
-    fontSize: 17,
-    fontWeight: "800",
-    color: "#111827",
-    marginTop: 16,
-    textAlign: "center",
-  },
-  loadingModalSubtitle: {
-    fontSize: 12.5,
-    color: "#6B7280",
-    marginTop: 6,
-    textAlign: "center",
-    lineHeight: 18,
   },
 });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { View, Text, StyleSheet, Pressable, Alert, ActivityIndicator } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Location from "expo-location";
@@ -8,6 +8,7 @@ import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { apiFetch } from "@/lib/api";
 import { useAuthStore } from "@/store/useAuthStore";
+import CancelBookingSheet from "@/components/CancelBookingSheet";
 
 // Helper function to calculate distance in meters between two coordinates
 function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -28,6 +29,11 @@ export default function ScanModal() {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [isCancellingBooking, setIsCancellingBooking] = useState(false);
+  const [cancelPrompt, setCancelPrompt] = useState<{
+    isMandatory: boolean;
+    refundAmount: number;
+  } | null>(null);
   const { bookingStatus, bookedGymId, bookingId } = useBookingStore();
   const { token } = useAuthStore();
 
@@ -202,6 +208,51 @@ export default function ScanModal() {
     }
   };
 
+  const askCancelBooking = () => {
+    if (isCancellingBooking) return;
+    const bookedCost = useBookingStore.getState().bookedCost;
+    const isMandatory = bookedCost === 0 || bookedCost === undefined;
+    const currentCredits = useCreditsStore.getState().credits;
+
+    if (isMandatory && currentCredits < 2) {
+      Alert.alert(
+        "Cannot Cancel Booking",
+        `Cancelling a mandatory visit requires a flat 2 Credits fee, but your wallet balance is only ${currentCredits} Credits.\n\nPlease buy credits to cancel this booking.`,
+        [
+          { text: "OK", style: "cancel" },
+          { text: "Buy Credits", onPress: () => router.push("/credits") },
+        ]
+      );
+      return;
+    }
+
+    setCancelPrompt({
+      isMandatory,
+      refundAmount: Math.max(0, (bookedCost || 8) - 2),
+    });
+  };
+
+  const confirmCancelBooking = async () => {
+    if (!cancelPrompt || isCancellingBooking) return;
+    setIsCancellingBooking(true);
+    try {
+      const result = await useBookingStore.getState().cancelBooking();
+      if (!result?.success) {
+        Alert.alert("Cancellation Failed", result?.message || "Could not cancel booking.");
+        return;
+      }
+      setCancelPrompt(null);
+      router.replace("/(tabs)");
+    } catch (err: unknown) {
+      const message = typeof err === "object" && err !== null && "message" in err && typeof err.message === "string"
+        ? err.message
+        : "Could not cancel booking.";
+      Alert.alert("Cancellation Failed", message);
+    } finally {
+      setIsCancellingBooking(false);
+    }
+  };
+
   // Developer override for emulator
   const handleMockScan = () => {
     // We can simulate scanning either the booked gym or a random valid gym if no booking
@@ -248,28 +299,8 @@ export default function ScanModal() {
           {/* Cancel Booking option if user booked a workout */}
           {bookingStatus === "Booked" && (
             <Pressable
-              onPress={() => {
-                Alert.alert(
-                  "Cancel Workout Booking?",
-                  "Are you sure you want to cancel this booking? Your visit / credits will be restored immediately.",
-                  [
-                    { text: "Keep Booking", style: "cancel" },
-                    {
-                      text: "Yes, Cancel",
-                      style: "destructive",
-                      onPress: async () => {
-                        try {
-                          await useBookingStore.getState().cancelBooking();
-                          Alert.alert("Booking Cancelled", "Your booking has been cancelled and your visits / credits have been restored.");
-                          router.replace("/(tabs)");
-                        } catch (e: any) {
-                          Alert.alert("Error", e?.message || "Could not cancel booking.");
-                        }
-                      }
-                    }
-                  ]
-                );
-              }}
+              onPress={askCancelBooking}
+              disabled={isCancellingBooking}
               className="mt-3 px-4 py-2 bg-red-600/80 rounded-xl border border-white/20 active:opacity-80"
             >
               <Text className="text-white font-bold text-xs">Cancel This Booking</Text>
@@ -284,6 +315,14 @@ export default function ScanModal() {
           )}
         </View>
       </View>
+      <CancelBookingSheet
+        visible={cancelPrompt !== null}
+        loading={isCancellingBooking}
+        isMandatory={cancelPrompt?.isMandatory ?? false}
+        refundCredits={cancelPrompt?.refundAmount ?? 0}
+        onKeep={() => setCancelPrompt(null)}
+        onConfirm={confirmCancelBooking}
+      />
     </View>
   );
 }

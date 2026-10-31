@@ -1,22 +1,27 @@
 import React, { useEffect } from "react";
-import { 
-  Modal, 
-  View, 
-  Text, 
-  Pressable, 
-  StyleSheet, 
-  Dimensions, 
-  Image 
+import {
+  Modal,
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  Dimensions,
+  Image,
+  ScrollView,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withSpring, 
-  withSequence,
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
   withDelay,
-  withTiming
+  Easing,
+  FadeIn,
+  SlideInDown,
 } from "react-native-reanimated";
+import { InAppNoticeBanner } from "@/components/InAppNoticeBanner";
+import { showInAppNotice, useInAppNoticeStore } from "@/store/useInAppNoticeStore";
 
 interface BookingConfirmedModalProps {
   visible: boolean;
@@ -34,7 +39,7 @@ interface BookingConfirmedModalProps {
   onDone: () => void;
 }
 
-const { width } = Dimensions.get("window");
+const { height: windowHeight } = Dimensions.get("window");
 
 export default function BookingConfirmedModal({
   visible,
@@ -51,26 +56,31 @@ export default function BookingConfirmedModal({
   onViewPass,
   onDone,
 }: BookingConfirmedModalProps) {
-  const scale = useSharedValue(0.6);
-  const opacity = useSharedValue(0);
+  const insets = useSafeAreaInsets();
   const checkScale = useSharedValue(0);
 
   useEffect(() => {
     if (visible) {
-      scale.value = withSpring(1, { damping: 14, stiffness: 120 });
-      opacity.value = withTiming(1, { duration: 250 });
-      checkScale.value = withDelay(150, withSpring(1, { damping: 10, stiffness: 150 }));
+      checkScale.value = withDelay(180, withSpring(1, { damping: 10, stiffness: 150 }));
     } else {
-      scale.value = 0.6;
-      opacity.value = 0;
       checkScale.value = 0;
     }
-  }, [visible]);
+  }, [visible, checkScale]);
 
-  const cardAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    opacity: opacity.value,
-  }));
+  useEffect(() => {
+    if (!visible) return;
+    useInAppNoticeStore.getState().pushCover();
+    const timer = setTimeout(() => {
+      showInAppNotice({
+        title: "Booking Confirmed",
+        body: `Your workout at ${gymName} on ${dateStr} at ${timeSlot} is confirmed.`,
+      });
+    }, 900);
+    return () => {
+      clearTimeout(timer);
+      useInAppNoticeStore.getState().popCover();
+    };
+  }, [visible, gymName, dateStr, timeSlot]);
 
   const checkAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: checkScale.value }],
@@ -84,13 +94,26 @@ export default function BookingConfirmedModal({
     <Modal
       transparent
       visible={visible}
-      animationType="fade"
+      animationType="none"
+      statusBarTranslucent
       onRequestClose={onDone}
     >
       <View style={styles.overlay}>
-        <Pressable style={styles.backdrop} onPress={onDone} />
+        <Animated.View entering={FadeIn.duration(280)} style={StyleSheet.absoluteFill}>
+          <Pressable style={styles.backdrop} onPress={onDone} />
+        </Animated.View>
 
-        <Animated.View style={[styles.card, cardAnimatedStyle]}>
+        <Animated.View
+          entering={SlideInDown.duration(420).easing(Easing.bezier(0.2, 0.8, 0.2, 1))}
+          style={styles.card}
+        >
+          <View style={styles.grab} />
+          <ScrollView
+            bounces={false}
+            showsVerticalScrollIndicator={false}
+            style={{ maxHeight: windowHeight * 0.86, width: "100%", flexGrow: 0 }}
+            contentContainerStyle={{ alignItems: "center", width: "100%", paddingBottom: Math.max(insets.bottom, 8) }}
+          >
           {/* Confirmed Icon Header */}
           <View style={styles.header}>
             <View style={styles.glowRing}>
@@ -216,7 +239,9 @@ export default function BookingConfirmedModal({
               <Text style={styles.secondaryBtnText}>Back to Home</Text>
             </Pressable>
           </View>
+          </ScrollView>
         </Animated.View>
+        <InAppNoticeBanner overlay onOpen={onDone} />
       </View>
     </Modal>
   );
@@ -225,32 +250,32 @@ export default function BookingConfirmedModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.65)",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 20,
+    justifyContent: "flex-end",
   },
   backdrop: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    flex: 1,
+    backgroundColor: "rgba(8,16,11,0.5)",
   },
   card: {
     width: "100%",
-    maxWidth: 380,
     backgroundColor: "#FFFFFF",
-    borderRadius: 32,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     paddingHorizontal: 22,
-    paddingTop: 28,
-    paddingBottom: 22,
+    paddingTop: 10,
     alignItems: "center",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.18,
-    shadowRadius: 28,
+    shadowOffset: { width: 0, height: -8 },
+    shadowOpacity: 0.16,
+    shadowRadius: 22,
     elevation: 16,
+  },
+  grab: {
+    width: 40,
+    height: 4,
+    borderRadius: 4,
+    backgroundColor: "#E5E7EB",
+    marginBottom: 8,
   },
   header: {
     alignItems: "center",
