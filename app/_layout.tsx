@@ -3,10 +3,25 @@ import { useUserStore } from "@/store/useUserStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
 import { useBookingStore } from "@/store/useBookingStore";
 import { useGuestStore } from "@/store/useGuestStore";
+import { InAppNoticeBanner } from "@/components/InAppNoticeBanner";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useRouter, useSegments, Stack } from "expo-router";
+import { isRunningInExpoGo } from "expo";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
+import { LogBox, View } from "react-native";
 import "../global.css";
+
+// Expo Go prints this the moment expo-notifications is imported, and Android
+// Expo Go throws if a remote token is requested. The hook never loads that
+// module in Expo Go. This keeps a stray import from covering the screen.
+if (isRunningInExpoGo()) {
+  LogBox.ignoreLogs([
+    "expo-notifications",
+    "not fully supported in Expo Go",
+    "was removed from Expo Go",
+  ]);
+}
 
 // Keep the native splash visible until our animated splash takes over
 SplashScreen.preventAutoHideAsync();
@@ -16,6 +31,7 @@ function AuthGate() {
   const { isGuest, isExpired: isGuestExpired } = useGuestStore();
   const segments = useSegments();
   const router = useRouter();
+  usePushNotifications();
 
   useEffect(() => {
     if (isSignedIn && token) {
@@ -29,7 +45,7 @@ function AuthGate() {
     if (!isLoaded) return;
 
     const firstSegment = segments[0] as string | undefined;
-    const secondSegment = segments[1] as string | undefined;
+    const secondSegment = (segments as string[])[1];
     const inAuthGroup = firstSegment === "(auth)";
     const inOnboarding = firstSegment === "onboarding";
     const inGuestExpired = firstSegment === "guest-expired";
@@ -90,12 +106,15 @@ function AuthGate() {
   }, [isLoaded, isSignedIn, isOnboarded, isGuest, isGuestExpired, segments]);
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="index" options={{ headerShown: false }} />
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-      <Stack.Screen name="booking-pass" options={{ headerShown: false }} />
-    </Stack>
+    <View style={{ flex: 1 }}>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        <Stack.Screen name="booking-pass" options={{ headerShown: false }} />
+      </Stack>
+      <InAppNoticeBanner />
+    </View>
   );
 }
 

@@ -211,7 +211,6 @@ export default function VerifyNumberScreen() {
     if (guestBusy || leaving.current) return;
     setGuestBusy(true);
     try {
-      await useAuthStore.getState().signOut();
       await startGuestSession();
       setDoneTitle("Browsing as guest");
       setDoneSub("You can look around partner gyms.");

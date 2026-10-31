@@ -64,7 +64,7 @@ export default function CreateAccountScreen() {
   const checkUserExists = useAuthStore((state) => state.checkUserExists);
   const updateProfile = useAuthStore((state) => state.updateProfile);
   const googleSignIn = useAuthStore((state) => state.googleSignIn);
-  const { startGuestSession, isGuest, endGuestSession } = useGuestStore();
+  const startGuestSession = useGuestStore((state) => state.startGuestSession);
 
   const [phone, setPhone] = useState("");
   const [phoneVerified, setPhoneVerified] = useState(false);
@@ -113,10 +113,6 @@ export default function CreateAccountScreen() {
       router.replace({ pathname: "/(auth)/verify-number", params: { mode: "signin" } });
     }
   }, [params.mode, router]);
-
-  useEffect(() => {
-    if (isGuest) void endGuestSession();
-  }, [endGuestSession, isGuest]);
 
   useEffect(() => {
     if (phoneResend <= 0) return;
@@ -415,11 +411,8 @@ export default function CreateAccountScreen() {
     leaving.current = true;
     setDone({ title: "Browsing as guest", sub: "You can look around partner gyms." });
     try {
-      await useAuthStore.getState().signOut();
       await startGuestSession();
-    } catch {
-      // The guest session still opens if sign-out already cleared the account.
-    }
+    } catch {}
     setTimeout(() => router.replace("/(tabs)"), 700);
   };
 

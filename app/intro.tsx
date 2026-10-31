@@ -579,6 +579,10 @@ export default function IntroScreen() {
     router.replace("/(auth)/create-account");
   }, [router]);
 
+  const handleSignIn = useCallback(() => {
+    router.replace({ pathname: "/(auth)/verify-number", params: { mode: "signin" } });
+  }, [router]);
+
   const goToNext = useCallback(() => {
     if (isLast) {
       handleFinish();
@@ -709,7 +713,7 @@ export default function IntroScreen() {
         </Pressable>
 
         {/* I already have an account */}
-        <Pressable onPress={handleFinish} hitSlop={10} style={styles.accountLink}>
+        <Pressable onPress={handleSignIn} hitSlop={10} style={styles.accountLink}>
           <Text style={styles.accountLinkText}>I already have an account</Text>
         </Pressable>
       </View>

@@ -629,12 +629,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await SecureStore.deleteItemAsync(ONBOARDED_KEY);
     } catch {}
     try {
-      await SecureStore.deleteItemAsync("zonofit_guest_session");
-    } catch {}
-    try {
-      await useGuestStore.getState().endGuestSession();
-    } catch {}
-    try {
       // Lazy load to prevent circular dependencies
       const { useUserStore } = require("./useUserStore");
       useUserStore.getState().reset?.();
