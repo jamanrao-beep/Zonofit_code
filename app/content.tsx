@@ -25,8 +25,10 @@ import {
   ZONOFIT_FAQ
 } from "@/constants/legalContent";
 
-if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental && !(globalThis as { _IS_FABRIC?: boolean })._IS_FABRIC) {
+  try {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+  } catch {}
 }
 
 export interface FAQItem {
