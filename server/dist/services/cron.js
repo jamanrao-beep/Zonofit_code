@@ -49,6 +49,8 @@ async function sendPushNotification(userId, title, body, data = {}) {
                 title,
                 body,
                 data,
+                priority: 'high',
+                channelId: 'default',
             }];
         const chunks = expo.chunkPushNotifications(messages);
         for (const chunk of chunks) {

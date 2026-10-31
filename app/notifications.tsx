@@ -202,14 +202,22 @@ export default function NotificationsScreen() {
           </View>
         </View>
 
-        {unreadCount > 0 && (
+        <View className="flex-row items-center gap-2">
           <Pressable
-            onPress={handleMarkAllAsRead}
-            className="px-3 py-1.5 rounded-lg bg-emerald-50 active:bg-emerald-100 border border-emerald-200"
+            onPress={() => router.push("/lock-preview" as never)}
+            className="px-3 py-1.5 rounded-full bg-[#0C2416] active:opacity-80"
           >
-            <Text className="text-xs font-bold text-emerald-700">Mark all read</Text>
+            <Text className="text-xs font-bold text-white">Lock screen</Text>
           </Pressable>
-        )}
+          {unreadCount > 0 && (
+            <Pressable
+              onPress={handleMarkAllAsRead}
+              className="px-3 py-1.5 rounded-lg bg-emerald-50 active:bg-emerald-100 border border-emerald-200"
+            >
+              <Text className="text-xs font-bold text-emerald-700">Mark all read</Text>
+            </Pressable>
+          )}
+        </View>
       </View>
 
       {/* Categories Tabs (Section 16 of PRD) */}

@@ -36,6 +36,8 @@ export async function sendPushNotification(
                 title,
                 body,
                 data: data || {},
+                priority: "high",
+                channelId: "default",
             },
         ];
 
@@ -85,6 +87,8 @@ export async function sendPushNotificationToMany(
                     title,
                     body,
                     data: data || {},
+                    priority: "high",
+                    channelId: "default",
                 });
             }
             // Save to DB

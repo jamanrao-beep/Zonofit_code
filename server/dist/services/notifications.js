@@ -33,6 +33,8 @@ async function sendPushNotification(userId, title, body, data) {
                 title,
                 body,
                 data: data || {},
+                priority: "high",
+                channelId: "default",
             },
         ];
         // The Expo push service accepts batches of notifications so
@@ -72,6 +74,8 @@ async function sendPushNotificationToMany(userIds, title, body, data) {
                     title,
                     body,
                     data: data || {},
+                    priority: "high",
+                    channelId: "default",
                 });
             }
             // Save to DB
