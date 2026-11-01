@@ -3,6 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.isRazorpayConfigured = isRazorpayConfigured;
 exports.getRazorpayConfig = getRazorpayConfig;
 exports.getRazorpay = getRazorpay;
 exports.verifyCheckoutSignature = verifyCheckoutSignature;
@@ -18,6 +19,11 @@ function badSecret(value) {
         return true;
     const trimmed = value.trim();
     return trimmed.length < 8 || /placeholder/i.test(trimmed);
+}
+function isRazorpayConfigured() {
+    const keyId = process.env.RAZORPAY_KEY_ID?.trim();
+    const keySecret = process.env.RAZORPAY_KEY_SECRET?.trim();
+    return !badSecret(keyId) && !badSecret(keySecret);
 }
 function getRazorpayConfig() {
     const keyId = process.env.RAZORPAY_KEY_ID?.trim();

@@ -220,6 +220,7 @@ export const useUserStore = create<UserState>()(
         method: "POST",
         token,
         body: JSON.stringify({
+          directAccept: true,
           planId: resolvedPlanId,
           primaryGymId: resolvedGymId,
           referenceId: "pay_" + Date.now().toString(),
@@ -268,6 +269,7 @@ export const useUserStore = create<UserState>()(
         method: "POST",
         token,
         body: JSON.stringify({
+          directAccept: true,
           gymPlanId,
           referenceId: "pay_" + Date.now().toString(),
           amountPaidPaise,

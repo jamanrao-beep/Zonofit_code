@@ -5,6 +5,7 @@ export interface PaymentMeta {
     primaryGymId?: string;
     gymName?: string | null;
 }
+export declare function isRazorpayConfigured(): boolean;
 export declare function getRazorpayConfig(): {
     keyId: string;
     keySecret: string;

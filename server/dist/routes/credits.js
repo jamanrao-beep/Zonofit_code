@@ -213,6 +213,36 @@ router.post("/create-order", auth_1.requireAuth, [
     const amountINR = credits * settings.creditPurchasePrice;
     const amountPaise = amountINR * 100;
     try {
+        if (!(0, payments_1.isRazorpayConfigured)()) {
+            const wallet = await prisma_1.default.creditWallet.findUnique({ where: { userId: req.dbUserId } });
+            if (!wallet) {
+                res.status(404).json({ error: "WalletNotFound", message: "Wallet not found." });
+                return;
+            }
+            const updatedWallet = await prisma_1.default.creditWallet.update({
+                where: { userId: req.dbUserId },
+                data: { balance: { increment: credits } },
+            });
+            await prisma_1.default.creditTransaction.create({
+                data: {
+                    userId: req.dbUserId,
+                    walletId: wallet.id,
+                    type: "PURCHASE",
+                    amount: credits,
+                    balanceAfter: updatedWallet.balance,
+                    description: `Test mode: Purchased ${credits} credits directly`,
+                    referenceId: `test_cr_${Date.now()}`,
+                },
+            });
+            res.status(200).json({
+                directAccepted: true,
+                success: true,
+                newCreditBalance: updatedWallet.balance,
+                credits,
+                message: `Test mode: ${credits} credits added directly.`,
+            });
+            return;
+        }
         const razorpay = (0, payments_1.getRazorpay)();
         const { keyId } = (0, payments_1.getRazorpayConfig)();
         const order = await razorpay.orders.create({
@@ -401,6 +431,36 @@ router.post("/create-cash-order", auth_1.requireAuth, [
     const { amountINR } = req.body;
     const amountPaise = amountINR * 100;
     try {
+        if (!(0, payments_1.isRazorpayConfigured)()) {
+            const wallet = await prisma_1.default.creditWallet.findUnique({ where: { userId: req.dbUserId } });
+            if (!wallet) {
+                res.status(404).json({ error: "WalletNotFound", message: "Wallet not found." });
+                return;
+            }
+            const updatedWallet = await prisma_1.default.creditWallet.update({
+                where: { userId: req.dbUserId },
+                data: { nonConvertibleCashBalanceInPaise: { increment: amountPaise } },
+            });
+            await prisma_1.default.creditTransaction.create({
+                data: {
+                    userId: req.dbUserId,
+                    walletId: wallet.id,
+                    type: "PURCHASE",
+                    amount: 0,
+                    balanceAfter: updatedWallet.balance,
+                    description: `Test mode: Topped up ₹${amountINR}`,
+                    referenceId: `test_cash_${Date.now()}`,
+                },
+            });
+            res.status(200).json({
+                directAccepted: true,
+                success: true,
+                newCashBalance: (updatedWallet.nonConvertibleCashBalanceInPaise || 0) / 100,
+                cashToAddINR: amountINR,
+                message: `Test mode: ₹${amountINR} cash added directly.`,
+            });
+            return;
+        }
         const razorpay = (0, payments_1.getRazorpay)();
         const { keyId } = (0, payments_1.getRazorpayConfig)();
         const order = await razorpay.orders.create({

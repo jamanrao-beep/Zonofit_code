@@ -17,6 +17,12 @@ function badSecret(value: string | undefined): boolean {
   return trimmed.length < 8 || /placeholder/i.test(trimmed);
 }
 
+export function isRazorpayConfigured(): boolean {
+  const keyId = process.env.RAZORPAY_KEY_ID?.trim();
+  const keySecret = process.env.RAZORPAY_KEY_SECRET?.trim();
+  return !badSecret(keyId) && !badSecret(keySecret);
+}
+
 export function getRazorpayConfig() {
   const keyId = process.env.RAZORPAY_KEY_ID?.trim();
   const keySecret = process.env.RAZORPAY_KEY_SECRET?.trim();
