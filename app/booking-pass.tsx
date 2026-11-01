@@ -57,11 +57,8 @@ export default function BookingPassScreen() {
   const displayAddress = matchedGym?.address || "City Center, Udaipur";
   const displayImage = matchedGym?.image || "https://images.unsplash.com/photo-1540497077202-7c8a3999166f?auto=format&fit=crop&q=80&w=600";
   
-  // Safe clean booking ID
-  const cleanId = String(bookingId || "ZF-784562");
-  const displayBookingId = cleanId.startsWith("ZF-") 
-    ? cleanId 
-    : `ZF-${cleanId.replace(/[^a-zA-Z0-9]/g, "").slice(-6).toUpperCase() || "784562"}`;
+  const deskTail = String(bookingId || "").replace(/[^a-zA-Z0-9]/g, "").slice(-6).toUpperCase();
+  const displayBookingId = deskTail.length === 6 ? `ZF-${deskTail}` : "";
 
   // Safe date display
   const getFormattedDate = () => {
@@ -94,7 +91,7 @@ export default function BookingPassScreen() {
   const handleCopyId = () => {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-    Alert.alert("Booking ID", `Booking ID: ${displayBookingId}`);
+    Alert.alert("Desk code", `Desk code: ${displayBookingId}`);
   };
 
   const handleCancelBooking = () => {
@@ -286,13 +283,15 @@ export default function BookingPassScreen() {
                   </Text>
                 </View>
 
-                <View style={styles.metaRow}>
-                  <Text style={styles.metaKey}>Booking ID</Text>
-                  <Pressable onPress={handleCopyId} style={{ flexDirection: "row", alignItems: "center" }}>
-                    <Text style={styles.bookingIdText}>{displayBookingId}</Text>
-                    <Ionicons name={copied ? "checkmark" : "copy-outline"} size={13} color="#16A34A" style={{ marginLeft: 4 }} />
-                  </Pressable>
-                </View>
+                {displayBookingId ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaKey}>Desk code</Text>
+                    <Pressable onPress={handleCopyId} style={{ flexDirection: "row", alignItems: "center" }}>
+                      <Text style={styles.bookingIdText}>{displayBookingId}</Text>
+                      <Ionicons name={copied ? "checkmark" : "copy-outline"} size={13} color="#16A34A" style={{ marginLeft: 4 }} />
+                    </Pressable>
+                  </View>
+                ) : null}
 
                 <View style={styles.metaRow}>
                   <Text style={styles.metaKey}>Entry Verification</Text>

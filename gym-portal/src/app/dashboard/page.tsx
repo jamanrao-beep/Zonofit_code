@@ -12,6 +12,23 @@ export default function GymDashboardPage() {
   const [checkInMessage, setCheckInMessage] = useState("");
   const [checkingIn, setCheckingIn] = useState(false);
 
+  const fetchDashboard = async () => {
+    try {
+      const token = localStorage.getItem("zonofit_portal_token");
+      const res = await fetch("/api/gyms/analytics/dashboard", {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      const result = await res.json();
+      setData(result);
+    } catch (err) {
+      console.error("Failed to fetch gym dashboard", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const confirmVisit = async (event: FormEvent) => {
     event.preventDefault();
     const code = passCode.trim();
@@ -30,7 +47,10 @@ export default function GymDashboardPage() {
       });
       const result = await res.json();
       setCheckInMessage(result.message || "Could not confirm that visit.");
-      if (res.ok) setPassCode("");
+      if (res.ok) {
+        setPassCode("");
+        fetchDashboard();
+      }
     } catch {
       setCheckInMessage("Could not reach the server.");
     } finally {
@@ -39,22 +59,6 @@ export default function GymDashboardPage() {
   };
 
   useEffect(() => {
-    const fetchDashboard = async () => {
-      try {
-        const token = localStorage.getItem("zonofit_portal_token");
-        const res = await fetch("/api/gyms/analytics/dashboard", {
-          headers: {
-            "Authorization": `Bearer ${token}`
-          }
-        });
-        const result = await res.json();
-        setData(result);
-      } catch (err) {
-        console.error("Failed to fetch gym dashboard", err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchDashboard();
   }, []);
 
@@ -72,13 +76,13 @@ export default function GymDashboardPage() {
 
         <form onSubmit={confirmVisit} className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm mb-8">
           <h2 className="text-lg font-bold text-gray-900 mb-1">Confirm a visit</h2>
-          <p className="text-sm text-gray-500 mb-4">Enter the pass code from the member&apos;s booking.</p>
+          <p className="text-sm text-gray-500 mb-4">Enter the desk code from the member&apos;s pass, such as ZF-4F2A9C.</p>
           <div className="flex flex-col sm:flex-row gap-3">
             <input
               value={passCode}
               onChange={(event) => setPassCode(event.target.value)}
-              className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-gray-900"
-              placeholder="Pass code"
+              className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 uppercase"
+              placeholder="ZF-4F2A9C"
               autoComplete="off"
             />
             <button

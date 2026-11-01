@@ -558,7 +558,7 @@ router.get("/today-visitors", requireAuth, async (req: Request, res: Response): 
             bookingId: booking.id,
             name: booking.user?.name?.trim() || "Member",
             status: booking.status,
-            passCode: booking.passCode,
+            passCode: `ZF-${booking.id.replace(/[^a-zA-Z0-9]/g, "").slice(-6).toUpperCase()}`,
             timeSlot: booking.timeSlot,
           }));
           return { ...slot, booked: visitors.length, visitors };
@@ -572,7 +572,7 @@ router.get("/today-visitors", requireAuth, async (req: Request, res: Response): 
             bookingId: booking.id,
             name: booking.user?.name?.trim() || "Member",
             status: booking.status,
-            passCode: booking.passCode,
+            passCode: `ZF-${booking.id.replace(/[^a-zA-Z0-9]/g, "").slice(-6).toUpperCase()}`,
             timeSlot: booking.timeSlot,
           });
           otherMap.set(label, list);

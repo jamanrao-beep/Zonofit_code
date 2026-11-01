@@ -41,6 +41,11 @@ const STATUS_LABEL: Record<string, string> = {
   COMPLETED: "Completed",
 };
 
+function deskCode(bookingId: string): string {
+  const tail = bookingId.replace(/[^a-zA-Z0-9]/g, "").slice(-6).toUpperCase();
+  return tail.length === 6 ? `ZF-${tail}` : bookingId;
+}
+
 function capLabel(gym: GymToday, slot: SlotVisitors): string | null {
   if (slot.capacity && slot.capacity > 0) return `${slot.booked} of ${slot.capacity}`;
   if (gym.cappingMode === "PER_SLOT" && gym.maxSlotVisits) return `${slot.booked} of ${gym.maxSlotVisits}`;
@@ -65,7 +70,7 @@ function VisitorList({ visitors }: { visitors: Visitor[] }) {
               {STATUS_LABEL[visitor.status] || visitor.status}
             </span>
           </div>
-          <p className="mt-1 text-xs text-gray-500 break-all">Pass {visitor.passCode}</p>
+          <p className="mt-1 text-xs font-semibold text-gray-700">Code {deskCode(visitor.bookingId)}</p>
         </li>
       ))}
     </ul>
