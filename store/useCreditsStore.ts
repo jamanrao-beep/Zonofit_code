@@ -157,7 +157,12 @@ export const useCreditsStore = create<CreditsState>()(
       const userStore = useUserStore.getState();
       const isLocallyActive = userStore.membershipStatus === "ACTIVE" || userStore.visitsRemaining > 0;
 
-      const resolvedMembership = data.membership || (isLocallyActive ? {
+      const activeCycleNumber = Math.max(data.membership?.cycleNumber || 1, userStore.currentMonth || 1);
+      const resolvedMembership = data.membership ? {
+        ...data.membership,
+        cycleNumber: activeCycleNumber,
+        cyclesRemaining: Math.max(0, (data.membership.maxCycles || 12) - activeCycleNumber),
+      } : (isLocallyActive ? {
         status: "ACTIVE",
         isExpired: false,
         isExpiringSoon: false,
@@ -166,12 +171,12 @@ export const useCreditsStore = create<CreditsState>()(
         gymName: userStore.primaryGymName || "Being Fitness",
         endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
         daysRemaining: 30,
-        cycleNumber: 1,
+        cycleNumber: activeCycleNumber,
         maxCycles: 12,
-        cyclesRemaining: 11,
-        mandatoryVisits: userStore.visitsRemaining || 10,
+        cyclesRemaining: Math.max(0, 12 - activeCycleNumber),
+        mandatoryVisits: userStore.visitsRemaining || (activeCycleNumber <= 4 ? 10 : 15),
         completedVisits: 0,
-        mandatoryVisitsRemaining: userStore.visitsRemaining || 10,
+        mandatoryVisitsRemaining: userStore.visitsRemaining || (activeCycleNumber <= 4 ? 10 : 15),
         canRepurchase: false,
         canBuyAdditionalCredits: true,
       } : currentMembership);

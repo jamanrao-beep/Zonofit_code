@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, Dimensions, Alert } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, Feather } from '@expo/vector-icons';
@@ -15,6 +15,7 @@ const { width } = Dimensions.get('window');
 export default function JourneyScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const journeyScrollRef = useRef<ScrollView>(null);
   const { token, isSignedIn } = useAuthStore();
   const isGuest = useGuestStore((state) => state.isGuest);
   const endGuestSession = useGuestStore((state) => state.endGuestSession);
@@ -32,8 +33,18 @@ export default function JourneyScreen() {
     }
   }, [isSignedIn, token]);
 
-  const cycleMonth = membershipInfo?.cycleNumber ?? currentMonth ?? 1;
+  const cycleMonth = Math.max(membershipInfo?.cycleNumber || 1, currentMonth || 1);
   const cycleTotalMonths = membershipInfo?.maxCycles ?? totalMonths ?? 12;
+
+  useEffect(() => {
+    if (cycleMonth > 2) {
+      const timer = setTimeout(() => {
+        const targetX = Math.max(0, (cycleMonth - 2) * 82);
+        journeyScrollRef.current?.scrollTo({ x: targetX, animated: true });
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [cycleMonth]);
   // Ensure we accurately count visits completed across membership, active check-in, and user workout records
   const checkedInToday = bookingStatus === "Checked In" ? 1 : 0;
   const completedPastCount = pastBookings.filter(b => b.status === "Completed" || b.status === "Checked In").length;
@@ -341,11 +352,40 @@ export default function JourneyScreen() {
               </View>
             </View>
             
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 8, paddingHorizontal: 4 }}>
+            <ScrollView 
+              ref={journeyScrollRef}
+              horizontal 
+              showsHorizontalScrollIndicator={false} 
+              contentContainerStyle={{ paddingVertical: 8, paddingHorizontal: 4 }}
+            >
               <View style={{ flexDirection: 'row', alignItems: 'flex-start', position: 'relative' }}>
-                {/* Connecting line */}
-                <View style={{ position: 'absolute', top: 18, left: 20, right: 20, height: 3, backgroundColor: '#E5E7EB', zIndex: 0 }} />
-                <View style={{ position: 'absolute', top: 18, left: 20, width: `${Math.min(100, Math.max(3, ((cycleMonth - 1) / 11) * 100))}%`, height: 3, backgroundColor: '#4C9A2A', zIndex: 1 }} />
+                {/* Background Connecting Line */}
+                <View 
+                  style={{ 
+                    position: 'absolute', 
+                    top: 18, 
+                    left: 32, 
+                    width: 902, 
+                    height: 3, 
+                    backgroundColor: '#E5E7EB', 
+                    zIndex: 0 
+                  }} 
+                />
+
+                {/* Active Progress Line — connects cleanly up to current month */}
+                {cycleMonth > 1 && (
+                  <View 
+                    style={{ 
+                      position: 'absolute', 
+                      top: 18, 
+                      left: 32, 
+                      width: Math.min(902, (cycleMonth - 1) * 82), 
+                      height: 3, 
+                      backgroundColor: '#1F7A3E', 
+                      zIndex: 1 
+                    }} 
+                  />
+                )}
                 
                 {[
                   { m: 1, label: "Start", target: "10 visits cut", focus: "Foundation habit: show up regularly at your primary gym." },
@@ -367,37 +407,47 @@ export default function JourneyScreen() {
                     <Pressable 
                       key={m} 
                       onPress={() => Alert.alert(`Month ${m} — ${label}`, `Target: ${target}\nFocus: ${focus}${isCurrent ? '\n\n👉 Your Current Month' : isCompleted ? '\n\n✅ Completed' : ''}`)}
-                      style={{ alignItems: 'center', zIndex: 2, marginRight: 22, width: 54 }}
+                      style={{ alignItems: 'center', zIndex: 2, marginRight: m === 12 ? 8 : 18, width: 64 }}
                     >
                       <View style={{ 
                         width: isCurrent ? 38 : 34, 
                         height: isCurrent ? 38 : 34, 
                         borderRadius: 19, 
-                        backgroundColor: isCompleted ? '#4C9A2A' : isCurrent ? 'white' : '#F3F4F6', 
+                        backgroundColor: isCompleted ? '#1F7A3E' : isCurrent ? '#FFFFFF' : '#F3F4F6', 
                         justifyContent: 'center', 
                         alignItems: 'center', 
                         marginBottom: 6, 
                         borderWidth: isCurrent ? 2.5 : 0, 
-                        borderColor: '#4C9A2A',
-                        shadowColor: isCurrent ? '#4C9A2A' : '#000',
+                        borderColor: '#1F7A3E',
+                        shadowColor: isCurrent ? '#1F7A3E' : '#000',
                         shadowOffset: { width: 0, height: 2 },
-                        shadowOpacity: isCurrent ? 0.3 : 0.05,
+                        shadowOpacity: isCurrent ? 0.35 : 0.05,
                         shadowRadius: 4,
                         elevation: isCurrent ? 3 : 1,
                       }}>
                         {isCompleted ? (
                           <Ionicons name="checkmark" size={17} color="white" />
                         ) : (
-                          <Text style={{ fontSize: 11, fontWeight: '800', color: isCurrent ? '#4C9A2A' : '#6B7280' }}>
+                          <Text style={{ fontSize: 11, fontWeight: '800', color: isCurrent ? '#1F7A3E' : '#6B7280' }}>
                             M{m}
                           </Text>
                         )}
                       </View>
-                      <Text style={{ fontSize: 10, fontWeight: isCurrent ? '800' : '600', color: isCurrent ? '#4C9A2A' : '#6B7280', textAlign: 'center' }}>
+                      <Text 
+                        numberOfLines={1}
+                        style={{ 
+                          fontSize: 10, 
+                          fontWeight: isCurrent ? '800' : '600', 
+                          color: isCurrent ? '#1F7A3E' : isCompleted ? '#374151' : '#6B7280', 
+                          textAlign: 'center' 
+                        }}
+                      >
                         {label}
                       </Text>
                       {isCurrent && (
-                        <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#4C9A2A', marginTop: 3 }} />
+                        <View style={{ backgroundColor: '#DCFCE7', paddingHorizontal: 5, paddingVertical: 1.5, borderRadius: 5, marginTop: 3 }}>
+                          <Text style={{ fontSize: 8, fontWeight: '800', color: '#1F7A3E' }}>YOU</Text>
+                        </View>
                       )}
                     </Pressable>
                   );
