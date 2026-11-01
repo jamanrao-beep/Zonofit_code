@@ -109,7 +109,7 @@ export default function HomeScreen() {
   } = useUserStore();
   const { credits, membershipInfo } = useCreditsStore();
   const { isGuest, checkExpiry, endGuestSession, selectedGymName, selectedGymId, getHoursRemaining } = useGuestStore();
-  const { bookingStatus, bookedGymName, bookedTime, isCancelling } = useBookingStore();
+  const { bookingStatus, bookedGymName, bookedTime, bookedCost, isCancelling } = useBookingStore();
 
   const [isCancellingTodayBooking, setIsCancellingTodayBooking] = React.useState(false);
   const [cancelPrompt, setCancelPrompt] = React.useState<{

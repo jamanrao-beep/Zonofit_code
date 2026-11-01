@@ -461,6 +461,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           const activated = await apiFetch("/api/membership/activate", {
             method: "POST",
             token,
+            silent: true,
             body: JSON.stringify({
               directAccept: true,
               primaryGymId: gymId,
