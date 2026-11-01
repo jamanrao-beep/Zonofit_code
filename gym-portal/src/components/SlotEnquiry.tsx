@@ -15,7 +15,7 @@ export default function SlotEnquiry() {
     <section className="rounded-3xl border border-emerald-100 bg-white p-4 sm:p-6 shadow-sm min-w-0">
       <h2 className="text-lg font-bold text-gray-900">Need a slot changed?</h2>
       <p className="mt-1 text-sm leading-6 text-gray-600">
-        Gym owners can view the schedule. To add, change, or remove a slot, send an enquiry.
+        You can open or close a time above. To add, change, or remove a slot, send an enquiry.
         The ZonoFit team will get back to you.
       </p>
       <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">

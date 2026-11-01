@@ -21,6 +21,15 @@ export declare function bookingMatchesSlot(timeSlot: string, slot: {
     endTime: string;
 }): boolean;
 export declare function readStoredSlots(slotsJson: string | null | undefined): StoredSlot[];
+/** Flip one saved slot open or closed. Times, capacity, and the other slots stay as they are. */
+export declare function setStoredSlotEnabled(slotsJson: string | null | undefined, slotId: string, isEnabled: boolean): {
+    ok: true;
+    slotsJson: string;
+    slot: StoredSlot;
+} | {
+    ok: false;
+    message: string;
+};
 export declare function publicBookingSlots(slotsJson: string | null | undefined): {
     startTime: string;
     endTime: string;

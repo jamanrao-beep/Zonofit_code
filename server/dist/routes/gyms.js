@@ -414,6 +414,41 @@ router.get("/slots", auth_1.requireAuth, async (req, res) => {
         res.status(500).json({ error: "ServerError", message: err.message });
     }
 });
+// ─── PATCH /api/gyms/slots/:slotId ────────────────────────────────────────────
+router.patch("/slots/:slotId", auth_1.requireAuth, async (req, res) => {
+    try {
+        const slotId = req.params.slotId;
+        const gymId = typeof req.body?.gymId === "string" ? req.body.gymId : "";
+        if (typeof req.body?.isEnabled !== "boolean" || !gymId) {
+            res.status(400).json({ error: "InvalidSlots", message: "Choose a gym and say whether the slot is open." });
+            return;
+        }
+        const gyms = await gymsOwnedBy(req.dbUserId, req.systemRole);
+        const gym = gyms.find((row) => row.id === gymId);
+        if (!gym) {
+            res.status(403).json({ error: "Forbidden", message: "That gym is not on this login." });
+            return;
+        }
+        const updated = (0, gymCommercial_1.setStoredSlotEnabled)(gym.slotsJson, slotId, req.body.isEnabled);
+        if (!updated.ok) {
+            res.status(404).json({ error: "SlotNotFound", message: updated.message });
+            return;
+        }
+        await prisma_1.default.gym.update({
+            where: { id: gym.id },
+            data: { slotsJson: updated.slotsJson },
+        });
+        res.json({
+            slot: updated.slot,
+            message: updated.slot.isEnabled
+                ? "Slot is open for booking."
+                : "Slot is closed. Bookings already made stay.",
+        });
+    }
+    catch (err) {
+        res.status(500).json({ error: "ServerError", message: err.message });
+    }
+});
 // ─── GET /api/gyms/today-visitors ─────────────────────────────────────────────
 router.get("/today-visitors", auth_1.requireAuth, async (req, res) => {
     try {
@@ -614,47 +649,156 @@ router.get("/analytics/members", auth_1.requireAuth, async (req, res) => {
             return;
         }
         const gymIds = gyms.map((g) => g.id);
-        // Find all completed/checked_in bookings for these gyms
-        const bookings = await prisma_1.default.booking.findMany({
-            where: {
-                gymId: { in: gymIds },
-                status: { in: ["CHECKED_IN", "COMPLETED"] }
-            },
+        const isAdmin = req.systemRole === "ADMIN";
+        // Count total active gyms in system to check if sole partner or viewing network
+        const totalGymsCount = await prisma_1.default.gym.count({ where: { isActive: true } });
+        const isSolePartnerOrAdmin = isAdmin || gymIds.length >= totalGymsCount;
+        // 1. Fetch memberships belonging to this gym's network
+        const membershipWhere = isSolePartnerOrAdmin
+            ? {}
+            : {
+                OR: [
+                    { primaryGymId: { in: gymIds } },
+                    { user: { bookings: { some: { gymId: { in: gymIds } } } } }
+                ]
+            };
+        const memberships = await prisma_1.default.membership.findMany({
+            where: membershipWhere,
             include: {
                 user: {
                     select: {
                         id: true,
                         name: true,
-                        membership: { select: { plan: { select: { name: true } }, createdAt: true } }
+                        email: true,
+                        createdAt: true,
+                        systemRole: true
+                    }
+                },
+                plan: { select: { name: true } },
+                gymPlan: { select: { name: true } },
+                primaryGym: { select: { id: true, name: true } }
+            },
+            orderBy: { createdAt: "desc" }
+        });
+        // 2. Fetch users who joined if admin / sole partner
+        let registeredUsers = [];
+        if (isSolePartnerOrAdmin) {
+            registeredUsers = await prisma_1.default.user.findMany({
+                where: {
+                    systemRole: "MEMBER"
+                },
+                include: {
+                    membership: {
+                        include: {
+                            plan: { select: { name: true } },
+                            gymPlan: { select: { name: true } },
+                            primaryGym: { select: { id: true, name: true } }
+                        }
+                    }
+                },
+                orderBy: { createdAt: "desc" }
+            });
+        }
+        // 3. Fetch all bookings for these gyms (both past visits and scheduled visits)
+        const bookings = await prisma_1.default.booking.findMany({
+            where: isSolePartnerOrAdmin ? {} : { gymId: { in: gymIds } },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                        createdAt: true,
+                        membership: {
+                            select: {
+                                plan: { select: { name: true } },
+                                gymPlan: { select: { name: true } },
+                                createdAt: true
+                            }
+                        }
                     }
                 }
             },
             orderBy: { visitDate: "desc" }
         });
-        // Aggregate by user
+        // Aggregate into memberMap
         const memberMap = {};
-        bookings.forEach(b => {
-            if (!b.user)
+        const addOrUpdateUser = (userId, userName, userEmail, planName, joinedAt) => {
+            if (!userId)
                 return;
-            if (!memberMap[b.user.id]) {
-                memberMap[b.user.id] = {
-                    id: b.user.id,
-                    name: b.user.name,
-                    plan: b.user.membership?.plan?.name || "Standard",
-                    joined: b.user.membership?.createdAt ? new Date(b.user.membership.createdAt).toLocaleDateString() : "N/A",
+            const name = userName?.trim() || userEmail?.split("@")[0] || "Member";
+            const plan = planName || "Standard";
+            const joinedStr = joinedAt
+                ? new Date(joinedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                : "N/A";
+            if (!memberMap[userId]) {
+                memberMap[userId] = {
+                    id: userId,
+                    name,
+                    plan,
+                    joined: joinedStr,
                     visits: 0,
-                    lastVisit: b.visitDate,
+                    lastVisitDate: null,
+                    hasScheduled: false,
                 };
             }
-            memberMap[b.user.id].visits += 1;
-            if (new Date(b.visitDate) > new Date(memberMap[b.user.id].lastVisit)) {
-                memberMap[b.user.id].lastVisit = b.visitDate;
+            else {
+                if ((memberMap[userId].plan === "Standard" || memberMap[userId].plan === "ZonoFit Member") &&
+                    planName) {
+                    memberMap[userId].plan = planName;
+                }
             }
+        };
+        // Seed registered users
+        for (const u of registeredUsers) {
+            const planName = u.membership?.plan?.name || u.membership?.gymPlan?.name;
+            const joinedAt = u.membership?.createdAt || u.createdAt;
+            addOrUpdateUser(u.id, u.name, u.email, planName, joinedAt);
+        }
+        // Seed memberships
+        for (const m of memberships) {
+            if (!m.user)
+                continue;
+            const planName = m.plan?.name || m.gymPlan?.name || (m.status ? `${m.status} Membership` : undefined);
+            const joinedAt = m.createdAt || m.user.createdAt;
+            addOrUpdateUser(m.user.id, m.user.name, m.user.email, planName, joinedAt);
+        }
+        // Overlay bookings
+        for (const b of bookings) {
+            if (!b.user)
+                continue;
+            const planName = b.user.membership?.plan?.name || b.user.membership?.gymPlan?.name;
+            const joinedAt = b.user.membership?.createdAt || b.user.createdAt;
+            addOrUpdateUser(b.user.id, b.user.name, b.user.email, planName, joinedAt);
+            const isCheckIn = b.status === "CHECKED_IN" || b.status === "COMPLETED";
+            if (isCheckIn) {
+                memberMap[b.user.id].visits += 1;
+                const vDate = new Date(b.visitDate);
+                if (!memberMap[b.user.id].lastVisitDate || vDate > memberMap[b.user.id].lastVisitDate) {
+                    memberMap[b.user.id].lastVisitDate = vDate;
+                }
+            }
+            else if (b.status === "CONFIRMED" || b.status === "PENDING") {
+                memberMap[b.user.id].hasScheduled = true;
+            }
+        }
+        const members = Object.values(memberMap).map((m) => {
+            let lastVisit = "No check-ins yet";
+            if (m.lastVisitDate) {
+                lastVisit = m.lastVisitDate.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+            }
+            else if (m.hasScheduled) {
+                lastVisit = "Visit Scheduled";
+            }
+            return {
+                id: m.id,
+                name: m.name,
+                plan: m.plan,
+                joined: m.joined,
+                visits: m.visits,
+                lastVisit,
+            };
         });
-        const members = Object.values(memberMap).map(m => ({
-            ...m,
-            lastVisit: new Date(m.lastVisit).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
-        }));
         res.json({ members });
     }
     catch (err) {

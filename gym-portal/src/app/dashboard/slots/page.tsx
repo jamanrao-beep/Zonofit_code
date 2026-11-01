@@ -25,6 +25,9 @@ export default function GymSlotsPage() {
   const [gyms, setGyms] = useState<GymSlots[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [busyId, setBusyId] = useState("");
+  const [note, setNote] = useState("");
+  const [toggleError, setToggleError] = useState("");
 
   useEffect(() => {
     const load = async () => {
@@ -48,13 +51,49 @@ export default function GymSlotsPage() {
     load();
   }, []);
 
+  const toggleSlot = async (gymId: string, slot: SlotRow) => {
+    if (busyId) return;
+    const next = !slot.isEnabled;
+    setBusyId(slot.slotId);
+    setNote("");
+    setToggleError("");
+    setGyms((current) => current.map((gym) => (
+      gym.id !== gymId
+        ? gym
+        : { ...gym, slots: gym.slots.map((row) => (row.slotId === slot.slotId ? { ...row, isEnabled: next } : row)) }
+    )));
+    try {
+      const token = localStorage.getItem("zonofit_portal_token");
+      const res = await fetch(`/api/gyms/slots/${encodeURIComponent(slot.slotId)}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ gymId, isEnabled: next }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || "Could not update that slot.");
+      setNote(typeof data.message === "string" ? data.message : "");
+    } catch (err) {
+      setGyms((current) => current.map((gym) => (
+        gym.id !== gymId
+          ? gym
+          : { ...gym, slots: gym.slots.map((row) => (row.slotId === slot.slotId ? { ...row, isEnabled: slot.isEnabled } : row)) }
+      )));
+      setToggleError(err instanceof Error ? err.message : "Could not update that slot.");
+    } finally {
+      setBusyId("");
+    }
+  };
+
   return (
     <GymGuard>
       <div className="mx-auto w-full max-w-5xl min-w-0 space-y-5">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Slots</h1>
           <p className="mt-1 text-sm text-gray-600">
-            The booking times ZonoFit has set for your gym. You can view them here.
+            Turn a booking time on or off. A closed time is hidden from new bookings. Visits already booked stay. To add or change a time, send an enquiry below.
           </p>
         </div>
 
@@ -84,7 +123,7 @@ export default function GymSlotsPage() {
               ) : (
                 <ul className="mt-4 divide-y divide-gray-100">
                   {gym.slots.map((slot) => (
-                    <li key={slot.slotId} className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <li key={slot.slotId} className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0">
                         <p className="font-semibold text-gray-900">
                           {slot.startTime}{slot.endTime ? ` – ${slot.endTime}` : ""}
@@ -93,9 +132,22 @@ export default function GymSlotsPage() {
                           {slot.capacity ? `Capacity ${slot.capacity}` : "Uses the gym visit cap"}
                         </p>
                       </div>
-                      <span className={`text-xs font-bold w-fit rounded-full px-2.5 py-1 ${slot.isEnabled ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
-                        {slot.isEnabled ? "Open for booking" : "Closed"}
-                      </span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={slot.isEnabled}
+                        aria-label={`${slot.isEnabled ? "Close" : "Open"} ${slot.startTime}`}
+                        disabled={busyId === slot.slotId}
+                        onClick={() => toggleSlot(gym.id, slot)}
+                        className="inline-flex items-center gap-3 self-start rounded-full border border-gray-200 bg-gray-50 px-2 py-1.5 pr-3 disabled:opacity-60"
+                      >
+                        <span className={`relative h-7 w-12 rounded-full transition-colors ${slot.isEnabled ? "bg-emerald-600" : "bg-gray-300"}`}>
+                          <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${slot.isEnabled ? "translate-x-5" : "translate-x-0.5"}`} />
+                        </span>
+                        <span className={`text-xs font-bold ${slot.isEnabled ? "text-emerald-800" : "text-gray-500"}`}>
+                          {busyId === slot.slotId ? "Saving" : slot.isEnabled ? "Open" : "Closed"}
+                        </span>
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -103,6 +155,13 @@ export default function GymSlotsPage() {
             </section>
           ))
         )}
+
+        {toggleError ? (
+          <p className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">{toggleError}</p>
+        ) : null}
+        {note ? (
+          <p className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{note}</p>
+        ) : null}
 
         <SlotEnquiry />
       </div>

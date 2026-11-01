@@ -4,6 +4,7 @@ exports.visitPayoutInr = visitPayoutInr;
 exports.slotKey = slotKey;
 exports.bookingMatchesSlot = bookingMatchesSlot;
 exports.readStoredSlots = readStoredSlots;
+exports.setStoredSlotEnabled = setStoredSlotEnabled;
 exports.publicBookingSlots = publicBookingSlots;
 exports.normalizeSlotList = normalizeSlotList;
 exports.slotsPayloadToJson = slotsPayloadToJson;
@@ -73,6 +74,19 @@ function readStoredSlots(slotsJson) {
     catch {
         return [];
     }
+}
+/** Flip one saved slot open or closed. Times, capacity, and the other slots stay as they are. */
+function setStoredSlotEnabled(slotsJson, slotId, isEnabled) {
+    if (!/^[A-Za-z0-9_-]{1,40}$/.test(slotId)) {
+        return { ok: false, message: "That slot is not on this gym." };
+    }
+    const slots = readStoredSlots(slotsJson);
+    const index = slots.findIndex((slot) => slot.slotId === slotId);
+    if (index < 0)
+        return { ok: false, message: "That slot is not on this gym." };
+    const slot = { ...slots[index], isEnabled };
+    slots[index] = slot;
+    return { ok: true, slotsJson: JSON.stringify(slots), slot };
 }
 function publicBookingSlots(slotsJson) {
     return readStoredSlots(slotsJson)
