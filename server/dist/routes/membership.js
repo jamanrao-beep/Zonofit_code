@@ -9,6 +9,7 @@ const prisma_1 = __importDefault(require("../lib/prisma"));
 const auth_1 = require("../middleware/auth");
 const membershipActivate_1 = require("../services/membershipActivate");
 const payments_1 = require("../services/payments");
+const notifications_1 = require("../services/notifications");
 const router = (0, express_1.Router)();
 // ─── GET /api/membership/plans ────────────────────────────────────────────────
 /**
@@ -114,6 +115,7 @@ router.post("/create-order", auth_1.requireAuth, [
                 planId: quote.planId,
                 gymPlanId: quote.gymPlanId,
             });
+            await (0, notifications_1.sendPushNotification)(req.dbUserId, "Membership Activated 🎉", `Your membership at ${activationResult.gym.name} is active! ${activationResult.initialVisits} primary visits and ${activationResult.remainingCreditsToAdd} credits added to your wallet.`).catch(() => { });
             res.status(200).json({
                 directAccepted: true,
                 success: true,

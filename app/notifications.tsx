@@ -5,6 +5,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useGuestStore } from "@/store/useGuestStore";
+import { useCreditsStore } from "@/store/useCreditsStore";
+import { useUserStore } from "@/store/useUserStore";
 import { apiFetch } from "@/lib/api";
 
 type NotificationCategory = "All" | "Visits" | "Credits" | "Membership" | "Account";
@@ -70,39 +72,108 @@ export default function NotificationsScreen() {
         return;
       }
       const data = await apiFetch("/api/users/notifications", { token });
-      if (data.success && Array.isArray(data.notifications)) {
-        // Map backend notifications to include categorisation and CTA if needed
-        const mapped: NotificationItem[] = data.notifications.map((n: any) => {
-          let cat: NotificationCategory = "Account";
-          let ctaText: string | undefined;
-          let ctaRoute: string | undefined;
+      const apiNotifs = data.success && Array.isArray(data.notifications) ? data.notifications : [];
 
-          const titleLower = (n.title || "").toLowerCase();
-          const bodyLower = (n.body || "").toLowerCase();
+      // Map backend notifications to include categorisation and CTA if needed
+      const mapped: NotificationItem[] = apiNotifs.map((n: any) => {
+        let cat: NotificationCategory = "Account";
+        let ctaText: string | undefined;
+        let ctaRoute: string | undefined;
 
-          if (titleLower.includes("visit") || titleLower.includes("booking") || titleLower.includes("check-in") || titleLower.includes("qr")) {
-            cat = "Visits";
-            ctaText = "View Booking";
-            ctaRoute = "/booking-history";
-          } else if (titleLower.includes("credit") || bodyLower.includes("credit") || titleLower.includes("wallet") || bodyLower.includes("wallet")) {
-            cat = "Credits";
-            ctaText = "View Wallet";
-            ctaRoute = "/(tabs)/credits";
-          } else if (titleLower.includes("membership") || bodyLower.includes("membership") || titleLower.includes("cycle")) {
-            cat = "Membership";
-            ctaText = "View Membership";
-            ctaRoute = "/(tabs)/credits";
-          }
+        const titleLower = (n.title || "").toLowerCase();
+        const bodyLower = (n.body || "").toLowerCase();
 
-          return {
-            ...n,
-            category: cat,
-            ctaText,
-            ctaRoute,
-          };
-        });
-        setNotifications(mapped);
+        if (
+          titleLower.includes("credit") ||
+          bodyLower.includes("credit") ||
+          titleLower.includes("wallet") ||
+          bodyLower.includes("wallet") ||
+          titleLower.includes("top up") ||
+          bodyLower.includes("top up") ||
+          titleLower.includes("top-up") ||
+          bodyLower.includes("top-up") ||
+          titleLower.includes("purchased") ||
+          bodyLower.includes("purchased") ||
+          titleLower.includes("fee") ||
+          bodyLower.includes("fee") ||
+          titleLower.includes("🪙") ||
+          bodyLower.includes("🪙")
+        ) {
+          cat = "Credits";
+          ctaText = "View Wallet";
+          ctaRoute = "/(tabs)/credits";
+        } else if (
+          titleLower.includes("membership") ||
+          bodyLower.includes("membership") ||
+          titleLower.includes("cycle") ||
+          titleLower.includes("plan")
+        ) {
+          cat = "Membership";
+          ctaText = "View Membership";
+          ctaRoute = "/(tabs)/credits";
+        } else if (
+          titleLower.includes("visit") ||
+          titleLower.includes("booking") ||
+          titleLower.includes("check-in") ||
+          titleLower.includes("qr")
+        ) {
+          cat = "Visits";
+          ctaText = "View Booking";
+          ctaRoute = "/booking-history";
+        }
+
+        return {
+          ...n,
+          category: cat,
+          ctaText,
+          ctaRoute,
+        };
+      });
+
+      // Integrate local wallet transactions if not already in notifications
+      const localTxs = useCreditsStore.getState().transactions || [];
+      const membership = useCreditsStore.getState().membershipInfo;
+      const userStore = useUserStore.getState();
+      const isMember = userStore.membershipStatus === "ACTIVE" || (membership && membership.status === "ACTIVE");
+
+      const existingTitles = new Set(mapped.map(m => m.title));
+      const existingBodies = new Set(mapped.map(m => m.body));
+
+      const synthesized: NotificationItem[] = [];
+
+      for (const tx of localTxs) {
+        const txTitle = tx.type === "credit" ? "Credits Added ⚡" : "Credits Used 🪙";
+        if (!existingBodies.has(tx.description)) {
+          synthesized.push({
+            id: `tx-${tx.id}`,
+            title: txTitle,
+            body: tx.description,
+            type: tx.type === "credit" ? "SUCCESS" : "INFO",
+            isRead: true,
+            createdAt: tx.date || new Date().toISOString(),
+            category: "Credits",
+            ctaText: "View Wallet",
+            ctaRoute: "/(tabs)/credits",
+          });
+        }
       }
+
+      if (isMember && !existingTitles.has("Membership Activated 🎉") && !existingTitles.has("Membership Active 🎉")) {
+        const gym = membership?.gymName || userStore.primaryGymName || "your primary gym";
+        synthesized.push({
+          id: "local-membership-active",
+          title: "Membership Active 🎉",
+          body: `Your membership at ${gym} is active! 10 primary visits and credits are available in your wallet.`,
+          type: "SUCCESS",
+          isRead: false,
+          createdAt: new Date().toISOString(),
+          category: "Credits",
+          ctaText: "View Wallet",
+          ctaRoute: "/(tabs)/credits",
+        });
+      }
+
+      setNotifications([...mapped, ...synthesized]);
     } catch (err) {
       console.warn("Error fetching notifications:", err);
     } finally {
@@ -154,6 +225,51 @@ export default function NotificationsScreen() {
 
   const filteredNotifications = notifications.filter(n => {
     if (activeTab === "All") return true;
+    const titleLower = (n.title || "").toLowerCase();
+    const bodyLower = (n.body || "").toLowerCase();
+
+    if (activeTab === "Credits") {
+      return (
+        n.category === "Credits" ||
+        titleLower.includes("credit") ||
+        bodyLower.includes("credit") ||
+        titleLower.includes("wallet") ||
+        bodyLower.includes("wallet") ||
+        titleLower.includes("top up") ||
+        bodyLower.includes("top up") ||
+        titleLower.includes("top-up") ||
+        bodyLower.includes("top-up") ||
+        titleLower.includes("fee") ||
+        bodyLower.includes("fee") ||
+        titleLower.includes("🪙") ||
+        bodyLower.includes("🪙")
+      );
+    }
+
+    if (activeTab === "Membership") {
+      return (
+        n.category === "Membership" ||
+        titleLower.includes("membership") ||
+        bodyLower.includes("membership") ||
+        titleLower.includes("plan") ||
+        bodyLower.includes("plan") ||
+        titleLower.includes("cycle") ||
+        bodyLower.includes("cycle")
+      );
+    }
+
+    if (activeTab === "Visits") {
+      return (
+        n.category === "Visits" ||
+        titleLower.includes("visit") ||
+        bodyLower.includes("visit") ||
+        titleLower.includes("booking") ||
+        bodyLower.includes("booking") ||
+        titleLower.includes("check-in") ||
+        bodyLower.includes("check-in")
+      );
+    }
+
     return n.category === activeTab;
   });
 

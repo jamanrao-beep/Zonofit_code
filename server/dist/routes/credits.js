@@ -247,6 +247,7 @@ router.post("/create-order", auth_1.requireAuth, [
                     referenceId: `test_cr_${Date.now()}`,
                 },
             });
+            await (0, notifications_1.sendPushNotification)(req.dbUserId, "Credits Added ⚡", `Successfully added ${credits} Credits (₹${credits * 10} fitness value) to your wallet. New balance: ${updatedWallet.balance} Credits.`).catch(() => { });
             res.status(200).json({
                 directAccepted: true,
                 success: true,

@@ -162,6 +162,11 @@ export default function HomeScreen() {
   const isExpired = membershipInfo ? membershipInfo.isExpired : false;
   const isMembershipActive = membershipInfo ? (!membershipInfo.isExpired && membershipInfo.status === "ACTIVE") : false;
   const isPrimaryMember = !isGuest && (isMembershipActive || membershipStatus === "ACTIVE" || membershipStatus === "Active" || visitsRemaining > 0);
+  const effectiveCredits = credits >= 180
+    ? credits
+    : isPrimaryMember
+      ? (credits > 0 ? credits + 180 : 180)
+      : credits;
   const daysRemaining = membershipInfo?.daysRemaining ?? 0;
   const isExpiringSoon = isMembershipActive && daysRemaining <= 3 && daysRemaining > 0;
   const showRenewalAlert = isExpired || isExpiringSoon;
@@ -671,16 +676,20 @@ export default function HomeScreen() {
           })()}
 
           <View className="flex-row justify-between items-center mb-6">
-            <View className="flex-row items-center">
+            <Pressable 
+              onPress={() => router.push("/(tabs)/credits" as any)}
+              className="flex-row items-center active:opacity-80"
+            >
               <View className="w-5 h-5 rounded-full bg-yellow-500/20 items-center justify-center mr-1.5">
                 <Text className="text-yellow-500 text-[10px] font-bold">🪙</Text>
               </View>
               <Text className="text-white text-sm font-medium">
-                Available Credits: {credits}
+                Available Credits: <Text className="font-extrabold">{effectiveCredits}</Text>
+                <Text className="text-white/70 text-xs"> (≈ ₹{effectiveCredits * 10})</Text>
               </Text>
-            </View>
-            <Pressable onPress={() => router.push("/credits")}>
-              <Text className="text-white/90 text-xs underline font-medium tracking-wide">View Wallet</Text>
+            </Pressable>
+            <Pressable onPress={() => router.push("/(tabs)/credits" as any)}>
+              <Text className="text-white/90 text-xs underline font-semibold tracking-wide">View Wallet</Text>
             </Pressable>
           </View>
 

@@ -3,6 +3,7 @@ import Razorpay from "razorpay";
 import prisma from "../lib/prisma";
 import { createError } from "../middleware/errorHandler";
 import { activatePaidMembership } from "./membershipActivate";
+import { sendPushNotification } from "./notifications";
 
 export interface PaymentMeta {
   planId?: string | null;
@@ -132,6 +133,11 @@ export async function fulfillPaymentOrder(input: {
         primaryGymId: meta.primaryGymId,
         gymName: meta.gymName,
       });
+      await sendPushNotification(
+        order.userId,
+        "Membership Activated 🎉",
+        `Your membership at ${meta.gymName || "your primary gym"} is now active! 10 primary visits and credits are ready in your wallet.`
+      ).catch(() => {});
     } else {
       await grantPurchase(tx, order, input.referenceId);
     }

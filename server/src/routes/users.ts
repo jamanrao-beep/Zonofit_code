@@ -439,6 +439,65 @@ router.get(
     requireAuth,
     async (req: Request, res: Response): Promise<void> => {
         try {
+            const userId = req.dbUserId!;
+            const existingNotifications = await prisma.notification.findMany({
+                where: { userId },
+                orderBy: { createdAt: "desc" }
+            });
+
+            // Backfill notifications from Credit Transactions & Membership if missing
+            try {
+                const newNotifs: Array<{ userId: string; title: string; body: string; type: string; createdAt: Date }> = [];
+                const txs = await prisma.creditTransaction.findMany({
+                    where: { userId },
+                    orderBy: { createdAt: "desc" },
+                    take: 20
+                });
+
+                const existingTitles = new Set(existingNotifications.map(n => n.title));
+                const existingBodies = new Set(existingNotifications.map(n => n.body));
+
+                for (const tx of txs) {
+                    if (tx.type === "PURCHASE") {
+                        const title = "Credits Added ⚡";
+                        const body = `Successfully added ${tx.amount} Credits (₹${tx.amount * 10} fitness value) to your wallet.`;
+                        if (!existingTitles.has(title) && !existingBodies.has(body)) {
+                            newNotifs.push({ userId, title, body, type: "SUCCESS", createdAt: tx.createdAt });
+                        }
+                    } else if (tx.type === "MEMBERSHIP_GRANT") {
+                        const title = "Membership Credits Added 🪙";
+                        const body = `10 primary visits and ${tx.amount} credits are credited to your wallet for Month 1.`;
+                        if (!existingTitles.has(title) && !existingBodies.has(body)) {
+                            newNotifs.push({ userId, title, body, type: "SUCCESS", createdAt: tx.createdAt });
+                        }
+                    }
+                }
+
+                // Check active membership
+                const membership = await prisma.membership.findUnique({
+                    where: { userId },
+                    include: { primaryGym: { select: { name: true } } }
+                });
+                if (membership && membership.status === "ACTIVE") {
+                    const title = "Membership Activated 🎉";
+                    if (!existingTitles.has(title)) {
+                        newNotifs.push({
+                            userId,
+                            title,
+                            body: `Your membership at ${membership.primaryGym?.name || "your primary gym"} is active with 10 primary visits and full network credit access.`,
+                            type: "SUCCESS",
+                            createdAt: membership.startDate || new Date(),
+                        });
+                    }
+                }
+
+                if (newNotifs.length > 0) {
+                    await prisma.notification.createMany({ data: newNotifs as any });
+                }
+            } catch (backfillErr) {
+                console.warn("[Notifications] Backfill check error:", backfillErr);
+            }
+
             const notifications = await prisma.notification.findMany({
                 where: {
                     userId: req.dbUserId!

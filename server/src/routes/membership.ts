@@ -4,6 +4,7 @@ import prisma from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
 import { activatePaidMembership, quotePaidMembership } from "../services/membershipActivate";
 import { fulfillPaymentOrder, getRazorpay, getRazorpayConfig, isRazorpayConfigured, verifyCheckoutSignature } from "../services/payments";
+import { sendPushNotification } from "../services/notifications";
 
 const router = Router();
 
@@ -137,6 +138,12 @@ router.post(
           planId: quote.planId,
           gymPlanId: quote.gymPlanId,
         });
+
+        await sendPushNotification(
+          req.dbUserId!,
+          "Membership Activated 🎉",
+          `Your membership at ${activationResult.gym.name} is active! ${activationResult.initialVisits} primary visits and ${activationResult.remainingCreditsToAdd} credits added to your wallet.`
+        ).catch(() => {});
 
         res.status(200).json({
           directAccepted: true,

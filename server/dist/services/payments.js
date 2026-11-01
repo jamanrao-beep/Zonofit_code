@@ -14,6 +14,7 @@ const razorpay_1 = __importDefault(require("razorpay"));
 const prisma_1 = __importDefault(require("../lib/prisma"));
 const errorHandler_1 = require("../middleware/errorHandler");
 const membershipActivate_1 = require("./membershipActivate");
+const notifications_1 = require("./notifications");
 function badSecret(value) {
     if (!value)
         return true;
@@ -122,6 +123,7 @@ async function fulfillPaymentOrder(input) {
                 primaryGymId: meta.primaryGymId,
                 gymName: meta.gymName,
             });
+            await (0, notifications_1.sendPushNotification)(order.userId, "Membership Activated 🎉", `Your membership at ${meta.gymName || "your primary gym"} is now active! 10 primary visits and credits are ready in your wallet.`).catch(() => { });
         }
         else {
             await grantPurchase(tx, order, input.referenceId);
