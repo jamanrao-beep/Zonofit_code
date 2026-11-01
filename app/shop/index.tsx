@@ -147,13 +147,17 @@ export default function ShopHomeScreen() {
                 onPress={() => router.push("/(tabs)/credits" as never)}
                 style={styles.cred}
               >
-                <Ionicons name="wallet-outline" size={22} color={shop.ink} />
-                <View>
-                  <Text style={styles.credLabel}>Your Credits</Text>
-                  <Text style={styles.credValue}>
+                <Ionicons name="wallet-outline" size={20} color={shop.ink} style={{ flexShrink: 0 }} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.credLabel} numberOfLines={1}>Your Credits</Text>
+                  <Text style={styles.credValue} numberOfLines={1}>
                     {isGuest ? "Locked" : credits}
-                    {!isGuest ? <Text style={styles.credWorth}>  {inr(credits * GYM_CREDIT_INR)} at gyms</Text> : null}
                   </Text>
+                  {!isGuest ? (
+                    <Text style={styles.credWorth} numberOfLines={1}>
+                      ≈ {inr(credits * GYM_CREDIT_INR)} at gyms
+                    </Text>
+                  ) : null}
                 </View>
               </Pressable>
               <Pressable
@@ -339,9 +343,10 @@ const styles = StyleSheet.create({
   gymRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
   gymName: { color: shop.hero, fontWeight: "700", fontSize: 20 },
   repCopy: { color: shop.muted, marginTop: 8, marginBottom: 16, fontSize: 14, lineHeight: 20 },
-  repActions: { flexDirection: "row", alignItems: "center", gap: 12 },
+  repActions: { flexDirection: "row", alignItems: "center", gap: 10 },
   cred: {
     flex: 1,
+    minWidth: 0,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
@@ -350,21 +355,23 @@ const styles = StyleSheet.create({
     borderColor: shop.line,
     borderRadius: 16,
     paddingVertical: 10,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
+    overflow: "hidden",
   },
-  credLabel: { color: shop.muted, fontSize: 12 },
-  credValue: { fontSize: 22, fontWeight: "700", color: shop.ink },
-  credWorth: { color: shop.muted, fontSize: 12, fontWeight: "400" },
+  credLabel: { color: shop.muted, fontSize: 11.5, fontWeight: "500" },
+  credValue: { fontSize: 19, fontWeight: "800", color: shop.ink, lineHeight: 23 },
+  credWorth: { color: shop.muted, fontSize: 10.5, fontWeight: "400", marginTop: 1 },
   details: {
-    height: 50,
+    height: 48,
     borderRadius: 99,
     backgroundColor: shop.hero,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    flexShrink: 0,
   },
-  detailsText: { color: "#fff", fontWeight: "700" },
+  detailsText: { color: "#fff", fontWeight: "700", fontSize: 13 },
   cats: { paddingHorizontal: 20, paddingTop: 22, gap: 10 },
   cat: { width: 76, alignItems: "center" },
   catIcon: {

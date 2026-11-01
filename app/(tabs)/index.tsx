@@ -679,16 +679,17 @@ export default function HomeScreen() {
             <Pressable 
               onPress={() => router.push("/(tabs)/credits" as any)}
               className="flex-row items-center active:opacity-80"
+              style={{ flex: 1, minWidth: 0, marginRight: 8 }}
             >
-              <View className="w-5 h-5 rounded-full bg-yellow-500/20 items-center justify-center mr-1.5">
+              <View className="w-5 h-5 rounded-full bg-yellow-500/20 items-center justify-center mr-1.5 flex-shrink-0">
                 <Text className="text-yellow-500 text-[10px] font-bold">🪙</Text>
               </View>
-              <Text className="text-white text-sm font-medium">
+              <Text className="text-white text-sm font-medium" numberOfLines={1} style={{ flexShrink: 1 }}>
                 Available Credits: <Text className="font-extrabold">{effectiveCredits}</Text>
                 <Text className="text-white/70 text-xs"> (≈ ₹{effectiveCredits * 10})</Text>
               </Text>
             </Pressable>
-            <Pressable onPress={() => router.push("/(tabs)/credits" as any)}>
+            <Pressable onPress={() => router.push("/(tabs)/credits" as any)} style={{ flexShrink: 0 }}>
               <Text className="text-white/90 text-xs underline font-semibold tracking-wide">View Wallet</Text>
             </Pressable>
           </View>

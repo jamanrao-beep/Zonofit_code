@@ -92,14 +92,14 @@ export default function ProfileScreen() {
             className="flex-row items-center justify-between py-3.5 border-b"
             style={{ borderBottomColor: colors.secondary }}
         >
-            <View className="flex-row items-center gap-x-3">
-                <View className="w-8 h-8 rounded-xl items-center justify-center border" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
+            <View className="flex-row items-center gap-x-3 flex-1 min-w-0 mr-2">
+                <View className="w-8 h-8 rounded-xl items-center justify-center border flex-shrink-0" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
                     <MaterialIcons name={icon} size={18} color={color} />
                 </View>
-                <Text className="text-sm font-semibold" style={{ color: colors.text }}>{label}</Text>
+                <Text className="text-sm font-semibold flex-1" numberOfLines={1} style={{ color: colors.text }}>{label}</Text>
             </View>
-            <View className="flex-row items-center gap-x-1">
-                {value ? <Text className="text-xs mr-1" style={{ color: colors.muted }}>{value}</Text> : null}
+            <View className="flex-row items-center gap-x-1 flex-shrink-0 max-w-[50%]">
+                {value ? <Text className="text-xs mr-1" numberOfLines={1} style={{ color: colors.muted }}>{value}</Text> : null}
                 {showChevron && <MaterialIcons name="chevron-right" size={18} color={colors.muted} />}
             </View>
         </Pressable>

@@ -267,9 +267,9 @@ export default function CheckoutScreen() {
         <View style={shopStyles.card}>
           <View style={styles.creditHead}>
             <View style={styles.coin}><Text style={styles.coinText}>₹</Text></View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.creditTitle}>Use ZonoFit credits</Text>
-              <Text style={styles.creditSub}>{credits} CR available · 1 CR = {inr(SHOP_CREDIT_INR)} here · {inr(GYM_CREDIT_INR)} at gyms</Text>
+            <View style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
+              <Text style={styles.creditTitle} numberOfLines={1}>Use ZonoFit credits</Text>
+              <Text style={styles.creditSub} numberOfLines={2}>{credits} CR available · 1 CR = {inr(SHOP_CREDIT_INR)} here · {inr(GYM_CREDIT_INR)} at gyms</Text>
             </View>
             <Pressable
               accessibilityRole="switch"

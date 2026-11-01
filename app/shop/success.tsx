@@ -44,9 +44,9 @@ export default function ShopSuccessScreen() {
         <View style={shopStyles.card}>
           <View style={styles.leftRow}>
             <View style={styles.coin}><Text style={styles.coinText}>₹</Text></View>
-            <View>
-              <Text style={styles.leftTitle}>{receipt?.creditsLeft ?? 0} credits left</Text>
-              <Text style={styles.leftSub}>Worth {inr((receipt?.creditsLeft || 0) * GYM_CREDIT_INR)} at gyms</Text>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.leftTitle} numberOfLines={1}>{receipt?.creditsLeft ?? 0} credits left</Text>
+              <Text style={styles.leftSub} numberOfLines={1}>Worth {inr((receipt?.creditsLeft || 0) * GYM_CREDIT_INR)} at gyms</Text>
             </View>
           </View>
         </View>
