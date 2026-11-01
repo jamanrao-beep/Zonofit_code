@@ -24,12 +24,13 @@ router.post("/signup", (_req, res) => {
 router.post("/signin", [
     (0, express_validator_1.body)("email").isEmail().normalizeEmail(),
     (0, express_validator_1.body)("password").isString(),
-    (0, express_validator_1.body)("code").optional().isString().trim().matches(/^\d{4}$/),
+    (0, express_validator_1.body)("code").optional().isString().trim().matches(/^\d{4,6}$/).withMessage("Enter a valid 6-digit verification code"),
 ], async (req, res) => {
     try {
         const errors = (0, express_validator_1.validationResult)(req);
         if (!errors.isEmpty()) {
-            res.status(400).json({ error: "ValidationError", details: errors.array() });
+            const firstError = errors.array()[0];
+            res.status(400).json({ error: "ValidationError", message: firstError?.msg || "Invalid verification code", details: errors.array() });
             return;
         }
         const { email, password, code } = req.body;

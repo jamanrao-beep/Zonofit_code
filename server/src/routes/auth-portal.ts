@@ -24,13 +24,14 @@ router.post(
   [
     body("email").isEmail().normalizeEmail(),
     body("password").isString(),
-    body("code").optional().isString().trim().matches(/^\d{4}$/),
+    body("code").optional().isString().trim().matches(/^\d{4,6}$/).withMessage("Enter a valid 6-digit verification code"),
   ],
   async (req: Request, res: Response): Promise<void> => {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        res.status(400).json({ error: "ValidationError", details: errors.array() });
+        const firstError = errors.array()[0];
+        res.status(400).json({ error: "ValidationError", message: firstError?.msg || "Invalid verification code", details: errors.array() });
         return;
       }
 
