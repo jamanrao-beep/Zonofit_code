@@ -134,7 +134,7 @@ export default function CheckoutScreen() {
       return;
     }
     if (ready.length === 0) {
-      Alert.alert("Nothing to charge", "The cart only has catalogue previews. Add a live marketplace product to check out.");
+      Alert.alert("Nothing to charge", "Add a product from the shop before checking out.");
       return;
     }
     if (!address) {

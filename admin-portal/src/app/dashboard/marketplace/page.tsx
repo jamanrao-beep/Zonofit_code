@@ -260,7 +260,8 @@ export default function AdminMarketplacePage() {
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-black mb-2">Images <span className="font-medium text-gray-400">optional, add as many as you need</span></label>
+              <label className="block text-sm font-bold text-black mb-2">Images <span className="font-medium text-gray-400">optional</span></label>
+              <p className="text-sm text-gray-500 mb-2">Paste a direct picture address, the kind that opens the image itself, such as a link ending in .jpg or .png. A Google Drive share link does not work here. Leave this blank and the product still appears without a photo.</p>
               <div className="flex flex-wrap gap-2 mb-3">
                 {formData.imageUrls.filter((url) => url.trim().startsWith("http")).map((url) => (
                   <img key={url} src={url} alt="" className="h-20 w-20 rounded-xl object-cover bg-gray-100 border border-gray-200" />
@@ -277,7 +278,7 @@ export default function AdminMarketplacePage() {
                         next[index] = e.target.value;
                         setFormData({ ...formData, imageUrls: next });
                       }}
-                      placeholder="https://..."
+                      placeholder="https://example.com/photo.jpg"
                       className={inputClass}
                     />
                     {formData.imageUrls.length > 1 && (

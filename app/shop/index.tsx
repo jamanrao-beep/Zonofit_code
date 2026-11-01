@@ -34,6 +34,8 @@ export default function ShopHomeScreen() {
     if (typeof params.q === "string") setSearch(params.q);
   }, [params.q]);
   const products = useShopCatalogStore((state) => state.products);
+  const loaded = useShopCatalogStore((state) => state.loaded);
+  const loadError = useShopCatalogStore((state) => state.loadError);
   const load = useShopCatalogStore((state) => state.load);
   const cartCount = useCartStore((state) => state.cartItems.reduce((sum, line) => sum + line.quantity, 0));
   const cartTotal = useCartStore((state) => state.getTotalPrice());
@@ -60,12 +62,11 @@ export default function ShopHomeScreen() {
     if (!q) return true;
     return `${product.name} ${product.brand} ${product.sub} ${product.pack}`.toLowerCase().includes(q);
   });
-  const best = matchesSearch.filter((product) => product.best);
-  const liveExtras = matchesSearch.filter((product) => product.purchasable && !best.includes(product));
-  const sellers = (q ? matchesSearch : [...best, ...liveExtras]).slice(0, 12);
-
-  const brands = Array.from(new Set(products.map((product) => product.brand))).slice(0, 8);
-  const liveCount = products.filter((product) => product.purchasable).length;
+  const sellers = matchesSearch.slice(0, 12);
+  const brands = Array.from(new Set(products.map((product) => product.brand.trim()).filter(Boolean))).slice(0, 8);
+  const hasGoals = products.some((product) => product.goals.length > 0);
+  const storeEmpty = loaded && products.length === 0;
+  const waiting = !loaded && products.length === 0 && !loadError;
   const cardWidth = Math.min(172, Math.max(150, width * 0.42));
 
   const openList = (href: string) => router.push(href as never);
@@ -119,14 +120,6 @@ export default function ShopHomeScreen() {
               </Text>
               <Ionicons name="arrow-forward" size={16} color={shop.hero} />
             </Pressable>
-          ) : null}
-
-          {liveCount === 0 ? (
-            <View style={styles.note}>
-              <Text style={styles.noteText}>
-                These products are catalogue previews. An order goes through only after the same item is added in the admin marketplace.
-              </Text>
-            </View>
           ) : null}
 
           <View style={styles.rep}>
@@ -184,74 +177,102 @@ export default function ShopHomeScreen() {
           </View>
         </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cats}>
-          {SHOP_CATEGORIES.map((cat) => (
-            <Pressable key={cat.id} style={styles.cat} onPress={() => openList(`/shop/category/${cat.id}`)}>
-              <View style={styles.catIcon}>
-                <Ionicons name={cat.icon as never} size={24} color={shop.ink} />
-              </View>
-              <Text style={styles.catName}>{cat.name}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-
-        <View style={shopStyles.pad}>
-          <View style={shopStyles.sectionRow}>
-            <Text style={shopStyles.sectionTitle}>Shop by Goal</Text>
-            <Pressable onPress={() => openList("/shop/category/all")}>
-              <Text style={shopStyles.viewAll}>View All</Text>
-            </Pressable>
+        {waiting ? (
+          <View style={[styles.emptyStore, shopStyles.pad]}>
+            <Text style={styles.emptyCopy}>Loading the store</Text>
           </View>
-          <View style={styles.goals}>
-            {SHOP_GOALS.map((goal) => (
-              <Pressable key={goal.id} style={styles.goal} onPress={() => openList(`/shop/category/all?goal=${goal.id}`)}>
-                <View style={styles.goalIcon}>
-                  <Ionicons name={goal.icon as never} size={18} color={shop.hero} />
-                </View>
-                <Text style={styles.goalName}>{goal.name}</Text>
-              </Pressable>
-            ))}
-          </View>
-
-          <View style={shopStyles.sectionRow}>
-            <Text style={shopStyles.sectionTitle}>Best Sellers</Text>
-            <Pressable onPress={() => openList("/shop/category/all?best=1")}>
-              <Text style={shopStyles.viewAll}>View All</Text>
-            </Pressable>
-          </View>
-        </View>
-
-        {sellers.length === 0 ? (
-          <View style={[styles.emptySearch, shopStyles.pad]}>
-            <Text style={styles.emptyTitle}>No products match “{search.trim()}”</Text>
-            <Text style={styles.emptyCopy}>Try protein, creatine, or a brand name.</Text>
+        ) : storeEmpty || (loadError && products.length === 0) ? (
+          <View style={[styles.emptyStore, shopStyles.pad]}>
+            <View style={styles.emptyIcon}>
+              <Ionicons name="bag-handle-outline" size={36} color={shop.hero} />
+            </View>
+            <Text style={styles.emptyTitle}>{loadError && !loaded ? "The store could not be loaded" : "The store is empty"}</Text>
+            <Text style={styles.emptyCopy}>
+              {loadError && !loaded
+                ? "Open the shop again in a moment."
+                : "Products show up here after they are added in the admin marketplace."}
+            </Text>
           </View>
         ) : (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
-            {sellers.map((product) => (
-              <ProductCard key={product.id} product={product} width={cardWidth} />
-            ))}
-          </ScrollView>
-        )}
+          <>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cats}>
+              {SHOP_CATEGORIES.map((cat) => (
+                <Pressable key={cat.id} style={styles.cat} onPress={() => openList(`/shop/category/${cat.id}`)}>
+                  <View style={styles.catIcon}>
+                    <Ionicons name={cat.icon as never} size={24} color={shop.ink} />
+                  </View>
+                  <Text style={styles.catName}>{cat.name}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
 
-        <View style={shopStyles.pad}>
-          <View style={shopStyles.sectionRow}>
-            <Text style={shopStyles.sectionTitle}>Top Brands</Text>
-            <Pressable onPress={() => openList("/shop/category/all")}>
-              <Text style={shopStyles.viewAll}>View All</Text>
-            </Pressable>
-          </View>
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
-          {brands.map((brand) => (
-            <Pressable key={brand} style={styles.brand} onPress={() => openList(`/shop/category/all?brand=${encodeURIComponent(brand)}`)}>
-              <View style={styles.brandMark}>
-                <Text style={styles.brandMarkText}>{brand.slice(0, 2).toUpperCase()}</Text>
+            <View style={shopStyles.pad}>
+              {hasGoals ? (
+                <>
+                  <View style={shopStyles.sectionRow}>
+                    <Text style={shopStyles.sectionTitle}>Shop by Goal</Text>
+                    <Pressable onPress={() => openList("/shop/category/all")}>
+                      <Text style={shopStyles.viewAll}>View All</Text>
+                    </Pressable>
+                  </View>
+                  <View style={styles.goals}>
+                    {SHOP_GOALS.map((goal) => (
+                      <Pressable key={goal.id} style={styles.goal} onPress={() => openList(`/shop/category/all?goal=${goal.id}`)}>
+                        <View style={styles.goalIcon}>
+                          <Ionicons name={goal.icon as never} size={18} color={shop.hero} />
+                        </View>
+                        <Text style={styles.goalName}>{goal.name}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </>
+              ) : null}
+
+              <View style={shopStyles.sectionRow}>
+                <Text style={shopStyles.sectionTitle}>Products</Text>
+                <Pressable onPress={() => openList("/shop/category/all")}>
+                  <Text style={shopStyles.viewAll}>View All</Text>
+                </Pressable>
               </View>
-              <Text style={styles.brandName} numberOfLines={2}>{brand}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
+            </View>
+
+            {sellers.length === 0 ? (
+              <View style={[styles.emptySearch, shopStyles.pad]}>
+                <Text style={styles.emptyTitle}>No products match “{search.trim()}”</Text>
+                <Text style={styles.emptyCopy}>Try another name or brand.</Text>
+              </View>
+            ) : (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+                {sellers.map((product) => (
+                  <ProductCard key={product.id} product={product} width={cardWidth} />
+                ))}
+              </ScrollView>
+            )}
+
+            {brands.length > 0 ? (
+              <>
+                <View style={shopStyles.pad}>
+                  <View style={shopStyles.sectionRow}>
+                    <Text style={shopStyles.sectionTitle}>Brands</Text>
+                    <Pressable onPress={() => openList("/shop/category/all")}>
+                      <Text style={shopStyles.viewAll}>View All</Text>
+                    </Pressable>
+                  </View>
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+                  {brands.map((brand) => (
+                    <Pressable key={brand} style={styles.brand} onPress={() => openList(`/shop/category/all?brand=${encodeURIComponent(brand)}`)}>
+                      <View style={styles.brandMark}>
+                        <Text style={styles.brandMarkText}>{brand.slice(0, 2).toUpperCase()}</Text>
+                      </View>
+                      <Text style={styles.brandName} numberOfLines={2}>{brand}</Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </>
+            ) : null}
+          </>
+        )}
       </ScrollView>
 
       {cartCount > 0 ? (
@@ -285,8 +306,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   seeAllText: { color: shop.hero, fontWeight: "700" },
-  note: { backgroundColor: shop.tint, borderRadius: 16, padding: 12, marginTop: 8 },
-  noteText: { color: shop.hero, fontSize: 13, fontWeight: "600", lineHeight: 18 },
   rep: {
     marginTop: 16,
     borderRadius: 26,
@@ -383,8 +402,18 @@ const styles = StyleSheet.create({
   goalName: { flex: 1, fontWeight: "600", color: shop.ink, fontSize: 14 },
   row: { paddingHorizontal: 20, gap: 12 },
   emptySearch: { paddingVertical: 12 },
-  emptyTitle: { fontWeight: "700", color: shop.ink },
-  emptyCopy: { color: shop.muted, marginTop: 4 },
+  emptyStore: { alignItems: "center", paddingVertical: 28 },
+  emptyIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: shop.tint,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  emptyTitle: { fontWeight: "700", color: shop.ink, textAlign: "center" },
+  emptyCopy: { color: shop.muted, marginTop: 4, textAlign: "center", lineHeight: 20 },
   brand: { width: 84, alignItems: "center" },
   brandMark: {
     height: 58,

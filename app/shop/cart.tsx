@@ -40,7 +40,7 @@ export default function CartScreen() {
               <Ionicons name="cart-outline" size={36} color={shop.hero} />
             </View>
             <Text style={styles.emptyTitle}>Your cart is empty</Text>
-            <Text style={styles.emptyCopy}>Add protein, creatine and gear to get started.</Text>
+            <Text style={styles.emptyCopy}>Add a product from the shop when you are ready.</Text>
           </View>
           <View style={[styles.foot, { paddingBottom: Math.max(insets.bottom, 14) }]}>
             <Pressable style={[shopStyles.cta, { justifyContent: "center" }]} onPress={() => router.push("/shop" as never)}>

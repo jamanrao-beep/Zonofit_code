@@ -50,6 +50,7 @@ export default function ShopListScreen() {
   const [sub, setSub] = useState("All");
   const [sort, setSort] = useState<ShopSort>("pop");
   const products = useShopCatalogStore((state) => state.products);
+  const loaded = useShopCatalogStore((state) => state.loaded);
   const load = useShopCatalogStore((state) => state.load);
   const wishedIds = useWishlistStore((state) => state.ids);
   const { width } = useWindowDimensions();
@@ -148,9 +149,15 @@ export default function ShopListScreen() {
             <View style={styles.emptyIcon}>
               <Ionicons name="search-outline" size={36} color={shop.hero} />
             </View>
-            <Text style={styles.emptyTitle}>{wish ? "Nothing saved yet" : "Nothing here yet"}</Text>
+            <Text style={styles.emptyTitle}>
+              {wish ? "Nothing saved yet" : loaded && products.length === 0 ? "The store is empty" : "Nothing here yet"}
+            </Text>
             <Text style={styles.emptyCopy}>
-              {wish ? "Tap the heart on a product to keep it here." : "Try another filter or search."}
+              {wish
+                ? "Tap the heart on a product to keep it here."
+                : loaded && products.length === 0
+                  ? "Products appear here after they are added in the admin marketplace."
+                  : "Try another filter or search."}
             </Text>
             <Pressable
               style={styles.emptyBtn}

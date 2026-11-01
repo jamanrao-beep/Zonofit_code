@@ -101,7 +101,7 @@ export default function CartModal({ visible, onClose }: CartModalProps) {
     if (ready.length === 0) {
       Alert.alert(
         "Preview items",
-        "These products are catalogue previews. They can be ordered after they are added in the admin marketplace."
+        "These items are no longer in the store. Remove them and add a product from the shop."
       );
       setIsCheckingOut(false);
       return;

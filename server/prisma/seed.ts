@@ -314,50 +314,7 @@ async function main() {
     console.log(`✅ Gym: ${gym.name} (${gym.city})`);
   }
 
-  // ─── Marketplace Items ────────────────────────────────────────────────────────
-  console.log("Creating marketplace items...");
-
-  await prisma.marketplaceItem.deleteMany();
-
-  const marketplaceItems = [
-    {
-      title: "Premium Whey Protein",
-      description: "High-quality whey protein isolate for muscle recovery.",
-      pricePaise: 249900, // ₹2,499
-      imageUrl: "https://images.unsplash.com/photo-1593095948071-474c5cc2989d",
-    },
-    {
-      title: "Yoga Mat Pro",
-      description: "Non-slip eco-friendly yoga mat with alignment lines.",
-      pricePaise: 89900, // ₹899
-      imageUrl: "https://images.unsplash.com/photo-1601925260368-ae2f83cf8b7f",
-    },
-    {
-      title: "Adjustable Dumbbells Set",
-      description: "Space-saving adjustable dumbbells for home workouts.",
-      pricePaise: 450000, // ₹4,500
-      imageUrl: "https://images.unsplash.com/photo-1638262052730-bf5f0951a842",
-    },
-    {
-      title: "ZonoFit Gym Bag",
-      description: "Premium duffel bag with separate shoe compartment.",
-      pricePaise: 129900, // ₹1,299
-      imageUrl: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62",
-    },
-    {
-      title: "Resistance Bands Set",
-      description: "Set of 5 heavy-duty resistance bands with handles.",
-      pricePaise: 59900, // ₹599
-      imageUrl: "https://images.unsplash.com/photo-1598289431512-b97b0a1c2785",
-    },
-  ];
-
-  for (const item of marketplaceItems) {
-    await prisma.marketplaceItem.create({
-      data: item,
-    });
-  }
-  console.log(`✅ Marketplace Items: ${marketplaceItems.length}`);
+  console.log("Marketplace products are added in the admin marketplace. Seed does not create shop items.");
 
   console.log("Creating quotes...");
   await prisma.quote.deleteMany();
@@ -429,7 +386,7 @@ async function main() {
   console.log("\n🎉 Seed complete!");
   console.log(`   Plans: 3`);
   console.log(`   Gyms: ${gyms.length}`);
-  console.log(`   Items: ${marketplaceItems.length}`);
+  console.log(`   Shop items: added in admin`);
 }
 
 main()
