@@ -417,136 +417,135 @@ router.get(
  * Cancel a booking and refund credits.
  * Only allowed if visit is > 2 hours away (to prevent abuse).
  */
-router.delete(
-  "/:id",
-  requireAuth,
-  async (req: Request, res: Response): Promise<void> => {
-    const bookingId = req.params.id as string;
+const cancelBookingHandler = async (req: Request, res: Response): Promise<void> => {
+  const bookingId = req.params.id as string;
 
-    const result = await prisma.$transaction(async (tx) => {
-      const booking = await tx.booking.findFirst({
-        where: { id: bookingId, userId: req.dbUserId! },
-        include: { gym: { select: { name: true } } },
-      });
+  const result = await prisma.$transaction(async (tx) => {
+    const booking = await tx.booking.findFirst({
+      where: { id: bookingId, userId: req.dbUserId! },
+      include: { gym: { select: { name: true } } },
+    });
 
-      if (!booking) throw createError("Booking not found.", 404, "BookingNotFound");
-      if (!["PENDING", "CONFIRMED"].includes(booking.status)) {
-        throw createError(
-          "Only pending or confirmed bookings can be cancelled.",
-          400,
-          "CancellationNotAllowed"
-        );
+    if (!booking) throw createError("Booking not found.", 404, "BookingNotFound");
+    if (!["PENDING", "CONFIRMED"].includes(booking.status)) {
+      throw createError(
+        "Only pending or confirmed bookings can be cancelled.",
+        400,
+        "CancellationNotAllowed"
+      );
+    }
+
+    // Calculate the exact workout time
+    let workoutTime = new Date(booking.visitDate);
+    try {
+      const slotPart = (booking.timeSlot || "").split('-')[0].trim();
+      const timeParts = slotPart.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+      if (timeParts) {
+        let h = parseInt(timeParts[1], 10);
+        const m = parseInt(timeParts[2], 10);
+        const meridian = timeParts[3]?.toUpperCase();
+        if (meridian === "PM" && h < 12) h += 12;
+        if (meridian === "AM" && h === 12) h = 0;
+        workoutTime.setHours(h, m, 0, 0);
       }
+    } catch {}
 
-      // Calculate the exact workout time
-      let workoutTime = new Date(booking.visitDate);
-      try {
-        const slotPart = (booking.timeSlot || "").split('-')[0].trim();
-        const timeParts = slotPart.match(/(\d+):(\d+)\s*(AM|PM)?/i);
-        if (timeParts) {
-          let h = parseInt(timeParts[1], 10);
-          const m = parseInt(timeParts[2], 10);
-          const meridian = timeParts[3]?.toUpperCase();
-          if (meridian === "PM" && h < 12) h += 12;
-          if (meridian === "AM" && h === 12) h = 0;
-          workoutTime.setHours(h, m, 0, 0);
-        }
-      } catch {}
+    const now = new Date();
+    if (isCancellationTooLate(workoutTime, now)) {
+      throw createError(
+        "Bookings can only be cancelled more than 2 hours before the visit.",
+        400,
+        "CancellationTooLate"
+      );
+    }
 
-      const now = new Date();
-      if (isCancellationTooLate(workoutTime, now)) {
-        throw createError(
-          "Bookings can only be cancelled more than 2 hours before the visit.",
-          400,
-          "CancellationTooLate"
-        );
-      }
+    await tx.booking.update({
+      where: { id: booking.id },
+      data: { status: "CANCELLED" },
+    });
 
-      await tx.booking.update({
-        where: { id: booking.id },
-        data: { status: "CANCELLED" },
-      });
+    let refundedCredits = 0;
+    let newBalance = 0;
+    const gymName = booking.gym.name;
 
-      let refundedCredits = 0;
-      let newBalance = 0;
-      const gymName = booking.gym.name;
+    const wallet = await tx.creditWallet.findUnique({
+      where: { userId: req.dbUserId! },
+    });
+    const currentBalance = wallet?.balance || 0;
 
-      const wallet = await tx.creditWallet.findUnique({
-        where: { userId: req.dbUserId! },
-      });
-      const currentBalance = wallet?.balance || 0;
-
-      if (booking.creditsDeducted > 0) {
-        // Credit booking: refund = booked - 2 credits fee (flat 2 fee)
-        refundedCredits = Math.max(0, booking.creditsDeducted - 2);
-        if (refundedCredits > 0) {
-          const updatedWallet = await tx.creditWallet.update({
-            where: { userId: req.dbUserId! },
-            data: { balance: { increment: refundedCredits } },
-          });
-          newBalance = updatedWallet.balance;
-
-          await tx.creditTransaction.create({
-            data: {
-              userId: req.dbUserId!,
-              walletId: updatedWallet.id,
-              type: "REFUND",
-              amount: refundedCredits,
-              balanceAfter: updatedWallet.balance,
-              description: `Cancellation at ${gymName} — ${refundedCredits} credits refunded (flat 2 credits fee deducted).`,
-              bookingId: booking.id,
-            },
-          });
-        } else {
-          newBalance = currentBalance;
-        }
-      } else {
-        // Mandatory visit (0 credits booked): flat 2 credits fee charged from wallet
-        if (currentBalance < 2) {
-          throw createError(
-            `Cannot cancel booking: A flat 2 Credits fee is required, but your wallet balance is only ${currentBalance} Credits.`,
-            400,
-            "InsufficientCredits"
-          );
-        }
-
-        const updatedWallet = await decrementCredits(tx, req.dbUserId!, 2);
+    if (booking.creditsDeducted > 0) {
+      // Credit booking: refund = booked - 2 credits fee (flat 2 fee)
+      refundedCredits = Math.max(0, booking.creditsDeducted - 2);
+      if (refundedCredits > 0) {
+        const updatedWallet = await tx.creditWallet.update({
+          where: { userId: req.dbUserId! },
+          data: { balance: { increment: refundedCredits } },
+        });
         newBalance = updatedWallet.balance;
 
         await tx.creditTransaction.create({
           data: {
             userId: req.dbUserId!,
             walletId: updatedWallet.id,
-            type: "VISIT_SPEND",
-            amount: -2,
+            type: "REFUND",
+            amount: refundedCredits,
             balanceAfter: updatedWallet.balance,
-            description: `Cancellation fee (flat 2 credits) for mandatory visit at ${gymName}.`,
+            description: `Cancellation at ${gymName} — ${refundedCredits} credits refunded (flat 2 credits fee deducted).`,
             bookingId: booking.id,
           },
         });
-
-        // Restore 1 primary gym mandatory visit on membership
-        await tx.membership.updateMany({
-          where: { userId: req.dbUserId! },
-          data: { primaryGymVisits: { increment: 1 } },
-        });
+      } else {
+        newBalance = currentBalance;
+      }
+    } else {
+      // Mandatory visit (0 credits booked): flat 2 credits fee charged from wallet
+      if (currentBalance < 2) {
+        throw createError(
+          `Cannot cancel booking: A flat 2 Credits fee is required, but your wallet balance is only ${currentBalance} Credits.`,
+          400,
+          "InsufficientCredits"
+        );
       }
 
-      return { refundedCredits, newBalance, gymName };
-    });
+      const updatedWallet = await decrementCredits(tx, req.dbUserId!, 2);
+      newBalance = updatedWallet.balance;
 
-    sendPushNotification(
-      req.dbUserId!,
-      "Booking Cancelled ℹ️",
-      `Your visit at ${result.gymName} was cancelled with a 2 Credits fee applied.`
-    ).catch(e => console.error(e));
+      await tx.creditTransaction.create({
+        data: {
+          userId: req.dbUserId!,
+          walletId: updatedWallet.id,
+          type: "VISIT_SPEND",
+          amount: -2,
+          balanceAfter: updatedWallet.balance,
+          description: `Cancellation fee (flat 2 credits) for mandatory visit at ${gymName}.`,
+          bookingId: booking.id,
+        },
+      });
 
-    res.json({
-      message: "Booking cancelled successfully with a 2 Credits fee applied.",
-      refundedCredits: result.refundedCredits,
-      newCreditBalance: result.newBalance,
-    });
-  }
-);
+      // Restore 1 primary gym mandatory visit on membership
+      await tx.membership.updateMany({
+        where: { userId: req.dbUserId! },
+        data: { primaryGymVisits: { increment: 1 } },
+      });
+    }
+
+    return { refundedCredits, newBalance, gymName };
+  }, { maxWait: 4000, timeout: 8000 });
+
+  sendPushNotification(
+    req.dbUserId!,
+    "Booking Cancelled ℹ️",
+    `Your visit at ${result.gymName} was cancelled with a 2 Credits fee applied.`
+  ).catch(e => console.error(e));
+
+  res.json({
+    message: "Booking cancelled successfully with a 2 Credits fee applied.",
+    refundedCredits: result.refundedCredits,
+    newCreditBalance: result.newBalance,
+  });
+};
+
+router.delete("/:id", requireAuth, cancelBookingHandler);
+router.post("/:id/cancel", requireAuth, cancelBookingHandler);
 
 export default router;
