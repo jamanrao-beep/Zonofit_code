@@ -152,6 +152,14 @@ export const useUserStore = create<UserState>()(
           ? fetchedGymId
           : (state.primaryGymId || "gym-being-fit");
 
+        const now = Date.now();
+        const startTimestamp = membership?.startDate 
+          ? new Date(membership.startDate).getTime() 
+          : (data.createdAt ? new Date(data.createdAt).getTime() : now);
+        const daysSinceJoin = Math.max(0, Math.floor((now - startTimestamp) / (24 * 60 * 60 * 1000)));
+        const calculatedCycle = Math.min(12, Math.max(1, Math.floor(daysSinceJoin / 30) + 1));
+        const activeCycle = Math.max(membership?.cycleNumber || 1, calculatedCycle);
+
         return {
           name: data.name || "Member",
           email: data.email || "",
@@ -162,17 +170,17 @@ export const useUserStore = create<UserState>()(
           planName: plan?.name || (membership ? "Monthly Membership" : state.planName),
           primaryGymId: resolvedId,
           primaryGymName: resolvedName,
-        membershipExpiry: membership ? new Date(membership.endDate).toLocaleDateString() : "N/A",
-        // Stats from backend
-        currentMonth: membership?.cycleNumber ?? 1,
-        totalMonths: membership?.maxCycles ?? 12,
-        streak: Math.max(state.streak, data.progress?.streak ?? 0),
-        totalWorkouts: Math.max(state.totalWorkouts, data.progress?.totalWorkouts ?? 0),
-        trainingHours: Math.max(state.trainingHours, data.progress?.trainingHours ?? 0),
-        identityStage: data.progress?.identityStage || state.identityStage || "Starter",
-        memberSince: membership?.startDate 
-          ? new Date(membership.startDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) 
-          : (data.createdAt ? new Date(data.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : "Recently"),
+          membershipExpiry: membership ? new Date(membership.endDate).toLocaleDateString() : "N/A",
+          // Calculate actual month of journey based on join timestamp
+          currentMonth: activeCycle,
+          totalMonths: membership?.maxCycles ?? 12,
+          streak: Math.max(state.streak, data.progress?.streak ?? 0),
+          totalWorkouts: Math.max(state.totalWorkouts, data.progress?.totalWorkouts ?? 0),
+          trainingHours: Math.max(state.trainingHours, data.progress?.trainingHours ?? 0),
+          identityStage: data.progress?.identityStage || state.identityStage || "Starter",
+          memberSince: membership?.startDate 
+            ? new Date(membership.startDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) 
+            : (data.createdAt ? new Date(data.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : "Recently"),
           loading: false,
         };
       });
