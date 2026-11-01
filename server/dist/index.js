@@ -148,7 +148,7 @@ function assertBootSecrets() {
     }
 }
 function warnMissingProviderKeys() {
-    const names = ["RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET", "RAZORPAY_WEBHOOK_SECRET", "FAST2SMS_API_KEY"];
+    const names = ["RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET", "RAZORPAY_WEBHOOK_SECRET", "APITXT_AUTH_KEY"];
     const missing = names.filter((name) => {
         const value = process.env[name]?.trim() ?? "";
         return value.length < 8 || /placeholder/i.test(value);

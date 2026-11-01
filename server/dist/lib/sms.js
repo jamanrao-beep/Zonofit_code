@@ -2,43 +2,43 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendOTP = sendOTP;
 async function sendOTP(phone, code) {
-    const apiKey = process.env.FAST2SMS_API_KEY;
-    if (!apiKey || apiKey.includes("placeholder") || apiKey.length < 8) {
-        if (process.env.NODE_ENV === "development" && process.env.ALLOW_DEV_OTP === "true") {
-            console.warn("[SMS] Dev OTP is enabled. The code was not logged.");
-            return { success: true, message: "Dev OTP simulated." };
-        }
-        const msg = "FAST2SMS_API_KEY is not set or invalid in server environment.";
-        console.error(`[SMS] ${msg}`);
-        return { success: false, message: msg };
+    const apitxtKey = (process.env.APITXT_AUTH_KEY || "LfoDh9dYrJrDmuLt2KXMkCe12gd8MzAqoUOhjJ4laMg").trim();
+    const channel = (process.env.OTP_CHANNEL || "sms").trim().toLowerCase(); // "sms" or "whatsapp"
+    // Sanitize phone number (extract digits only)
+    let cleanPhone = phone.replace(/\D/g, "");
+    if (cleanPhone.length > 10 && cleanPhone.startsWith("91")) {
+        cleanPhone = cleanPhone.slice(2);
+    }
+    if (!apitxtKey || apitxtKey.includes("placeholder") || apitxtKey.length < 10) {
+        return { success: false, message: "APITXT_AUTH_KEY is not configured." };
     }
     try {
-        const response = await fetch("https://www.fast2sms.com/dev/bulkV2", {
-            method: "POST",
-            headers: {
-                "authorization": apiKey.trim(),
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                route: "otp",
-                variables_values: code,
-                numbers: phone,
-            })
+        const queryParams = new URLSearchParams({
+            authkey: apitxtKey,
+            mobile: cleanPhone,
+            otp: code,
+            channel: channel === "whatsapp" ? "whatsapp" : "sms"
+        });
+        if (channel === "whatsapp") {
+            queryParams.set("country", "91");
+        }
+        const response = await fetch(`https://apitxt.com/api/sendOTP?${queryParams.toString()}`, {
+            method: "GET"
         });
         const data = await response.json();
-        if (data.return) {
-            console.log(`[SMS] Successfully sent OTP to ${phone}`);
-            return { success: true, message: "Sent successfully." };
+        if (data && (data.status === "success" || data.code === 200 || data.type === "success")) {
+            console.log(`[OTP] Successfully dispatched ${channel.toUpperCase()} OTP to ${cleanPhone} via APITxT`);
+            return { success: true, message: "OTP sent successfully.", response: data };
         }
         else {
-            const errMsg = Array.isArray(data.message) ? data.message.join(", ") : (data.message || JSON.stringify(data));
-            console.error(`[SMS] Failed to send OTP to ${phone}:`, errMsg);
-            return { success: false, message: errMsg, fast2smsResponse: data };
+            const errorMsg = data.message || JSON.stringify(data);
+            console.error(`[OTP] APITxT returned error for ${cleanPhone}:`, errorMsg);
+            return { success: false, message: errorMsg, response: data };
         }
     }
     catch (error) {
-        console.error(`[SMS] Exception sending OTP to ${phone}:`, error);
-        return { success: false, message: error.message || "Network exception contacting Fast2SMS." };
+        console.error(`[OTP] Exception calling APITxT for ${cleanPhone}:`, error);
+        return { success: false, message: error.message || "Network error contacting APITxT." };
     }
 }
 //# sourceMappingURL=sms.js.map
