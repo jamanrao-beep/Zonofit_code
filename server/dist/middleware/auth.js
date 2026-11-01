@@ -12,7 +12,7 @@ const prisma_1 = __importDefault(require("../lib/prisma"));
  *
  * 1. Extracts the Bearer token from Authorization header
  * 2. Verifies it using custom verifyToken helper
- * 3. Attaches dbUserId to req for downstream handlers
+ * 3. Attaches dbUserId and systemRole to req for downstream handlers
  *
  * If any step fails → 401 Unauthorized
  */
@@ -38,7 +38,7 @@ async function requireAuth(req, res, next) {
         }
         const user = await prisma_1.default.user.findUnique({
             where: { id: payload.dbUserId },
-            select: { isSuspended: true }
+            select: { isSuspended: true, systemRole: true }
         });
         if (!user) {
             res.status(401).json({ error: "Unauthorized", message: "User not found." });
@@ -49,6 +49,7 @@ async function requireAuth(req, res, next) {
             return;
         }
         req.dbUserId = payload.dbUserId;
+        req.systemRole = user.systemRole || payload.systemRole;
         next();
     }
     catch (err) {

@@ -350,14 +350,19 @@ function todayBounds() {
     });
     return { start, end, label };
 }
-async function gymsOwnedBy(userId) {
+async function gymsOwnedBy(userId, systemRole) {
     if (!userId)
         return [];
-    return prisma_1.default.gym.findMany({
+    const owned = await prisma_1.default.gym.findMany({
         where: { ownerId: userId, isActive: true },
         select: {
             id: true,
             name: true,
+            creditCost: true,
+            monthlyPrice: true,
+            payoutModel: true,
+            payoutCommissionRate: true,
+            payoutFixedPerVisit: true,
             cappingMode: true,
             maxDailyVisits: true,
             maxSlotVisits: true,
@@ -365,11 +370,31 @@ async function gymsOwnedBy(userId) {
         },
         orderBy: { name: "asc" },
     });
+    if (owned.length === 0 && systemRole === "ADMIN") {
+        return prisma_1.default.gym.findMany({
+            where: { isActive: true },
+            select: {
+                id: true,
+                name: true,
+                creditCost: true,
+                monthlyPrice: true,
+                payoutModel: true,
+                payoutCommissionRate: true,
+                payoutFixedPerVisit: true,
+                cappingMode: true,
+                maxDailyVisits: true,
+                maxSlotVisits: true,
+                slotsJson: true,
+            },
+            orderBy: { name: "asc" },
+        });
+    }
+    return owned;
 }
 // ─── GET /api/gyms/slots ──────────────────────────────────────────────────────
 router.get("/slots", auth_1.requireAuth, async (req, res) => {
     try {
-        const gyms = await gymsOwnedBy(req.dbUserId);
+        const gyms = await gymsOwnedBy(req.dbUserId, req.systemRole);
         if (gyms.length === 0) {
             res.status(403).json({ error: "Forbidden", message: "User is not a gym owner." });
             return;
@@ -392,7 +417,7 @@ router.get("/slots", auth_1.requireAuth, async (req, res) => {
 // ─── GET /api/gyms/today-visitors ─────────────────────────────────────────────
 router.get("/today-visitors", auth_1.requireAuth, async (req, res) => {
     try {
-        const gyms = await gymsOwnedBy(req.dbUserId);
+        const gyms = await gymsOwnedBy(req.dbUserId, req.systemRole);
         if (gyms.length === 0) {
             res.status(403).json({ error: "Forbidden", message: "User is not a gym owner." });
             return;
@@ -480,10 +505,7 @@ router.get("/today-visitors", auth_1.requireAuth, async (req, res) => {
 router.get("/analytics/dashboard", auth_1.requireAuth, async (req, res) => {
     try {
         // Get all gyms owned by this user
-        const gyms = await prisma_1.default.gym.findMany({
-            where: { ownerId: req.dbUserId, isActive: true },
-            select: { id: true, name: true, creditCost: true }
-        });
+        const gyms = await gymsOwnedBy(req.dbUserId, req.systemRole);
         if (gyms.length === 0) {
             res.status(403).json({ error: "Forbidden", message: "User is not a gym owner." });
             return;
@@ -586,7 +608,7 @@ router.get("/analytics/dashboard", auth_1.requireAuth, async (req, res) => {
 // ─── GET /api/gyms/analytics/members ──────────────────────────────────────────
 router.get("/analytics/members", auth_1.requireAuth, async (req, res) => {
     try {
-        const gyms = await prisma_1.default.gym.findMany({ where: { ownerId: req.dbUserId, isActive: true }, select: { id: true } });
+        const gyms = await gymsOwnedBy(req.dbUserId, req.systemRole);
         if (gyms.length === 0) {
             res.status(403).json({ error: "Forbidden", message: "User is not a gym owner." });
             return;
@@ -642,17 +664,7 @@ router.get("/analytics/members", auth_1.requireAuth, async (req, res) => {
 // ─── GET /api/gyms/analytics/payouts ──────────────────────────────────────────
 router.get("/analytics/payouts", auth_1.requireAuth, async (req, res) => {
     try {
-        const gyms = await prisma_1.default.gym.findMany({
-            where: { ownerId: req.dbUserId, isActive: true },
-            select: {
-                id: true,
-                creditCost: true,
-                monthlyPrice: true,
-                payoutModel: true,
-                payoutCommissionRate: true,
-                payoutFixedPerVisit: true,
-            },
-        });
+        const gyms = await gymsOwnedBy(req.dbUserId, req.systemRole);
         if (gyms.length === 0) {
             res.status(403).json({ error: "Forbidden", message: "User is not a gym owner." });
             return;
@@ -788,7 +800,7 @@ router.put("/profile", auth_1.requireAuth, async (req, res) => {
 // ─── GET /api/gyms/analytics/performance ──────────────────────────────────────
 router.get("/analytics/performance", auth_1.requireAuth, async (req, res) => {
     try {
-        const gyms = await prisma_1.default.gym.findMany({ where: { ownerId: req.dbUserId, isActive: true }, select: { id: true } });
+        const gyms = await gymsOwnedBy(req.dbUserId, req.systemRole);
         if (gyms.length === 0) {
             res.status(403).json({ error: "Forbidden", message: "User is not a gym owner." });
             return;

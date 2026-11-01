@@ -7,6 +7,7 @@ declare global {
   namespace Express {
     interface Request {
       dbUserId?: string;
+      systemRole?: string;
     }
   }
 }
@@ -16,7 +17,7 @@ declare global {
  *
  * 1. Extracts the Bearer token from Authorization header
  * 2. Verifies it using custom verifyToken helper
- * 3. Attaches dbUserId to req for downstream handlers
+ * 3. Attaches dbUserId and systemRole to req for downstream handlers
  *
  * If any step fails → 401 Unauthorized
  */
@@ -51,7 +52,7 @@ export async function requireAuth(
 
     const user = await prisma.user.findUnique({
       where: { id: payload.dbUserId },
-      select: { isSuspended: true }
+      select: { isSuspended: true, systemRole: true }
     });
 
     if (!user) {
@@ -65,6 +66,7 @@ export async function requireAuth(
     }
 
     req.dbUserId = payload.dbUserId;
+    req.systemRole = user.systemRole || payload.systemRole;
     next();
   } catch (err) {
     console.error("[requireAuth] Token verification error:", err);

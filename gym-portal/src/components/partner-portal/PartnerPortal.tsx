@@ -56,7 +56,7 @@ export function PartnerPortal({ fontClass }: { fontClass: string }) {
   const t = (key: string) => COPY[lang][key] ?? key;
   const emailValid = emailOk(email.trim());
   const passwordValid = password.length >= 8;
-  const codeValid = code.length === 6;
+  const codeValid = code.length >= 4 && code.length <= 6;
   const ready = emailValid && passwordValid && (!otpStep || codeValid);
   const charge = otpStep
     ? (emailValid ? 34 : 0) + (passwordValid ? 33 : 0) + (codeValid ? 33 : 0)
@@ -195,10 +195,10 @@ export function PartnerPortal({ fontClass }: { fontClass: string }) {
         return;
       }
       const user = data.user;
-      if (!data.token || !user?.id || !user.name || !user.email || user.role !== "GYM_OWNER") {
-        throw new Error("This portal is for gym partners only.");
+      if (!data.token || !user?.id || !user.name || !user.email || (user.role !== "GYM_OWNER" && user.role !== "ADMIN")) {
+        throw new Error("This portal is for gym partners and administrators only.");
       }
-      login({ id: user.id, name: user.name, email: user.email, role: "GYM_OWNER" }, data.token);
+      login({ id: user.id, name: user.name, email: user.email, role: user.role as "GYM_OWNER" | "ADMIN" }, data.token);
       setMascot("joy");
       setMouth("joy");
       setBubble("b_ok");

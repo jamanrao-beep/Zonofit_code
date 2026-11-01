@@ -3,6 +3,7 @@ declare global {
     namespace Express {
         interface Request {
             dbUserId?: string;
+            systemRole?: string;
         }
     }
 }
@@ -11,7 +12,7 @@ declare global {
  *
  * 1. Extracts the Bearer token from Authorization header
  * 2. Verifies it using custom verifyToken helper
- * 3. Attaches dbUserId to req for downstream handlers
+ * 3. Attaches dbUserId and systemRole to req for downstream handlers
  *
  * If any step fails → 401 Unauthorized
  */

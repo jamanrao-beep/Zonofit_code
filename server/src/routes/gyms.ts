@@ -418,13 +418,18 @@ function todayBounds(): { start: Date; end: Date; label: string } {
   return { start, end, label };
 }
 
-async function gymsOwnedBy(userId: string | undefined) {
+async function gymsOwnedBy(userId: string | undefined, systemRole?: string) {
   if (!userId) return [];
-  return prisma.gym.findMany({
+  const owned = await prisma.gym.findMany({
     where: { ownerId: userId, isActive: true },
     select: {
       id: true,
       name: true,
+      creditCost: true,
+      monthlyPrice: true,
+      payoutModel: true,
+      payoutCommissionRate: true,
+      payoutFixedPerVisit: true,
       cappingMode: true,
       maxDailyVisits: true,
       maxSlotVisits: true,
@@ -432,12 +437,32 @@ async function gymsOwnedBy(userId: string | undefined) {
     },
     orderBy: { name: "asc" },
   });
+  if (owned.length === 0 && systemRole === "ADMIN") {
+    return prisma.gym.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        name: true,
+        creditCost: true,
+        monthlyPrice: true,
+        payoutModel: true,
+        payoutCommissionRate: true,
+        payoutFixedPerVisit: true,
+        cappingMode: true,
+        maxDailyVisits: true,
+        maxSlotVisits: true,
+        slotsJson: true,
+      },
+      orderBy: { name: "asc" },
+    });
+  }
+  return owned;
 }
 
 // ─── GET /api/gyms/slots ──────────────────────────────────────────────────────
 router.get("/slots", requireAuth, async (req: Request, res: Response): Promise<void> => {
   try {
-    const gyms = await gymsOwnedBy(req.dbUserId);
+    const gyms = await gymsOwnedBy(req.dbUserId, req.systemRole);
     if (gyms.length === 0) {
       res.status(403).json({ error: "Forbidden", message: "User is not a gym owner." });
       return;
@@ -460,7 +485,7 @@ router.get("/slots", requireAuth, async (req: Request, res: Response): Promise<v
 // ─── GET /api/gyms/today-visitors ─────────────────────────────────────────────
 router.get("/today-visitors", requireAuth, async (req: Request, res: Response): Promise<void> => {
   try {
-    const gyms = await gymsOwnedBy(req.dbUserId);
+    const gyms = await gymsOwnedBy(req.dbUserId, req.systemRole);
     if (gyms.length === 0) {
       res.status(403).json({ error: "Forbidden", message: "User is not a gym owner." });
       return;
@@ -550,10 +575,7 @@ router.get(
   async (req: Request, res: Response): Promise<void> => {
     try {
       // Get all gyms owned by this user
-      const gyms = await prisma.gym.findMany({
-        where: { ownerId: req.dbUserId, isActive: true },
-        select: { id: true, name: true, creditCost: true }
-      });
+      const gyms = await gymsOwnedBy(req.dbUserId, req.systemRole);
 
       if (gyms.length === 0) {
         res.status(403).json({ error: "Forbidden", message: "User is not a gym owner." });
@@ -678,7 +700,7 @@ router.get(
   requireAuth,
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const gyms = await prisma.gym.findMany({ where: { ownerId: req.dbUserId, isActive: true }, select: { id: true } });
+      const gyms = await gymsOwnedBy(req.dbUserId, req.systemRole);
       if (gyms.length === 0) {
         res.status(403).json({ error: "Forbidden", message: "User is not a gym owner." });
         return;
@@ -741,17 +763,7 @@ router.get(
   requireAuth,
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const gyms = await prisma.gym.findMany({
-        where: { ownerId: req.dbUserId, isActive: true },
-        select: {
-          id: true,
-          creditCost: true,
-          monthlyPrice: true,
-          payoutModel: true,
-          payoutCommissionRate: true,
-          payoutFixedPerVisit: true,
-        },
-      });
+      const gyms = await gymsOwnedBy(req.dbUserId, req.systemRole);
       if (gyms.length === 0) {
         res.status(403).json({ error: "Forbidden", message: "User is not a gym owner." });
         return;
@@ -920,7 +932,7 @@ router.get(
   requireAuth,
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const gyms = await prisma.gym.findMany({ where: { ownerId: req.dbUserId, isActive: true }, select: { id: true } });
+      const gyms = await gymsOwnedBy(req.dbUserId, req.systemRole);
       if (gyms.length === 0) {
         res.status(403).json({ error: "Forbidden", message: "User is not a gym owner." });
         return;
