@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Plus, Tag, Trash2, Edit } from "lucide-react";
 
 type VariantRow = { name: string; imageUrl: string };
@@ -71,6 +71,9 @@ export default function AdminMarketplacePage() {
   const [editItemId, setEditItemId] = useState<string | null>(null);
   const [formData, setFormData] = useState<ProductForm>(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const uploadTarget = useRef<{ kind: "image" | "variant"; index: number } | null>(null);
 
   const fetchItems = async () => {
     try {
@@ -96,6 +99,49 @@ export default function AdminMarketplacePage() {
     value: ProductForm[K],
   ) => {
     setFormData((current) => ({ ...current, [name]: value }));
+  };
+
+  const chooseImage = (kind: "image" | "variant", index: number) => {
+    uploadTarget.current = { kind, index };
+    fileRef.current?.click();
+  };
+
+  const onImageFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    const target = uploadTarget.current;
+    if (!file || !target) return;
+    setUploading(true);
+    try {
+      const token = localStorage.getItem("zonofit_portal_token");
+      const body = new FormData();
+      body.append("image", file);
+      const res = await fetch("/api/admin/marketplace/image", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || typeof data.url !== "string") {
+        throw new Error(typeof data.message === "string" ? data.message : "Could not upload that image.");
+      }
+      const url = data.url;
+      setFormData((current) => {
+        if (target.kind === "image") {
+          const next = [...current.imageUrls];
+          next[target.index] = url;
+          return { ...current, imageUrls: next };
+        }
+        const next = [...current.variants];
+        const row = next[target.index] || { name: "", imageUrl: "" };
+        next[target.index] = { ...row, imageUrl: url };
+        return { ...current, variants: next };
+      });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Could not upload that image.");
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleCreateItem = async (e: React.FormEvent) => {
@@ -261,7 +307,8 @@ export default function AdminMarketplacePage() {
 
             <div>
               <label className="block text-sm font-bold text-black mb-2">Images <span className="font-medium text-gray-400">optional</span></label>
-              <p className="text-sm text-gray-500 mb-2">Paste a direct picture address, the kind that opens the image itself, such as a link ending in .jpg or .png. A Google Drive share link does not work here. Leave this blank and the product still appears without a photo.</p>
+              <p className="text-sm text-gray-500 mb-2">Upload a JPEG, PNG, or WebP from your computer, or paste a direct picture address. A Google Drive share link does not work. Leave this blank and the product still appears without a photo.</p>
+              <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={onImageFile} />
               <div className="flex flex-wrap gap-2 mb-3">
                 {formData.imageUrls.filter((url) => url.trim().startsWith("http")).map((url) => (
                   <img key={url} src={url} alt="" className="h-20 w-20 rounded-xl object-cover bg-gray-100 border border-gray-200" />
@@ -281,6 +328,9 @@ export default function AdminMarketplacePage() {
                       placeholder="https://example.com/photo.jpg"
                       className={inputClass}
                     />
+                    <button type="button" disabled={uploading} onClick={() => chooseImage("image", index)} className="shrink-0 rounded-xl border border-gray-200 px-3 text-sm font-bold text-black disabled:text-gray-400">
+                      {uploading ? "Uploading" : "Upload"}
+                    </button>
                     {formData.imageUrls.length > 1 && (
                       <button type="button" onClick={() => setFormData({ ...formData, imageUrls: formData.imageUrls.filter((_, i) => i !== index) })} className="px-3 text-gray-400 hover:text-red-500">Remove</button>
                     )}
@@ -349,11 +399,16 @@ export default function AdminMarketplacePage() {
                       next[index] = { ...row, name: e.target.value };
                       setFormData({ ...formData, variants: next });
                     }} placeholder="Variant, e.g. Chocolate" className={inputClass} />
-                    <input type="url" value={row.imageUrl} onChange={(e) => {
-                      const next = [...formData.variants];
-                      next[index] = { ...row, imageUrl: e.target.value };
-                      setFormData({ ...formData, variants: next });
-                    }} placeholder="Image for this variant, optional" className={inputClass} />
+                    <div className="flex gap-2">
+                      <input type="url" value={row.imageUrl} onChange={(e) => {
+                        const next = [...formData.variants];
+                        next[index] = { ...row, imageUrl: e.target.value };
+                        setFormData({ ...formData, variants: next });
+                      }} placeholder="Image for this variant, optional" className={inputClass} />
+                      <button type="button" disabled={uploading} onClick={() => chooseImage("variant", index)} className="shrink-0 rounded-xl border border-gray-200 px-3 text-sm font-bold text-black disabled:text-gray-400">
+                        {uploading ? "Uploading" : "Upload"}
+                      </button>
+                    </div>
                     <button type="button" onClick={() => setFormData({ ...formData, variants: formData.variants.filter((_, i) => i !== index).concat(formData.variants.length === 1 ? [{ name: "", imageUrl: "" }] : []) })} className="text-sm text-gray-400 hover:text-red-500">Remove</button>
                   </div>
                 ))}

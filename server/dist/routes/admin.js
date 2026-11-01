@@ -4,6 +4,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
+const fs_1 = __importDefault(require("fs"));
+const path_1 = __importDefault(require("path"));
+const multer_1 = __importDefault(require("multer"));
 const prisma_1 = __importDefault(require("../lib/prisma"));
 const auth_1 = require("../middleware/auth");
 const errorHandler_1 = require("../middleware/errorHandler");
@@ -43,6 +46,48 @@ function payoutMode(value, fallback) {
     return fallback === "FIXED_PER_VISIT" ? "FIXED_PER_VISIT" : "COMMISSION_PERCENTAGE";
 }
 const router = (0, express_1.Router)();
+const productUploadsDir = path_1.default.join(__dirname, "../../uploads");
+const productImageUpload = (0, multer_1.default)({
+    storage: multer_1.default.diskStorage({
+        destination: (_req, _file, cb) => {
+            fs_1.default.mkdirSync(productUploadsDir, { recursive: true });
+            cb(null, productUploadsDir);
+        },
+        filename: (_req, file, cb) => {
+            const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+            const extByType = {
+                "image/jpeg": ".jpg",
+                "image/png": ".png",
+                "image/webp": ".webp",
+            };
+            cb(null, `product-${uniqueSuffix}${extByType[file.mimetype] || ".jpg"}`);
+        },
+    }),
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+        const allowed = new Set(["image/jpeg", "image/png", "image/webp"]);
+        if (!allowed.has(file.mimetype)) {
+            cb(new Error("Use a JPEG, PNG, or WebP image."));
+            return;
+        }
+        cb(null, true);
+    },
+});
+function acceptProductImage(req, res, next) {
+    productImageUpload.single("image")(req, res, (err) => {
+        if (!err) {
+            next();
+            return;
+        }
+        const tooLarge = typeof err === "object" && err !== null && err.code === "LIMIT_FILE_SIZE";
+        const message = tooLarge
+            ? "Use an image under 5 MB."
+            : err instanceof Error
+                ? err.message
+                : "Could not upload that image.";
+        res.status(400).json({ error: "ValidationError", message });
+    });
+}
 const ADMIN_ROLES = ["FOUNDER", "OPS_MANAGER", "SALES_REP", "SUPPORT_AGENT", "FINANCE_ADMIN", "MARKETING_MANAGER"];
 // An admin with no profile keeps full access. A stored role is enforced.
 const requireAdmin = async (req, res, next) => {
@@ -1028,6 +1073,15 @@ router.delete("/plans/:id", auth_1.requireAuth, requireAdmin, async (req, res) =
     catch (err) {
         res.status(500).json({ error: "ServerError", message: err.message });
     }
+});
+// ─── POST /api/admin/marketplace/image ───────────────────────────────────────
+router.post("/marketplace/image", auth_1.requireAuth, requireAdmin, acceptProductImage, async (req, res) => {
+    if (!req.file) {
+        res.status(400).json({ error: "ValidationError", message: "Choose an image file." });
+        return;
+    }
+    const baseUrl = (process.env.PUBLIC_API_URL ?? `${req.protocol}://${req.get("host")}`).replace(/\/$/, "");
+    res.json({ url: `${baseUrl}/uploads/${req.file.filename}` });
 });
 // ─── GET /api/admin/marketplace ──────────────────────────────────────────────
 router.get("/marketplace", auth_1.requireAuth, requireAdmin, async (req, res) => {

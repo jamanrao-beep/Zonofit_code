@@ -1,4 +1,7 @@
-import { Router, Request, Response } from "express";
+import { Router, Request, Response, NextFunction } from "express";
+import fs from "fs";
+import path from "path";
+import multer from "multer";
 import prisma from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
 import { createError } from "../middleware/errorHandler";
@@ -37,6 +40,50 @@ function payoutMode(value: unknown, fallback: string | null | undefined): "COMMI
 }
 
 const router = Router();
+
+const productUploadsDir = path.join(__dirname, "../../uploads");
+const productImageUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => {
+      fs.mkdirSync(productUploadsDir, { recursive: true });
+      cb(null, productUploadsDir);
+    },
+    filename: (_req, file, cb) => {
+      const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+      const extByType: Record<string, string> = {
+        "image/jpeg": ".jpg",
+        "image/png": ".png",
+        "image/webp": ".webp",
+      };
+      cb(null, `product-${uniqueSuffix}${extByType[file.mimetype] || ".jpg"}`);
+    },
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = new Set(["image/jpeg", "image/png", "image/webp"]);
+    if (!allowed.has(file.mimetype)) {
+      cb(new Error("Use a JPEG, PNG, or WebP image."));
+      return;
+    }
+    cb(null, true);
+  },
+});
+
+function acceptProductImage(req: Request, res: Response, next: NextFunction) {
+  productImageUpload.single("image")(req, res, (err: unknown) => {
+    if (!err) {
+      next();
+      return;
+    }
+    const tooLarge = typeof err === "object" && err !== null && (err as { code?: string }).code === "LIMIT_FILE_SIZE";
+    const message = tooLarge
+      ? "Use an image under 5 MB."
+      : err instanceof Error
+        ? err.message
+        : "Could not upload that image.";
+    res.status(400).json({ error: "ValidationError", message });
+  });
+}
 
 const ADMIN_ROLES = ["FOUNDER", "OPS_MANAGER", "SALES_REP", "SUPPORT_AGENT", "FINANCE_ADMIN", "MARKETING_MANAGER"] as const;
 
@@ -1160,6 +1207,16 @@ router.delete("/plans/:id", requireAuth, requireAdmin, async (req: Request, res:
   } catch (err: any) {
     res.status(500).json({ error: "ServerError", message: err.message });
   }
+});
+
+// ─── POST /api/admin/marketplace/image ───────────────────────────────────────
+router.post("/marketplace/image", requireAuth, requireAdmin, acceptProductImage, async (req: Request, res: Response) => {
+  if (!req.file) {
+    res.status(400).json({ error: "ValidationError", message: "Choose an image file." });
+    return;
+  }
+  const baseUrl = (process.env.PUBLIC_API_URL ?? `${req.protocol}://${req.get("host")}`).replace(/\/$/, "");
+  res.json({ url: `${baseUrl}/uploads/${req.file.filename}` });
 });
 
 // ─── GET /api/admin/marketplace ──────────────────────────────────────────────
