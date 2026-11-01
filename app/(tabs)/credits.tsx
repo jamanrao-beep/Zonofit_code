@@ -29,6 +29,7 @@ import { useCreditsStore, type Transaction } from "@/store/useCreditsStore";
 import { useUserStore } from "@/store/useUserStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useGuestStore } from "@/store/useGuestStore";
+import { useBookingStore } from "@/store/useBookingStore";
 import { SwipeableTabScreen } from "@/components/SwipeableTabScreen";
 import { CREDIT_FITNESS_VALUE } from "@/constants/credits";
 
@@ -225,6 +226,7 @@ export default function CreditsScreen() {
   } = useUserStore();
   const token = useAuthStore((s) => s.token);
   const { isGuest, hoursRemaining, endGuestSession } = useGuestStore();
+  const { bookingStatus, bookedCost } = useBookingStore();
 
   const [purchaseQuantity, setPurchaseQuantity] = useState(MIN_CREDITS);
   const [buyPhase, setBuyPhase] = useState<"idle" | "loading" | "ok">("idle");
@@ -265,12 +267,12 @@ export default function CreditsScreen() {
   useEffect(() => {
     if (isMembershipActive && credits === 0 && !creditsLoading) {
       useCreditsStore.setState((state) => ({
-        credits: state.credits > 0 ? state.credits : 80,
+        credits: state.credits > 0 ? state.credits : 180,
       }));
     }
   }, [isMembershipActive, credits, creditsLoading]);
 
-  const displayCredits = credits > 0 ? credits : isMembershipActive ? 80 : 0;
+  const displayCredits = credits > 0 ? credits : isMembershipActive ? 180 : 0;
   const easedCredits = useEase(displayCredits, 1100);
   const easedValue = useEase(displayCredits * CREDIT_FITNESS_VALUE, 1100);
   const shownCredits = Math.round(easedCredits);
@@ -297,8 +299,10 @@ export default function CreditsScreen() {
   const defaultMandatory = cycleNumber >= 5 ? 15 : 10;
   const mandatoryVisits = membershipInfo?.mandatoryVisits ?? defaultMandatory;
   const completedVisits = membershipInfo?.completedVisits ?? 0;
-  const mandatoryVisitsRemaining = membershipInfo?.mandatoryVisitsRemaining
-    ?? (visitsRemaining > 0 ? visitsRemaining : Math.max(0, mandatoryVisits - completedVisits));
+  const hasBookedToday = bookingStatus === "Booked" && (bookedCost === 0 || bookedCost === undefined);
+  const mandatoryVisitsRemaining = typeof visitsRemaining === "number" && visitsRemaining < mandatoryVisits
+    ? Math.max(0, visitsRemaining)
+    : Math.max(0, (membershipInfo?.mandatoryVisitsRemaining ?? mandatoryVisits) - completedVisits - (hasBookedToday ? 1 : 0));
   const filledCycles = hasMembership ? Math.min(maxCycles, Math.max(0, cycleNumber)) : 0;
   const visitProgress = mandatoryVisits > 0 ? completedVisits / mandatoryVisits : 0;
   const easedVisit = useEase(isMembershipActive ? visitProgress : 0, 1100);

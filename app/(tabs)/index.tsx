@@ -139,7 +139,10 @@ export default function HomeScreen() {
   const cycleNum = membershipInfo?.cycleNumber || currentMonth || 1;
   const mandatoryVisits = membershipInfo?.mandatoryVisits || (cycleNum <= 4 ? 10 : 15);
   const completedVisits = membershipInfo?.completedVisits ?? totalWorkouts ?? 0;
-  const visitsLeft = Math.max(0, mandatoryVisits - completedVisits);
+  const hasBookedMandatory = bookingStatus === "Booked" && (bookedCost === 0 || bookedCost === undefined);
+  const visitsLeft = typeof visitsRemaining === "number" && visitsRemaining < mandatoryVisits
+    ? Math.max(0, visitsRemaining)
+    : Math.max(0, mandatoryVisits - completedVisits - (hasBookedMandatory ? 1 : 0));
 
   const isExpired = membershipInfo ? membershipInfo.isExpired : false;
   const isMembershipActive = membershipInfo ? (!membershipInfo.isExpired && membershipInfo.status === "ACTIVE") : false;

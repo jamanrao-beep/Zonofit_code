@@ -339,8 +339,29 @@ export const useBookingStore = create<BookingState>()(
       const token = useAuthStore.getState().token;
       let apiResult: any = null;
 
-      if (!token || token.startsWith("mock_") || bookingId.startsWith("bk_")) {
-        return { success: false, message: "This booking is not on the server, so it cannot be cancelled here." };
+      if (!token || token.startsWith("mock_") || bookingId.startsWith("bk_test_")) {
+        if (bookedCost === 0) {
+          useUserStore.setState((s) => ({ visitsRemaining: Math.min(10, s.visitsRemaining + 1) }));
+          const mem = useCreditsStore.getState().membershipInfo;
+          if (mem) {
+            useCreditsStore.setState({
+              membershipInfo: {
+                ...mem,
+                mandatoryVisitsRemaining: Math.min(mem.mandatoryVisits || 10, (mem.mandatoryVisitsRemaining || 0) + 1),
+              }
+            });
+          }
+        }
+        set({
+          bookingStatus: "Not Booked",
+          bookingId: null,
+          bookedGymId: null,
+          bookedGymName: null,
+          bookedDate: null,
+          bookedTime: null,
+          bookedCost: 0,
+        });
+        return { success: true, message: "Booking cancelled successfully." };
       }
       apiResult = await apiFetch(`/api/bookings/${bookingId}`, { method: "DELETE", token });
       if (typeof apiResult?.newCreditBalance === "number") {
