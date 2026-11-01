@@ -176,12 +176,14 @@ export default function ProfileScreen() {
                             <Text className="text-xs mt-0.5" numberOfLines={1} style={{ color: colors.muted }}>
                                 {isGuest ? "48-Hour Exploration Session" : user?.phone || "Google Sign-In"}
                             </Text>
-                            <View className="flex-row items-center mt-2 gap-x-2">
+                            <View className="flex-row flex-wrap items-center mt-2" style={{ gap: 6 }}>
                                 <View className="px-2.5 py-0.5 rounded-full border" style={{ backgroundColor: 'rgba(217, 255, 92, 0.1)', borderColor: 'rgba(217, 255, 92, 0.2)' }}>
                                     <Text className="text-[10px] font-bold" style={{ color: colors.lime }}>{isGuest ? "Guest Pass" : planName}</Text>
                                 </View>
                                 <View className="px-2.5 py-0.5 rounded-full border" style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderColor: colors.secondaryDark }}>
-                                    <Text className="text-[10px] font-semibold" style={{ color: colors.muted }}>{isGuest ? "Temporary" : `Member since ${memberSince}`}</Text>
+                                    <Text className="text-[10px] font-semibold" style={{ color: colors.muted }}>
+                                        {isGuest ? "Temporary" : `Since ${memberSince ? memberSince.replace(/(\w{3})\w*\s+\d+,\s*(\d{4})/, "$1 $2") : "Recently"}`}
+                                    </Text>
                                 </View>
                             </View>
                         </View>

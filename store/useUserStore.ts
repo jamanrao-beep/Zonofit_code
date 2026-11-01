@@ -179,8 +179,8 @@ export const useUserStore = create<UserState>()(
           trainingHours: Math.max(state.trainingHours, data.progress?.trainingHours ?? 0),
           identityStage: data.progress?.identityStage || state.identityStage || "Starter",
           memberSince: membership?.startDate 
-            ? new Date(membership.startDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) 
-            : (data.createdAt ? new Date(data.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : "Recently"),
+            ? new Date(membership.startDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) 
+            : (data.createdAt ? new Date(data.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : "Recently"),
           loading: false,
         };
       });
