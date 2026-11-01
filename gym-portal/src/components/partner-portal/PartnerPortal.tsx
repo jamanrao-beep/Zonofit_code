@@ -150,8 +150,8 @@ export function PartnerPortal({ fontClass }: { fontClass: string }) {
       fail(t("e2"), "password");
       return;
     }
-    if (includeCode && !/^\d{4}$/.test(code)) {
-      fail(t("b_otp"), "code");
+    if (includeCode && !/^\d{4,6}$/.test(code)) {
+      fail("Enter the 6-digit verification code from your email.", "code");
       return;
     }
 
