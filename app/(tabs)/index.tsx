@@ -126,6 +126,20 @@ export default function HomeScreen() {
     remainingCredits: number;
   } | null>(null);
 
+  const [motivationQuote, setMotivationQuote] = React.useState<string>(
+    "Consistency beats intensity. You've already outperformed the person who stayed home."
+  );
+
+  React.useEffect(() => {
+    apiFetch("/api/content/daily_motivation_quote", { silent: true })
+      .then((res: any) => {
+        if (res?.content?.value && typeof res.content.value === "string" && res.content.value.trim().length > 0) {
+          setMotivationQuote(res.content.value.trim());
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const resolvedGymName = (
     membershipInfo?.gymName && 
     membershipInfo.gymName !== "None" && 
@@ -914,10 +928,10 @@ export default function HomeScreen() {
             <View className="w-6 h-6 rounded-full bg-[#EDF7EC] items-center justify-center mr-2">
               <Text className="text-xs">⚡</Text>
             </View>
-            <Text className="text-[#0B6E4F] text-[11px] font-bold uppercase tracking-wider">Daily Motivation • Day {streak || 1}</Text>
+            <Text className="text-[#0B6E4F] text-[11px] font-bold uppercase tracking-wider">Daily Motivation</Text>
           </View>
           <Text className="text-[#1F2520] text-[15px] font-bold italic leading-relaxed">
-            "Consistency beats intensity. You've already outperformed the person who stayed home."
+            {motivationQuote.startsWith('"') ? motivationQuote : `"${motivationQuote}"`}
           </Text>
         </View>
 

@@ -37,6 +37,16 @@ router.get("/:key", async (req, res) => {
             where: { key }
         });
         if (!content) {
+            if (key === "daily_motivation_quote") {
+                res.json({
+                    success: true,
+                    content: {
+                        key: "daily_motivation_quote",
+                        value: "Consistency beats intensity. You've already outperformed the person who stayed home."
+                    }
+                });
+                return;
+            }
             res.status(404).json({ error: "NotFound", message: "Content not found for key: " + key });
             return;
         }
