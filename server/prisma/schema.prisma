@@ -523,6 +523,14 @@ model MarketplaceItem {
   storeCategory StoreCategory @default(ZONOFIT_COMMON)
   sizes         Json?
   colors        Json?
+  imageUrls     Json?
+  brand         String?       @db.VarChar(191)
+  info          String?       @db.Text
+  pack          String?       @db.VarChar(191)
+  optionLabel   String?       @db.VarChar(191)
+  mrpPaise      Int?
+  variants      Json?
+  specs         Json?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 

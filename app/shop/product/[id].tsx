@@ -54,6 +54,8 @@ export default function ProductDetailScreen() {
   const load = useShopCatalogStore((state) => state.load);
   const product = products.find((entry) => entry.id === productId);
   const [option, setOption] = useState("");
+  const [sizeChoice, setSizeChoice] = useState("");
+  const [colorChoice, setColorChoice] = useState("");
   const [slide, setSlide] = useState(0);
   const [addressOpen, setAddressOpen] = useState(false);
   const carousel = useRef<ScrollView>(null);
@@ -70,11 +72,21 @@ export default function ProductDetailScreen() {
   useFocusEffect(useCallback(() => { void load(); }, [load]));
   useEffect(() => {
     setOption("");
+    setSizeChoice("");
+    setColorChoice("");
     setSlide(0);
   }, [productId]);
 
   const chosen = option || (product ? defaultOptionValue(product) : "");
-  const line = product ? toCartItem(product, chosen) : null;
+  const chosenSize = sizeChoice || product?.sizeOptions?.[0] || "";
+  const chosenColor = colorChoice || product?.colorOptions?.[0] || "";
+  const variantLabel = [chosenColor, chosenSize, (!product?.sizeOptions?.length && !product?.colorOptions?.length) ? chosen : ""].filter(Boolean).join(" · ");
+  const line = product ? {
+    ...toCartItem(product, variantLabel),
+    selectedSize: chosenSize || undefined,
+    selectedColor: chosenColor || undefined,
+    variant: variantLabel || undefined,
+  } : null;
   const key = line ? cartLineKey(line) : "";
   const qty = useCartStore((state) => state.cartItems.find((ci) => cartLineKey(ci.item) === key)?.quantity || 0);
 
@@ -127,11 +139,14 @@ export default function ProductDetailScreen() {
     if (next !== slide) setSlide(next);
   };
 
-  const slides = [
-    { label: "Front", bg: shop.soft },
-    { label: "Pack view", bg: shop.tint },
-    { label: "Detail", bg: "#fff" },
+  const photos = [
+    ...(product.images?.length ? product.images : product.imageUrl ? [product.imageUrl] : []),
   ];
+  const variantPhoto = product.variantImages?.[chosen] || product.variantImages?.[chosenColor] || product.variantImages?.[chosenSize];
+  if (variantPhoto && !photos.includes(variantPhoto)) photos.unshift(variantPhoto);
+  const slides = photos.length
+    ? photos.map((uri, index) => ({ key: `${uri}-${index}`, uri, bg: shop.soft }))
+    : [{ key: "mark", uri: "", bg: shop.soft }];
 
   return (
     <SafeAreaView style={shopStyles.screen} edges={["top"]}>
@@ -161,24 +176,21 @@ export default function ProductDetailScreen() {
             scrollEventThrottle={16}
             style={{ width: slideWidth }}
           >
-            {slides.map((entry, index) => (
-              <View key={entry.label} style={[styles.slide, { width: slideWidth, backgroundColor: entry.bg, borderWidth: index === 2 ? 1 : 0, borderColor: shop.line }]}>
-                {index === 0 && product.imageUrl ? (
-                  <Image source={{ uri: product.imageUrl }} style={styles.slideImage} resizeMode="contain" />
+            {slides.map((entry) => (
+              <View key={entry.key} style={[styles.slide, { width: slideWidth, backgroundColor: entry.bg }]}>
+                {entry.uri ? (
+                  <Image source={{ uri: entry.uri }} style={styles.slideImage} resizeMode="contain" />
                 ) : (
-                  <ProductVisual color={product.color} shape={product.shape} size={index === 1 ? 180 : 140} />
+                  <ProductVisual color={product.color} shape={product.shape} size={160} />
                 )}
-                <View style={styles.cap}>
-                  <Text style={styles.capText}>{entry.label}</Text>
-                </View>
               </View>
             ))}
           </ScrollView>
           <View style={styles.dots}>
             {slides.map((entry, index) => (
               <Pressable
-                key={entry.label}
-                accessibilityLabel={entry.label}
+                key={entry.key}
+                accessibilityLabel={`Photo ${index + 1}`}
                 onPress={() => carousel.current?.scrollTo({ x: slideWidth * index, animated: true })}
                 hitSlop={8}
               >
@@ -189,9 +201,11 @@ export default function ProductDetailScreen() {
         </View>
 
         <View style={shopStyles.pad}>
-          <Text style={styles.brand}>{product.brand}</Text>
+          {product.brand ? <Text style={styles.brand}>{product.brand}</Text> : null}
           <Text style={styles.name}>{product.name}</Text>
-          <Text style={styles.pack}>{chosen ? `${chosen}  ` : ""}{product.pack}</Text>
+          {variantLabel || product.pack ? (
+            <Text style={styles.pack}>{variantLabel ? `${variantLabel}  ` : ""}{product.pack}</Text>
+          ) : null}
           {product.rating > 0 ? (
             <View style={styles.rateRow}>
               <Ionicons name="star" size={14} color={shop.star} />
@@ -200,7 +214,7 @@ export default function ProductDetailScreen() {
             </View>
           ) : null}
           <View style={styles.priceRow}>
-            <Text style={styles.price}>{inr(product.price)}</Text>
+            {product.price > 0 ? <Text style={styles.price}>{inr(product.price)}</Text> : <Text style={styles.price}>Price not set</Text>}
             {off > 0 ? <Text style={styles.mrp}>{inr(product.mrp)}</Text> : null}
             {off > 0 ? <View style={styles.tag}><Text style={styles.tagText}>{off}% off</Text></View> : null}
           </View>
@@ -208,9 +222,11 @@ export default function ProductDetailScreen() {
             <View style={styles.teaser}>
               <Ionicons name="eye-outline" size={18} color={shop.hero} />
               <Text style={styles.teaserText}>
-                {product.inStock
-                  ? "Catalogue preview. This can be ordered once it is added in the admin marketplace."
-                  : "This item is out of stock."}
+                {!product.inStock
+                  ? "This item is out of stock."
+                  : product.price <= 0
+                    ? "Add a price in the admin marketplace before this can be ordered."
+                    : "Catalogue preview. This can be ordered once it is added in the admin marketplace."}
               </Text>
             </View>
           ) : maxCredits > 0 ? (
@@ -220,20 +236,14 @@ export default function ProductDetailScreen() {
             </View>
           ) : null}
 
-          {product.options.length > 0 ? (
-            <View style={shopStyles.card}>
-              <Text style={shopStyles.cardTitle}>{product.optionLabel || "Option"}</Text>
-              <View style={styles.opts}>
-                {product.options.map((value) => {
-                  const on = value === chosen;
-                  return (
-                    <Pressable key={value} onPress={() => setOption(value)} style={[styles.opt, on && styles.optOn]}>
-                      <Text style={[styles.optText, on && styles.optTextOn]}>{value}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
+          {product.colorOptions && product.colorOptions.length > 0 ? (
+            <ChoiceRow label="Colour" values={product.colorOptions} chosen={chosenColor} onPick={setColorChoice} />
+          ) : null}
+          {product.sizeOptions && product.sizeOptions.length > 0 ? (
+            <ChoiceRow label="Size" values={product.sizeOptions} chosen={chosenSize} onPick={setSizeChoice} />
+          ) : null}
+          {product.options.length > 0 && !product.sizeOptions?.length && !product.colorOptions?.length ? (
+            <ChoiceRow label={product.optionLabel || "Option"} values={product.options} chosen={chosen} onPick={setOption} />
           ) : null}
 
           <Pressable style={shopStyles.card} onPress={() => setAddressOpen(true)}>
@@ -247,28 +257,48 @@ export default function ProductDetailScreen() {
             </View>
           </Pressable>
 
-          <View style={shopStyles.card}>
-            <Text style={shopStyles.cardTitle}>Highlights</Text>
-            {highlightsFor(product.category).map((lineText) => (
-              <View key={lineText} style={styles.hl}>
-                <Ionicons name="checkmark" size={16} color={shop.hero} />
-                <Text style={styles.hlText}>{lineText}</Text>
-              </View>
-            ))}
-          </View>
+          {product.catalogueCopy !== false ? (
+            <View style={shopStyles.card}>
+              <Text style={shopStyles.cardTitle}>Highlights</Text>
+              {highlightsFor(product.category).map((lineText) => (
+                <View key={lineText} style={styles.hl}>
+                  <Ionicons name="checkmark" size={16} color={shop.hero} />
+                  <Text style={styles.hlText}>{lineText}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
 
-          <View style={shopStyles.card}>
-            <Text style={shopStyles.cardTitle}>About this product</Text>
-            <Text style={styles.about}>{product.description}</Text>
-          </View>
+          {product.description ? (
+            <View style={shopStyles.card}>
+              <Text style={shopStyles.cardTitle}>About this product</Text>
+              <Text style={styles.about}>{product.description}</Text>
+            </View>
+          ) : null}
 
-          <View style={shopStyles.card}>
-            <Text style={shopStyles.cardTitle}>Details</Text>
-            <Spec label="Brand" value={product.brand} />
-            <Spec label="Category" value={`${product.category}  ${product.sub}`} />
-            <Spec label="Pack" value={product.pack || "—"} />
-            <Spec label="Best for" value={product.goals.map((goal) => GOAL_LABEL[goal]).join(", ")} />
-          </View>
+          {product.info ? (
+            <View style={shopStyles.card}>
+              <Text style={shopStyles.cardTitle}>Info</Text>
+              <Text style={styles.about}>{product.info}</Text>
+            </View>
+          ) : null}
+
+          {product.catalogueCopy === false ? null : (
+            <View style={shopStyles.card}>
+              <Text style={shopStyles.cardTitle}>Details</Text>
+              <Spec label="Brand" value={product.brand} />
+              <Spec label="Category" value={`${product.category}  ${product.sub}`} />
+              <Spec label="Pack" value={product.pack || "—"} />
+              <Spec label="Best for" value={product.goals.map((goal) => GOAL_LABEL[goal]).join(", ")} />
+            </View>
+          )}
+
+          {(product.specs || []).map((row) => (
+            <View key={`${row.label}-${row.value}`} style={shopStyles.card}>
+              <Text style={shopStyles.cardTitle}>{row.label}</Text>
+              <Text style={styles.about}>{row.value}</Text>
+            </View>
+          ))}
 
           {product.rating > 0 ? (
             <View style={shopStyles.card}>
@@ -358,6 +388,34 @@ export default function ProductDetailScreen() {
       </View>
       <DeliveryAddressModal visible={addressOpen} onClose={() => setAddressOpen(false)} initialAddress={address} />
     </SafeAreaView>
+  );
+}
+
+function ChoiceRow({
+  label,
+  values,
+  chosen,
+  onPick,
+}: {
+  label: string;
+  values: string[];
+  chosen: string;
+  onPick: (value: string) => void;
+}) {
+  return (
+    <View style={shopStyles.card}>
+      <Text style={shopStyles.cardTitle}>{label}</Text>
+      <View style={styles.opts}>
+        {values.map((value) => {
+          const on = value === chosen;
+          return (
+            <Pressable key={value} onPress={() => onPick(value)} style={[styles.opt, on && styles.optOn]}>
+              <Text style={[styles.optText, on && styles.optTextOn]}>{value}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
   );
 }
 

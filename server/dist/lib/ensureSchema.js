@@ -44,6 +44,14 @@ const STATEMENTS = [
     "ALTER TABLE `gyms` ADD COLUMN `gstNumber` VARCHAR(191) NULL",
     "ALTER TABLE `gyms` ADD COLUMN `invoicePrefix` VARCHAR(191) NULL",
     "CREATE UNIQUE INDEX `gyms_customGymId_key` ON `gyms`(`customGymId`)",
+    "ALTER TABLE `marketplace_items` ADD COLUMN `imageUrls` JSON NULL",
+    "ALTER TABLE `marketplace_items` ADD COLUMN `brand` VARCHAR(191) NULL",
+    "ALTER TABLE `marketplace_items` ADD COLUMN `info` TEXT NULL",
+    "ALTER TABLE `marketplace_items` ADD COLUMN `pack` VARCHAR(191) NULL",
+    "ALTER TABLE `marketplace_items` ADD COLUMN `optionLabel` VARCHAR(191) NULL",
+    "ALTER TABLE `marketplace_items` ADD COLUMN `mrpPaise` INTEGER NULL",
+    "ALTER TABLE `marketplace_items` ADD COLUMN `variants` JSON NULL",
+    "ALTER TABLE `marketplace_items` ADD COLUMN `specs` JSON NULL",
 ];
 function safeDbMessage(err) {
     const message = String(err?.message ?? "");

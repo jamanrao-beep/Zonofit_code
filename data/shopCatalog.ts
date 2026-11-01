@@ -24,7 +24,15 @@ export interface ShopProduct {
   shape: ShopShape;
   best: boolean;
   imageUrl?: string;
+  images?: string[];
   description: string;
+  info?: string;
+  specs?: { label: string; value: string }[];
+  sizeOptions?: string[];
+  colorOptions?: string[];
+  variantImages?: Record<string, string>;
+  /** Sample catalogue copy. Admin-only products leave this false so empty fields stay hidden. */
+  catalogueCopy?: boolean;
   purchasable: boolean;
   inStock: boolean;
 }
@@ -35,10 +43,70 @@ export interface LiveMarketplaceItem {
   description?: string;
   pricePaise: number;
   imageUrl?: string;
+  imageUrls?: unknown;
   inStock?: boolean;
   storeCategory?: string;
   sizes?: unknown;
   colors?: unknown;
+  brand?: string | null;
+  info?: string | null;
+  pack?: string | null;
+  optionLabel?: string | null;
+  mrpPaise?: number | null;
+  variants?: unknown;
+  specs?: unknown;
+  /** Older saves kept these inside one object. New saves use the fields above. */
+  details?: unknown;
+}
+
+type ProductDetails = {
+  brand?: string;
+  info?: string;
+  pack?: string;
+  optionLabel?: string;
+  mrpPaise?: number | null;
+  variants?: { name?: string; imageUrl?: string }[];
+  specs?: { label?: string; value?: string }[];
+};
+
+function readDetails(value: unknown): ProductDetails {
+  if (!value || typeof value !== "object") return {};
+  return value as ProductDetails;
+}
+
+function filledText(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function specRows(value: unknown): { label: string; value: string }[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((row) => {
+      const entry = row && typeof row === "object" ? (row as { label?: string; value?: string }) : {};
+      return { label: String(entry.label || "").trim(), value: String(entry.value || "").trim() };
+    })
+    .filter((row) => row.label && row.value);
+}
+
+function variantRows(value: unknown): { names: string[]; images: Record<string, string> } {
+  const images: Record<string, string> = {};
+  if (!Array.isArray(value)) return { names: [], images };
+  const names = value
+    .map((row) => {
+      const entry = row && typeof row === "object" ? (row as { name?: string; imageUrl?: string }) : {};
+      const name = String(entry.name || "").trim();
+      const imageUrl = String(entry.imageUrl || "").trim();
+      if (name && /^https?:\/\//i.test(imageUrl)) images[name] = imageUrl;
+      return name;
+    })
+    .filter(Boolean);
+  return { names, images };
+}
+
+function httpPhotos(value: unknown, single?: string): string[] {
+  const list = asStringList(value).filter((url) => /^https?:\/\//i.test(url));
+  if (single && /^https?:\/\//i.test(single) && !list.includes(single)) list.unshift(single);
+  return list;
 }
 
 export const GOAL_LABEL: Record<ShopGoal, string> = {
@@ -264,6 +332,24 @@ export function mergeLiveItems(live: LiveMarketplaceItem[]): ShopProduct[] {
     const sizes = asStringList(item.sizes);
     const colors = asStringList(item.colors);
     const inStock = item.inStock !== false;
+    const details = readDetails(item.details);
+    const photos = httpPhotos(item.imageUrls, item.imageUrl);
+    const ownSpecs = specRows(item.specs);
+    const specs = ownSpecs.length ? ownSpecs : specRows(details.specs);
+    const fromVariants = variantRows(item.variants);
+    const fromOldVariants = variantRows(details.variants);
+    const variantImages = Object.keys(fromVariants.images).length ? fromVariants.images : fromOldVariants.images;
+    const variantNames = fromVariants.names.length ? fromVariants.names : fromOldVariants.names;
+    const brand = filledText(item.brand) || filledText(details.brand);
+    const info = filledText(item.info) || filledText(details.info);
+    const pack = filledText(item.pack) || filledText(details.pack);
+    const optionLabel = filledText(item.optionLabel) || filledText(details.optionLabel);
+    const mrpPaise = Number(item.mrpPaise) || Number(details.mrpPaise) || 0;
+    const mrpFromAdmin = Math.round(mrpPaise / 100);
+    const bothChoices = sizes.length > 0 && colors.length > 0;
+    const choiceLabel = optionLabel
+      || (sizes.length ? "Size" : colors.length ? "Colour" : variantNames.length ? "Option" : "");
+    const choiceValues = bothChoices ? [] : sizes.length ? sizes : colors.length ? colors : variantNames;
 
     if (match) {
       used.add(match.id);
@@ -272,47 +358,62 @@ export function mergeLiveItems(live: LiveMarketplaceItem[]): ShopProduct[] {
       const catalogueMrp = match.mrp;
       match.id = item.id;
       match.price = price;
-      match.mrp = price === cataloguePrice && catalogueMrp > price ? catalogueMrp : price;
-      if (item.imageUrl) match.imageUrl = item.imageUrl;
-      if (item.description && item.description.trim().length > 0) match.description = item.description.trim();
-      if (sizes.length) {
-        match.optionLabel = match.optionLabel || "Size";
-        match.options = sizes;
-        match.defaultOption = 0;
-      } else if (colors.length) {
-        match.optionLabel = match.optionLabel || "Colour";
-        match.options = colors;
-        match.defaultOption = 0;
+      match.mrp = mrpFromAdmin > price ? mrpFromAdmin : price === cataloguePrice && catalogueMrp > price ? catalogueMrp : price;
+      if (photos.length) {
+        match.imageUrl = photos[0];
+        match.images = photos;
       }
-      match.purchasable = inStock;
+      if (item.description && item.description.trim().length > 0) match.description = item.description.trim();
+      if (brand) match.brand = brand;
+      if (pack) match.pack = pack;
+      if (info) match.info = info;
+      if (specs.length) match.specs = specs;
+      match.sizeOptions = sizes;
+      match.colorOptions = colors;
+      match.variantImages = variantImages;
+      if (choiceValues.length) {
+        match.optionLabel = choiceLabel;
+        match.options = choiceValues;
+        match.defaultOption = 0;
+      } else if (bothChoices) {
+        match.optionLabel = "";
+        match.options = [];
+      }
+      match.purchasable = inStock && price > 0;
       match.inStock = inStock;
       continue;
     }
 
     const blob = norm(`${item.title} ${item.description || ""}`);
     const category = inferCategory(blob, item.storeCategory);
-    const optionLabel = sizes.length ? "Size" : colors.length ? "Colour" : "";
     products.push({
       id: item.id,
       name: item.title,
-      brand: "ZonoFit",
+      brand,
       category,
-      sub: inferSub(blob, category),
-      goals: inferGoals(blob, category),
-      optionLabel,
-      options: sizes.length ? sizes : colors,
+      sub: "",
+      goals: [],
+      optionLabel: choiceLabel,
+      options: choiceValues,
       defaultOption: 0,
-      pack: "",
+      pack,
       price,
-      mrp: price,
+      mrp: mrpFromAdmin > price ? mrpFromAdmin : price,
       rating: 0,
       ratingCount: "",
       color: "#1F7A3F",
       shape: inferShape(category, blob),
       best: false,
-      imageUrl: item.imageUrl || undefined,
-      description: item.description?.trim() || ABOUT[category],
-      purchasable: inStock,
+      imageUrl: photos[0],
+      images: photos,
+      description: item.description?.trim() || "",
+      info,
+      specs,
+      sizeOptions: sizes,
+      colorOptions: colors,
+      variantImages,
+      catalogueCopy: false,
+      purchasable: inStock && price > 0,
       inStock,
     });
   }

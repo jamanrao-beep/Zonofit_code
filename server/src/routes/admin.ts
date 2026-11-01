@@ -6,6 +6,7 @@ import { getSystemSettings } from "../services/settings";
 import { roleCanAccess } from "../lib/adminAccess";
 import { slotsPayloadToJson } from "../lib/gymCommercial";
 import { cleanOwnerEmail, cleanOwnerPassword, createGymOwner, updateGymOwnerLogin } from "../lib/gymOwner";
+import { readMarketplaceWrite } from "../lib/marketplaceItem";
 
 function asInt(value: unknown, fallback: number): number {
   if (typeof value === "number" && Number.isFinite(value)) return Math.round(value);
@@ -1176,26 +1177,30 @@ router.get("/marketplace", requireAuth, requireAdmin, async (req: Request, res: 
 // ─── POST /api/admin/marketplace ─────────────────────────────────────────────
 router.post("/marketplace", requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
-    const { title, description, pricePaise, imageUrl, inStock, storeCategory, sizes, colors } = req.body;
-    
-    const parsedSizes = Array.isArray(sizes) 
-      ? sizes 
-      : (typeof sizes === "string" ? sizes.split(",").map((s: string) => s.trim()).filter(Boolean) : []);
-      
-    const parsedColors = Array.isArray(colors)
-      ? colors
-      : (typeof colors === "string" ? colors.split(",").map((c: string) => c.trim()).filter(Boolean) : []);
+    const parsed = readMarketplaceWrite(req.body ?? {});
+    if ("error" in parsed) {
+      res.status(400).json({ error: "ValidationError", message: parsed.error });
+      return;
+    }
 
     const item = await prisma.marketplaceItem.create({
       data: {
-        title,
-        description,
-        pricePaise: parseInt(pricePaise, 10),
-        imageUrl: imageUrl || "https://images.unsplash.com/photo-1593095948071-474c5cc2989d?auto=format&fit=crop&q=80",
-        inStock: inStock !== undefined ? inStock : true,
-        storeCategory: storeCategory || "ZONOFIT_COMMON",
-        sizes: parsedSizes,
-        colors: parsedColors
+        title: parsed.title,
+        description: parsed.description,
+        pricePaise: parsed.pricePaise,
+        imageUrl: parsed.imageUrl,
+        imageUrls: parsed.imageUrls,
+        inStock: parsed.inStock,
+        storeCategory: parsed.storeCategory,
+        sizes: parsed.sizes,
+        colors: parsed.colors,
+        brand: parsed.brand,
+        info: parsed.info,
+        pack: parsed.pack,
+        optionLabel: parsed.optionLabel,
+        mrpPaise: parsed.mrpPaise,
+        variants: parsed.variants,
+        specs: parsed.specs,
       }
     });
     await prisma.adminAuditLog.create({
@@ -1203,7 +1208,7 @@ router.post("/marketplace", requireAuth, requireAdmin, async (req: Request, res:
         adminId: req.dbUserId!,
         actionType: "CREATE_MARKETPLACE_ITEM",
         targetId: item.id,
-        details: `Created item: ${title}`
+        details: `Created item: ${parsed.title}`
       }
     });
     res.json({ item });
@@ -1216,27 +1221,31 @@ router.post("/marketplace", requireAuth, requireAdmin, async (req: Request, res:
 router.put("/marketplace/:id", requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
-    const { title, description, pricePaise, imageUrl, inStock, storeCategory, sizes, colors } = req.body;
-
-    const parsedSizes = sizes !== undefined 
-      ? (Array.isArray(sizes) ? sizes : (typeof sizes === "string" ? sizes.split(",").map((s: string) => s.trim()).filter(Boolean) : []))
-      : undefined;
-
-    const parsedColors = colors !== undefined
-      ? (Array.isArray(colors) ? colors : (typeof colors === "string" ? colors.split(",").map((c: string) => c.trim()).filter(Boolean) : []))
-      : undefined;
+    const parsed = readMarketplaceWrite(req.body ?? {});
+    if ("error" in parsed) {
+      res.status(400).json({ error: "ValidationError", message: parsed.error });
+      return;
+    }
 
     const item = await prisma.marketplaceItem.update({
       where: { id },
       data: {
-        ...(title && { title }),
-        ...(description && { description }),
-        ...(pricePaise && { pricePaise: parseInt(pricePaise, 10) }),
-        ...(imageUrl && { imageUrl }),
-        ...(inStock !== undefined && { inStock }),
-        ...(storeCategory && { storeCategory }),
-        ...(parsedSizes !== undefined && { sizes: parsedSizes }),
-        ...(parsedColors !== undefined && { colors: parsedColors })
+        title: parsed.title,
+        description: parsed.description,
+        pricePaise: parsed.pricePaise,
+        imageUrl: parsed.imageUrl,
+        imageUrls: parsed.imageUrls,
+        inStock: parsed.inStock,
+        storeCategory: parsed.storeCategory,
+        sizes: parsed.sizes,
+        colors: parsed.colors,
+        brand: parsed.brand,
+        info: parsed.info,
+        pack: parsed.pack,
+        optionLabel: parsed.optionLabel,
+        mrpPaise: parsed.mrpPaise,
+        variants: parsed.variants,
+        specs: parsed.specs,
       }
     });
     await prisma.adminAuditLog.create({

@@ -17,16 +17,20 @@ import { shopToast } from "@/components/shop/ShopToast";
 import { shop } from "@/components/shop/theme";
 
 export function toCartItem(product: ShopProduct, option: string): ShopItem {
+  const size = product.sizeOptions?.[0] || "";
+  const color = product.colorOptions?.[0] || "";
+  const label = option || [color, size].filter(Boolean).join(" · ");
   return {
     id: product.id,
     name: product.name,
     brand: product.brand,
     price: product.price,
     originalPrice: product.mrp,
-    image: product.imageUrl || "",
+    image: product.images?.[0] || product.imageUrl || "",
     weight: product.pack,
-    variant: option || undefined,
-    selectedSize: option || undefined,
+    variant: label || undefined,
+    selectedSize: size || option || undefined,
+    selectedColor: color || undefined,
     purchasable: product.purchasable,
     color: product.color,
     shape: product.shape,
@@ -82,8 +86,8 @@ export default function ProductCard({
     <View style={[styles.card, { width }]}>
       <View style={styles.imageBox}>
         <Pressable onPress={open} style={styles.imageTap} accessibilityRole="button">
-          {product.imageUrl ? (
-            <Image source={{ uri: product.imageUrl }} style={styles.image} resizeMode="contain" />
+          {(product.images?.[0] || product.imageUrl) ? (
+            <Image source={{ uri: product.images?.[0] || product.imageUrl }} style={styles.image} resizeMode="contain" />
           ) : (
             <ProductVisual color={product.color} shape={product.shape} size={Math.min(96, width * 0.55)} />
           )}
@@ -119,7 +123,7 @@ export default function ProductCard({
         <Text style={styles.live}>Live item</Text>
       )}
       <Text style={styles.price}>
-        {inr(product.price)}
+        {product.price > 0 ? inr(product.price) : "Price not set"}
         {off > 0 ? <Text style={styles.mrp}>  {inr(product.mrp)}</Text> : null}
       </Text>
 
