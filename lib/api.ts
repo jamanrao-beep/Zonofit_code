@@ -36,7 +36,7 @@ export async function apiFetch(path: string, options: RequestOptions = {}) {
     headers.set("Authorization", `Bearer ${options.token}`);
   }
 
-  const { timeoutMs = 15000 } = options;
+  const { timeoutMs = 30000 } = options;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
