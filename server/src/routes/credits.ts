@@ -50,6 +50,19 @@ router.get(
     const membership = wallet.user.membership;
     const isExpired = membership ? (membership.endDate < now || membership.status === "EXPIRED") : true;
 
+    // Auto-seed base 180 membership credits if active membership wallet missed it
+    if (membership && !isExpired && wallet.balance < 180) {
+      try {
+        const updated = await prisma.creditWallet.update({
+          where: { id: wallet.id },
+          data: { balance: { increment: 180 } },
+        });
+        wallet.balance = updated.balance;
+      } catch (e) {
+        console.warn("Failed to auto-seed base membership credits:", e);
+      }
+    }
+
     const convertibleCashINR = wallet.convertibleCashBalanceInPaise / 100;
     const isCashValid = !!(wallet.cashExpiryDate && wallet.cashExpiryDate > now && convertibleCashINR > 0);
     const inrWalletDaysRemaining = isCashValid

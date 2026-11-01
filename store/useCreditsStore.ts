@@ -176,9 +176,22 @@ export const useCreditsStore = create<CreditsState>()(
         canBuyAdditionalCredits: true,
       } : currentMembership);
 
-      const resolvedCredits = (typeof data.balance === "number" && data.balance > 0)
-        ? data.balance
-        : (get().credits > 0 ? get().credits : (isLocallyActive ? 420 : 0));
+      const currentCredits = get().credits;
+      const baseMembershipCredits = isLocallyActive ? 180 : 0;
+      let resolvedCredits = currentCredits;
+
+      if (typeof data.balance === "number") {
+        if (isLocallyActive && data.balance < baseMembershipCredits) {
+          // If server only recorded purchased top-up (e.g. 120) because base membership was direct-accepted in test mode
+          resolvedCredits = Math.max(currentCredits, baseMembershipCredits + data.balance);
+        } else if (data.balance >= baseMembershipCredits) {
+          resolvedCredits = Math.max(currentCredits, data.balance);
+        } else {
+          resolvedCredits = currentCredits > 0 ? currentCredits : baseMembershipCredits;
+        }
+      } else {
+        resolvedCredits = currentCredits > 0 ? currentCredits : baseMembershipCredits;
+      }
 
       set({
         credits: resolvedCredits,
@@ -303,9 +316,11 @@ export const useCreditsStore = create<CreditsState>()(
       }
 
       if (orderData?.directAccepted) {
-        if (typeof orderData.newCreditBalance === "number") {
-          set({ credits: orderData.newCreditBalance });
-        }
+        const prevCredits = get().credits > 0 ? get().credits : 180;
+        const newTotal = typeof orderData.newCreditBalance === "number" && orderData.newCreditBalance >= (prevCredits + creditsAmount)
+          ? orderData.newCreditBalance
+          : prevCredits + creditsAmount;
+        set({ credits: newTotal });
         return { success: true, message: orderData.message || `Successfully purchased ${creditsAmount} credits.` };
       }
 
