@@ -12,6 +12,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { apiFetch } from "@/lib/api";
+import { VISIT_RULES } from "@/constants/bookingRules";
 
 export interface BookingModalGym {
   id: string;
@@ -383,7 +384,7 @@ export default function BookingModal({
                 <View style={styles.mandatoryNoteBanner}>
                   <Ionicons name="shield-checkmark" size={18} color="#166534" style={{ marginTop: 2 }} />
                   <Text style={styles.mandatoryNoteText}>
-                    This visit is already included in your membership and will be deducted when you check in.
+                    This visit is included in your membership and is used when you book. Cancel more than 2 hours before the visit and it comes back. A flat 2 credit fee still applies.
                   </Text>
                 </View>
               )}
@@ -422,10 +423,11 @@ export default function BookingModal({
                   </Pressable>
                 </View>
                 <View style={styles.rulePointsList}>
-                  <Text style={styles.rulePointLine}>• <Text style={styles.boldRule}>Desk Check-in:</Text> Show booking pass at front desk upon arrival</Text>
-                  <Text style={styles.rulePointLine}>• <Text style={styles.boldRule}>1 Active Booking:</Text> Max 1 booking per day allowed</Text>
-                  <Text style={styles.rulePointLine}>• <Text style={styles.boldRule}>Cancellation:</Text> Flat 2 Credits fee applies upon cancellation</Text>
-                  <Text style={styles.rulePointLine}>• <Text style={styles.boldRule}>Gym Protocol:</Text> Clean footwear & gym attire compulsory</Text>
+                  {VISIT_RULES.map((rule) => (
+                    <Text key={rule.title} style={styles.rulePointLine}>
+                      • <Text style={styles.boldRule}>{rule.title}:</Text> {rule.summary}
+                    </Text>
+                  ))}
                 </View>
               </View>
 
@@ -480,54 +482,18 @@ export default function BookingModal({
               </Pressable>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 380, marginTop: 14 }}>
-              <View style={styles.fullRuleItem}>
-                <View style={styles.fullRuleIconWrap}>
-                  <Ionicons name="id-card-outline" size={20} color="#1F7A3E" />
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 460, marginTop: 14 }}>
+              {VISIT_RULES.map((rule, index) => (
+                <View key={rule.title} style={styles.fullRuleItem}>
+                  <View style={styles.fullRuleIconWrap}>
+                    <Ionicons name={rule.icon} size={18} color="#1F7A3E" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.fullRuleHeading}>{index + 1}. {rule.title}</Text>
+                    <Text style={styles.fullRuleDesc}>{rule.detail}</Text>
+                  </View>
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.fullRuleHeading}>1. Front Desk Check-In</Text>
-                  <Text style={styles.fullRuleDesc}>
-                    When you arrive at the gym, present your active booking pass at the front desk for verification.
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.fullRuleItem}>
-                <View style={styles.fullRuleIconWrap}>
-                  <Ionicons name="calendar-outline" size={20} color="#1F7A3E" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.fullRuleHeading}>2. Single Active Booking Policy</Text>
-                  <Text style={styles.fullRuleDesc}>
-                    Members can hold only 1 active booking at a time across network gyms. Once checked in or cancelled, you can book your next session.
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.fullRuleItem}>
-                <View style={styles.fullRuleIconWrap}>
-                  <Ionicons name="card-outline" size={20} color="#1F7A3E" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.fullRuleHeading}>3. Flat 2 Credits Cancellation Fee</Text>
-                  <Text style={styles.fullRuleDesc}>
-                    A flat 2 Credits cancellation fee applies. For credit bookings, 2 credits are deducted from the refund. For plan visits, 2 credits are deducted from your wallet balance (minimum 2 credits required to cancel).
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.fullRuleItem}>
-                <View style={styles.fullRuleIconWrap}>
-                  <Ionicons name="shirt-outline" size={20} color="#1F7A3E" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.fullRuleHeading}>4. Attire & Fitness Protocol</Text>
-                  <Text style={styles.fullRuleDesc}>
-                    Clean workout shoes and athletic attire are mandatory. Carry a workout towel and re-rack all equipment after use.
-                  </Text>
-                </View>
-              </View>
+              ))}
             </ScrollView>
 
             <Pressable
@@ -951,12 +917,12 @@ const styles = StyleSheet.create({
     textDecorationLine: "underline",
   },
   rulePointsList: {
-    gap: 3,
+    gap: 8,
   },
   rulePointLine: {
-    fontSize: 10.5,
+    fontSize: 12,
     color: "#475569",
-    lineHeight: 15,
+    lineHeight: 17,
   },
   boldRule: {
     fontWeight: "700",

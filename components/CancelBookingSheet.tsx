@@ -24,8 +24,8 @@ export default function CancelBookingSheet({
   if (!visible) return null;
 
   const message = isMandatory
-    ? "A flat 2 credits will be charged from your wallet. Your visit will be returned to your plan."
-    : `A flat 2 credits will be charged. ${refundCredits} credits will come back to your wallet.`;
+    ? "Cancel is open until 2 hours before the visit. A flat 2 credits will be charged from your wallet. Your visit will be returned to your plan."
+    : `Cancel is open until 2 hours before the visit. A flat 2 credits will be charged. ${refundCredits} credits will come back to your wallet.`;
 
   const dismiss = () => {
     if (!loading) onKeep();

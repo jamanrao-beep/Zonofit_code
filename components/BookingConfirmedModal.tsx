@@ -22,6 +22,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { InAppNoticeBanner } from "@/components/InAppNoticeBanner";
 import { showInAppNotice, useInAppNoticeStore } from "@/store/useInAppNoticeStore";
+import { VISIT_RULES } from "@/constants/bookingRules";
 
 interface BookingConfirmedModalProps {
   visible: boolean;
@@ -126,6 +127,18 @@ export default function BookingConfirmedModal({
             <Text style={styles.subtitle}>
               Your session is confirmed. Show your pass when you arrive at the gym.
             </Text>
+          </View>
+
+          <View style={styles.rulesBox}>
+            {VISIT_RULES.map((rule) => (
+              <View key={rule.title} style={styles.ruleRow}>
+                <Ionicons name={rule.icon} size={14} color="#1F7A3E" style={{ marginTop: 2 }} />
+                <Text style={styles.ruleText}>
+                  <Text style={styles.ruleTitle}>{rule.title}. </Text>
+                  {rule.summary}
+                </Text>
+              </View>
+            ))}
           </View>
 
           {/* Ticket / Pass Summary Box */}
@@ -276,6 +289,32 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: "#E5E7EB",
     marginBottom: 8,
+  },
+  rulesBox: {
+    width: "100%",
+    backgroundColor: "#F4FBF6",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#D7EADF",
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    marginBottom: 14,
+    gap: 8,
+  },
+  ruleRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  ruleText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 17,
+    color: "#3F4B46",
+  },
+  ruleTitle: {
+    fontWeight: "700",
+    color: "#14532D",
   },
   header: {
     alignItems: "center",

@@ -26,6 +26,7 @@ import {
   CANCELLATION_POLICY_NOTE, 
 } from "@/constants/fallbackGyms";
 import { isBookingSlotPast } from "@/lib/bookingTime";
+import { VISIT_RULES } from "@/constants/bookingRules";
 
 const { width } = Dimensions.get("window");
 
@@ -356,6 +357,26 @@ export default function BookingPassScreen() {
                   <Text style={styles.qrScanBtnText}>Show this pass at the front desk. Staff confirm your visit.</Text>
                 </View>
               )}
+            </View>
+
+            <View style={styles.rulesCard}>
+              <View style={styles.rulesHeader}>
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <Ionicons name="time-outline" size={16} color="#111827" style={{ marginRight: 6 }} />
+                  <Text style={styles.rulesTitle}>How this visit works</Text>
+                </View>
+              </View>
+              <View style={{ gap: 10 }}>
+                {VISIT_RULES.map((rule) => (
+                  <View key={rule.title} style={{ flexDirection: "row", alignItems: "flex-start" }}>
+                    <Ionicons name={rule.icon} size={15} color="#1F7A3E" style={{ marginTop: 2, marginRight: 8 }} />
+                    <Text style={styles.policyText}>
+                      <Text style={{ fontWeight: "700", color: "#111827" }}>{rule.title}. </Text>
+                      {rule.summary}
+                    </Text>
+                  </View>
+                ))}
+              </View>
             </View>
 
             {/* Cancellation Notice Card */}

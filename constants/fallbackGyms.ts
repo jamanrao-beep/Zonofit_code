@@ -31,8 +31,8 @@ export const DEFAULT_GYM_POLICIES: string[] = [
   "Show your ZonoFit booking confirmation at reception for check-in.",
 ];
 
-export const CANCELLATION_POLICY_NOTE = 
-  "Flat 2 Credits fee applies on cancellation. For credit bookings, 2 credits are deducted from the refund. For mandatory visits, 2 credits are charged from your wallet.";
+export const CANCELLATION_POLICY_NOTE =
+  "Cancel more than 2 hours before the visit. A flat 2 credit fee applies. For a credit visit, 2 credits stay with ZonoFit and the rest returns. For a plan visit, 2 credits are taken from your wallet and the visit returns to your plan.";
 
 export interface PartnerCity {
   id: string;
