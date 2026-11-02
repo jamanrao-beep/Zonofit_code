@@ -815,6 +815,7 @@ router.get(
       // 3. Fetch all bookings for this gym (and network bookings)
       const bookings = await prisma.booking.findMany({
         include: {
+          checkIn: { select: { verifiedAt: true } },
           user: {
             select: {
               id: true,
@@ -858,7 +859,7 @@ router.get(
         const plan = planName || "Standard";
         const joinedDateObj = joinedAt ? new Date(joinedAt) : null;
         const joinedStr = joinedDateObj && !isNaN(joinedDateObj.getTime())
-          ? joinedDateObj.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+          ? formatKolkata(joinedDateObj, { month: "short", day: "numeric", year: "numeric" })
           : "N/A";
         const joinedTimestamp = joinedDateObj && !isNaN(joinedDateObj.getTime()) ? joinedDateObj.getTime() : 0;
 
@@ -918,9 +919,12 @@ router.get(
         if (isCheckIn) {
           if (isThisGym) {
             memberMap[b.user.id].visits += 1;
-            const vDate = new Date(b.visitDate);
-            if (!memberMap[b.user.id].lastVisitDate || vDate > memberMap[b.user.id].lastVisitDate!) {
-              memberMap[b.user.id].lastVisitDate = vDate;
+            // Use the actual staff verification timestamp (or booking update) in India time, NOT the calendar visitDate
+            const checkInTime = b.checkIn?.verifiedAt
+              ? new Date(b.checkIn.verifiedAt)
+              : new Date(b.updatedAt);
+            if (!memberMap[b.user.id].lastVisitDate || checkInTime > memberMap[b.user.id].lastVisitDate!) {
+              memberMap[b.user.id].lastVisitDate = checkInTime;
             }
           }
         } else if (b.status === "CONFIRMED" || b.status === "PENDING") {
@@ -941,7 +945,14 @@ router.get(
         .map((m) => {
           let lastVisit = "No check-ins yet";
           if (m.lastVisitDate) {
-            lastVisit = m.lastVisitDate.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+            lastVisit = formatKolkata(m.lastVisitDate, {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+              hour: "numeric",
+              minute: "2-digit",
+              hour12: true,
+            });
           } else if (m.hasScheduled) {
             lastVisit = "Visit Scheduled";
           }
