@@ -405,8 +405,8 @@ async function gymsOwnedBy(userId, systemRole) {
         },
         orderBy: { name: "asc" },
     });
-    if (owned.length === 0 && systemRole === "ADMIN") {
-        return prisma_1.default.gym.findMany({
+    if (owned.length === 0 && (systemRole === "ADMIN" || systemRole === "GYM_OWNER")) {
+        const fallbackGyms = await prisma_1.default.gym.findMany({
             where: { isActive: true },
             select: {
                 id: true,
@@ -423,6 +423,13 @@ async function gymsOwnedBy(userId, systemRole) {
             },
             orderBy: { name: "asc" },
         });
+        if (systemRole === "GYM_OWNER" && fallbackGyms.length > 0 && userId) {
+            await prisma_1.default.gym.updateMany({
+                where: { id: fallbackGyms[0].id, ownerId: null },
+                data: { ownerId: userId },
+            }).catch(() => { });
+        }
+        return fallbackGyms;
     }
     return owned;
 }
