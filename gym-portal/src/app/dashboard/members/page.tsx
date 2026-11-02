@@ -65,7 +65,17 @@ export default function MembersPage() {
                       </td>
                       <td className="py-4 px-6 text-sm text-gray-600">{member.joined}</td>
                       <td className="py-4 px-6 text-sm text-gray-600">{member.visits}</td>
-                      <td className="py-4 px-6 text-sm text-gray-600">{member.lastVisit}</td>
+                      <td className="py-4 px-6 text-sm">
+                        {member.lastVisit === "Visit Scheduled" ? (
+                          <span className="inline-block px-2.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold rounded-full">
+                            Visit Scheduled
+                          </span>
+                        ) : member.lastVisit === "No check-ins yet" ? (
+                          <span className="text-gray-400 text-xs font-medium">No check-ins yet</span>
+                        ) : (
+                          <span className="text-gray-900 font-semibold">{member.lastVisit}</span>
+                        )}
+                      </td>
                     </tr>
                   ))
                 )}

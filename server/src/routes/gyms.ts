@@ -744,24 +744,26 @@ router.get(
         return;
       }
       const gymIds = gyms.map((g) => g.id);
-      const isAdmin = req.systemRole === "ADMIN";
 
-      // Count total active gyms in system to check if sole partner or viewing network
-      const totalGymsCount = await prisma.gym.count({ where: { isActive: true } });
-      const isSolePartnerOrAdmin = isAdmin || gymIds.length >= totalGymsCount;
+      // 1. Fetch all registered network members (all users who are members, excluding the partner's own account)
+      const registeredUsers = await prisma.user.findMany({
+        where: {
+          id: { not: req.dbUserId },
+        },
+        include: {
+          membership: {
+            include: {
+              plan: { select: { name: true } },
+              gymPlan: { select: { name: true } },
+              primaryGym: { select: { id: true, name: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      });
 
-      // 1. Fetch memberships belonging to this gym's network
-      const membershipWhere: any = isSolePartnerOrAdmin
-        ? {}
-        : {
-            OR: [
-              { primaryGymId: { in: gymIds } },
-              { user: { bookings: { some: { gymId: { in: gymIds } } } } }
-            ]
-          };
-
+      // 2. Fetch all memberships (with primary gym or network access)
       const memberships = await prisma.membership.findMany({
-        where: membershipWhere,
         include: {
           user: {
             select: {
@@ -769,39 +771,18 @@ router.get(
               name: true,
               email: true,
               createdAt: true,
-              systemRole: true
-            }
+              systemRole: true,
+            },
           },
           plan: { select: { name: true } },
           gymPlan: { select: { name: true } },
-          primaryGym: { select: { id: true, name: true } }
+          primaryGym: { select: { id: true, name: true } },
         },
-        orderBy: { createdAt: "desc" }
+        orderBy: { createdAt: "desc" },
       });
 
-      // 2. Fetch users who joined if admin / sole partner
-      let registeredUsers: any[] = [];
-      if (isSolePartnerOrAdmin) {
-        registeredUsers = await prisma.user.findMany({
-          where: {
-            systemRole: "MEMBER"
-          },
-          include: {
-            membership: {
-              include: {
-                plan: { select: { name: true } },
-                gymPlan: { select: { name: true } },
-                primaryGym: { select: { id: true, name: true } }
-              }
-            }
-          },
-          orderBy: { createdAt: "desc" }
-        });
-      }
-
-      // 3. Fetch all bookings for these gyms (both past visits and scheduled visits)
+      // 3. Fetch all bookings for this gym (and network bookings)
       const bookings = await prisma.booking.findMany({
-        where: isSolePartnerOrAdmin ? {} : { gymId: { in: gymIds } },
         include: {
           user: {
             select: {
@@ -813,13 +794,13 @@ router.get(
                 select: {
                   plan: { select: { name: true } },
                   gymPlan: { select: { name: true } },
-                  createdAt: true
-                }
-              }
-            }
-          }
+                  createdAt: true,
+                },
+              },
+            },
+          },
         },
-        orderBy: { visitDate: "desc" }
+        orderBy: { visitDate: "desc" },
       });
 
       // Aggregate into memberMap
@@ -828,6 +809,7 @@ router.get(
         name: string;
         plan: string;
         joined: string;
+        joinedTimestamp: number;
         visits: number;
         lastVisitDate: Date | null;
         hasScheduled: boolean;
@@ -843,9 +825,11 @@ router.get(
         if (!userId) return;
         const name = userName?.trim() || userEmail?.split("@")[0] || "Member";
         const plan = planName || "Standard";
-        const joinedStr = joinedAt
-          ? new Date(joinedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+        const joinedDateObj = joinedAt ? new Date(joinedAt) : null;
+        const joinedStr = joinedDateObj && !isNaN(joinedDateObj.getTime())
+          ? joinedDateObj.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
           : "N/A";
+        const joinedTimestamp = joinedDateObj && !isNaN(joinedDateObj.getTime()) ? joinedDateObj.getTime() : 0;
 
         if (!memberMap[userId]) {
           memberMap[userId] = {
@@ -853,6 +837,7 @@ router.get(
             name,
             plan,
             joined: joinedStr,
+            joinedTimestamp,
             visits: 0,
             lastVisitDate: null,
             hasScheduled: false,
@@ -864,10 +849,14 @@ router.get(
           ) {
             memberMap[userId].plan = planName;
           }
+          if (joinedTimestamp && !memberMap[userId].joinedTimestamp) {
+            memberMap[userId].joined = joinedStr;
+            memberMap[userId].joinedTimestamp = joinedTimestamp;
+          }
         }
       };
 
-      // Seed registered users
+      // Seed all registered members in network
       for (const u of registeredUsers) {
         const planName = u.membership?.plan?.name || u.membership?.gymPlan?.name;
         const joinedAt = u.membership?.createdAt || u.createdAt;
@@ -876,48 +865,65 @@ router.get(
 
       // Seed memberships
       for (const m of memberships) {
-        if (!m.user) continue;
-        const planName = m.plan?.name || m.gymPlan?.name || (m.status ? `${m.status} Membership` : undefined);
+        if (!m.user || m.user.id === req.dbUserId) continue;
+        const isPrimary = m.primaryGymId && gymIds.includes(m.primaryGymId);
+        const basePlan = m.plan?.name || m.gymPlan?.name || (m.status ? `${m.status} Membership` : undefined);
+        const planName = isPrimary && basePlan ? `${basePlan} (Primary)` : basePlan;
         const joinedAt = m.createdAt || m.user.createdAt;
         addOrUpdateUser(m.user.id, m.user.name, m.user.email, planName, joinedAt);
       }
 
-      // Overlay bookings
+      // Overlay bookings and check-in history
       for (const b of bookings) {
-        if (!b.user) continue;
+        if (!b.user || b.user.id === req.dbUserId) continue;
         const planName = (b.user as any).membership?.plan?.name || (b.user as any).membership?.gymPlan?.name;
         const joinedAt = (b.user as any).membership?.createdAt || b.user.createdAt;
         addOrUpdateUser(b.user.id, b.user.name, (b.user as any).email, planName, joinedAt);
 
+        // Record visits and activity
+        const isThisGym = gymIds.includes(b.gymId);
         const isCheckIn = b.status === "CHECKED_IN" || b.status === "COMPLETED";
+
         if (isCheckIn) {
-          memberMap[b.user.id].visits += 1;
-          const vDate = new Date(b.visitDate);
-          if (!memberMap[b.user.id].lastVisitDate || vDate > memberMap[b.user.id].lastVisitDate!) {
-            memberMap[b.user.id].lastVisitDate = vDate;
+          if (isThisGym) {
+            memberMap[b.user.id].visits += 1;
+            const vDate = new Date(b.visitDate);
+            if (!memberMap[b.user.id].lastVisitDate || vDate > memberMap[b.user.id].lastVisitDate!) {
+              memberMap[b.user.id].lastVisitDate = vDate;
+            }
           }
         } else if (b.status === "CONFIRMED" || b.status === "PENDING") {
-          memberMap[b.user.id].hasScheduled = true;
+          if (isThisGym) {
+            memberMap[b.user.id].hasScheduled = true;
+          }
         }
       }
 
-      const members = Object.values(memberMap).map((m) => {
-        let lastVisit = "No check-ins yet";
-        if (m.lastVisitDate) {
-          lastVisit = m.lastVisitDate.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
-        } else if (m.hasScheduled) {
-          lastVisit = "Visit Scheduled";
-        }
+      // Sort: Members with visits/scheduled visits at this gym first, then by joined date descending
+      const members = Object.values(memberMap)
+        .sort((a, b) => {
+          if (b.visits !== a.visits) return b.visits - a.visits;
+          if (b.hasScheduled && !a.hasScheduled) return -1;
+          if (!b.hasScheduled && a.hasScheduled) return 1;
+          return (b.joinedTimestamp || 0) - (a.joinedTimestamp || 0);
+        })
+        .map((m) => {
+          let lastVisit = "No check-ins yet";
+          if (m.lastVisitDate) {
+            lastVisit = m.lastVisitDate.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+          } else if (m.hasScheduled) {
+            lastVisit = "Visit Scheduled";
+          }
 
-        return {
-          id: m.id,
-          name: m.name,
-          plan: m.plan,
-          joined: m.joined,
-          visits: m.visits,
-          lastVisit,
-        };
-      });
+          return {
+            id: m.id,
+            name: m.name,
+            plan: m.plan,
+            joined: m.joined,
+            visits: m.visits,
+            lastVisit,
+          };
+        });
 
       res.json({ members });
     } catch (err: any) {
