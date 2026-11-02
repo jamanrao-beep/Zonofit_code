@@ -156,7 +156,10 @@ export default function TodayVisitorsPage() {
                           {slot.startTime}{slot.endTime ? ` – ${slot.endTime}` : ""}
                         </h2>
                         <p className="text-xs text-gray-500">
-                          {slot.isEnabled ? "Open" : "Closed"}{fill ? ` · ${fill}` : ""}
+                          <span className={`font-semibold ${slot.isEnabled ? "text-emerald-700" : "text-red-600"}`}>
+                            {slot.isEnabled ? "Open" : "Closed"}
+                          </span>
+                          {fill ? ` · ${fill}` : ""}
                         </p>
                       </div>
                       <p className="text-2xl font-bold text-gray-900 shrink-0">{slot.booked}</p>

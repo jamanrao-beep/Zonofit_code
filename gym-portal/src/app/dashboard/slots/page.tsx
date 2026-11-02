@@ -139,13 +139,33 @@ export default function GymSlotsPage() {
                         aria-label={`${slot.isEnabled ? "Close" : "Open"} ${slot.startTime}`}
                         disabled={busyId === slot.slotId}
                         onClick={() => toggleSlot(gym.id, slot)}
-                        className="inline-flex items-center gap-3 self-start rounded-full border border-gray-200 bg-gray-50 px-2 py-1.5 pr-3 disabled:opacity-60"
+                        className={`inline-flex items-center gap-3 self-start sm:self-center shrink-0 rounded-full border px-2 py-1.5 pr-3.5 transition-all shadow-xs disabled:opacity-60 cursor-pointer ${
+                          slot.isEnabled
+                            ? "border-emerald-200 bg-emerald-50/80 hover:bg-emerald-100/80"
+                            : "border-red-200 bg-red-50/80 hover:bg-red-100/80"
+                        }`}
                       >
-                        <span className={`relative h-7 w-12 rounded-full transition-colors ${slot.isEnabled ? "bg-emerald-600" : "bg-gray-300"}`}>
-                          <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${slot.isEnabled ? "translate-x-5" : "translate-x-0.5"}`} />
+                        <span
+                          className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full p-0.5 transition-colors duration-200 ${
+                            slot.isEnabled ? "bg-emerald-600" : "bg-red-500"
+                          }`}
+                        >
+                          <span
+                            className={`h-6 w-6 rounded-full bg-white shadow-md transition-transform duration-200 ${
+                              slot.isEnabled ? "translate-x-5" : "translate-x-0"
+                            }`}
+                          />
                         </span>
-                        <span className={`text-xs font-bold ${slot.isEnabled ? "text-emerald-800" : "text-gray-500"}`}>
-                          {busyId === slot.slotId ? "Saving" : slot.isEnabled ? "Open" : "Closed"}
+                        <span
+                          className={`min-w-[48px] text-xs font-bold ${
+                            busyId === slot.slotId
+                              ? "text-gray-500"
+                              : slot.isEnabled
+                              ? "text-emerald-900"
+                              : "text-red-700"
+                          }`}
+                        >
+                          {busyId === slot.slotId ? "Saving…" : slot.isEnabled ? "Open" : "Closed"}
                         </span>
                       </button>
                     </li>
