@@ -64,3 +64,18 @@ export function isBookingSlotPast(
     return false;
   }
 }
+
+export function isBookingDateFuture(visitDate: Date | string | null | undefined): boolean {
+  if (!visitDate) return false;
+  try {
+    const vDate = new Date(visitDate);
+    if (isNaN(vDate.getTime())) return false;
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const startOfVisit = new Date(vDate.getFullYear(), vDate.getMonth(), vDate.getDate(), 0, 0, 0, 0);
+    return startOfVisit.getTime() > startOfToday.getTime();
+  } catch {
+    return false;
+  }
+}
+

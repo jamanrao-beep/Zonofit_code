@@ -25,7 +25,7 @@ import {
   getGymPolicies, 
   CANCELLATION_POLICY_NOTE, 
 } from "@/constants/fallbackGyms";
-import { isBookingSlotPast } from "@/lib/bookingTime";
+import { isBookingSlotPast, isBookingDateFuture } from "@/lib/bookingTime";
 import { VISIT_RULES } from "@/constants/bookingRules";
 
 const { width } = Dimensions.get("window");
@@ -84,6 +84,7 @@ export default function BookingPassScreen() {
   const displayDate = getFormattedDate();
   const displayTime = bookedTime || "7:00 PM";
   const isCostZero = bookedCost === 0 || bookedCost === undefined;
+  const isFutureBooking = isBookingDateFuture(bookedVisitDateIso || bookedDate);
   const isPrimary = Boolean(
     (bookedGymId && primaryGymId && bookedGymId === primaryGymId) ||
     (bookedGymName && primaryGymName && bookedGymName.toLowerCase() === primaryGymName.toLowerCase()) ||
@@ -342,9 +343,13 @@ export default function BookingPassScreen() {
                 <View style={styles.metaRow}>
                   <Text style={styles.metaKey}>Entry Verification</Text>
                   <View style={{ flexDirection: "row", alignItems: "center" }}>
-                    <View style={styles.greenDot} />
-                    <Text style={styles.verifiedText}>
-                      {bookingStatus === "Checked In" ? "Checked In" : "Confirmed • Ready for Entry"}
+                    <View style={isFutureBooking && bookingStatus !== "Checked In" ? [styles.greenDot, { backgroundColor: "#2563EB" }] : styles.greenDot} />
+                    <Text style={[styles.verifiedText, isFutureBooking && bookingStatus !== "Checked In" ? { color: "#2563EB" } : null]}>
+                      {bookingStatus === "Checked In"
+                        ? "Checked In"
+                        : isFutureBooking
+                        ? `Scheduled • Valid on ${displayDate}`
+                        : "Confirmed • Ready for Entry"}
                     </Text>
                   </View>
                 </View>
@@ -352,9 +357,13 @@ export default function BookingPassScreen() {
 
               {/* Check-In CTA inside the pass */}
               {bookingStatus !== "Checked In" && (
-                <View style={styles.qrScanBtn}>
+                <View style={[styles.qrScanBtn, isFutureBooking ? { backgroundColor: "#1E293B" } : null]}>
                   <Ionicons name="information-circle-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-                  <Text style={styles.qrScanBtnText}>Show this pass at the front desk. Staff confirm your visit.</Text>
+                  <Text style={styles.qrScanBtnText}>
+                    {isFutureBooking
+                      ? `This pass is scheduled for ${displayDate}. Front desk check-in opens on the day of your visit.`
+                      : "Show this pass at the front desk. Staff confirm your visit."}
+                  </Text>
                 </View>
               )}
             </View>

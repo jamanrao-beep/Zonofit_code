@@ -20,6 +20,7 @@ import {
   typedDeskCode,
   isBookingSlotPast,
   getSlotEndTimeString,
+  checkBookingCheckInEligibility,
 } from "../lib/bookingTime";
 
 async function gymIdsForStaff(userId: string, systemRole?: string): Promise<string[]> {
@@ -178,35 +179,17 @@ router.post(
           throw createError("This booking has already ended and was completed.", 400, "AlreadyCompleted");
         }
 
-        // Check if the booking session / slot time has expired
-        if (isBookingSlotPast(booking.visitDate, booking.timeSlot)) {
-          if (checkIn.status === "PENDING") {
-            await tx.checkIn.update({ where: { id: checkIn.id }, data: { status: "EXPIRED" } });
+        // Validate if this booking can be checked in right now (date, time slot start, expiration)
+        const eligibility = checkBookingCheckInEligibility(booking.visitDate, booking.timeSlot);
+        if (!eligibility.eligible) {
+          if (eligibility.isExpired) {
+            if (checkIn.status === "PENDING") {
+              await tx.checkIn.update({ where: { id: checkIn.id }, data: { status: "EXPIRED" } });
+            }
+            await tx.booking.update({ where: { id: booking.id }, data: { status: "COMPLETED" } });
+            throw createError(eligibility.message || "This booking slot has expired.", 410, eligibility.code || "BookingExpired");
           }
-          await tx.booking.update({ where: { id: booking.id }, data: { status: "COMPLETED" } });
-          const endTime = getSlotEndTimeString(booking.timeSlot);
-          throw createError(
-            `This booking slot has expired. The session for ${booking.timeSlot || "today"}${endTime ? ` ended at ${endTime}` : ""} and can no longer be checked in.`,
-            410,
-            "BookingExpired"
-          );
-        }
-
-        const visitKey = new Intl.DateTimeFormat("en-CA", {
-          timeZone: "Asia/Kolkata",
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-        }).format(new Date(booking.visitDate));
-        const todayKey = new Intl.DateTimeFormat("en-CA", {
-          timeZone: "Asia/Kolkata",
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-        }).format(new Date());
-        if (checkIn.expiresAt && new Date() > checkIn.expiresAt && visitKey < todayKey) {
-          await tx.checkIn.update({ where: { id: checkIn.id }, data: { status: "EXPIRED" } });
-          throw createError("Check-in code has expired.", 410, "CheckInExpired");
+          throw createError(eligibility.message || "This booking is not eligible for check-in right now.", 400, eligibility.code || "CheckInNotAllowed");
         }
 
         const typedIsPass = rawCode.toLowerCase() === booking.passCode.toLowerCase();

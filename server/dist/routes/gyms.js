@@ -534,6 +534,20 @@ router.get("/today-visitors", auth_1.requireAuth, async (req, res) => {
         res.status(500).json({ error: "ServerError", message: err.message });
     }
 });
+function kolkataStartOfToday() {
+    const day = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+    }).format(new Date());
+    return new Date(`${day}T00:00:00+05:30`);
+}
+function formatKolkata(value, options) {
+    if (!value || Number.isNaN(value.getTime()))
+        return "";
+    return new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", ...options }).format(value);
+}
 // ─── GET /api/gyms/analytics/dashboard ─────────────────────────────────────
 /**
  * Dashboard analytics for Gym Owners.
@@ -576,20 +590,29 @@ router.get("/analytics/dashboard", auth_1.requireAuth, async (req, res) => {
         });
         const monthCredits = monthBookings.reduce((sum, b) => sum + (b.gym?.creditCost || 0), 0);
         const salesThisMonth = monthCredits * 10; // Estimated INR
-        // Recent Check-ins
+        // Recent Check-ins. The visit hour is timeSlot. The clock time is staff confirmation, in India time.
         const recentCheckins = await prisma_1.default.booking.findMany({
             where: { gymId: { in: gymIds }, status: { in: ["CHECKED_IN", "COMPLETED"] } },
             orderBy: { updatedAt: "desc" },
-            take: 3,
-            include: { user: { select: { name: true, membership: { select: { plan: { select: { name: true } } } } } } }
+            take: 20,
+            include: {
+                checkIn: { select: { verifiedAt: true } },
+                user: { select: { name: true, membership: { select: { plan: { select: { name: true } } } } } },
+            },
         });
-        // Upcoming Bookings
-        const upcomingBookings = await prisma_1.default.booking.findMany({
-            where: { gymId: { in: gymIds }, status: "CONFIRMED", visitDate: { gte: new Date() } },
+        const upcomingRows = await prisma_1.default.booking.findMany({
+            where: {
+                gymId: { in: gymIds },
+                status: "CONFIRMED",
+                visitDate: { gte: kolkataStartOfToday() },
+            },
             orderBy: { visitDate: "asc" },
-            take: 3,
-            include: { user: { select: { name: true } } }
+            take: 30,
+            include: { user: { select: { name: true } } },
         });
+        const upcomingBookings = upcomingRows
+            .filter((booking) => !(0, bookingTime_1.isBookingSlotPast)(booking.visitDate, booking.timeSlot))
+            .slice(0, 5);
         // Weekly Attendance Chart (Last 7 days)
         const weekStart = new Date();
         weekStart.setDate(weekStart.getDate() - 6);
@@ -625,17 +648,24 @@ router.get("/analytics/dashboard", auth_1.requireAuth, async (req, res) => {
             creditsToday,
             salesThisMonth,
             chartData,
-            recentCheckins: recentCheckins.map(c => ({
+            recentCheckins: [...recentCheckins]
+                .sort((a, b) => (b.checkIn?.verifiedAt?.getTime() ?? 0) - (a.checkIn?.verifiedAt?.getTime() ?? 0))
+                .slice(0, 6)
+                .map((c) => ({
                 bookingId: c.id,
                 deskCode: (0, bookingTime_1.deskCodeFromBookingId)(c.id),
-                name: c.user?.name || "Unknown",
-                time: new Date(c.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                plan: c.user?.membership?.plan?.name || "Standard"
+                name: c.user?.name || "Member",
+                slot: (c.timeSlot || "").trim() || "Time not set",
+                visitDay: formatKolkata(c.visitDate, { weekday: "short", day: "numeric", month: "short" }),
+                checkedInAt: formatKolkata(c.checkIn?.verifiedAt, { hour: "numeric", minute: "2-digit", hour12: true }),
+                status: c.status,
+                plan: c.user?.membership?.plan?.name || "Standard",
             })),
-            upcomingBookings: upcomingBookings.map(b => ({
-                name: b.user?.name || "Unknown",
-                slot: new Date(b.visitDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                status: b.status
+            upcomingBookings: upcomingBookings.map((b) => ({
+                name: b.user?.name || "Member",
+                slot: (b.timeSlot || "").trim() || "Time not set",
+                when: formatKolkata(b.visitDate, { weekday: "short", day: "numeric", month: "short" }),
+                status: b.status,
             }))
         });
     }
