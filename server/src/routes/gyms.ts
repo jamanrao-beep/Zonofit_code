@@ -891,13 +891,16 @@ router.get(
       }
       const gymIds = gyms.map((g) => g.id);
 
-      // Fetch members whose primary gym or gymPlan matches this gym
+      // Fetch members whose primary gym or gymPlan matches this gym (strictly excluding admins and gym owners)
       const memberships = await prisma.membership.findMany({
         where: {
           OR: [
             { primaryGymId: { in: gymIds } },
             { gymPlan: { gymId: { in: gymIds } } },
           ],
+          user: {
+            systemRole: { notIn: ["ADMIN", "GYM_OWNER"] },
+          },
         },
         include: {
           user: {
@@ -916,10 +919,13 @@ router.get(
         orderBy: { createdAt: "desc" },
       });
 
-      // Fetch bookings at this gym
+      // Fetch bookings at this gym for regular members (strictly excluding admins and gym owners)
       const bookings = await prisma.booking.findMany({
         where: {
           gymId: { in: gymIds },
+          user: {
+            systemRole: { notIn: ["ADMIN", "GYM_OWNER"] },
+          },
         },
         include: {
           user: {
