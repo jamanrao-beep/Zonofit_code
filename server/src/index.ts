@@ -43,8 +43,14 @@ process.on("uncaughtException", (error) => {
 const app = express();
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
 
+import { getUploadsDir, getAllCandidateUploadDirs } from "./lib/uploads";
+
 // ─── Security & Logging ────────────────────────────────────────────────────────
-app.use(helmet());
+app.use(
+    helmet({
+        crossOriginResourcePolicy: { policy: "cross-origin" },
+    })
+);
 app.use(morgan(process.env.NODE_ENV === "development" ? "dev" : "combined"));
 
 // ─── CORS ──────────────────────────────────────────────────────────────────────
@@ -92,11 +98,28 @@ app.use(express.json({
 app.use(express.urlencoded({ extended: true }));
 
 // ─── Static File Serving (Uploads) ─────────────────────────────────────────────
-const uploadsDir = path.join(__dirname, "../uploads");
-if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
+const primaryUploadsDir = getUploadsDir();
+const candidateDirs = getAllCandidateUploadDirs();
+
+// Ensure cross-origin headers are set on all upload responses so browsers on
+// admin.zonofit.com, gym.zonofit.com or localhost never block image previews
+app.use("/uploads", (_req, res, next) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    if (_req.method === "OPTIONS") {
+        res.sendStatus(204);
+        return;
+    }
+    next();
+});
+
+// Serve from all candidate directories where files may reside
+for (const dir of candidateDirs) {
+    if (fs.existsSync(dir)) {
+        app.use("/uploads", express.static(dir));
+    }
 }
-app.use("/uploads", express.static(uploadsDir));
 
 // ─── Health Check ──────────────────────────────────────────────────────────────
 app.get("/health", async (_req, res) => {
@@ -109,10 +132,19 @@ app.get("/health", async (_req, res) => {
         console.error("[health] database check failed");
     }
 
+    const uploadDirsInfo = candidateDirs.map((dir) => ({
+        dir,
+        exists: fs.existsSync(dir),
+        count: fs.existsSync(dir) ? fs.readdirSync(dir).length : 0,
+    }));
+
     res.json({
         status: dbStatus === "connected" ? "ok" : "degraded",
         service: "zonofit-server",
         db: dbStatus,
+        cwd: process.cwd(),
+        primaryUploadsDir,
+        uploads: uploadDirsInfo,
         timestamp: new Date().toISOString(),
     });
 });

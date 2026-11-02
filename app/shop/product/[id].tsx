@@ -139,6 +139,8 @@ export default function ProductDetailScreen() {
     if (next !== slide) setSlide(next);
   };
 
+  const [failedUris, setFailedUris] = useState<Record<string, boolean>>({});
+
   const photos = [
     ...(product.images?.length ? product.images : product.imageUrl ? [product.imageUrl] : []),
   ];
@@ -178,8 +180,13 @@ export default function ProductDetailScreen() {
           >
             {slides.map((entry) => (
               <View key={entry.key} style={[styles.slide, { width: slideWidth, backgroundColor: entry.bg }]}>
-                {entry.uri ? (
-                  <Image source={{ uri: entry.uri }} style={styles.slideImage} resizeMode="contain" />
+                {entry.uri && !failedUris[entry.uri] ? (
+                  <Image
+                    source={{ uri: entry.uri }}
+                    style={styles.slideImage}
+                    resizeMode="contain"
+                    onError={() => setFailedUris((prev) => ({ ...prev, [entry.uri]: true }))}
+                  />
                 ) : (
                   <ProductVisual color={product.color} shape={product.shape} size={160} />
                 )}

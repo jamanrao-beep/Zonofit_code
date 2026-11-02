@@ -10,6 +10,7 @@ import { roleCanAccess } from "../lib/adminAccess";
 import { slotsPayloadToJson } from "../lib/gymCommercial";
 import { cleanOwnerEmail, cleanOwnerPassword, createGymOwner, updateGymOwnerLogin } from "../lib/gymOwner";
 import { readMarketplaceWrite } from "../lib/marketplaceItem";
+import { getUploadsDir } from "../lib/uploads";
 
 function asInt(value: unknown, fallback: number): number {
   if (typeof value === "number" && Number.isFinite(value)) return Math.round(value);
@@ -41,12 +42,12 @@ function payoutMode(value: unknown, fallback: string | null | undefined): "COMMI
 
 const router = Router();
 
-const productUploadsDir = path.join(__dirname, "../../uploads");
 const productImageUpload = multer({
   storage: multer.diskStorage({
     destination: (_req, _file, cb) => {
-      fs.mkdirSync(productUploadsDir, { recursive: true });
-      cb(null, productUploadsDir);
+      const dir = getUploadsDir();
+      fs.mkdirSync(dir, { recursive: true });
+      cb(null, dir);
     },
     filename: (_req, file, cb) => {
       const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;

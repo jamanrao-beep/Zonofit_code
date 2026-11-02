@@ -7,7 +7,6 @@ const express_1 = require("express");
 const express_validator_1 = require("express-validator");
 const multer_1 = __importDefault(require("multer"));
 const fs_1 = __importDefault(require("fs"));
-const path_1 = __importDefault(require("path"));
 const prisma_1 = __importDefault(require("../lib/prisma"));
 const phone_1 = require("../lib/phone");
 const auth_1 = require("../middleware/auth");
@@ -38,14 +37,15 @@ function formatDob(value) {
     const month = String(value.getUTCMonth() + 1).padStart(2, "0");
     return `${day}/${month}/${value.getUTCFullYear()}`;
 }
+const uploads_1 = require("../lib/uploads");
 const router = (0, express_1.Router)();
 // Avatars are stored on this server's disk (server/uploads) and served from /uploads by index.ts.
-const uploadsDir = path_1.default.join(__dirname, "../../uploads");
 const upload = (0, multer_1.default)({
     storage: multer_1.default.diskStorage({
         destination: (_req, _file, cb) => {
-            fs_1.default.mkdirSync(uploadsDir, { recursive: true });
-            cb(null, uploadsDir);
+            const dir = (0, uploads_1.getUploadsDir)();
+            fs_1.default.mkdirSync(dir, { recursive: true });
+            cb(null, dir);
         },
         filename: (_req, file, cb) => {
             const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);

@@ -8,7 +8,6 @@ require("dotenv/config");
 const express_1 = __importDefault(require("express"));
 const helmet_1 = __importDefault(require("helmet"));
 const morgan_1 = __importDefault(require("morgan"));
-const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
 const errorHandler_1 = require("./middleware/errorHandler");
 // Routes
@@ -42,8 +41,11 @@ process.on("uncaughtException", (error) => {
 });
 const app = (0, express_1.default)();
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
+const uploads_1 = require("./lib/uploads");
 // ─── Security & Logging ────────────────────────────────────────────────────────
-app.use((0, helmet_1.default)());
+app.use((0, helmet_1.default)({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+}));
 app.use((0, morgan_1.default)(process.env.NODE_ENV === "development" ? "dev" : "combined"));
 // ─── CORS ──────────────────────────────────────────────────────────────────────
 const defaultOrigins = [
@@ -84,11 +86,26 @@ app.use(express_1.default.json({
 }));
 app.use(express_1.default.urlencoded({ extended: true }));
 // ─── Static File Serving (Uploads) ─────────────────────────────────────────────
-const uploadsDir = path_1.default.join(__dirname, "../uploads");
-if (!fs_1.default.existsSync(uploadsDir)) {
-    fs_1.default.mkdirSync(uploadsDir, { recursive: true });
+const primaryUploadsDir = (0, uploads_1.getUploadsDir)();
+const candidateDirs = (0, uploads_1.getAllCandidateUploadDirs)();
+// Ensure cross-origin headers are set on all upload responses so browsers on
+// admin.zonofit.com, gym.zonofit.com or localhost never block image previews
+app.use("/uploads", (_req, res, next) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    if (_req.method === "OPTIONS") {
+        res.sendStatus(204);
+        return;
+    }
+    next();
+});
+// Serve from all candidate directories where files may reside
+for (const dir of candidateDirs) {
+    if (fs_1.default.existsSync(dir)) {
+        app.use("/uploads", express_1.default.static(dir));
+    }
 }
-app.use("/uploads", express_1.default.static(uploadsDir));
 // ─── Health Check ──────────────────────────────────────────────────────────────
 app.get("/health", async (_req, res) => {
     let dbStatus = "unknown";
@@ -100,10 +117,18 @@ app.get("/health", async (_req, res) => {
         dbStatus = "disconnected";
         console.error("[health] database check failed");
     }
+    const uploadDirsInfo = candidateDirs.map((dir) => ({
+        dir,
+        exists: fs_1.default.existsSync(dir),
+        count: fs_1.default.existsSync(dir) ? fs_1.default.readdirSync(dir).length : 0,
+    }));
     res.json({
         status: dbStatus === "connected" ? "ok" : "degraded",
         service: "zonofit-server",
         db: dbStatus,
+        cwd: process.cwd(),
+        primaryUploadsDir,
+        uploads: uploadDirsInfo,
         timestamp: new Date().toISOString(),
     });
 });

@@ -310,8 +310,23 @@ export default function AdminMarketplacePage() {
               <p className="text-sm text-gray-500 mb-2">Upload a JPEG, PNG, or WebP from your computer, or paste a direct picture address. A Google Drive share link does not work. Leave this blank and the product still appears without a photo.</p>
               <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={onImageFile} />
               <div className="flex flex-wrap gap-2 mb-3">
-                {formData.imageUrls.filter((url) => url.trim().startsWith("http")).map((url) => (
-                  <img key={url} src={url} alt="" className="h-20 w-20 rounded-xl object-cover bg-gray-100 border border-gray-200" />
+                {formData.imageUrls.filter((url) => url.trim().startsWith("http") || url.trim().startsWith("/")).map((url, i) => (
+                  <div key={`${url}-${i}`} className="relative h-20 w-20 rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
+                    <img
+                      src={url}
+                      alt=""
+                      crossOrigin="anonymous"
+                      className="h-full w-full object-cover"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLElement).style.display = "none";
+                        const fallback = e.currentTarget.parentElement?.querySelector(".img-fallback");
+                        if (fallback) (fallback as HTMLElement).style.display = "flex";
+                      }}
+                    />
+                    <div className="img-fallback hidden absolute inset-0 flex-col items-center justify-center p-1 bg-amber-50 text-amber-800 text-[10px] text-center font-bold">
+                      <span>404 or Missing</span>
+                    </div>
+                  </div>
                 ))}
               </div>
               <div className="space-y-2">

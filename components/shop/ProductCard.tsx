@@ -56,6 +56,7 @@ export default function ProductCard({
   const isGuest = useGuestStore((state) => state.isGuest);
   const endGuestSession = useGuestStore((state) => state.endGuestSession);
   const off = offPercent(product);
+  const [imgFailed, setImgFailed] = useState(false);
 
   const open = () => router.push(`/shop/product/${product.id}` as never);
 
@@ -86,8 +87,13 @@ export default function ProductCard({
     <View style={[styles.card, { width }]}>
       <View style={styles.imageBox}>
         <Pressable onPress={open} style={styles.imageTap} accessibilityRole="button">
-          {(product.images?.[0] || product.imageUrl) ? (
-            <Image source={{ uri: product.images?.[0] || product.imageUrl }} style={styles.image} resizeMode="contain" />
+          {(!imgFailed && (product.images?.[0] || product.imageUrl)) ? (
+            <Image
+              source={{ uri: product.images?.[0] || product.imageUrl }}
+              style={styles.image}
+              resizeMode="contain"
+              onError={() => setImgFailed(true)}
+            />
           ) : (
             <ProductVisual color={product.color} shape={product.shape} size={Math.min(96, width * 0.55)} />
           )}

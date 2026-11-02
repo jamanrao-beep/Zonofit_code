@@ -5,7 +5,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const fs_1 = __importDefault(require("fs"));
-const path_1 = __importDefault(require("path"));
 const multer_1 = __importDefault(require("multer"));
 const prisma_1 = __importDefault(require("../lib/prisma"));
 const auth_1 = require("../middleware/auth");
@@ -15,6 +14,7 @@ const adminAccess_1 = require("../lib/adminAccess");
 const gymCommercial_1 = require("../lib/gymCommercial");
 const gymOwner_1 = require("../lib/gymOwner");
 const marketplaceItem_1 = require("../lib/marketplaceItem");
+const uploads_1 = require("../lib/uploads");
 function asInt(value, fallback) {
     if (typeof value === "number" && Number.isFinite(value))
         return Math.round(value);
@@ -46,12 +46,12 @@ function payoutMode(value, fallback) {
     return fallback === "FIXED_PER_VISIT" ? "FIXED_PER_VISIT" : "COMMISSION_PERCENTAGE";
 }
 const router = (0, express_1.Router)();
-const productUploadsDir = path_1.default.join(__dirname, "../../uploads");
 const productImageUpload = (0, multer_1.default)({
     storage: multer_1.default.diskStorage({
         destination: (_req, _file, cb) => {
-            fs_1.default.mkdirSync(productUploadsDir, { recursive: true });
-            cb(null, productUploadsDir);
+            const dir = (0, uploads_1.getUploadsDir)();
+            fs_1.default.mkdirSync(dir, { recursive: true });
+            cb(null, dir);
         },
         filename: (_req, file, cb) => {
             const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
