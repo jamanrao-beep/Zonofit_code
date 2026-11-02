@@ -186,7 +186,7 @@ router.post(
             if (checkIn.status === "PENDING") {
               await tx.checkIn.update({ where: { id: checkIn.id }, data: { status: "EXPIRED" } });
             }
-            await tx.booking.update({ where: { id: booking.id }, data: { status: "COMPLETED" } });
+            await tx.booking.update({ where: { id: booking.id }, data: { status: "NO_SHOW" } });
             throw createError(eligibility.message || "This booking slot has expired.", 410, eligibility.code || "BookingExpired");
           }
           throw createError(eligibility.message || "This booking is not eligible for check-in right now.", 400, eligibility.code || "CheckInNotAllowed");

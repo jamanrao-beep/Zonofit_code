@@ -403,7 +403,7 @@ router.get(
   }
 );
 
-const BOOKED_STATUSES = ["PENDING", "CONFIRMED", "CHECKED_IN", "COMPLETED"] as const;
+const BOOKED_STATUSES = ["PENDING", "CONFIRMED", "CHECKED_IN", "COMPLETED", "NO_SHOW"] as const;
 
 function visitorDayBounds(offsetParam?: string | number): {
   start: Date;
@@ -584,9 +584,11 @@ router.get("/today-visitors", requireAuth, async (req: Request, res: Response): 
       select: {
         id: true,
         gymId: true,
+        visitDate: true,
         timeSlot: true,
         status: true,
         passCode: true,
+        checkIn: { select: { verifiedAt: true, status: true } },
         user: { select: { name: true } },
       },
       orderBy: { createdAt: "asc" },
@@ -601,35 +603,48 @@ router.get("/today-visitors", requireAuth, async (req: Request, res: Response): 
         const slots = readStoredSlots(gym.slotsJson);
         const mine = bookings.filter((booking) => booking.gymId === gym.id);
         const used = new Set<string>();
+
+        const mapVisitor = (booking: typeof bookings[number]) => {
+          const isVerified = Boolean(booking.checkIn?.verifiedAt) || booking.status === "CHECKED_IN";
+          const isMissed = !isVerified && (booking.status === "NO_SHOW" || isBookingSlotPast(booking.visitDate, booking.timeSlot));
+          const effectiveStatus = isVerified 
+            ? (booking.status === "COMPLETED" ? "COMPLETED" : "CHECKED_IN") 
+            : isMissed 
+            ? "MISSED" 
+            : booking.status;
+
+          return {
+            bookingId: booking.id,
+            name: booking.user?.name?.trim() || "Member",
+            status: effectiveStatus,
+            passCode: `ZF-${booking.id.replace(/[^a-zA-Z0-9]/g, "").slice(-6).toUpperCase()}`,
+            timeSlot: booking.timeSlot,
+            isMissed,
+            isVerified,
+          };
+        };
+
         const slotRows = slots.map((slot) => {
           const visitors = mine.filter((booking) => {
             if (used.has(booking.id) || !bookingMatchesSlot(booking.timeSlot, slot)) return false;
             used.add(booking.id);
             return true;
-          }).map((booking) => ({
-            bookingId: booking.id,
-            name: booking.user?.name?.trim() || "Member",
-            status: booking.status,
-            passCode: `ZF-${booking.id.replace(/[^a-zA-Z0-9]/g, "").slice(-6).toUpperCase()}`,
-            timeSlot: booking.timeSlot,
-          }));
+          }).map(mapVisitor);
           return { ...slot, booked: visitors.length, visitors };
         });
+
         const otherMap = new Map<string, typeof slotRows[number]["visitors"]>();
         mine.forEach((booking) => {
           if (used.has(booking.id)) return;
           const label = booking.timeSlot?.trim() || "Unspecified time";
           const list = otherMap.get(label) ?? [];
-          list.push({
-            bookingId: booking.id,
-            name: booking.user?.name?.trim() || "Member",
-            status: booking.status,
-            passCode: `ZF-${booking.id.replace(/[^a-zA-Z0-9]/g, "").slice(-6).toUpperCase()}`,
-            timeSlot: booking.timeSlot,
-          });
+          list.push(mapVisitor(booking));
           otherMap.set(label, list);
         });
-        const checkedInToday = mine.filter((booking) => booking.status === "CHECKED_IN" || booking.status === "COMPLETED").length;
+
+        const checkedInToday = mine.filter((booking) => Boolean(booking.checkIn?.verifiedAt) || booking.status === "CHECKED_IN").length;
+        const missedToday = mine.filter((booking) => !booking.checkIn?.verifiedAt && booking.status !== "CHECKED_IN" && (booking.status === "NO_SHOW" || isBookingSlotPast(booking.visitDate, booking.timeSlot))).length;
+
         return {
           id: gym.id,
           name: gym.name,
@@ -638,6 +653,7 @@ router.get("/today-visitors", requireAuth, async (req: Request, res: Response): 
           maxSlotVisits: gym.maxSlotVisits,
           bookedToday: mine.length,
           checkedInToday,
+          missedToday,
           slots: slotRows,
           otherTimes: Array.from(otherMap.entries()).map(([timeSlot, visitors]) => ({
             timeSlot,
@@ -721,8 +737,23 @@ router.get(
       const salesThisMonth = monthCredits * 10; // Estimated INR
 
       // Recent Check-ins. The visit hour is timeSlot. The clock time is staff confirmation, in India time.
+      // Auto-correct any unverified bookings marked as completed to NO_SHOW
+      await prisma.booking.updateMany({
+        where: {
+          gymId: { in: gymIds },
+          status: "COMPLETED",
+          checkIn: { verifiedAt: null },
+        },
+        data: { status: "NO_SHOW" },
+      });
+
+      // Recent Check-ins: ONLY verified check-ins confirmed by desk staff
       const recentCheckins = await prisma.booking.findMany({
-        where: { gymId: { in: gymIds }, status: { in: ["CHECKED_IN", "COMPLETED"] } },
+        where: {
+          gymId: { in: gymIds },
+          status: { in: ["CHECKED_IN", "COMPLETED"] },
+          checkIn: { verifiedAt: { not: null } },
+        },
         orderBy: { updatedAt: "desc" },
         take: 20,
         include: {
@@ -730,6 +761,38 @@ router.get(
           user: { select: { name: true, membership: { select: { plan: { select: { name: true } } } } } },
         },
       });
+
+      // Missed / Expired Visits (no-shows)
+      const candidateMissed = await prisma.booking.findMany({
+        where: {
+          gymId: { in: gymIds },
+          status: { in: ["NO_SHOW", "CONFIRMED"] },
+          OR: [
+            { checkIn: null },
+            { checkIn: { verifiedAt: null } },
+          ],
+        },
+        orderBy: { visitDate: "desc" },
+        take: 30,
+        include: {
+          checkIn: { select: { verifiedAt: true, status: true } },
+          user: { select: { name: true, membership: { select: { plan: { select: { name: true } } } } } },
+        },
+      });
+
+      const missedVisits = candidateMissed
+        .filter((b) => b.status === "NO_SHOW" || isBookingSlotPast(b.visitDate, b.timeSlot))
+        .slice(0, 6)
+        .map((c) => ({
+          bookingId: c.id,
+          deskCode: deskCodeFromBookingId(c.id),
+          name: c.user?.name || "Member",
+          slot: (c.timeSlot || "").trim() || "Time not set",
+          visitDay: formatKolkata(c.visitDate, { weekday: "short", day: "numeric", month: "short" }),
+          status: "MISSED",
+          reason: "Hour ended without check-in",
+          plan: (c.user as { membership?: { plan?: { name?: string } | null } | null })?.membership?.plan?.name || "Standard",
+        }));
 
       const upcomingRows = await prisma.booking.findMany({
         where: {
@@ -799,6 +862,7 @@ router.get(
             status: c.status,
             plan: (c.user as { membership?: { plan?: { name?: string } | null } | null })?.membership?.plan?.name || "Standard",
           })),
+        missedVisits,
         upcomingBookings: upcomingBookings.map((b) => ({
           name: b.user?.name || "Member",
           slot: (b.timeSlot || "").trim() || "Time not set",

@@ -163,7 +163,7 @@ router.post("/staff", auth_1.requireAuth, [(0, express_validator_1.body)("passCo
                     if (checkIn.status === "PENDING") {
                         await tx.checkIn.update({ where: { id: checkIn.id }, data: { status: "EXPIRED" } });
                     }
-                    await tx.booking.update({ where: { id: booking.id }, data: { status: "COMPLETED" } });
+                    await tx.booking.update({ where: { id: booking.id }, data: { status: "NO_SHOW" } });
                     throw (0, errorHandler_1.createError)(eligibility.message || "This booking slot has expired.", 410, eligibility.code || "BookingExpired");
                 }
                 throw (0, errorHandler_1.createError)(eligibility.message || "This booking is not eligible for check-in right now.", 400, eligibility.code || "CheckInNotAllowed");

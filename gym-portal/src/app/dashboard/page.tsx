@@ -4,7 +4,7 @@ import GymGuard from "@/components/GymGuard";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Activity, Users, Tag, CalendarCheck, CheckCircle2, AlertCircle, RotateCcw, X } from "lucide-react";
+import { Activity, Users, Tag, CalendarCheck, CheckCircle2, AlertCircle, RotateCcw, X, UserX } from "lucide-react";
 
 type RecentCheckin = {
   bookingId: string;
@@ -14,6 +14,17 @@ type RecentCheckin = {
   visitDay: string;
   checkedInAt: string;
   status: string;
+  plan: string;
+};
+
+type MissedVisit = {
+  bookingId: string;
+  deskCode: string;
+  name: string;
+  slot: string;
+  visitDay: string;
+  status: string;
+  reason: string;
   plan: string;
 };
 
@@ -417,6 +428,40 @@ export default function GymDashboardPage() {
                     {!data?.upcomingBookings?.length && (
                       <div className="text-sm font-medium text-gray-400 py-6 text-center bg-gray-50/50 rounded-2xl border border-gray-100 border-dashed">
                         No upcoming bookings
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Missed Visits (No-Shows) */}
+                <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm relative overflow-hidden">
+                  <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <UserX size={18} className="text-rose-600" /> Missed Visits
+                  </h2>
+                  <div className="space-y-3">
+                    {data?.missedVisits?.map((user: MissedVisit) => (
+                      <div
+                        key={user.bookingId}
+                        className="w-full text-left rounded-2xl border border-rose-100 bg-[#FFFBFB] px-3.5 py-3 transition-all"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="font-bold text-gray-900 text-sm truncate">{user.name}</div>
+                            <div className="text-xs font-semibold text-gray-700 mt-1">{user.slot}</div>
+                            <div className="text-[11px] text-rose-500 font-medium mt-0.5">
+                              {user.visitDay} · {user.reason || "Hour ended without check-in"}
+                            </div>
+                          </div>
+                          <div className="shrink-0 rounded-xl bg-white border border-rose-200 px-2.5 py-1.5 text-right">
+                            <div className="text-[9px] font-bold tracking-wider text-rose-600">DESK</div>
+                            <div className="text-xs font-black tracking-wide text-gray-950 font-mono">{user.deskCode}</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {!data?.missedVisits?.length && (
+                      <div className="text-sm font-medium text-gray-400 py-6 text-center bg-gray-50/50 rounded-2xl border border-gray-100 border-dashed">
+                        No missed visits
                       </div>
                     )}
                   </div>

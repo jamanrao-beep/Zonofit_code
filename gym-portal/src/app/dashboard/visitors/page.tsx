@@ -30,6 +30,7 @@ type GymToday = {
   maxSlotVisits: number | null;
   bookedToday: number;
   checkedInToday: number;
+  missedToday?: number;
   slots: SlotVisitors[];
   otherTimes: { timeSlot: string; booked: number; visitors: Visitor[] }[];
 };
@@ -39,6 +40,8 @@ const STATUS_LABEL: Record<string, string> = {
   CONFIRMED: "Booked",
   CHECKED_IN: "Checked in",
   COMPLETED: "Completed",
+  MISSED: "Missed",
+  NO_SHOW: "Missed",
 };
 
 function deskCode(bookingId: string): string {
@@ -81,6 +84,8 @@ function VisitorList({
               <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${
                 visitor.status === "CHECKED_IN" || visitor.status === "COMPLETED"
                   ? "bg-emerald-100 text-emerald-800"
+                  : visitor.status === "MISSED" || visitor.status === "NO_SHOW"
+                  ? "bg-rose-50 text-rose-700 border border-rose-200"
                   : "bg-amber-50 text-amber-800"
               }`}>
                 {STATUS_LABEL[visitor.status] || visitor.status}
@@ -288,7 +293,7 @@ export default function TodayVisitorsPage() {
         ) : (
           gyms.map((gym) => (
             <section key={gym.id} className="space-y-3 min-w-0">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <div className="rounded-3xl bg-white border border-gray-100 p-4 shadow-sm min-w-0">
                   <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                     {selectedOffset === 0 ? "Booked today" : selectedOffset === 1 ? "Booked tomorrow" : "Booked visits"}
@@ -302,8 +307,13 @@ export default function TodayVisitorsPage() {
                   {gym.maxDailyVisits && gym.cappingMode === "DAILY_TOTAL" ? (
                     <p className="text-xs text-gray-500">Day cap {gym.maxDailyVisits}</p>
                   ) : (
-                    <p className="text-xs text-gray-500">Verified at the gym</p>
+                    <p className="text-xs text-gray-500">Verified at desk</p>
                   )}
+                </div>
+                <div className="col-span-2 sm:col-span-1 rounded-3xl bg-white border border-gray-100 p-4 shadow-sm min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Missed visits</p>
+                  <p className="mt-1 text-3xl font-bold text-rose-600">{gym.missedToday || 0}</p>
+                  <p className="text-xs text-gray-500">No-show / expired</p>
                 </div>
               </div>
 
