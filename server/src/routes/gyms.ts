@@ -891,18 +891,13 @@ router.get(
       }
       const gymIds = gyms.map((g) => g.id);
 
-      // Fetch only members who purchased their membership specifically at this gym.
-      // Strictly excludes admins, other gym owners, and users from other gyms.
+      // Fetch members whose primary gym or gymPlan matches this gym
       const memberships = await prisma.membership.findMany({
         where: {
           OR: [
             { primaryGymId: { in: gymIds } },
             { gymPlan: { gymId: { in: gymIds } } },
           ],
-          user: {
-            id: { not: req.dbUserId },
-            systemRole: { notIn: ["ADMIN", "GYM_OWNER"] },
-          },
         },
         include: {
           user: {
@@ -921,21 +916,32 @@ router.get(
         orderBy: { createdAt: "desc" },
       });
 
-      const memberUserIds = memberships.map((m) => m.userId);
-
-      // Fetch bookings at this gym for these members
-      const bookings = memberUserIds.length > 0
-        ? await prisma.booking.findMany({
-            where: {
-              userId: { in: memberUserIds },
-              gymId: { in: gymIds },
+      // Fetch bookings at this gym
+      const bookings = await prisma.booking.findMany({
+        where: {
+          gymId: { in: gymIds },
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              createdAt: true,
+              systemRole: true,
+              membership: {
+                include: {
+                  plan: { select: { name: true } },
+                  gymPlan: { select: { name: true } },
+                  primaryGym: { select: { id: true, name: true } },
+                },
+              },
             },
-            include: {
-              checkIn: { select: { verifiedAt: true } },
-            },
-            orderBy: { visitDate: "desc" },
-          })
-        : [];
+          },
+          checkIn: { select: { verifiedAt: true } },
+        },
+        orderBy: { visitDate: "desc" },
+      });
 
       // Aggregate into memberMap
       const memberMap: Record<string, {
@@ -973,7 +979,34 @@ router.get(
 
       // Overlay bookings and check-in history at this gym
       for (const b of bookings) {
-        if (!memberMap[b.userId]) continue;
+        if (!b.user) continue;
+        const userMem = (b.user as any).membership;
+        // Strictly exclude users who explicitly purchased their primary membership at a different gym
+        if (userMem?.primaryGymId && !gymIds.includes(userMem.primaryGymId)) {
+          continue;
+        }
+
+        if (!memberMap[b.userId]) {
+          const name = b.user.name?.trim() || b.user.email?.split("@")[0] || "Member";
+          const plan = userMem?.gymPlan?.name || userMem?.plan?.name || (userMem?.status ? `${userMem.status} Membership` : "Member");
+          const joinedDateObj = userMem?.createdAt ? new Date(userMem.createdAt) : (b.user.createdAt ? new Date(b.user.createdAt) : null);
+          const joined = joinedDateObj && !isNaN(joinedDateObj.getTime())
+            ? formatKolkata(joinedDateObj, { month: "short", day: "numeric", year: "numeric" })
+            : "N/A";
+          const joinedTimestamp = joinedDateObj && !isNaN(joinedDateObj.getTime()) ? joinedDateObj.getTime() : 0;
+
+          memberMap[b.userId] = {
+            id: b.userId,
+            name,
+            plan,
+            joined,
+            joinedTimestamp,
+            visits: 0,
+            lastVisitDate: null,
+            hasScheduled: false,
+          };
+        }
+
         const isCheckIn = b.status === "CHECKED_IN" || b.status === "COMPLETED";
 
         if (isCheckIn) {

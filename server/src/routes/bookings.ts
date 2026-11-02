@@ -124,6 +124,7 @@ router.post(
             status: "ACTIVE",
             endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
             primaryGymVisits: 10,
+            ...(membership?.primaryGymId ? {} : { primaryGymId: gym.id }),
           },
         });
       }
