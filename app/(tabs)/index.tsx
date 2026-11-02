@@ -56,20 +56,14 @@ function getGreeting(): string {
 }
 
 function BookVisitShine() {
-  const travel = useSharedValue(-90);
+  const travel = useSharedValue(-100);
 
   useEffect(() => {
-    travel.value = withDelay(
-      1500,
-      withRepeat(
-        withSequence(
-          withTiming(-90, { duration: 2400 }),
-          withTiming(480, { duration: 1600, easing: Easing.linear }),
-          withTiming(-90, { duration: 0 })
-        ),
-        -1,
-        false
-      )
+    travel.value = -100;
+    travel.value = withRepeat(
+      withTiming(450, { duration: 2400, easing: Easing.linear }),
+      -1,
+      false
     );
   }, [travel]);
 
