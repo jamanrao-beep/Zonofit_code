@@ -9,7 +9,6 @@ import {
   IndianRupee,
   CheckCircle2,
   LineChart,
-  Tag,
   Building2,
   LifeBuoy,
   Menu,
@@ -48,7 +47,6 @@ export default function GymDashboardLayout({
     { name: "Slots", href: "/dashboard/slots", icon: Clock },
     { name: "Payouts & Earnings", href: "/dashboard/payouts", icon: IndianRupee },
     { name: "Performance Analytics", href: "/dashboard/analytics", icon: LineChart },
-    { name: "Special Offers", href: "/dashboard/offers", icon: Tag },
     { name: "Gym Profile", href: "/dashboard/profile", icon: Building2 },
     { name: "Partner Support", href: "/dashboard/support", icon: LifeBuoy },
   ];
