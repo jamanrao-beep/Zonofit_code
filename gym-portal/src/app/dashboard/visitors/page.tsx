@@ -225,11 +225,11 @@ export default function TodayVisitorsPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-              {selectedOffset === 0
+              {selectedOffset === -1
+                ? "Yesterday's visitors"
+                : selectedOffset === 0
                 ? "Today's visitors"
-                : selectedOffset === 1
-                ? "Tomorrow's visitors"
-                : "Day after tomorrow's visitors"}
+                : "Tomorrow's visitors"}
             </h1>
             <p className="mt-1 text-sm text-gray-600">
               {dateLabel ? dateLabel : "Visitors"} · booked visits by slot, for you to verify at the desk.
@@ -238,6 +238,17 @@ export default function TodayVisitorsPage() {
 
           {/* Top Right Date Switcher */}
           <div className="inline-flex items-center p-1 bg-gray-100/90 rounded-2xl border border-gray-200 self-start sm:self-auto shrink-0 shadow-xs">
+            <button
+              type="button"
+              onClick={() => handleSelectOffset(-1)}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                selectedOffset === -1
+                  ? "bg-white text-emerald-800 shadow-xs"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              Yesterday
+            </button>
             <button
               type="button"
               onClick={() => handleSelectOffset(0)}
@@ -259,17 +270,6 @@ export default function TodayVisitorsPage() {
               }`}
             >
               Tomorrow
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSelectOffset(2)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                selectedOffset === 2
-                  ? "bg-white text-emerald-800 shadow-xs"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              Day After
             </button>
           </div>
         </div>
@@ -296,7 +296,11 @@ export default function TodayVisitorsPage() {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <div className="rounded-3xl bg-white border border-gray-100 p-4 shadow-sm min-w-0">
                   <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    {selectedOffset === 0 ? "Booked today" : selectedOffset === 1 ? "Booked tomorrow" : "Booked visits"}
+                    {selectedOffset === -1
+                      ? "Booked yesterday"
+                      : selectedOffset === 0
+                      ? "Booked today"
+                      : "Booked tomorrow"}
                   </p>
                   <p className="mt-1 text-3xl font-bold text-gray-900">{gym.bookedToday}</p>
                   <p className="text-xs text-gray-500 truncate">{gym.name}</p>
@@ -319,11 +323,11 @@ export default function TodayVisitorsPage() {
 
               {gym.slots.length === 0 && gym.otherTimes.length === 0 ? (
                 <p className="rounded-3xl border border-gray-100 bg-white px-4 py-6 text-sm text-gray-600">
-                  {selectedOffset === 0
+                  {selectedOffset === -1
+                    ? "No visits were booked yesterday."
+                    : selectedOffset === 0
                     ? "No visits are booked today, and no slots are saved for this gym yet."
-                    : selectedOffset === 1
-                    ? "No visits are booked for tomorrow yet."
-                    : "No visits are booked for this day yet."}
+                    : "No visits are booked for tomorrow yet."}
                 </p>
               ) : null}
 

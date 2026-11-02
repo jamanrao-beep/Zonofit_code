@@ -352,7 +352,7 @@ function visitorDayBounds(offsetParam) {
     }
     else if (typeof offsetParam === "string") {
         const parsed = parseInt(offsetParam, 10);
-        if (!isNaN(parsed) && parsed >= 0 && parsed <= 7) {
+        if (!isNaN(parsed) && parsed >= -7 && parsed <= 7) {
             offset = parsed;
         }
     }
