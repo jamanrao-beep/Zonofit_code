@@ -337,6 +337,66 @@ router.post(
  * List the authenticated user's bookings.
  * Supports filtering by status and date range.
  */
+function isBookingSlotPast(visitDate: Date | string, timeSlot?: string | null): boolean {
+  if (!visitDate) return false;
+  try {
+    const vDate = new Date(visitDate);
+    if (isNaN(vDate.getTime())) return false;
+    const now = new Date();
+
+    const todayYear = now.getFullYear();
+    const todayMonth = now.getMonth();
+    const todayDate = now.getDate();
+
+    const visitYear = vDate.getFullYear();
+    const visitMonth = vDate.getMonth();
+    const visitDay = vDate.getDate();
+
+    const startOfToday = new Date(todayYear, todayMonth, todayDate, 0, 0, 0, 0);
+    const startOfVisit = new Date(visitYear, visitMonth, visitDay, 0, 0, 0, 0);
+
+    if (startOfVisit.getTime() < startOfToday.getTime()) {
+      return true;
+    }
+    if (startOfVisit.getTime() > startOfToday.getTime()) {
+      return false;
+    }
+
+    if (!timeSlot || typeof timeSlot !== "string") {
+      const endOfDay = new Date(todayYear, todayMonth, todayDate, 23, 59, 59, 999);
+      return now.getTime() > endOfDay.getTime();
+    }
+
+    const parts = timeSlot.split(/[-–—]/);
+    const endStr = (parts.length > 1 ? parts[1] : parts[0]).trim();
+    const match = endStr.match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?/i);
+    if (match) {
+      let hours = parseInt(match[1], 10);
+      const minutes = match[2] ? parseInt(match[2], 10) : 0;
+      const ampm = match[3]?.toUpperCase();
+
+      if (ampm === "PM" && hours < 12) hours += 12;
+      if (ampm === "AM" && hours === 12) hours = 0;
+
+      if (parts.length === 1) {
+        hours += 1;
+      }
+
+      const slotEndTime = new Date(todayYear, todayMonth, todayDate, hours, minutes, 0, 0);
+      return now.getTime() > slotEndTime.getTime();
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+// ─── GET /api/bookings ────────────────────────────────────────────────────────
+/**
+ * List the authenticated user's bookings.
+ * Supports filtering by status and date range.
+ */
 router.get(
   "/",
   requireAuth,
@@ -344,6 +404,41 @@ router.get(
     const { status, upcoming } = req.query;
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
+
+    // Auto-complete any active bookings whose slot time has passed
+    try {
+      const activeCandidateBookings = await prisma.booking.findMany({
+        where: {
+          userId: req.dbUserId!,
+          status: { in: ["PENDING", "CONFIRMED", "CHECKED_IN"] },
+        },
+        select: { id: true, visitDate: true, timeSlot: true, status: true },
+      });
+
+      const pastIds = activeCandidateBookings
+        .filter((b) => isBookingSlotPast(b.visitDate, b.timeSlot))
+        .map((b) => b.id);
+
+      if (pastIds.length > 0) {
+        await prisma.booking.updateMany({
+          where: { id: { in: pastIds } },
+          data: { status: "COMPLETED" },
+        });
+        await prisma.checkIn.updateMany({
+          where: { bookingId: { in: pastIds }, status: "PENDING" },
+          data: { status: "VERIFIED" },
+        });
+        await prisma.user.update({
+          where: { id: req.dbUserId! },
+          data: {
+            totalWorkouts: { increment: pastIds.length },
+            trainingHours: { increment: pastIds.length },
+          },
+        });
+      }
+    } catch {
+      // Non-blocking auto-reconciliation
+    }
 
     const where: Record<string, unknown> = {
       userId: req.dbUserId!,
@@ -394,6 +489,42 @@ router.get(
     todayStart.setHours(0, 0, 0, 0);
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999);
+
+    // Auto-complete passed bookings for today
+    try {
+      const todayActive = await prisma.booking.findMany({
+        where: {
+          userId: req.dbUserId!,
+          visitDate: { gte: todayStart, lte: todayEnd },
+          status: { in: ["PENDING", "CONFIRMED", "CHECKED_IN"] },
+        },
+        select: { id: true, visitDate: true, timeSlot: true, status: true },
+      });
+
+      const passedTodayIds = todayActive
+        .filter((b) => isBookingSlotPast(b.visitDate, b.timeSlot))
+        .map((b) => b.id);
+
+      if (passedTodayIds.length > 0) {
+        await prisma.booking.updateMany({
+          where: { id: { in: passedTodayIds } },
+          data: { status: "COMPLETED" },
+        });
+        await prisma.checkIn.updateMany({
+          where: { bookingId: { in: passedTodayIds }, status: "PENDING" },
+          data: { status: "VERIFIED" },
+        });
+        await prisma.user.update({
+          where: { id: req.dbUserId! },
+          data: {
+            totalWorkouts: { increment: passedTodayIds.length },
+            trainingHours: { increment: passedTodayIds.length },
+          },
+        });
+      }
+    } catch {
+      // Non-blocking auto-reconciliation
+    }
 
     const booking = await prisma.booking.findFirst({
       where: {

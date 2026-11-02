@@ -16,6 +16,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { apiFetch } from "../lib/api";
+import LegalDocumentView from "@/components/LegalDocumentView";
 import { 
   ZONOFIT_PRIVACY_POLICY, 
   ZONOFIT_TERMS_AND_CONDITIONS,
@@ -362,7 +363,7 @@ export default function ContentScreen() {
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB" }} edges={["top", "bottom"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: isFAQ ? "#F9FAFB" : "#F3F7F4" }} edges={["top", "bottom"]}>
       <StatusBar barStyle="dark-content" />
 
       {/* Header */}
@@ -577,22 +578,24 @@ export default function ContentScreen() {
         /* ======================================================== */
         /* STANDARD LEGAL DOCUMENT PRESENTATION                    */
         /* ======================================================== */
-        <ScrollView 
-          className="flex-1" 
-          contentContainerStyle={{ padding: 20, paddingBottom: 60 }}
+        <ScrollView
+          className="flex-1 bg-[#F3F7F4]"
+          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 48 }}
           showsVerticalScrollIndicator={false}
         >
-          <View className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
-            <Text className="text-gray-800 text-sm leading-relaxed whitespace-pre-wrap font-normal selection:bg-emerald-100">
-              {content || "No content available yet."}
-            </Text>
-          </View>
+          {content?.trim() ? (
+            <LegalDocumentView content={content} />
+          ) : (
+            <View className="bg-white rounded-3xl px-4 py-5 border border-gray-200">
+              <Text className="text-[14px] leading-6 text-gray-600 text-center">No content available yet.</Text>
+            </View>
+          )}
 
-          {/* Footer Contact Info */}
-          <View className="mt-5 p-4 rounded-2xl bg-gray-50 border border-gray-100 items-center">
-            <Text className="text-xs font-bold text-gray-700">FLEX LIFESTYLE VENTURES</Text>
-            <Text className="text-[11px] text-gray-500 mt-0.5">Shastri Colony, Partapur, Banswara, Rajasthan, India</Text>
-            <Text className="text-[11px] text-[#16A34A] font-semibold mt-1">zonofitofficial@gmail.com</Text>
+          <View className="mt-3 rounded-3xl bg-white border border-[#E6EEE9] px-4 py-4">
+            <Text className="text-[10px] font-extrabold tracking-wider text-[#1F7A3E]">OPERATOR</Text>
+            <Text className="text-[14px] font-bold text-gray-900 mt-1">FLEX LIFESTYLE VENTURES</Text>
+            <Text className="text-[12px] leading-5 text-gray-500 mt-1">Shastri Colony, Partapur, Banswara, Rajasthan, India</Text>
+            <Text className="text-[13px] font-semibold text-[#1F7A3E] mt-1.5">zonofitofficial@gmail.com</Text>
           </View>
         </ScrollView>
       )}

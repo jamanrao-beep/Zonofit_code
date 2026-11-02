@@ -5,6 +5,7 @@ import { apiFetch } from "@/lib/api";
 import { useCreditsStore } from "./useCreditsStore";
 import { useUserStore } from "./useUserStore";
 import { useAuthStore } from "./useAuthStore";
+import { isBookingSlotPast } from "@/lib/bookingTime";
 
 const secureStorage = {
   getItem: async (name: string): Promise<string | null> => {
@@ -120,26 +121,35 @@ export const useBookingStore = create<BookingState>()(
       const data = await apiFetch("/api/bookings", { token });
       const bookings = data.bookings || [];
       
+      const now = new Date();
       const past = bookings
-        .filter((b: any) => ["COMPLETED", "CHECKED_IN", "CANCELLED"].includes(b.status))
+        .filter((b: any) => {
+          if (["COMPLETED", "CANCELLED"].includes(b.status)) return true;
+          if (isBookingSlotPast(b.visitDate, b.timeSlot)) return true;
+          return false;
+        })
         .map((b: any) => ({
           id: b.id,
           gymId: b.gymId,
-          gymName: b.gym.name,
+          gymName: b.gym?.name || "Gym",
           date: new Date(b.visitDate).toLocaleDateString(),
           time: b.timeSlot,
-          status: b.status === "CANCELLED" ? "Cancelled" : (b.status === "COMPLETED" ? "Completed" : "Checked In"),
-          credits: b.creditsDeducted
+          status: b.status === "CANCELLED" ? "Cancelled" : "Completed",
+          credits: b.creditsDeducted || 0
         }));
 
-      const upcoming = bookings.find((b: any) => b.status === "PENDING" || b.status === "CONFIRMED");
+      // Find an active upcoming booking whose slot is still in the future
+      const upcoming = bookings.find((b: any) => {
+        if (!["PENDING", "CONFIRMED", "CHECKED_IN"].includes(b.status)) return false;
+        return !isBookingSlotPast(b.visitDate, b.timeSlot);
+      });
       
       if (upcoming) {
         set({
-          bookingStatus: "Booked",
+          bookingStatus: upcoming.status === "CHECKED_IN" ? "Checked In" : "Booked",
           bookingId: upcoming.id,
           bookedGymId: upcoming.gymId,
-          bookedGymName: upcoming.gym.name,
+          bookedGymName: upcoming.gym?.name || "Gym",
           bookedDate: new Date(upcoming.visitDate).toLocaleDateString(),
           bookedVisitDateIso: upcoming.visitDate,
           bookedCreatedAt: upcoming.createdAt,
@@ -149,51 +159,19 @@ export const useBookingStore = create<BookingState>()(
           loading: false
         });
       } else {
-        const current = get();
-        const matched = current.bookingId
-          ? past.find((item: { id: string; status: string }) => item.id === current.bookingId)
-          : undefined;
-
-        if (matched?.status === "Checked In") {
-          set({
-            bookingStatus: "Checked In",
-            pastBookings: past,
-            loading: false,
-          });
-        } else if (matched) {
-          set({
-            bookingStatus: "Not Booked",
-            bookingId: null,
-            bookedGymId: null,
-            bookedGymName: null,
-            bookedDate: null,
-            bookedVisitDateIso: null,
-            bookedCreatedAt: null,
-            bookedTime: null,
-            bookedCost: 0,
-            pastBookings: past,
-            loading: false,
-          });
-        } else if (current.bookingStatus === "Booked" || current.bookingStatus === "Checked In") {
-          set({
-            pastBookings: past.length > 0 ? past : current.pastBookings,
-            loading: false
-          });
-        } else {
-          set({
-            bookingStatus: "Not Booked",
-            bookingId: null,
-            bookedGymId: null,
-            bookedGymName: null,
-            bookedDate: null,
-            bookedVisitDateIso: null,
-            bookedCreatedAt: null,
-            bookedTime: null,
-            bookedCost: 0,
-            pastBookings: past.length > 0 ? past : current.pastBookings,
-            loading: false
-          });
-        }
+        set({
+          bookingStatus: "Not Booked",
+          bookingId: null,
+          bookedGymId: null,
+          bookedGymName: null,
+          bookedDate: null,
+          bookedVisitDateIso: null,
+          bookedCreatedAt: null,
+          bookedTime: null,
+          bookedCost: 0,
+          pastBookings: past.length > 0 ? past : get().pastBookings,
+          loading: false,
+        });
       }
     } catch (err: any) {
       console.warn("Failed to fetch bookings:", err?.message || err);
@@ -424,6 +402,19 @@ export const useBookingStore = create<BookingState>()(
         bookedCost: state.bookedCost,
         pastBookings: (state.pastBookings || []).slice(0, 15),
       }),
+      onRehydrateStorage: () => (state) => {
+        if (state && state.bookingStatus === "Booked" && isBookingSlotPast(state.bookedVisitDateIso || state.bookedDate, state.bookedTime)) {
+          state.bookingStatus = "Not Booked";
+          state.bookingId = null;
+          state.bookedGymId = null;
+          state.bookedGymName = null;
+          state.bookedDate = null;
+          state.bookedVisitDateIso = null;
+          state.bookedCreatedAt = null;
+          state.bookedTime = null;
+          state.bookedCost = 0;
+        }
+      },
     }
   )
 );

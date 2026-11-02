@@ -25,6 +25,7 @@ import {
   getGymPolicies, 
   CANCELLATION_POLICY_NOTE, 
 } from "@/constants/fallbackGyms";
+import { isBookingSlotPast } from "@/lib/bookingTime";
 
 const { width } = Dimensions.get("window");
 
@@ -36,6 +37,7 @@ export default function BookingPassScreen() {
     bookedGymId, 
     bookedGymName, 
     bookedDate, 
+    bookedVisitDateIso,
     bookedTime, 
     bookedCost,
     cancelBooking
@@ -146,7 +148,24 @@ export default function BookingPassScreen() {
     }
   };
 
-  const hasActiveBooking = bookingStatus === "Booked" || bookingStatus === "Checked In" || bookingId !== null;
+  const isPassed = isBookingSlotPast(bookedVisitDateIso || bookedDate, bookedTime);
+  const hasActiveBooking = (bookingStatus === "Booked" || bookingStatus === "Checked In") && !isPassed;
+
+  React.useEffect(() => {
+    if (isPassed && (bookingStatus === "Booked" || bookingStatus === "Checked In")) {
+      useBookingStore.setState({
+        bookingStatus: "Not Booked",
+        bookingId: null,
+        bookedGymId: null,
+        bookedGymName: null,
+        bookedDate: null,
+        bookedVisitDateIso: null,
+        bookedCreatedAt: null,
+        bookedTime: null,
+        bookedCost: 0,
+      });
+    }
+  }, [isPassed, bookingStatus]);
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>

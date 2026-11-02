@@ -215,3 +215,77 @@ body {
   aspect-ratio: 9/19;
   position: relative;
 }
+
+/* Public legal pages: section cards, spacing, and colour */
+.legal-shell {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+}
+
+.legal-hero {
+  background: #ffffff;
+  border: 1px solid #e4eee7 !important;
+  border-radius: 28px;
+  padding: 28px 26px 24px !important;
+  margin-bottom: 16px !important;
+  box-shadow: 0 10px 28px rgba(20, 83, 45, 0.05);
+}
+
+.legal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.legal-body > section {
+  background: #ffffff;
+  border: 1px solid #e6eee9;
+  border-left: 4px solid #1f7a3e;
+  border-radius: 22px;
+  padding: 18px 20px 20px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.legal-body > section > h2 {
+  color: #14532d !important;
+  font-size: 1.0625rem !important;
+  line-height: 1.4 !important;
+  font-weight: 800 !important;
+  margin: 0 0 10px !important;
+  padding: 0 0 10px !important;
+  border-bottom: 1px solid #e7f3ea !important;
+}
+
+.legal-body > section p,
+.legal-body > section li {
+  color: #3d4a44;
+  line-height: 1.75;
+}
+
+.legal-body > section ul {
+  margin-top: 0.65rem;
+}
+
+.legal-body > section li::marker {
+  color: #1f7a3e;
+}
+
+.legal-body > div {
+  margin-top: 2px !important;
+  background: #ffffff;
+  border-radius: 22px !important;
+  border-color: #e6eee9 !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.legal-body-amber > section {
+  border-left-color: #d97706;
+}
+
+.legal-body-amber > section > h2 {
+  color: #92400e !important;
+  border-bottom-color: #fde68a !important;
+}

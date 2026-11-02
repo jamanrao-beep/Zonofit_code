@@ -9,7 +9,7 @@ export const metadata = {
 
 export default function TermsAndConditionsPage() {
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
+    <div className="min-h-screen bg-[#F3F7F4] text-slate-900 font-sans">
       {/* Top Navbar */}
       <header className="border-b border-slate-200 bg-white/80 backdrop-blur sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
@@ -28,8 +28,8 @@ export default function TermsAndConditionsPage() {
 
       {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 py-12">
-        <div className="bg-white rounded-3xl p-6 sm:p-12 shadow-sm border border-slate-200">
-          <div className="border-b border-slate-100 pb-8 mb-8">
+        <div className="legal-shell bg-white rounded-3xl p-6 sm:p-12 shadow-sm border border-slate-200">
+          <div className="legal-hero border-b border-slate-100 pb-8 mb-8">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold mb-4">
               <FileText className="w-3.5 h-3.5" />
               Official Terms &amp; Conditions
@@ -47,7 +47,7 @@ export default function TermsAndConditionsPage() {
             </p>
           </div>
 
-          <div className="prose prose-slate max-w-none text-slate-700 text-sm sm:text-base leading-relaxed space-y-6">
+          <div className="legal-body prose prose-slate max-w-none text-slate-700 text-sm sm:text-base leading-relaxed">
             <p>
               By creating an account or using ZonoFit, you agree to these Terms.
             </p>
