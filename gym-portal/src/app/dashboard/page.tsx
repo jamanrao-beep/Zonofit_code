@@ -358,20 +358,28 @@ export default function GymDashboardPage() {
                         key={user.bookingId}
                         type="button"
                         onClick={(event) => growFromRow(user, event.currentTarget)}
-                        className="w-full text-left rounded-2xl border border-gray-100 bg-[#F8FBF9] px-3.5 py-3 hover:border-emerald-200 hover:bg-white active:scale-[0.98] transition-all cursor-pointer"
+                        className="group w-full text-left rounded-2xl border border-gray-100 bg-[#F8FBF9] px-3.5 py-3 cursor-pointer transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:border-emerald-300 hover:bg-white hover:px-4 hover:py-4 hover:shadow-[0_16px_36px_rgba(11,110,79,0.14)]"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <div className="font-bold text-gray-900 text-sm truncate">{user.name}</div>
+                            <div className="font-bold text-gray-900 text-sm truncate transition-all duration-300 group-hover:text-base">{user.name}</div>
                             <div className="text-xs font-semibold text-gray-700 mt-1">{user.slot}</div>
                             <div className="text-[11px] text-gray-500 mt-0.5">
                               {user.visitDay}
                               {user.checkedInAt ? ` · Checked in ${user.checkedInAt}` : user.status === "COMPLETED" ? " · Hour ended" : ""}
                             </div>
                           </div>
-                          <div className="shrink-0 rounded-xl bg-white border border-[#D7EADF] px-2.5 py-1.5 text-right">
+                          <div className="shrink-0 rounded-xl bg-white border border-[#D7EADF] px-2.5 py-1.5 text-right transition-all duration-300 group-hover:px-3 group-hover:py-2">
                             <div className="text-[9px] font-bold tracking-wider text-[#1F7A3E]">DESK</div>
-                            <div className="text-xs font-black tracking-wide text-gray-950 font-mono">{user.deskCode}</div>
+                            <div className="text-xs font-black tracking-wide text-gray-950 font-mono transition-all duration-300 group-hover:text-lg group-hover:tracking-[0.14em]">{user.deskCode}</div>
+                          </div>
+                        </div>
+                        <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]">
+                          <div className="overflow-hidden">
+                            <div className="mt-3 rounded-xl bg-[#F4FBF6] border border-[#D7EADF] px-3 py-3 text-center">
+                              <p className="text-[10px] font-bold tracking-[0.16em] text-[#1F7A3E]">DESK CODE</p>
+                              <p className="mt-1 text-2xl font-black tracking-[0.2em] text-gray-950 font-mono">{user.deskCode || "—"}</p>
+                            </div>
                           </div>
                         </div>
                       </button>
