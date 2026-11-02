@@ -953,7 +953,6 @@ router.get("/analytics/performance", auth_1.requireAuth, async (req, res) => {
             return;
         }
         const gymIds = gyms.map((g) => g.id);
-        // Simple mock-like structure for the area charts but generated from DB
         const weekStart = new Date();
         weekStart.setDate(weekStart.getDate() - 6);
         weekStart.setHours(0, 0, 0, 0);
@@ -961,37 +960,51 @@ router.get("/analytics/performance", auth_1.requireAuth, async (req, res) => {
             where: {
                 gymId: { in: gymIds },
                 visitDate: { gte: weekStart },
-                status: { in: ["CHECKED_IN", "COMPLETED"] }
+                status: { in: ["CHECKED_IN", "COMPLETED"] },
             },
-            select: { userId: true, visitDate: true }
+            select: { userId: true, visitDate: true },
         });
         const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-        const performanceMap = {};
+        const days = [];
         for (let i = 0; i < 7; i++) {
             const d = new Date(weekStart);
             d.setDate(d.getDate() + i);
-            performanceMap[dayNames[d.getDay()]] = { newMembers: 0, total: 0 };
+            days.push({ key: dayNames[d.getDay()] });
         }
-        const userVisits = new Set();
-        bookings.forEach(b => {
-            const dayStr = dayNames[b.visitDate.getDay()];
-            if (performanceMap[dayStr]) {
-                performanceMap[dayStr].total++;
-                if (!userVisits.has(b.userId)) {
-                    performanceMap[dayStr].newMembers++;
-                    userVisits.add(b.userId);
-                }
+        const usersByDay = new Map();
+        for (const day of days)
+            usersByDay.set(day.key, new Set());
+        for (const booking of bookings) {
+            usersByDay.get(dayNames[booking.visitDate.getDay()])?.add(booking.userId);
+        }
+        const weekUserIds = [...new Set(bookings.map((booking) => booking.userId))];
+        const priorVisitors = weekUserIds.length === 0
+            ? []
+            : await prisma_1.default.booking.findMany({
+                where: {
+                    gymId: { in: gymIds },
+                    userId: { in: weekUserIds },
+                    visitDate: { lt: weekStart },
+                    status: { in: ["CHECKED_IN", "COMPLETED"] },
+                },
+                select: { userId: true },
+                distinct: ["userId"],
+            });
+        const seenBefore = new Set(priorVisitors.map((visit) => visit.userId));
+        const chartData = days.map((day) => {
+            const users = usersByDay.get(day.key) ?? new Set();
+            let returning = 0;
+            let firstTime = 0;
+            for (const userId of users) {
+                if (seenBefore.has(userId))
+                    returning += 1;
+                else
+                    firstTime += 1;
             }
-        });
-        const chartData = Object.keys(performanceMap).map(day => {
-            const d = performanceMap[day];
-            // Calculate a basic retention % for the chart
-            const retention = d.total > 0 ? Math.round(((d.total - d.newMembers) / d.total) * 100) + 70 : 80;
-            return {
-                name: day,
-                newMembers: d.newMembers,
-                retention: Math.min(100, retention) // cap at 100%
-            };
+            for (const userId of users)
+                seenBefore.add(userId);
+            const retention = users.size === 0 ? 0 : Math.round((returning / users.size) * 100);
+            return { name: day.key, newMembers: firstTime, retention };
         });
         res.json({ chartData });
     }

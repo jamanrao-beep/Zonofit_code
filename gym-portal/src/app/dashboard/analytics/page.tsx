@@ -78,9 +78,10 @@ export default function AnalyticsPage() {
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#6b7280', fontSize: 12}} dy={10} />
-                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#6b7280', fontSize: 12}} domain={[60, 100]} />
+                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#6b7280', fontSize: 12}} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
                     <Tooltip 
                       contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
+                      formatter={(value) => [`${value}%`, "Returning"]}
                     />
                     <Area type="monotone" dataKey="retention" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorRet)" />
                   </AreaChart>
