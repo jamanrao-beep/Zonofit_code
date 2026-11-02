@@ -153,7 +153,7 @@ export default function HomeScreen() {
 
   const cycleNum = membershipInfo?.cycleNumber || currentMonth || 1;
   const mandatoryVisits = membershipInfo?.mandatoryVisits || (cycleNum <= 4 ? 10 : 15);
-  const completedVisits = membershipInfo?.completedVisits ?? totalWorkouts ?? 0;
+  const completedVisits = Math.max(0, membershipInfo?.completedVisits ?? totalWorkouts ?? 0);
   const hasBookedMandatory = bookingStatus === "Booked" && (bookedCost === 0 || bookedCost === undefined);
   const visitsLeft = typeof visitsRemaining === "number" && visitsRemaining < mandatoryVisits
     ? Math.max(0, visitsRemaining)

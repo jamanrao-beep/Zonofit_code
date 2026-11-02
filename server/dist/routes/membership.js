@@ -53,7 +53,14 @@ router.get("/me", auth_1.requireAuth, async (req, res) => {
     const maxCycles = 12;
     const cyclesRemaining = Math.max(0, maxCycles - cycleNumber);
     const mandatoryVisits = membership.mandatoryVisits || (cycleNumber <= 4 ? 10 : 15);
-    const completedVisits = membership.completedVisits || 0;
+    let completedVisits = Math.max(0, membership.completedVisits ?? 0);
+    if ((membership.completedVisits ?? 0) < 0) {
+        await prisma_1.default.membership.update({
+            where: { id: membership.id },
+            data: { completedVisits: 0 },
+        });
+        completedVisits = 0;
+    }
     const mandatoryVisitsRemaining = Math.max(0, mandatoryVisits - completedVisits);
     // PRD Rules:
     // 1. Repurchase allowed when membership is expired OR within 3 days of expiry AND cycleNumber < 12

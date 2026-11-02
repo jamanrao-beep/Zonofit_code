@@ -68,7 +68,14 @@ router.get("/balance", auth_1.requireAuth, async (req, res) => {
     const maxCycles = 12;
     const cyclesRemaining = Math.max(0, maxCycles - cycleNumber);
     const mandatoryVisits = membership?.mandatoryVisits || 10;
-    const completedVisits = membership?.completedVisits || 0;
+    let completedVisits = Math.max(0, membership?.completedVisits ?? 0);
+    if (membership && (membership.completedVisits ?? 0) < 0) {
+        await prisma_1.default.membership.update({
+            where: { id: membership.id },
+            data: { completedVisits: 0 },
+        });
+        completedVisits = 0;
+    }
     const mandatoryVisitsRemaining = Math.max(0, mandatoryVisits - completedVisits);
     // Can repurchase/renew if expired OR within 3 days of expiry
     const canRepurchase = !!membership && (isExpired || daysRemaining <= 3) && cycleNumber <= maxCycles;

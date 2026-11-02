@@ -60,7 +60,14 @@ router.get(
     const maxCycles = 12;
     const cyclesRemaining = Math.max(0, maxCycles - cycleNumber);
     const mandatoryVisits = membership.mandatoryVisits || (cycleNumber <= 4 ? 10 : 15);
-    const completedVisits = membership.completedVisits || 0;
+    let completedVisits = Math.max(0, membership.completedVisits ?? 0);
+    if ((membership.completedVisits ?? 0) < 0) {
+      await prisma.membership.update({
+        where: { id: membership.id },
+        data: { completedVisits: 0 },
+      });
+      completedVisits = 0;
+    }
     const mandatoryVisitsRemaining = Math.max(0, mandatoryVisits - completedVisits);
 
     // PRD Rules:

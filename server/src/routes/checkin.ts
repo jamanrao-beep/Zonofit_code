@@ -387,10 +387,15 @@ router.post(
             },
           });
 
-          await tx.membership.updateMany({
+          const activeMemberships = await tx.membership.findMany({
             where: { userId: booking.user.id, status: "ACTIVE" },
-            data: { completedVisits: { decrement: 1 } },
           });
+          for (const m of activeMemberships) {
+            await tx.membership.update({
+              where: { id: m.id },
+              data: { completedVisits: Math.max(0, (m.completedVisits || 0) - 1) },
+            });
+          }
         }
 
         return {

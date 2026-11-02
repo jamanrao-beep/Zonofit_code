@@ -405,18 +405,65 @@ router.get(
 
 const BOOKED_STATUSES = ["PENDING", "CONFIRMED", "CHECKED_IN", "COMPLETED"] as const;
 
-function todayBounds(): { start: Date; end: Date; label: string } {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  const end = new Date();
-  end.setHours(23, 59, 59, 999);
-  const label = start.toLocaleDateString("en-IN", {
+function visitorDayBounds(offsetParam?: string | number): {
+  start: Date;
+  end: Date;
+  label: string;
+  dateKey: string;
+  isToday: boolean;
+  offset: number;
+} {
+  const now = new Date();
+  const kolkataNow = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now); // "YYYY-MM-DD"
+
+  let offset = 0;
+  if (typeof offsetParam === "number") {
+    offset = offsetParam;
+  } else if (typeof offsetParam === "string") {
+    const parsed = parseInt(offsetParam, 10);
+    if (!isNaN(parsed) && parsed >= 0 && parsed <= 7) {
+      offset = parsed;
+    }
+  }
+
+  const [y, m, d] = kolkataNow.split("-").map((v) => parseInt(v, 10));
+  const targetDate = new Date(Date.UTC(y, m - 1, d + offset));
+
+  const targetDateKey = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(targetDate);
+
+  const start = new Date(`${targetDateKey}T00:00:00+05:30`);
+  const end = new Date(`${targetDateKey}T23:59:59.999+05:30`);
+
+  const label = new Intl.DateTimeFormat("en-IN", {
+    timeZone: "Asia/Kolkata",
     weekday: "long",
     day: "numeric",
     month: "long",
     year: "numeric",
-  });
-  return { start, end, label };
+  }).format(targetDate);
+
+  return {
+    start,
+    end,
+    label,
+    dateKey: targetDateKey,
+    isToday: offset === 0,
+    offset,
+  };
+}
+
+function todayBounds(): { start: Date; end: Date; label: string } {
+  return visitorDayBounds(0);
 }
 
 async function gymsOwnedBy(userId: string | undefined, systemRole?: string) {
@@ -526,11 +573,12 @@ router.get("/today-visitors", requireAuth, async (req: Request, res: Response): 
       res.status(403).json({ error: "Forbidden", message: "User is not a gym owner." });
       return;
     }
-    const today = todayBounds();
+    const offset = typeof req.query.offset === "string" ? req.query.offset : 0;
+    const targetDay = visitorDayBounds(offset);
     const bookings = await prisma.booking.findMany({
       where: {
         gymId: { in: gyms.map((gym) => gym.id) },
-        visitDate: { gte: today.start, lte: today.end },
+        visitDate: { gte: targetDay.start, lte: targetDay.end },
         status: { in: [...BOOKED_STATUSES] },
       },
       select: {
@@ -545,7 +593,10 @@ router.get("/today-visitors", requireAuth, async (req: Request, res: Response): 
     });
 
     res.json({
-      date: today.label,
+      date: targetDay.label,
+      dateKey: targetDay.dateKey,
+      isToday: targetDay.isToday,
+      offset: targetDay.offset,
       gyms: gyms.map((gym) => {
         const slots = readStoredSlots(gym.slotsJson);
         const mine = bookings.filter((booking) => booking.gymId === gym.id);

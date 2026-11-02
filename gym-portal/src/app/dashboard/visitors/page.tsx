@@ -57,11 +57,13 @@ function VisitorList({
   onUndo,
   onConfirm,
   busyId,
+  isToday = true,
 }: {
   visitors: Visitor[];
   onUndo: (bookingId: string) => void;
   onConfirm: (bookingId: string) => void;
   busyId: string | null;
+  isToday?: boolean;
 }) {
   if (visitors.length === 0) {
     return <p className="text-sm text-gray-500">Nobody is booked for this time.</p>;
@@ -94,14 +96,20 @@ function VisitorList({
                   {busyId === visitor.bookingId ? "Undoing…" : "Undo"}
                 </button>
               ) : visitor.status === "CONFIRMED" ? (
-                <button
-                  type="button"
-                  onClick={() => onConfirm(visitor.bookingId)}
-                  disabled={busyId === visitor.bookingId}
-                  className="text-[11px] font-semibold text-white bg-emerald-700 hover:bg-emerald-800 px-3 py-1 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
-                >
-                  {busyId === visitor.bookingId ? "Checking…" : "Check In"}
-                </button>
+                isToday ? (
+                  <button
+                    type="button"
+                    onClick={() => onConfirm(visitor.bookingId)}
+                    disabled={busyId === visitor.bookingId}
+                    className="text-[11px] font-semibold text-white bg-emerald-700 hover:bg-emerald-800 px-3 py-1 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    {busyId === visitor.bookingId ? "Checking…" : "Check In"}
+                  </button>
+                ) : (
+                  <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-lg">
+                    Scheduled
+                  </span>
+                )
               ) : null}
             </div>
           </div>
@@ -112,6 +120,8 @@ function VisitorList({
 }
 
 export default function TodayVisitorsPage() {
+  const [selectedOffset, setSelectedOffset] = useState<number>(0);
+  const [isToday, setIsToday] = useState(true);
   const [dateLabel, setDateLabel] = useState("");
   const [gyms, setGyms] = useState<GymToday[]>([]);
   const [loading, setLoading] = useState(true);
@@ -119,18 +129,20 @@ export default function TodayVisitorsPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  const load = async () => {
+  const load = async (offset = selectedOffset) => {
+    setLoading(true);
     try {
       const token = localStorage.getItem("zonofit_portal_token");
-      const res = await fetch("/api/gyms/today-visitors", {
+      const res = await fetch(`/api/gyms/today-visitors?offset=${offset}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.message || "Could not load today's visitors.");
+        setError(data.message || "Could not load visitors.");
         return;
       }
       setDateLabel(typeof data.date === "string" ? data.date : "");
+      setIsToday(data.isToday ?? (offset === 0));
       setGyms(Array.isArray(data.gyms) ? data.gyms : []);
     } catch {
       setError("Could not reach the server.");
@@ -139,8 +151,13 @@ export default function TodayVisitorsPage() {
     }
   };
 
+  const handleSelectOffset = (offset: number) => {
+    setSelectedOffset(offset);
+    load(offset);
+  };
+
   useEffect(() => {
-    load();
+    load(0);
   }, []);
 
   const handleConfirm = async (bookingId: string) => {
@@ -200,11 +217,56 @@ export default function TodayVisitorsPage() {
   return (
     <GymGuard>
       <div className="mx-auto w-full max-w-5xl min-w-0 space-y-5">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Today&apos;s visitors</h1>
-          <p className="mt-1 text-sm text-gray-600">
-            {dateLabel ? dateLabel : "Today"} · booked visits by slot, for you to verify at the desk.
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+              {selectedOffset === 0
+                ? "Today's visitors"
+                : selectedOffset === 1
+                ? "Tomorrow's visitors"
+                : "Day after tomorrow's visitors"}
+            </h1>
+            <p className="mt-1 text-sm text-gray-600">
+              {dateLabel ? dateLabel : "Visitors"} · booked visits by slot, for you to verify at the desk.
+            </p>
+          </div>
+
+          {/* Top Right Date Switcher */}
+          <div className="inline-flex items-center p-1 bg-gray-100/90 rounded-2xl border border-gray-200 self-start sm:self-auto shrink-0 shadow-xs">
+            <button
+              type="button"
+              onClick={() => handleSelectOffset(0)}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                selectedOffset === 0
+                  ? "bg-white text-emerald-800 shadow-xs"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              Today
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSelectOffset(1)}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                selectedOffset === 1
+                  ? "bg-white text-emerald-800 shadow-xs"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              Tomorrow
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSelectOffset(2)}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                selectedOffset === 2
+                  ? "bg-white text-emerald-800 shadow-xs"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              Day After
+            </button>
+          </div>
         </div>
 
         {feedback ? (
@@ -220,7 +282,7 @@ export default function TodayVisitorsPage() {
         ) : null}
 
         {loading ? (
-          <p className="text-sm text-gray-500">Loading today&apos;s bookings…</p>
+          <p className="text-sm text-gray-500">Loading bookings…</p>
         ) : error ? (
           <p className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
         ) : (
@@ -228,7 +290,9 @@ export default function TodayVisitorsPage() {
             <section key={gym.id} className="space-y-3 min-w-0">
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-3xl bg-white border border-gray-100 p-4 shadow-sm min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Booked today</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    {selectedOffset === 0 ? "Booked today" : selectedOffset === 1 ? "Booked tomorrow" : "Booked visits"}
+                  </p>
                   <p className="mt-1 text-3xl font-bold text-gray-900">{gym.bookedToday}</p>
                   <p className="text-xs text-gray-500 truncate">{gym.name}</p>
                 </div>
@@ -245,7 +309,11 @@ export default function TodayVisitorsPage() {
 
               {gym.slots.length === 0 && gym.otherTimes.length === 0 ? (
                 <p className="rounded-3xl border border-gray-100 bg-white px-4 py-6 text-sm text-gray-600">
-                  No visits are booked today, and no slots are saved for this gym yet.
+                  {selectedOffset === 0
+                    ? "No visits are booked today, and no slots are saved for this gym yet."
+                    : selectedOffset === 1
+                    ? "No visits are booked for tomorrow yet."
+                    : "No visits are booked for this day yet."}
                 </p>
               ) : null}
 
@@ -272,6 +340,7 @@ export default function TodayVisitorsPage() {
                       onUndo={handleUndo}
                       onConfirm={handleConfirm}
                       busyId={busyId}
+                      isToday={isToday}
                     />
                   </article>
                 );
@@ -291,6 +360,7 @@ export default function TodayVisitorsPage() {
                     onUndo={handleUndo}
                     onConfirm={handleConfirm}
                     busyId={busyId}
+                    isToday={isToday}
                   />
                 </article>
               ))}

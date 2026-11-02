@@ -305,7 +305,7 @@ export default function CreditsScreen() {
   const cyclesRemaining = membershipInfo?.cyclesRemaining ?? (hasMembership ? Math.max(0, maxCycles - cycleNumber) : maxCycles);
   const defaultMandatory = cycleNumber >= 5 ? 15 : 10;
   const mandatoryVisits = membershipInfo?.mandatoryVisits ?? defaultMandatory;
-  const completedVisits = membershipInfo?.completedVisits ?? 0;
+  const completedVisits = Math.max(0, membershipInfo?.completedVisits ?? 0);
   const hasBookedToday = bookingStatus === "Booked" && (bookedCost === 0 || bookedCost === undefined);
   const mandatoryVisitsRemaining = typeof visitsRemaining === "number" && visitsRemaining < mandatoryVisits
     ? Math.max(0, visitsRemaining)
