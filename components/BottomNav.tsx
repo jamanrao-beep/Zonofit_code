@@ -59,7 +59,7 @@ export function BottomNav({ state, navigation }: BottomTabBarProps) {
                 return (
                     <Pressable key={route.key} onPress={onPress} className="items-center justify-center py-1 flex-1">
                         <View 
-                            className="items-center justify-center w-14 h-9 rounded-2xl" 
+                            className="items-center justify-center w-10 h-10 rounded-full" 
                             style={{ backgroundColor: isFocused ? '#E8F5E9' : 'transparent' }}
                         >
                             <Ionicons name={isFocused ? tab.icon : tab.iconOutline} size={22} color={isFocused ? '#1F7A3E' : colors.muted} />
