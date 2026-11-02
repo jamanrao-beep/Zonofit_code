@@ -3,6 +3,7 @@ import { Router, Request, Response, NextFunction } from "express";
 import { query, validationResult } from "express-validator";
 import prisma from "../lib/prisma";
 import { bookingMatchesSlot, publicBookingSlots, readStoredSlots, setStoredSlotEnabled, visitPayoutInr } from "../lib/gymCommercial";
+import { deskCodeFromBookingId } from "../lib/bookingTime";
 import { requireAuth, optionalAuth } from "../middleware/auth";
 
 const router = Router();
@@ -711,6 +712,8 @@ router.get(
         salesThisMonth,
         chartData,
         recentCheckins: recentCheckins.map(c => ({
+          bookingId: c.id,
+          deskCode: deskCodeFromBookingId(c.id),
           name: c.user?.name || "Unknown",
           time: new Date(c.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           plan: (c.user as any)?.membership?.plan?.name || "Standard"

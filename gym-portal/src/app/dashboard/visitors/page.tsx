@@ -52,25 +52,59 @@ function capLabel(gym: GymToday, slot: SlotVisitors): string | null {
   return null;
 }
 
-function VisitorList({ visitors }: { visitors: Visitor[] }) {
+function VisitorList({
+  visitors,
+  onUndo,
+  onConfirm,
+  busyId,
+}: {
+  visitors: Visitor[];
+  onUndo: (bookingId: string) => void;
+  onConfirm: (bookingId: string) => void;
+  busyId: string | null;
+}) {
   if (visitors.length === 0) {
     return <p className="text-sm text-gray-500">Nobody is booked for this time.</p>;
   }
   return (
     <ul className="mt-3 space-y-2">
       {visitors.map((visitor) => (
-        <li key={visitor.bookingId} className="rounded-2xl bg-gray-50 px-3 py-3 min-w-0">
+        <li key={visitor.bookingId} className="rounded-2xl bg-gray-50 px-3.5 py-3 min-w-0">
           <div className="flex items-start justify-between gap-3">
-            <p className="font-semibold text-gray-900 break-words">{visitor.name}</p>
-            <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${
-              visitor.status === "CHECKED_IN" || visitor.status === "COMPLETED"
-                ? "bg-emerald-100 text-emerald-800"
-                : "bg-amber-50 text-amber-800"
-            }`}>
-              {STATUS_LABEL[visitor.status] || visitor.status}
-            </span>
+            <div className="min-w-0">
+              <p className="font-semibold text-gray-900 break-words">{visitor.name}</p>
+              <p className="mt-0.5 text-xs font-semibold text-gray-500">Code: {deskCode(visitor.bookingId)}</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                visitor.status === "CHECKED_IN" || visitor.status === "COMPLETED"
+                  ? "bg-emerald-100 text-emerald-800"
+                  : "bg-amber-50 text-amber-800"
+              }`}>
+                {STATUS_LABEL[visitor.status] || visitor.status}
+              </span>
+              {visitor.status === "CHECKED_IN" ? (
+                <button
+                  type="button"
+                  onClick={() => onUndo(visitor.bookingId)}
+                  disabled={busyId === visitor.bookingId}
+                  className="text-[11px] font-semibold text-gray-600 hover:text-red-700 hover:bg-red-50 px-2.5 py-1 rounded-lg border border-gray-200 hover:border-red-200 transition-colors disabled:opacity-50 cursor-pointer"
+                  title="Undo this check-in"
+                >
+                  {busyId === visitor.bookingId ? "Undoing…" : "Undo"}
+                </button>
+              ) : visitor.status === "CONFIRMED" ? (
+                <button
+                  type="button"
+                  onClick={() => onConfirm(visitor.bookingId)}
+                  disabled={busyId === visitor.bookingId}
+                  className="text-[11px] font-semibold text-white bg-emerald-700 hover:bg-emerald-800 px-3 py-1 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {busyId === visitor.bookingId ? "Checking…" : "Check In"}
+                </button>
+              ) : null}
+            </div>
           </div>
-          <p className="mt-1 text-xs font-semibold text-gray-700">Code {deskCode(visitor.bookingId)}</p>
         </li>
       ))}
     </ul>
@@ -82,29 +116,86 @@ export default function TodayVisitorsPage() {
   const [gyms, setGyms] = useState<GymToday[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const load = async () => {
+    try {
+      const token = localStorage.getItem("zonofit_portal_token");
+      const res = await fetch("/api/gyms/today-visitors", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.message || "Could not load today's visitors.");
+        return;
+      }
+      setDateLabel(typeof data.date === "string" ? data.date : "");
+      setGyms(Array.isArray(data.gyms) ? data.gyms : []);
+    } catch {
+      setError("Could not reach the server.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const token = localStorage.getItem("zonofit_portal_token");
-        const res = await fetch("/api/gyms/today-visitors", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          setError(data.message || "Could not load today's visitors.");
-          return;
-        }
-        setDateLabel(typeof data.date === "string" ? data.date : "");
-        setGyms(Array.isArray(data.gyms) ? data.gyms : []);
-      } catch {
-        setError("Could not reach the server.");
-      } finally {
-        setLoading(false);
-      }
-    };
     load();
   }, []);
+
+  const handleConfirm = async (bookingId: string) => {
+    setBusyId(bookingId);
+    setFeedback(null);
+    try {
+      const token = localStorage.getItem("zonofit_portal_token");
+      const res = await fetch("/api/checkin/staff", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ passCode: bookingId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setFeedback({ type: "error", text: data.message || "Could not check in." });
+      } else {
+        setFeedback({ type: "success", text: data.message || "Checked in successfully." });
+        load();
+      }
+    } catch {
+      setFeedback({ type: "error", text: "Could not reach the server." });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleUndo = async (bookingId: string) => {
+    setBusyId(bookingId);
+    setFeedback(null);
+    try {
+      const token = localStorage.getItem("zonofit_portal_token");
+      const res = await fetch("/api/checkin/undo", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ bookingId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setFeedback({ type: "error", text: data.message || "Could not undo check-in." });
+      } else {
+        setFeedback({ type: "success", text: data.message || "Check-in undone successfully." });
+        load();
+      }
+    } catch {
+      setFeedback({ type: "error", text: "Could not reach the server." });
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   return (
     <GymGuard>
@@ -115,6 +206,18 @@ export default function TodayVisitorsPage() {
             {dateLabel ? dateLabel : "Today"} · booked visits by slot, for you to verify at the desk.
           </p>
         </div>
+
+        {feedback ? (
+          <p
+            className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${
+              feedback.type === "success"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                : "border-red-200 bg-red-50 text-red-900"
+            }`}
+          >
+            {feedback.text}
+          </p>
+        ) : null}
 
         {loading ? (
           <p className="text-sm text-gray-500">Loading today&apos;s bookings…</p>
@@ -164,7 +267,12 @@ export default function TodayVisitorsPage() {
                       </div>
                       <p className="text-2xl font-bold text-gray-900 shrink-0">{slot.booked}</p>
                     </div>
-                    <VisitorList visitors={slot.visitors} />
+                    <VisitorList
+                      visitors={slot.visitors}
+                      onUndo={handleUndo}
+                      onConfirm={handleConfirm}
+                      busyId={busyId}
+                    />
                   </article>
                 );
               })}
@@ -178,7 +286,12 @@ export default function TodayVisitorsPage() {
                     </div>
                     <p className="text-2xl font-bold text-gray-900 shrink-0">{group.booked}</p>
                   </div>
-                  <VisitorList visitors={group.visitors} />
+                  <VisitorList
+                    visitors={group.visitors}
+                    onUndo={handleUndo}
+                    onConfirm={handleConfirm}
+                    busyId={busyId}
+                  />
                 </article>
               ))}
             </section>

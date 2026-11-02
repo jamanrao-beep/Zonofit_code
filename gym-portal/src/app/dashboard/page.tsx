@@ -3,14 +3,23 @@
 import GymGuard from "@/components/GymGuard";
 import { FormEvent, useEffect, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Activity, Users, Tag, CalendarCheck, CheckCircle2 } from "lucide-react";
+import { Activity, Users, Tag, CalendarCheck, CheckCircle2, AlertCircle, RotateCcw } from "lucide-react";
+
+type CheckInFeedback = {
+  type: "success" | "error" | "info";
+  text: string;
+  bookingId?: string;
+  deskCode?: string;
+  memberName?: string;
+};
 
 export default function GymDashboardPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [passCode, setPassCode] = useState("");
-  const [checkInMessage, setCheckInMessage] = useState("");
+  const [feedback, setFeedback] = useState<CheckInFeedback | null>(null);
   const [checkingIn, setCheckingIn] = useState(false);
+  const [undoingId, setUndoingId] = useState<string | null>(null);
 
   const fetchDashboard = async () => {
     try {
@@ -34,7 +43,7 @@ export default function GymDashboardPage() {
     const code = passCode.trim();
     if (!code) return;
     setCheckingIn(true);
-    setCheckInMessage("");
+    setFeedback(null);
     try {
       const token = localStorage.getItem("zonofit_portal_token");
       const res = await fetch("/api/checkin/staff", {
@@ -46,15 +55,59 @@ export default function GymDashboardPage() {
         body: JSON.stringify({ passCode: code }),
       });
       const result = await res.json();
-      setCheckInMessage(result.message || "Could not confirm that visit.");
-      if (res.ok) {
+      if (!res.ok) {
+        setFeedback({
+          type: "error",
+          text: result.message || "Could not confirm that visit.",
+        });
+      } else {
+        setFeedback({
+          type: "success",
+          text: result.message || "Visit confirmed.",
+          bookingId: result.bookingId,
+          deskCode: result.deskCode,
+          memberName: result.memberName,
+        });
         setPassCode("");
         fetchDashboard();
       }
     } catch {
-      setCheckInMessage("Could not reach the server.");
+      setFeedback({ type: "error", text: "Could not reach the server." });
     } finally {
       setCheckingIn(false);
+    }
+  };
+
+  const undoVisit = async (bookingId: string) => {
+    if (!bookingId || undoingId) return;
+    setUndoingId(bookingId);
+    try {
+      const token = localStorage.getItem("zonofit_portal_token");
+      const res = await fetch("/api/checkin/undo", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ bookingId }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        setFeedback({
+          type: "error",
+          text: result.message || "Could not undo that check-in.",
+        });
+      } else {
+        setFeedback({
+          type: "info",
+          text: result.message || "Check-in undone successfully.",
+        });
+        fetchDashboard();
+      }
+    } catch {
+      setFeedback({ type: "error", text: "Could not reach the server to undo check-in." });
+    } finally {
+      setUndoingId(null);
     }
   };
 
@@ -93,7 +146,44 @@ export default function GymDashboardPage() {
               {checkingIn ? "Checking..." : "Confirm"}
             </button>
           </div>
-          {checkInMessage ? <p className="text-sm mt-3 text-gray-700">{checkInMessage}</p> : null}
+          {feedback ? (
+            <div
+              className={`mt-4 p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                feedback.type === "success"
+                  ? "bg-emerald-50 border-emerald-200 text-emerald-950"
+                  : feedback.type === "error"
+                  ? "bg-red-50 border-red-200 text-red-900"
+                  : "bg-slate-50 border-slate-200 text-slate-800"
+              }`}
+            >
+              <div className="flex items-start gap-2.5 min-w-0">
+                {feedback.type === "success" ? (
+                  <CheckCircle2 size={18} className="text-emerald-700 shrink-0 mt-0.5" />
+                ) : feedback.type === "error" ? (
+                  <AlertCircle size={18} className="text-red-600 shrink-0 mt-0.5" />
+                ) : (
+                  <RotateCcw size={18} className="text-slate-600 shrink-0 mt-0.5" />
+                )}
+                <div className="min-w-0">
+                  <p className="text-sm font-bold break-words">{feedback.text}</p>
+                  {feedback.deskCode ? (
+                    <p className="text-xs font-semibold text-emerald-700 mt-0.5">Desk code: {feedback.deskCode}</p>
+                  ) : null}
+                </div>
+              </div>
+              {feedback.type === "success" && feedback.bookingId ? (
+                <button
+                  type="button"
+                  onClick={() => undoVisit(feedback.bookingId!)}
+                  disabled={undoingId === feedback.bookingId}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-red-200 bg-white text-xs font-bold text-red-700 hover:bg-red-50 hover:border-red-300 transition-colors shrink-0 disabled:opacity-50 cursor-pointer shadow-xs"
+                >
+                  <RotateCcw size={13} />
+                  {undoingId === feedback.bookingId ? "Undoing…" : "Undo Check-In"}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
         </form>
         
         {loading ? (
@@ -178,13 +268,30 @@ export default function GymDashboardPage() {
                   </h2>
                   <div className="space-y-4">
                     {data?.recentCheckins?.map((user: any, i: number) => (
-                      <div key={i} className="flex items-center justify-between pb-4 border-b border-gray-100 last:border-0 last:pb-0">
-                        <div>
-                          <div className="font-bold text-gray-900 text-sm">{user.name}</div>
-                          <div className="text-[10px] font-medium text-gray-400 mt-0.5">{user.time}</div>
+                      <div key={user.bookingId || i} className="flex items-center justify-between pb-4 border-b border-gray-100 last:border-0 last:pb-0 gap-3">
+                        <div className="min-w-0">
+                          <div className="font-bold text-gray-900 text-sm truncate">{user.name}</div>
+                          <div className="text-[10px] font-medium text-gray-400 mt-0.5 flex items-center gap-1.5">
+                            <span>{user.time}</span>
+                            {user.deskCode ? <span className="font-semibold text-gray-500">· {user.deskCode}</span> : null}
+                          </div>
                         </div>
-                        <div className="text-[10px] font-bold px-2.5 py-1 bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-lg">
-                          {user.plan}
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className="text-[10px] font-bold px-2.5 py-1 bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-lg">
+                            {user.plan}
+                          </div>
+                          {user.bookingId ? (
+                            <button
+                              type="button"
+                              onClick={() => undoVisit(user.bookingId)}
+                              disabled={undoingId === user.bookingId}
+                              className="inline-flex items-center gap-1 text-[11px] font-semibold text-gray-600 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded-lg border border-gray-200 hover:border-red-200 transition-colors disabled:opacity-50 cursor-pointer"
+                              title="Undo this check-in"
+                            >
+                              <RotateCcw size={11} />
+                              {undoingId === user.bookingId ? "Undoing…" : "Undo"}
+                            </button>
+                          ) : null}
                         </div>
                       </div>
                     ))}

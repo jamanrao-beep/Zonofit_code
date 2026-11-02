@@ -7,6 +7,7 @@ import { bookingMatchesSlot, readStoredSlots, slotKey } from "../lib/gymCommerci
 import { decrementCredits } from "../lib/wallet";
 import { requireAuth } from "../middleware/auth";
 import { sendPushNotification } from "../services/notifications";
+import { isBookingSlotPast } from "../lib/bookingTime";
 import { createError } from "../middleware/errorHandler";
 
 const router = Router();
@@ -337,61 +338,6 @@ router.post(
  * List the authenticated user's bookings.
  * Supports filtering by status and date range.
  */
-function isBookingSlotPast(visitDate: Date | string, timeSlot?: string | null): boolean {
-  if (!visitDate) return false;
-  try {
-    const vDate = new Date(visitDate);
-    if (isNaN(vDate.getTime())) return false;
-    const now = new Date();
-
-    const todayYear = now.getFullYear();
-    const todayMonth = now.getMonth();
-    const todayDate = now.getDate();
-
-    const visitYear = vDate.getFullYear();
-    const visitMonth = vDate.getMonth();
-    const visitDay = vDate.getDate();
-
-    const startOfToday = new Date(todayYear, todayMonth, todayDate, 0, 0, 0, 0);
-    const startOfVisit = new Date(visitYear, visitMonth, visitDay, 0, 0, 0, 0);
-
-    if (startOfVisit.getTime() < startOfToday.getTime()) {
-      return true;
-    }
-    if (startOfVisit.getTime() > startOfToday.getTime()) {
-      return false;
-    }
-
-    if (!timeSlot || typeof timeSlot !== "string") {
-      const endOfDay = new Date(todayYear, todayMonth, todayDate, 23, 59, 59, 999);
-      return now.getTime() > endOfDay.getTime();
-    }
-
-    const parts = timeSlot.split(/[-–—]/);
-    const endStr = (parts.length > 1 ? parts[1] : parts[0]).trim();
-    const match = endStr.match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?/i);
-    if (match) {
-      let hours = parseInt(match[1], 10);
-      const minutes = match[2] ? parseInt(match[2], 10) : 0;
-      const ampm = match[3]?.toUpperCase();
-
-      if (ampm === "PM" && hours < 12) hours += 12;
-      if (ampm === "AM" && hours === 12) hours = 0;
-
-      if (parts.length === 1) {
-        hours += 1;
-      }
-
-      const slotEndTime = new Date(todayYear, todayMonth, todayDate, hours, minutes, 0, 0);
-      return now.getTime() > slotEndTime.getTime();
-    }
-
-    return false;
-  } catch {
-    return false;
-  }
-}
-
 // ─── GET /api/bookings ────────────────────────────────────────────────────────
 /**
  * List the authenticated user's bookings.

@@ -8,6 +8,7 @@ const express_1 = require("express");
 const express_validator_1 = require("express-validator");
 const prisma_1 = __importDefault(require("../lib/prisma"));
 const gymCommercial_1 = require("../lib/gymCommercial");
+const bookingTime_1 = require("../lib/bookingTime");
 const auth_1 = require("../middleware/auth");
 const router = (0, express_1.Router)();
 // ─── GET /api/gyms ────────────────────────────────────────────────────────────
@@ -625,6 +626,8 @@ router.get("/analytics/dashboard", auth_1.requireAuth, async (req, res) => {
             salesThisMonth,
             chartData,
             recentCheckins: recentCheckins.map(c => ({
+                bookingId: c.id,
+                deskCode: (0, bookingTime_1.deskCodeFromBookingId)(c.id),
                 name: c.user?.name || "Unknown",
                 time: new Date(c.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                 plan: c.user?.membership?.plan?.name || "Standard"

@@ -15,19 +15,12 @@ function codesMatch(actual: string, expected: string): boolean {
   return crypto.timingSafeEqual(actualBuf, expectedBuf);
 }
 
-/** Same code the member pass shows: ZF- plus the last 6 letters of the booking id. */
-function deskCodeFromBookingId(id: string): string {
-  const tail = id.replace(/[^a-zA-Z0-9]/g, "").slice(-6).toUpperCase();
-  return tail.length === 6 ? `ZF-${tail}` : "";
-}
-
-function typedDeskCode(value: string): string | null {
-  const compact = value.toUpperCase().replace(/[^A-Z0-9]/g, "");
-  const withPrefix = compact.match(/^ZF([A-Z0-9]{6})$/);
-  if (withPrefix) return `ZF-${withPrefix[1]}`;
-  if (/^[A-Z0-9]{6}$/.test(compact)) return `ZF-${compact}`;
-  return null;
-}
+import {
+  deskCodeFromBookingId,
+  typedDeskCode,
+  isBookingSlotPast,
+  getSlotEndTimeString,
+} from "../lib/bookingTime";
 
 async function gymIdsForStaff(userId: string, systemRole?: string): Promise<string[]> {
   const owned = await prisma.gym.findMany({
@@ -181,6 +174,24 @@ router.post(
         if (checkIn.status === "VERIFIED" || booking.status === "CHECKED_IN") {
           throw createError("This visit has already been checked in.", 409, "AlreadyCheckedIn");
         }
+        if (booking.status === "COMPLETED") {
+          throw createError("This booking has already ended and was completed.", 400, "AlreadyCompleted");
+        }
+
+        // Check if the booking session / slot time has expired
+        if (isBookingSlotPast(booking.visitDate, booking.timeSlot)) {
+          if (checkIn.status === "PENDING") {
+            await tx.checkIn.update({ where: { id: checkIn.id }, data: { status: "EXPIRED" } });
+          }
+          await tx.booking.update({ where: { id: booking.id }, data: { status: "COMPLETED" } });
+          const endTime = getSlotEndTimeString(booking.timeSlot);
+          throw createError(
+            `This booking slot has expired. The session for ${booking.timeSlot || "today"}${endTime ? ` ended at ${endTime}` : ""} and can no longer be checked in.`,
+            410,
+            "BookingExpired"
+          );
+        }
+
         const visitKey = new Intl.DateTimeFormat("en-CA", {
           timeZone: "Asia/Kolkata",
           year: "numeric",
@@ -257,7 +268,15 @@ router.post(
           }
         }
 
-        return { verifiedAt: updatedCheckIn.verifiedAt, gymName: booking.gym.name, memberId: booking.userId, referrerIdToNotify };
+        return {
+          bookingId: booking.id,
+          deskCode: deskCodeFromBookingId(booking.id),
+          memberName: booking.user?.name || "Member",
+          verifiedAt: updatedCheckIn.verifiedAt,
+          gymName: booking.gym.name,
+          memberId: booking.userId,
+          referrerIdToNotify,
+        };
       });
 
       sendPushNotification(
@@ -275,12 +294,140 @@ router.post(
 
       res.json({
         success: true,
-        message: `Checked in at ${result.gymName}.`,
+        bookingId: result.bookingId,
+        deskCode: result.deskCode,
+        memberName: result.memberName,
+        gymName: result.gymName,
+        message: `Checked in ${result.memberName} at ${result.gymName}.`,
         verifiedAt: result.verifiedAt,
       });
     } catch (err: any) {
       const status = err.statusCode || 500;
       res.status(status).json({ error: err.code || "CheckInFailed", message: err.message || "Check-in failed." });
+    }
+  }
+);
+
+// ─── POST /api/checkin/undo ───────────────────────────────────────────────────
+/**
+ * Gym staff undo / remove an accidental check-in.
+ * Reverts the booking back to CONFIRMED and the checkIn back to PENDING.
+ * Also decrements user workouts, training hours, streak, and membership completed visits.
+ */
+router.post(
+  "/undo",
+  requireAuth,
+  [body("bookingId").isString().notEmpty().withMessage("Booking ID required.")],
+  async (req: Request, res: Response): Promise<void> => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      res.status(400).json({ error: "ValidationError", details: errors.array() });
+      return;
+    }
+
+    const { bookingId } = req.body as { bookingId: string };
+    const gymIds = await gymIdsForStaff(req.dbUserId!, req.systemRole);
+    if (gymIds.length === 0) {
+      res.status(403).json({ error: "Forbidden", message: "Only a gym partner can undo a visit check-in." });
+      return;
+    }
+
+    const rawCode = bookingId.trim();
+    const desk = typedDeskCode(rawCode);
+
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        const include = {
+          checkIn: true,
+          gym: { select: { name: true } },
+          user: { select: { id: true, name: true, totalWorkouts: true, trainingHours: true, streak: true } },
+        } as const;
+
+        let booking = await tx.booking.findFirst({
+          where: {
+            gymId: { in: gymIds },
+            OR: [{ id: rawCode }, { passCode: rawCode }],
+          },
+          include,
+        });
+
+        if (!booking && desk) {
+          const candidates = await tx.booking.findMany({
+            where: {
+              gymId: { in: gymIds },
+              status: { in: ["CHECKED_IN", "COMPLETED"] },
+            },
+            include,
+            orderBy: { updatedAt: "desc" },
+          });
+          booking = candidates.find((row) => deskCodeFromBookingId(row.id) === desk) ?? null;
+        }
+
+        if (!booking) {
+          throw createError("No check-in record matches that code or booking.", 404, "BookingNotFound");
+        }
+
+        if (booking.status !== "CHECKED_IN" && booking.status !== "COMPLETED") {
+          throw createError("This booking is not currently checked in.", 400, "NotCheckedIn");
+        }
+
+        // Revert check-in
+        if (booking.checkIn) {
+          await tx.checkIn.update({
+            where: { id: booking.checkIn.id },
+            data: {
+              status: "PENDING",
+              verifiedAt: null,
+              verifiedByStaff: null,
+            },
+          });
+        }
+
+        // Revert booking status back to CONFIRMED
+        await tx.booking.update({
+          where: { id: booking.id },
+          data: { status: "CONFIRMED" },
+        });
+
+        // Revert user stats
+        if (booking.user) {
+          const newWorkouts = Math.max(0, (booking.user.totalWorkouts || 1) - 1);
+          const newHours = Math.max(0, (booking.user.trainingHours || 1) - 1);
+          const newStreak = Math.max(0, (booking.user.streak || 1) - 1);
+
+          await tx.user.update({
+            where: { id: booking.user.id },
+            data: {
+              totalWorkouts: newWorkouts,
+              trainingHours: newHours,
+              streak: newStreak,
+            },
+          });
+
+          await tx.membership.updateMany({
+            where: { userId: booking.user.id, status: "ACTIVE" },
+            data: { completedVisits: { decrement: 1 } },
+          });
+        }
+
+        return {
+          bookingId: booking.id,
+          deskCode: deskCodeFromBookingId(booking.id),
+          memberName: booking.user?.name || "Member",
+          gymName: booking.gym?.name || "Gym",
+        };
+      });
+
+      res.json({
+        success: true,
+        bookingId: result.bookingId,
+        deskCode: result.deskCode,
+        memberName: result.memberName,
+        message: `Check-in for ${result.memberName} has been undone. Pass is back to booked.`,
+      });
+    } catch (err: any) {
+      const status = err.statusCode || 500;
+      res.status(status).json({ error: err.code || "UndoFailed", message: err.message || "Could not undo check-in." });
     }
   }
 );
