@@ -14,6 +14,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import * as Clipboard from "expo-clipboard";
+import * as Haptics from "expo-haptics";
 import CancelBookingSheet from "@/components/CancelBookingSheet";
 import { useBookingStore } from "@/store/useBookingStore";
 import { useUserStore } from "@/store/useUserStore";
@@ -88,10 +90,16 @@ export default function BookingPassScreen() {
   // Gym policies
   const gymPolicies = getGymPolicies(matchedGym?.id || displayGymName);
 
-  const handleCopyId = () => {
+  const handleCopyId = async () => {
+    if (!displayBookingId) return;
+    try {
+      await Clipboard.setStringAsync(displayBookingId);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    } catch {
+      // ignore
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-    Alert.alert("Desk code", `Desk code: ${displayBookingId}`);
   };
 
   const handleCancelBooking = () => {
@@ -286,9 +294,27 @@ export default function BookingPassScreen() {
                 {displayBookingId ? (
                   <View style={styles.metaRow}>
                     <Text style={styles.metaKey}>Desk code</Text>
-                    <Pressable onPress={handleCopyId} style={{ flexDirection: "row", alignItems: "center" }}>
+                    <Pressable 
+                      onPress={handleCopyId} 
+                      hitSlop={8}
+                      accessibilityLabel="Copy desk code to clipboard"
+                      style={({ pressed }) => [
+                        { flexDirection: "row", alignItems: "center", opacity: pressed ? 0.7 : 1 }
+                      ]}
+                    >
                       <Text style={styles.bookingIdText}>{displayBookingId}</Text>
-                      <Ionicons name={copied ? "checkmark" : "copy-outline"} size={13} color="#16A34A" style={{ marginLeft: 4 }} />
+                      <View style={{ marginLeft: 6, flexDirection: "row", alignItems: "center" }}>
+                        <Ionicons 
+                          name={copied ? "checkmark-circle" : "copy-outline"} 
+                          size={15} 
+                          color="#16A34A" 
+                        />
+                        {copied ? (
+                          <Text style={{ fontSize: 11, fontWeight: "700", color: "#16A34A", marginLeft: 3 }}>
+                            Copied!
+                          </Text>
+                        ) : null}
+                      </View>
                     </Pressable>
                   </View>
                 ) : null}

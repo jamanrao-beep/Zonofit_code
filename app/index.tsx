@@ -69,7 +69,7 @@ export default function SplashAnimationScreen() {
     <View style={styles.container}>
       <ExpoImage
         source={require("@/assets/splash_animation.webp")}
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
         contentFit="cover"
         priority="high"
       />
