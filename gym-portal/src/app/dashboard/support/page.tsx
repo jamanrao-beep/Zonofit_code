@@ -64,23 +64,30 @@ export default function SupportPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col items-center text-center">
-            <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-4">
-              <Phone size={24} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
+          <div className="bg-white p-7 sm:p-8 rounded-3xl border border-gray-100 shadow-sm flex flex-col items-center text-center transition-all hover:shadow-md">
+            <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-4">
+              <Phone size={26} />
             </div>
-            <h3 className="font-bold text-black mb-1">Call Support</h3>
+            <h3 className="font-bold text-gray-900 text-base mb-1">Call Support</h3>
             <p className="text-sm text-gray-500 mb-2">Mon-Sat, 9am - 8pm</p>
-            <a href="tel:+919876543210" className="text-emerald-600 font-bold hover:underline">+91 98765 43210</a>
+            <a href="tel:+919876543210" className="text-emerald-700 font-bold hover:underline text-base">
+              +91 98765 43210
+            </a>
           </div>
           
-          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col items-center text-center">
-            <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-4">
-              <Mail size={24} />
+          <div className="bg-white p-7 sm:p-8 rounded-3xl border border-gray-100 shadow-sm flex flex-col items-center text-center transition-all hover:shadow-md">
+            <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-4">
+              <Mail size={26} />
             </div>
-            <h3 className="font-bold text-black mb-1">Email Us</h3>
+            <h3 className="font-bold text-gray-900 text-base mb-1">Email Us</h3>
             <p className="text-sm text-gray-500 mb-2">24/7 Support</p>
-            <a href="mailto:zonofitofficial@gmail.com" className="text-emerald-600 font-bold hover:underline">zonofitofficial@gmail.com</a>
+            <a
+              href="mailto:zonofitofficial@gmail.com"
+              className="text-emerald-700 font-bold hover:underline text-sm sm:text-base break-all sm:break-normal max-w-full px-2"
+            >
+              zonofitofficial@gmail.com
+            </a>
           </div>
         </div>
 
