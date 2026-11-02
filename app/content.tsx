@@ -253,7 +253,7 @@ export const FAQ_LIST: FAQItem[] = [
     id: 32,
     category: "Support & Rules",
     question: "How can a gym become a ZonoFit partner?",
-    answer: "Gym owners can apply via our partner portal or reach our gym onboarding team at partners@zonofit.com."
+    answer: "Gym owners can apply via our partner portal or reach our gym onboarding team at zonofitofficial@gmail.com."
   },
   {
     id: 33,

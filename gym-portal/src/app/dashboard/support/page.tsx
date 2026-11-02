@@ -80,7 +80,7 @@ export default function SupportPage() {
             </div>
             <h3 className="font-bold text-black mb-1">Email Us</h3>
             <p className="text-sm text-gray-500 mb-2">24/7 Support</p>
-            <a href="mailto:partners@zonofit.com" className="text-emerald-600 font-bold hover:underline">partners@zonofit.com</a>
+            <a href="mailto:zonofitofficial@gmail.com" className="text-emerald-600 font-bold hover:underline">zonofitofficial@gmail.com</a>
           </div>
         </div>
 

@@ -125,87 +125,55 @@ router.post(
     }
 
     const { passCode } = req.body as { passCode: string };
-    let gymIds: string[] = [];
-    const ownedGyms = await prisma.gym.findMany({
-      where: { ownerId: req.dbUserId!, isActive: true },
-      select: { id: true },
-    });
-    if (ownedGyms.length > 0) {
-      gymIds = ownedGyms.map((gym) => gym.id);
-    } else if (req.systemRole === "ADMIN") {
-      const allGyms = await prisma.gym.findMany({
-        where: { isActive: true },
-        select: { id: true },
-      });
-      gymIds = allGyms.map((gym) => gym.id);
-    }
-
+    const gymIds = await gymIdsForStaff(req.dbUserId!, req.systemRole);
     if (gymIds.length === 0) {
       res.status(403).json({ error: "Forbidden", message: "Only a gym partner can confirm a visit." });
       return;
     }
 
     const rawCode = passCode.trim();
-    const normalizedCode = rawCode.toUpperCase();
-    const suffixCode = normalizedCode.replace(/^ZF-?/, "").replace(/[^A-Z0-9]/g, "");
+    const desk = typedDeskCode(rawCode);
 
     try {
       const result = await prisma.$transaction(async (tx) => {
-        // 1. Direct match by exact booking ID or passCode
+        const include = {
+          checkIn: true,
+          gym: { select: { name: true } },
+          user: { select: { id: true, name: true, referredByUserId: true, totalWorkouts: true } },
+        } as const;
         let booking = await tx.booking.findFirst({
           where: {
             gymId: { in: gymIds },
-            OR: [
-              { id: rawCode },
-              { passCode: rawCode },
-            ],
+            status: "CONFIRMED",
+            OR: [{ id: rawCode }, { passCode: rawCode }],
           },
-          include: {
-            checkIn: true,
-            gym: { select: { name: true } },
-            user: { select: { id: true, name: true, referredByUserId: true, totalWorkouts: true } },
-          },
+          include,
         });
-
-        // 2. If not found, match by display ticket code / suffix (e.g. ZF-821CD0 or 821CD0)
-        if (!booking && suffixCode.length >= 4) {
+        if (!booking && desk) {
           const candidates = await tx.booking.findMany({
-            where: {
-              gymId: { in: gymIds },
-              status: { in: ["CONFIRMED", "PENDING", "CHECKED_IN"] },
-            },
-            include: {
-              checkIn: true,
-              gym: { select: { name: true } },
-              user: { select: { id: true, name: true, referredByUserId: true, totalWorkouts: true } },
-            },
+            where: { gymId: { in: gymIds }, status: { in: ["CONFIRMED", "CHECKED_IN"] } },
+            include,
             orderBy: { createdAt: "desc" },
           });
-
-          booking = candidates.find((b) => {
-            const idClean = b.id.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-            const passClean = (b.passCode || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-            return (
-              idClean.endsWith(suffixCode) ||
-              passClean.endsWith(suffixCode) ||
-              idClean === suffixCode ||
-              passClean === suffixCode
-            );
-          }) || null;
+          const matches = candidates.filter((row) => deskCodeFromBookingId(row.id) === desk);
+          if (matches.length > 1 && matches.every((row) => row.status === "CONFIRMED")) {
+            throw createError("More than one visit uses that code. Confirm the member from Today's Visitors.", 409, "AmbiguousCode");
+          }
+          booking = matches.find((row) => row.status === "CONFIRMED") ?? matches[0] ?? null;
         }
+        if (!booking) throw createError("No confirmed visit matches that code. Use the desk code on the member pass, such as ZF-4F2A9C.", 404, "BookingNotFound");
 
-        if (!booking) throw createError("No confirmed visit matches that pass.", 404, "BookingNotFound");
-
-        // Ensure check-in record exists
         let checkIn = booking.checkIn;
         if (!checkIn) {
+          const end = new Date(booking.visitDate);
+          end.setHours(23, 59, 59, 999);
           checkIn = await tx.checkIn.create({
             data: {
               bookingId: booking.id,
               method: "STAFF_APPROVAL",
               verificationCode: booking.passCode || booking.id,
               status: "PENDING",
-              expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+              expiresAt: end,
             },
           });
         }
@@ -213,28 +181,28 @@ router.post(
         if (checkIn.status === "VERIFIED" || booking.status === "CHECKED_IN") {
           throw createError("This visit has already been checked in.", 409, "AlreadyCheckedIn");
         }
-        if (checkIn.expiresAt && new Date() > checkIn.expiresAt) {
+        const visitKey = new Intl.DateTimeFormat("en-CA", {
+          timeZone: "Asia/Kolkata",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(new Date(booking.visitDate));
+        const todayKey = new Intl.DateTimeFormat("en-CA", {
+          timeZone: "Asia/Kolkata",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(new Date());
+        if (checkIn.expiresAt && new Date() > checkIn.expiresAt && visitKey < todayKey) {
           await tx.checkIn.update({ where: { id: checkIn.id }, data: { status: "EXPIRED" } });
           throw createError("Check-in code has expired.", 410, "CheckInExpired");
         }
 
-        // Verify authenticity of code
-        const idClean = booking.id.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-        const passClean = (booking.passCode || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-        const vCodeClean = (checkIn.verificationCode || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-
-        const isValid =
-          booking.passCode === rawCode ||
-          booking.id === rawCode ||
-          checkIn.verificationCode === rawCode ||
-          codesMatch(rawCode, checkIn.verificationCode) ||
-          (suffixCode.length >= 4 && (
-            idClean.endsWith(suffixCode) ||
-            passClean.endsWith(suffixCode) ||
-            vCodeClean.endsWith(suffixCode)
-          ));
-
-        if (!isValid) {
+        const typedIsPass = rawCode.toLowerCase() === booking.passCode.toLowerCase();
+        const typedIsId = rawCode === booking.id;
+        const typedIsDesk = desk !== null && desk === deskCodeFromBookingId(booking.id);
+        const typedIsStored = codesMatch(rawCode, checkIn.verificationCode);
+        if (!typedIsPass && !typedIsId && !typedIsDesk && !typedIsStored) {
           throw createError("Invalid verification code.", 400, "InvalidCode");
         }
 
