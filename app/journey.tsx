@@ -45,14 +45,11 @@ export default function JourneyScreen() {
       return () => clearTimeout(timer);
     }
   }, [cycleMonth]);
-  // Ensure we accurately count visits completed across membership, active check-in, and user workout records
+  // Ensure we accurately count verified visits completed this cycle
   const checkedInToday = bookingStatus === "Checked In" ? 1 : 0;
-  const completedPastCount = pastBookings.filter(b => b.status === "Completed" || b.status === "Checked In").length;
-  const visitsCompleted = Math.max(
-    membershipInfo?.completedVisits || 0,
-    completedPastCount,
-    checkedInToday
-  );
+  const visitsCompleted = typeof membershipInfo?.completedVisits === "number"
+    ? Math.max(0, membershipInfo.completedVisits)
+    : (checkedInToday ? 1 : 0);
   const visitsGoal = membershipInfo?.mandatoryVisits ?? (cycleMonth <= 4 ? 10 : 15);
   const visitsRemaining = Math.max(0, visitsGoal - visitsCompleted);
 

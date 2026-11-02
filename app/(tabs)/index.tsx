@@ -153,7 +153,9 @@ export default function HomeScreen() {
 
   const cycleNum = membershipInfo?.cycleNumber || currentMonth || 1;
   const mandatoryVisits = membershipInfo?.mandatoryVisits || (cycleNum <= 4 ? 10 : 15);
-  const completedVisits = Math.max(0, membershipInfo?.completedVisits ?? totalWorkouts ?? 0);
+  const completedVisits = typeof membershipInfo?.completedVisits === "number"
+    ? Math.max(0, membershipInfo.completedVisits)
+    : Math.max(0, totalWorkouts || 0);
   const hasBookedMandatory = bookingStatus === "Booked" && (bookedCost === 0 || bookedCost === undefined);
   const visitsLeft = typeof visitsRemaining === "number" && visitsRemaining < mandatoryVisits
     ? Math.max(0, visitsRemaining)
@@ -812,7 +814,7 @@ export default function HomeScreen() {
           <View className="flex-row justify-between items-center">
             <View className="flex-1">
               <Text className="text-gray-400 text-[10px] tracking-wide mb-1">Completed Visits</Text>
-              <Text className="text-black text-xl font-bold">{totalWorkouts}</Text>
+              <Text className="text-black text-xl font-bold">{completedVisits}</Text>
             </View>
 
             <View className="w-[1px] h-8 bg-gray-200 mx-2" />

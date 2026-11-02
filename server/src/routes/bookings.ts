@@ -351,7 +351,7 @@ router.get(
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
 
-    // Auto-complete any active bookings whose slot time has passed
+    // Auto-reconcile past bookings: verified check-ins complete, unverified ones become NO_SHOW / EXPIRED
     try {
       const activeCandidateBookings = await prisma.booking.findMany({
         where: {
@@ -361,25 +361,25 @@ router.get(
         select: { id: true, visitDate: true, timeSlot: true, status: true },
       });
 
-      const pastIds = activeCandidateBookings
-        .filter((b) => isBookingSlotPast(b.visitDate, b.timeSlot))
-        .map((b) => b.id);
+      const passedBookings = activeCandidateBookings.filter((b) => isBookingSlotPast(b.visitDate, b.timeSlot));
+      const checkedInPassedIds = passedBookings.filter((b) => b.status === "CHECKED_IN").map((b) => b.id);
+      const unverifiedPassedIds = passedBookings.filter((b) => b.status === "PENDING" || b.status === "CONFIRMED").map((b) => b.id);
 
-      if (pastIds.length > 0) {
+      if (checkedInPassedIds.length > 0) {
         await prisma.booking.updateMany({
-          where: { id: { in: pastIds } },
+          where: { id: { in: checkedInPassedIds } },
           data: { status: "COMPLETED" },
         });
-        await prisma.checkIn.updateMany({
-          where: { bookingId: { in: pastIds }, status: "PENDING" },
-          data: { status: "VERIFIED" },
+      }
+
+      if (unverifiedPassedIds.length > 0) {
+        await prisma.booking.updateMany({
+          where: { id: { in: unverifiedPassedIds } },
+          data: { status: "NO_SHOW" },
         });
-        await prisma.user.update({
-          where: { id: req.dbUserId! },
-          data: {
-            totalWorkouts: { increment: pastIds.length },
-            trainingHours: { increment: pastIds.length },
-          },
+        await prisma.checkIn.updateMany({
+          where: { bookingId: { in: unverifiedPassedIds }, status: "PENDING" },
+          data: { status: "EXPIRED" },
         });
       }
     } catch {
@@ -447,25 +447,25 @@ router.get(
         select: { id: true, visitDate: true, timeSlot: true, status: true },
       });
 
-      const passedTodayIds = todayActive
-        .filter((b) => isBookingSlotPast(b.visitDate, b.timeSlot))
-        .map((b) => b.id);
+      const passedToday = todayActive.filter((b) => isBookingSlotPast(b.visitDate, b.timeSlot));
+      const checkedInPassedIds = passedToday.filter((b) => b.status === "CHECKED_IN").map((b) => b.id);
+      const unverifiedPassedIds = passedToday.filter((b) => b.status === "PENDING" || b.status === "CONFIRMED").map((b) => b.id);
 
-      if (passedTodayIds.length > 0) {
+      if (checkedInPassedIds.length > 0) {
         await prisma.booking.updateMany({
-          where: { id: { in: passedTodayIds } },
+          where: { id: { in: checkedInPassedIds } },
           data: { status: "COMPLETED" },
         });
-        await prisma.checkIn.updateMany({
-          where: { bookingId: { in: passedTodayIds }, status: "PENDING" },
-          data: { status: "VERIFIED" },
+      }
+
+      if (unverifiedPassedIds.length > 0) {
+        await prisma.booking.updateMany({
+          where: { id: { in: unverifiedPassedIds } },
+          data: { status: "NO_SHOW" },
         });
-        await prisma.user.update({
-          where: { id: req.dbUserId! },
-          data: {
-            totalWorkouts: { increment: passedTodayIds.length },
-            trainingHours: { increment: passedTodayIds.length },
-          },
+        await prisma.checkIn.updateMany({
+          where: { bookingId: { in: unverifiedPassedIds }, status: "PENDING" },
+          data: { status: "EXPIRED" },
         });
       }
     } catch {

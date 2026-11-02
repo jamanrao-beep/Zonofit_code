@@ -134,7 +134,13 @@ export const useBookingStore = create<BookingState>()(
           gymName: b.gym?.name || "Gym",
           date: new Date(b.visitDate).toLocaleDateString(),
           time: b.timeSlot,
-          status: b.status === "CANCELLED" ? "Cancelled" : "Completed",
+          status: b.status === "CANCELLED" 
+            ? "Cancelled" 
+            : (b.status === "NO_SHOW" || (!b.checkIn?.verifiedAt && b.status !== "CHECKED_IN" && isBookingSlotPast(b.visitDate, b.timeSlot)))
+            ? "Missed"
+            : b.status === "CHECKED_IN"
+            ? "Checked In"
+            : (b.checkIn?.verifiedAt ? "Completed" : "Missed"),
           credits: b.creditsDeducted || 0
         }));
 

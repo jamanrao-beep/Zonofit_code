@@ -99,15 +99,24 @@ router.get(
             }).catch(() => {});
         }
 
-        // Real counts from actual database
+        // Real counts from actual database (only count verified check-ins)
         const [totalWorkouts, thisMonthWorkouts, friendsJoined, completedReferrals] = await Promise.all([
             prisma.booking.count({
-                where: { userId: user.id, status: { in: ["CHECKED_IN", "COMPLETED"] } },
+                where: {
+                    userId: user.id,
+                    OR: [
+                        { status: "CHECKED_IN" },
+                        { status: "COMPLETED", checkIn: { verifiedAt: { not: null } } },
+                    ],
+                },
             }),
             prisma.booking.count({
                 where: {
                     userId: user.id,
-                    status: { in: ["CHECKED_IN", "COMPLETED"] },
+                    OR: [
+                        { status: "CHECKED_IN" },
+                        { status: "COMPLETED", checkIn: { verifiedAt: { not: null } } },
+                    ],
                     visitDate: {
                         gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
                     },
@@ -120,13 +129,29 @@ router.get(
                 where: {
                     referredByUserId: user.id,
                     bookings: {
-                        some: { status: { in: ["CHECKED_IN", "COMPLETED"] } }
-                    }
-                }
-            })
+                        some: {
+                            OR: [
+                                { status: "CHECKED_IN" },
+                                { status: "COMPLETED", checkIn: { verifiedAt: { not: null } } },
+                            ],
+                        },
+                    },
+                },
+            }),
         ]);
 
         const creditsEarned = completedReferrals * 5;
+
+        // Keep user model stats in sync with real verified visits
+        if (user.totalWorkouts !== totalWorkouts) {
+            await prisma.user.update({
+                where: { id: user.id },
+                data: {
+                    totalWorkouts,
+                    trainingHours: totalWorkouts,
+                },
+            }).catch(() => {});
+        }
 
         res.json({
             id: user.id,
@@ -147,8 +172,8 @@ router.get(
                 : null,
             progress: {
                 streak: user.streak,
-                totalWorkouts: Math.max(user.totalWorkouts, totalWorkouts),
-                trainingHours: Math.max(user.trainingHours, Math.round(totalWorkouts * 1.5)),
+                totalWorkouts,
+                trainingHours: Math.max(0, totalWorkouts),
                 identityStage: user.identityStage,
             },
             membership: user.membership
