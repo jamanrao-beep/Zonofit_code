@@ -655,10 +655,7 @@ router.get("/analytics/members", auth_1.requireAuth, async (req, res) => {
         // 1. Fetch all registered network members (all users who are members, excluding the partner's own account)
         const registeredUsers = await prisma_1.default.user.findMany({
             where: {
-                NOT: {
-                    systemRole: "GYM_OWNER",
-                    id: req.dbUserId,
-                },
+                id: { not: req.dbUserId },
             },
             include: {
                 membership: {
