@@ -3,6 +3,7 @@
 import GymGuard from "@/components/GymGuard";
 import SlotEnquiry from "@/components/SlotEnquiry";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Visitor = {
   bookingId: string;
@@ -125,6 +126,7 @@ function VisitorList({
 }
 
 export default function TodayVisitorsPage() {
+  const router = useRouter();
   const [selectedOffset, setSelectedOffset] = useState<number>(0);
   const [isToday, setIsToday] = useState(true);
   const [dateLabel, setDateLabel] = useState("");
@@ -136,6 +138,7 @@ export default function TodayVisitorsPage() {
 
   const load = async (offset = selectedOffset) => {
     setLoading(true);
+    setError("");
     try {
       const token = localStorage.getItem("zonofit_portal_token");
       const res = await fetch(`/api/gyms/today-visitors?offset=${offset}`, {
@@ -143,9 +146,14 @@ export default function TodayVisitorsPage() {
       });
       const data = await res.json();
       if (!res.ok) {
+        if (res.status === 401) {
+          router.replace("/auth/login");
+          return;
+        }
         setError(data.message || "Could not load visitors.");
         return;
       }
+      setError("");
       setDateLabel(typeof data.date === "string" ? data.date : "");
       setIsToday(data.isToday ?? (offset === 0));
       setGyms(Array.isArray(data.gyms) ? data.gyms : []);
@@ -289,7 +297,16 @@ export default function TodayVisitorsPage() {
         {loading ? (
           <p className="text-sm text-gray-500">Loading bookings…</p>
         ) : error ? (
-          <p className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
+          <div className="flex items-center justify-between rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <span>{error}</span>
+            <button
+              type="button"
+              onClick={() => load(selectedOffset)}
+              className="px-3 py-1 bg-white border border-red-200 text-red-700 rounded-xl font-bold text-xs hover:bg-red-50 transition-colors cursor-pointer shadow-xs"
+            >
+              Retry
+            </button>
+          </div>
         ) : (
           gyms.map((gym) => (
             <section key={gym.id} className="space-y-3 min-w-0">
