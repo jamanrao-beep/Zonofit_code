@@ -129,6 +129,9 @@ function applicationMessage(application: Application): string {
   return lines.join("\n");
 }
 
+const DEFAULT_SHEET_WEBHOOK_URL =
+  "https://script.google.com/macros/s/AKfycbyALASJmd9MZ8HNqvvMTzleZkOEX6p4ZW588B2d5u8Nrujsx8uCpuZWzMcDTyJDawtl/exec";
+
 /**
  * Appends the new submission to a connected Google Sheet via Google Apps Script Web App.
  * Non-blocking and never throws to the client.
@@ -137,7 +140,7 @@ async function appendToGoogleSheet(application: Application): Promise<void> {
   const webhookUrl = (
     process.env.LAUNCH_OFFER_SHEET_WEBHOOK_URL ||
     process.env.GOOGLE_SHEET_WEBHOOK_URL ||
-    ""
+    DEFAULT_SHEET_WEBHOOK_URL
   ).trim();
   if (!webhookUrl) return;
 
