@@ -66,18 +66,15 @@ function asUrlList(value: unknown): string[] {
   return raw.map((entry) => String(entry || "").trim()).filter((url) => url.startsWith("http") || url.startsWith("/"));
 }
 
-/** Uploaded files are served from the API. A relative /uploads path uses the admin rewrite. */
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "https://api.zonofit.com").replace(/\/$/, "");
+
+/** Formats uploaded and external photo URLs so they resolve reliably across dev and production. */
 function displayPhoto(url: string): string {
-  const trimmed = url.trim();
+  const trimmed = (url || "").trim();
   if (!trimmed) return "";
-  if (trimmed.startsWith("/uploads/")) return trimmed;
-  try {
-    const parsed = new URL(trimmed);
-    if (parsed.pathname.startsWith("/uploads/")) return parsed.pathname;
-  } catch {
-    return "";
-  }
-  return trimmed.startsWith("http") ? trimmed : "";
+  if (trimmed.startsWith("/uploads/")) return `${API_BASE}${trimmed}`;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return "";
 }
 
 function photosOf(item: { imageUrls?: unknown; imageUrl?: string }): string[] {
@@ -419,24 +416,26 @@ export default function AdminMarketplacePage() {
               <p className="text-sm text-gray-500 mb-2">Upload a JPEG, PNG, or WebP from your computer, or paste a direct picture address. A Google Drive share link does not work. Leave this blank and the product still appears without a photo.</p>
               <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={onImageFile} />
               <div className="flex flex-wrap gap-2 mb-3">
-                {formData.imageUrls.filter((url) => url.trim().startsWith("http") || url.trim().startsWith("/")).map((url, i) => (
-                  <div key={`${url}-${i}`} className="relative h-20 w-20 rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
-                    <img
-                      src={url}
-                      alt=""
-                      crossOrigin="anonymous"
-                      className="h-full w-full object-cover"
-                      onError={(e) => {
-                        (e.currentTarget as HTMLElement).style.display = "none";
-                        const fallback = e.currentTarget.parentElement?.querySelector(".img-fallback");
-                        if (fallback) (fallback as HTMLElement).style.display = "flex";
-                      }}
-                    />
-                    <div className="img-fallback hidden absolute inset-0 flex-col items-center justify-center p-1 bg-amber-50 text-amber-800 text-[10px] text-center font-bold">
-                      <span>404 or Missing</span>
+                {formData.imageUrls.filter((url) => url.trim().startsWith("http") || url.trim().startsWith("/")).map((url, i) => {
+                  const resolved = displayPhoto(url);
+                  return (
+                    <div key={`${url}-${i}`} className="relative h-20 w-20 rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
+                      <img
+                        src={resolved}
+                        alt=""
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLElement).style.display = "none";
+                          const fallback = e.currentTarget.parentElement?.querySelector(".img-fallback");
+                          if (fallback) (fallback as HTMLElement).style.display = "flex";
+                        }}
+                      />
+                      <div className="img-fallback hidden absolute inset-0 flex-col items-center justify-center p-1 bg-amber-50 text-amber-800 text-[10px] text-center font-bold">
+                        <span>404 or Missing</span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               <div className="space-y-2">
                 {formData.imageUrls.map((url, index) => (

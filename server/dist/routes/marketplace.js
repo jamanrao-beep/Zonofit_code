@@ -18,10 +18,16 @@ const router = (0, express_1.Router)();
  * Returns all available marketplace items.
  */
 router.get("/items", async (_req, res) => {
-    const items = await prisma_1.default.marketplaceItem.findMany({
-        orderBy: { createdAt: "desc" },
-    });
-    res.json(items.map((item) => (0, marketplaceItem_1.presentMarketplaceItem)(item)));
+    try {
+        const items = await prisma_1.default.marketplaceItem.findMany({
+            orderBy: { createdAt: "desc" },
+        });
+        res.json(items.map((item) => (0, marketplaceItem_1.presentMarketplaceItem)(item)));
+    }
+    catch (err) {
+        console.error("[marketplace] failed to fetch items:", err?.message || err);
+        res.status(500).json({ error: "ServerError", message: "Failed to fetch items." });
+    }
 });
 // ─── GET /api/marketplace/orders ──────────────────────────────────────────────
 /**
