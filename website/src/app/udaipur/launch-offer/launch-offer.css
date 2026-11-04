@@ -50,19 +50,15 @@
 .lu-brand-mark {
   width: 34px;
   height: 34px;
-  border-radius: 9px;
-  overflow: hidden;
-  background: #4ea02b;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .lu-brand-img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .lu-brand-text {
@@ -443,50 +439,232 @@
   width: 0;
 }
 
-.lu-done {
-  max-width: 480px;
-  margin: 8vh auto 0;
+.lu-page {
+  --g: #16a34a;
+  --g2: #4ade80;
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  overflow-y: auto;
+  color: #fff;
+  font-family: var(--font-jakarta), Inter, Roboto, "Segoe UI", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background:
+    radial-gradient(90% 55% at 80% 0%, #17703f 0%, transparent 60%),
+    radial-gradient(70% 50% at 0% 100%, #0f5a35 0%, transparent 55%),
+    #06281a;
+  animation: luin 0.45s ease both;
+}
+
+@keyframes luin {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: none; }
+}
+
+.lu-pin {
+  max-width: 460px;
+  margin: 0 auto;
+  padding: calc(env(safe-area-inset-top, 0px) + 26px) 20px calc(env(safe-area-inset-bottom, 0px) + 28px);
   text-align: center;
 }
 
 .lu-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-weight: 800;
   letter-spacing: 0.18em;
   font-size: 13px;
+}
+
+.lu-brand img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
 }
 
 .lu-brand b {
   color: var(--g2);
 }
 
-.lu-done h2 {
-  margin-top: 28px;
+.lu-ring2 {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  margin: 26px auto 0;
+  background: rgba(74, 222, 128, 0.14);
+  display: grid;
+  place-items: center;
+  box-shadow: 0 0 0 10px rgba(74, 222, 128, 0.08);
 }
 
-.lu-done p {
-  margin: 14px auto 0;
-  max-width: 360px;
-  font-size: 17px;
+.lu-ring2 i {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: var(--g);
+  display: grid;
+  place-items: center;
+  animation: lupop 0.6s cubic-bezier(0.2, 1.6, 0.4, 1) both;
+}
+
+@keyframes lupop {
+  from { transform: scale(0); }
+  to { transform: scale(1); }
+}
+
+.lu-tag {
+  display: inline-block;
+  margin-top: 18px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--g2);
+}
+
+.lu-page h1 {
+  font-size: clamp(30px, 8vw, 38px);
+  line-height: 1.08;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  margin-top: 8px;
+}
+
+.lu-gp {
+  margin-top: 10px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.lu-big {
+  margin-top: 26px;
+  border-radius: 26px;
+  padding: 26px 20px 22px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05));
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.lu-big small {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.lu-big strong {
+  display: block;
+  font-size: clamp(34px, 10vw, 44px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  margin-top: 8px;
+}
+
+.lu-at {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #052e1a;
+  background: var(--g2);
+  padding: 6px 14px;
+  border-radius: 99px;
+  text-decoration: none;
+}
+
+.lu-big p {
+  margin-top: 16px;
+  font-size: 14.5px;
   line-height: 1.5;
   color: rgba(255, 255, 255, 0.78);
 }
 
-.lu-done .lu-gymline {
-  margin-top: 10px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--g2);
+.lu-big p b {
+  color: #fff;
 }
 
-.lu-back {
-  display: inline-block;
-  margin-top: 28px;
+.lu-page .lu-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  text-align: center;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  padding: 16px;
+  border-radius: 16px;
+  border: 0;
+  cursor: pointer;
+  text-decoration: none;
+  margin-top: 18px;
+}
+
+.lu-white {
+  background: #fff;
+  color: #06281a;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3);
+}
+
+.lu-acts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.lu-act {
+  font: inherit;
+  color: #fff;
+  text-decoration: none;
+  cursor: pointer;
+  text-align: center;
+  padding: 16px 8px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.lu-act strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.lu-act span {
+  display: block;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.62);
+  line-height: 1.3;
+}
+
+.lu-close {
+  margin-top: 22px;
+  font: inherit;
   font-size: 14px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(255, 255, 255, 0.7);
   background: none;
   border: 0;
-  text-decoration: none;
+  cursor: pointer;
+  padding: 10px;
+}
+
+.lu-confetti {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9999;
 }
 
 @media (max-width: 860px) {

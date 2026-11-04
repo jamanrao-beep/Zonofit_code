@@ -1,7 +1,23 @@
 "use client";
 
-import { useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { createPortal } from "react-dom";
+import { Camera, Share2 } from "lucide-react";
 import "./launch-offer.css";
+
+const INSTA_HANDLE = "zonofit.app";
+const INSTA_URL = "https://www.instagram.com/zonofit.app/";
+const OFFER_URL = "https://zonofit.com/udaipur/launch-offer";
+
+function InstaIcon({ size = 22 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "https://api.zonofit.com";
 
@@ -25,6 +41,212 @@ const GYMS = [
 const SEX = ["Male", "Female", "Other"] as const;
 
 type Errors = Partial<Record<"name" | "phone" | "age" | "sex" | "gym", string>>;
+type Sent = { firstName: string; gym: string };
+
+function Confetti() {
+  const ref = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    let frame = 0;
+    let alive = true;
+
+    const burst = () => {
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      const colors = ["#4ade80", "#16a34a", "#ffffff", "#facc15", "#86efac"];
+      const pieces = Array.from({ length: 150 }, () => ({
+        x: window.innerWidth / 2 + (Math.random() - 0.5) * 120,
+        y: window.innerHeight * 0.45,
+        vx: (Math.random() - 0.5) * 16,
+        vy: -Math.random() * 17 - 4,
+        w: 6 + Math.random() * 7,
+        h: 9 + Math.random() * 9,
+        r: Math.random() * 6,
+        vr: (Math.random() - 0.5) * 0.35,
+        c: colors[(Math.random() * colors.length) | 0],
+      }));
+      let tick = 0;
+      const draw = () => {
+        if (!alive) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        tick += 1;
+        pieces.forEach((piece) => {
+          piece.vy += 0.42;
+          piece.vx *= 0.992;
+          piece.x += piece.vx;
+          piece.y += piece.vy;
+          piece.r += piece.vr;
+          ctx.save();
+          ctx.translate(piece.x, piece.y);
+          ctx.rotate(piece.r);
+          ctx.globalAlpha = Math.max(0, 1 - tick / 190);
+          ctx.fillStyle = piece.c;
+          ctx.fillRect(-piece.w / 2, -piece.h / 2, piece.w, piece.h);
+          ctx.restore();
+        });
+        if (tick < 190) frame = window.requestAnimationFrame(draw);
+        else ctx.clearRect(0, 0, canvas.width, canvas.height);
+      };
+      window.cancelAnimationFrame(frame);
+      draw();
+    };
+
+    burst();
+    const again = window.setTimeout(burst, 1300);
+    return () => {
+      alive = false;
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(again);
+    };
+  }, []);
+
+  return <canvas ref={ref} className="lu-confetti" aria-hidden="true" />;
+}
+
+async function shareOffer() {
+  const text = `Zonofit is giving free gym memberships in Udaipur. I just applied. Apply too: ${OFFER_URL}`;
+  if (typeof navigator.share === "function") {
+    try {
+      await navigator.share({ title: "ZonoFit Udaipur", text, url: OFFER_URL });
+      return;
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
+    }
+  }
+  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
+}
+
+async function postStory(gymName: string) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 1080;
+  canvas.height = 1920;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  const font = "Inter, Roboto, Segoe UI, Helvetica, Arial, sans-serif";
+  const paint = ctx.createLinearGradient(0, 0, 1080, 1920);
+  paint.addColorStop(0, "#16703f");
+  paint.addColorStop(0.45, "#0b3d26");
+  paint.addColorStop(1, "#06281a");
+  ctx.fillStyle = paint;
+  ctx.fillRect(0, 0, 1080, 1920);
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#4ade80";
+  ctx.font = `700 40px ${font}`;
+  ctx.fillText("LAUNCH · UDAIPUR", 540, 360);
+  ctx.fillStyle = "#fff";
+  ctx.font = `800 170px ${font}`;
+  ctx.fillText("I'M IN.", 540, 640);
+  ctx.font = `600 54px ${font}`;
+  ctx.fillStyle = "rgba(255,255,255,.85)";
+  ctx.fillText("I applied for a free gym", 540, 800);
+  ctx.fillText("membership with Zonofit.", 540, 870);
+  ctx.fillStyle = "rgba(255,255,255,.1)";
+  ctx.beginPath();
+  ctx.roundRect(140, 1000, 800, 200, 40);
+  ctx.fill();
+  ctx.fillStyle = "#b8f5cf";
+  ctx.font = `600 34px ${font}`;
+  ctx.fillText("MY GYM", 540, 1070);
+  ctx.fillStyle = "#fff";
+  ctx.font = `800 52px ${font}`;
+  const gymLine = gymName.length > 28 ? `${gymName.slice(0, 26)}…` : gymName;
+  ctx.fillText(gymLine, 540, 1145);
+  ctx.fillStyle = "#4ade80";
+  ctx.font = `800 64px ${font}`;
+  ctx.fillText("Pay for the workout,", 540, 1440);
+  ctx.fillStyle = "#fff";
+  ctx.fillText("not the membership.", 540, 1520);
+  ctx.fillStyle = "rgba(255,255,255,.7)";
+  ctx.font = `600 44px ${font}`;
+  ctx.fillText("Apply free at zonofit.com", 540, 1740);
+  ctx.fillText(`@${INSTA_HANDLE}`, 540, 1810);
+
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+  if (!blob) return;
+  const file = new File([blob], "zonofit-udaipur.png", { type: "image/png" });
+  const shareData = { files: [file], text: `Tag @${INSTA_HANDLE}` };
+  try {
+    if (typeof navigator.canShare === "function" && navigator.canShare(shareData)) {
+      await navigator.share(shareData);
+      return;
+    }
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") return;
+  }
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "zonofit-udaipur.png";
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(link.href), 1500);
+}
+
+function SuccessPage({ sent, onClose }: { sent: Sent; onClose: () => void }) {
+  useEffect(() => {
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, []);
+
+  return (
+    <>
+      <div className="lu-page" role="dialog" aria-modal="true" aria-labelledby="lu-hi">
+        <div className="lu-pin">
+          <div className="lu-brand">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/Zonofit_Logo_RemovedBackground.png" alt="" />
+            ZONO<b>FIT</b>
+          </div>
+          <div className="lu-ring2">
+            <i>
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M5 12.5l4.5 4.5L19 7.5" />
+              </svg>
+            </i>
+          </div>
+          <span className="lu-tag">Application received</span>
+          <h1 id="lu-hi">You&apos;re in the draw, {sent.firstName}.</h1>
+          <p className="lu-gp">Applied for: {sent.gym}</p>
+
+          <div className="lu-big">
+            <small>Results declared on</small>
+            <strong>Instagram Story</strong>
+            <a className="lu-at" href={INSTA_URL} target="_blank" rel="noopener noreferrer">@{INSTA_HANDLE}</a>
+            <p>Follow, share, or post and tag us. <b>That way we can find your name.</b></p>
+            <a className="lu-btn lu-white" href={INSTA_URL} target="_blank" rel="noopener noreferrer">
+              <InstaIcon size={18} /> Follow on Instagram
+            </a>
+          </div>
+
+          <div className="lu-acts">
+            <a className="lu-act" href={INSTA_URL} target="_blank" rel="noopener noreferrer">
+              <InstaIcon size={22} />
+              <strong>Follow</strong>
+              <span>@{INSTA_HANDLE}</span>
+            </a>
+            <button className="lu-act" type="button" onClick={() => void shareOffer()}>
+              <Share2 size={22} />
+              <strong>Share</strong>
+              <span>Send to a friend</span>
+            </button>
+            <button className="lu-act" type="button" onClick={() => void postStory(sent.gym)}>
+              <Camera size={22} />
+              <strong>Post</strong>
+              <span>Tag @{INSTA_HANDLE}</span>
+            </button>
+          </div>
+          <button className="lu-close" type="button" onClick={onClose}>Back to zonofit.com</button>
+        </div>
+      </div>
+      <Confetti />
+    </>
+  );
+}
 
 export default function LaunchOfferForm() {
   const [name, setName] = useState("");
@@ -40,8 +262,13 @@ export default function LaunchOfferForm() {
   const [errors, setErrors] = useState<Errors>({});
   const [fail, setFail] = useState("");
   const [sending, setSending] = useState(false);
-  const [done, setDone] = useState("");
+  const [done, setDone] = useState<Sent | null>(null);
+  const [mounted, setMounted] = useState(false);
   const customRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const visibleGyms = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -64,7 +291,7 @@ export default function LaunchOfferForm() {
     if (sending || done) return;
     setFail("");
     if (website.trim()) {
-      setDone(custom ? customGym.trim() : gym);
+      setDone({ firstName: name.trim().split(/\s+/)[0] || "there", gym: custom ? customGym.trim() : gym });
       return;
     }
     if (!validate()) {
@@ -98,7 +325,7 @@ export default function LaunchOfferForm() {
         setSending(false);
         return;
       }
-      setDone(custom ? customGym.trim() : gym);
+      setDone({ firstName: name.trim().split(/\s+/)[0] || "there", gym: custom ? customGym.trim() : gym });
     } catch {
       setFail("Could not send. Check your network and try again.");
       setSending(false);
@@ -113,21 +340,9 @@ export default function LaunchOfferForm() {
     }
   }
 
-  if (done) {
-    return (
-      <section className="lu" aria-labelledby="lu-thanks">
-        <div className="lu-done">
-          <div className="lu-brand">ZONO<b>FIT</b></div>
-          <h2 id="lu-thanks">Thank you.</h2>
-          <p>Your response has been recorded.</p>
-          <div className="lu-gymline">{done}</div>
-          <a className="lu-back" href="/">Back to zonofit.com</a>
-        </div>
-      </section>
-    );
-  }
-
   return (
+    <>
+    {done && mounted ? createPortal(<SuccessPage sent={done} onClose={() => { window.location.href = "/"; }} />, document.body) : null}
     <section className="lu" aria-labelledby="lu-h">
       {/* Top Navigation Bar with Back to zonofit.com button */}
       <div className="lu-topbar">
@@ -135,7 +350,7 @@ export default function LaunchOfferForm() {
           <span className="lu-brand-mark">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/Zonofit_final_logo.jpeg"
+              src="/Zonofit_Logo_RemovedBackground.png"
               alt="ZonoFit"
               className="lu-brand-img"
               onError={(e) => {
@@ -335,5 +550,6 @@ export default function LaunchOfferForm() {
         </div>
       </div>
     </section>
+    </>
   );
 }
