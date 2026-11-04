@@ -17,27 +17,6 @@ import {
 import { StatusBar } from "expo-status-bar";
 
 const TOTAL_JOURNEY_MONTHS = 12;
-
-/* ------------------------------------------------------------------------ */
-/* Timeline (ms from mount) — measured from the 30 fps reference video      */
-/* ------------------------------------------------------------------------ */
-const SPLASH_TIMELINE = {
-  tileIn: { start: 100, duration: 330 }, // tile fades in + scales 0.78 → 1
-  barWipe: { start: 490, duration: 90 }, // F top bar wipes in L → R
-  barSolid: { start: 490, duration: 260 }, // …translucent → solid
-  hookDraw: { start: 600, duration: 110 }, // F lower hook draws on
-  hookSolid: { start: 600, duration: 360 }, // snaps solid
-  dotIn: { start: 1100, duration: 160 }, // dot drops in + scales up
-  ringPulse: { start: 1300, duration: 450 }, // single ring ripple from the dot
-  wordmarkIn: { start: 1740, duration: 220, stagger: 42 }, // letters rise from mask L → R
-  taglineIn: { start: 2100, duration: 300 }, // tagline fades in
-  segmentsIn: { start: 2580, step: 100, duration: 70 }, // segment fills
-  labelIn: { start: 2950, duration: 250 }, // "Month X of 12" fades in
-  tileOut: { start: 3270, duration: 150 }, // tile pales, F fades out
-  flood: { start: 3310, duration: 270 }, // green circle grows out of the dot and floods screen
-  complete: 3700, // onComplete navigation
-} as const;
-
 const WORDMARK_CHARS = ["Z", "o", "n", "o", "f", "i", "t"];
 
 export default function SplashAnimationScreen() {
@@ -48,61 +27,62 @@ export default function SplashAnimationScreen() {
   const membershipCycle = useCreditsStore((s) => s.membershipInfo?.cycleNumber);
   const cycleMonth = Math.max(1, Math.min(TOTAL_JOURNEY_MONTHS, membershipCycle || userMonth || 1));
 
-  const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
-  // 1080 artboard scaling factor
-  const artboardScale = Math.min(screenWidth, 480) / 1080;
+  const { width: screenWidth } = Dimensions.get("window");
+  // Scale for a 1080 artboard
+  const artboardScale = Math.min(screenWidth, 440) / 1080;
   const u = (px: number) => px * artboardScale;
 
-  // Root screen fade out
+  // Master fade out of the entire splash screen
   const screenFadeAnim = useRef(new Animated.Value(1)).current;
 
-  // 1. Tile animation
-  const tileScale = useRef(new Animated.Value(0.78)).current;
+  // 1. Tile Base Animation
+  const tileScale = useRef(new Animated.Value(0.82)).current;
   const tileOpacity = useRef(new Animated.Value(0)).current;
 
-  // 2. Mark animations: Top bar
-  const topBarScaleX = useRef(new Animated.Value(0)).current;
-  const topBarOpacity = useRef(new Animated.Value(0)).current;
+  // 2. Part 1: Top Bar Animation (Sweeps from left)
+  const part1TranslateX = useRef(new Animated.Value(-45)).current;
+  const part1ScaleX = useRef(new Animated.Value(0.7)).current;
+  const part1Opacity = useRef(new Animated.Value(0)).current;
 
-  // 3. Mark animations: Hook
-  const hookScale = useRef(new Animated.Value(0.3)).current;
-  const hookOpacity = useRef(new Animated.Value(0)).current;
-  const hookTranslateY = useRef(new Animated.Value(-12)).current;
+  // 3. Part 2: Middle Hook Animation (Curves in from bottom-right)
+  const part2TranslateX = useRef(new Animated.Value(30)).current;
+  const part2TranslateY = useRef(new Animated.Value(40)).current;
+  const part2Scale = useRef(new Animated.Value(0.72)).current;
+  const part2Rotate = useRef(new Animated.Value(1)).current; // 1 -> 0 (8deg -> 0deg)
+  const part2Opacity = useRef(new Animated.Value(0)).current;
 
-  // 4. Mark animations: Dot
-  const dotScale = useRef(new Animated.Value(0.5)).current;
-  const dotOpacity = useRef(new Animated.Value(0)).current;
-  const dotTranslateY = useRef(new Animated.Value(-24)).current;
+  // 4. Part 3: Center Dot Animation (Drops from above with elastic bounce)
+  const part3TranslateY = useRef(new Animated.Value(-48)).current;
+  const part3Scale = useRef(new Animated.Value(0.35)).current;
+  const part3Opacity = useRef(new Animated.Value(0)).current;
 
-  // 5. Dot ring ripple
-  const ringScale = useRef(new Animated.Value(1)).current;
-  const ringOpacity = useRef(new Animated.Value(0)).current;
+  // 5. Circular ripple on dot impact
+  const rippleScale = useRef(new Animated.Value(1.0)).current;
+  const rippleOpacity = useRef(new Animated.Value(0)).current;
 
-  // 6. Master crisp icon cross-fade
-  const fullIconOpacity = useRef(new Animated.Value(0)).current;
-
-  // 7. Wordmark letters staggered rise
+  // 6. Wordmark letters staggered reveal
   const letterAnims = useMemo(
-    () => WORDMARK_CHARS.map(() => ({
-      y: new Animated.Value(36),
-      opacity: new Animated.Value(0),
-    })),
+    () =>
+      WORDMARK_CHARS.map(() => ({
+        y: new Animated.Value(30),
+        opacity: new Animated.Value(0),
+      })),
     []
   );
 
-  // 8. Tagline fade in
+  // 7. Tagline
   const taglineOpacity = useRef(new Animated.Value(0)).current;
 
-  // 9. 12 Journey segments fill animations
+  // 8. 12-Month Journey segments
   const segmentAnims = useMemo(
     () => Array.from({ length: TOTAL_JOURNEY_MONTHS }, () => new Animated.Value(0)),
     []
   );
 
-  // 10. Month label
+  // 9. Month label
   const labelOpacity = useRef(new Animated.Value(0)).current;
 
-  // 11. Green flood circle
+  // 10. Final green circle screen flood
   const floodScale = useRef(new Animated.Value(0.001)).current;
   const floodOpacity = useRef(new Animated.Value(0)).current;
 
@@ -113,149 +93,170 @@ export default function SplashAnimationScreen() {
     SplashScreen.hideAsync().catch(() => {});
   }, []);
 
-  // Multi-phase recreation of the animation video
+  // ─── 3-Part Logo Master Choreography ───
   useEffect(() => {
     const timers: any[] = [];
 
-    // --- Step 1: Tile Entrance (100ms - 430ms) ---
+    // [0ms - 400ms]: Green squircle tile scales in smoothly
     timers.push(
       setTimeout(() => {
         Animated.parallel([
           Animated.timing(tileOpacity, {
             toValue: 1,
-            duration: SPLASH_TIMELINE.tileIn.duration,
+            duration: 380,
             easing: Easing.out(Easing.cubic),
             useNativeDriver: true,
           }),
-          Animated.timing(tileScale, {
+          Animated.spring(tileScale, {
             toValue: 1,
-            duration: SPLASH_TIMELINE.tileIn.duration,
-            easing: Easing.out(Easing.cubic),
+            friction: 7,
+            tension: 70,
             useNativeDriver: true,
           }),
         ]).start();
-      }, SPLASH_TIMELINE.tileIn.start)
+      }, 50)
     );
 
-    // --- Step 2: Top Bar Wipe In (490ms - 750ms) ---
+    // [350ms - 750ms]: Part 1 — Top Bar sweeps in dynamically from left
     timers.push(
       setTimeout(() => {
         Animated.parallel([
-          Animated.timing(topBarOpacity, {
+          Animated.timing(part1Opacity, {
             toValue: 1,
-            duration: SPLASH_TIMELINE.barSolid.duration,
-            easing: Easing.out(Easing.quad),
+            duration: 280,
             useNativeDriver: true,
           }),
-          Animated.timing(topBarScaleX, {
-            toValue: 1,
-            duration: SPLASH_TIMELINE.barWipe.duration,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-          }),
-        ]).start();
-      }, SPLASH_TIMELINE.barWipe.start)
-    );
-
-    // --- Step 3: Lower Hook Draw (600ms - 960ms) ---
-    timers.push(
-      setTimeout(() => {
-        Animated.parallel([
-          Animated.timing(hookOpacity, {
-            toValue: 1,
-            duration: SPLASH_TIMELINE.hookSolid.duration,
-            easing: Easing.out(Easing.quad),
-            useNativeDriver: true,
-          }),
-          Animated.timing(hookScale, {
-            toValue: 1,
-            duration: SPLASH_TIMELINE.hookDraw.duration,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-          }),
-          Animated.timing(hookTranslateY, {
+          Animated.timing(part1TranslateX, {
             toValue: 0,
-            duration: SPLASH_TIMELINE.hookDraw.duration,
+            duration: 380,
+            easing: Easing.bezier(0.16, 1, 0.3, 1),
+            useNativeDriver: true,
+          }),
+          Animated.timing(part1ScaleX, {
+            toValue: 1,
+            duration: 380,
             easing: Easing.out(Easing.cubic),
             useNativeDriver: true,
           }),
         ]).start();
-      }, SPLASH_TIMELINE.hookDraw.start)
+      }, 350)
     );
 
-    // --- Step 4: Dot Drop In & Spring (1100ms - 1260ms) ---
+    // [650ms - 1050ms]: Part 2 — Middle Hook curves in from bottom-right and snaps into place
     timers.push(
       setTimeout(() => {
         Animated.parallel([
-          Animated.timing(dotOpacity, {
+          Animated.timing(part2Opacity, {
             toValue: 1,
-            duration: SPLASH_TIMELINE.dotIn.duration,
+            duration: 280,
             useNativeDriver: true,
           }),
-          Animated.spring(dotScale, {
+          Animated.timing(part2TranslateX, {
+            toValue: 0,
+            duration: 380,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+          Animated.timing(part2TranslateY, {
+            toValue: 0,
+            duration: 380,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+          Animated.spring(part2Scale, {
             toValue: 1,
-            friction: 6,
+            friction: 7,
             tension: 80,
             useNativeDriver: true,
           }),
-          Animated.timing(dotTranslateY, {
+          Animated.timing(part2Rotate, {
             toValue: 0,
-            duration: SPLASH_TIMELINE.dotIn.duration,
+            duration: 360,
             easing: Easing.out(Easing.cubic),
             useNativeDriver: true,
           }),
-        ]).start(() => {
-          // Cross-fade the pixel-perfect master icon
-          Animated.timing(fullIconOpacity, {
-            toValue: 1,
-            duration: 180,
-            useNativeDriver: true,
-          }).start();
-        });
-      }, SPLASH_TIMELINE.dotIn.start)
+        ]).start();
+      }, 650)
     );
 
-    // --- Step 5: Ring Ripple around the Dot (1300ms - 1750ms) ---
+    // [1050ms - 1450ms]: Part 3 — Center Dot drops into the hook with elastic spring
     timers.push(
       setTimeout(() => {
         Animated.parallel([
-          Animated.sequence([
-            Animated.timing(ringOpacity, {
-              toValue: 0.75,
-              duration: 100,
-              useNativeDriver: true,
-            }),
-            Animated.timing(ringOpacity, {
-              toValue: 0,
-              duration: 350,
-              useNativeDriver: true,
-            }),
-          ]),
-          Animated.timing(ringScale, {
-            toValue: 2.2,
-            duration: SPLASH_TIMELINE.ringPulse.duration,
-            easing: Easing.out(Easing.quad),
+          Animated.timing(part3Opacity, {
+            toValue: 1,
+            duration: 140,
             useNativeDriver: true,
           }),
-        ]).start();
-      }, SPLASH_TIMELINE.ringPulse.start)
+          Animated.spring(part3TranslateY, {
+            toValue: 0,
+            friction: 5,
+            tension: 95,
+            useNativeDriver: true,
+          }),
+          Animated.spring(part3Scale, {
+            toValue: 1,
+            friction: 5,
+            tension: 95,
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
+          // Circular ripple outward from the dot
+          Animated.parallel([
+            Animated.sequence([
+              Animated.timing(rippleOpacity, {
+                toValue: 0.85,
+                duration: 90,
+                useNativeDriver: true,
+              }),
+              Animated.timing(rippleOpacity, {
+                toValue: 0,
+                duration: 380,
+                useNativeDriver: true,
+              }),
+            ]),
+            Animated.timing(rippleScale, {
+              toValue: 2.5,
+              duration: 470,
+              easing: Easing.out(Easing.quad),
+              useNativeDriver: true,
+            }),
+          ]).start();
+
+          // Subtle whole-logo micro-punch impact
+          Animated.sequence([
+            Animated.timing(tileScale, {
+              toValue: 1.035,
+              duration: 130,
+              easing: Easing.out(Easing.quad),
+              useNativeDriver: true,
+            }),
+            Animated.timing(tileScale, {
+              toValue: 1.0,
+              duration: 180,
+              easing: Easing.inOut(Easing.quad),
+              useNativeDriver: true,
+            }),
+          ]).start();
+        });
+      }, 1050)
     );
 
-    // --- Step 6: Wordmark "Zonofit" Staggered Rise (1740ms - 2050ms) ---
+    // [1600ms - 2000ms]: Wordmark letters staggered reveal
     timers.push(
       setTimeout(() => {
         const letterAnimations = letterAnims.map((item, index) =>
           Animated.sequence([
-            Animated.delay(index * SPLASH_TIMELINE.wordmarkIn.stagger),
+            Animated.delay(index * 38),
             Animated.parallel([
               Animated.timing(item.opacity, {
                 toValue: 1,
-                duration: SPLASH_TIMELINE.wordmarkIn.duration,
+                duration: 220,
                 useNativeDriver: true,
               }),
               Animated.timing(item.y, {
                 toValue: 0,
-                duration: SPLASH_TIMELINE.wordmarkIn.duration,
+                duration: 220,
                 easing: Easing.out(Easing.cubic),
                 useNativeDriver: true,
               }),
@@ -263,79 +264,69 @@ export default function SplashAnimationScreen() {
           ])
         );
         Animated.parallel(letterAnimations).start();
-      }, SPLASH_TIMELINE.wordmarkIn.start)
+      }, 1600)
     );
 
-    // --- Step 7: Tagline Fade In (2100ms - 2400ms) ---
+    // [1950ms - 2250ms]: Tagline fade in
     timers.push(
       setTimeout(() => {
         Animated.timing(taglineOpacity, {
           toValue: 1,
-          duration: SPLASH_TIMELINE.taglineIn.duration,
+          duration: 300,
           easing: Easing.out(Easing.quad),
           useNativeDriver: true,
         }).start();
-      }, SPLASH_TIMELINE.taglineIn.start)
+      }, 1950)
     );
 
-    // --- Step 8: 12-Segment Progress Fill up to cycleMonth (2580ms - 2950ms) ---
+    // [2200ms - 2700ms]: 12-Segment Progress fills to current journey month
     timers.push(
       setTimeout(() => {
         const filled = Math.max(1, Math.min(cycleMonth, TOTAL_JOURNEY_MONTHS));
         const activeSegmentAnimations = segmentAnims.slice(0, filled).map((anim, index) =>
           Animated.sequence([
-            Animated.delay(index * SPLASH_TIMELINE.segmentsIn.step),
+            Animated.delay(index * 80),
             Animated.timing(anim, {
               toValue: 1,
-              duration: SPLASH_TIMELINE.segmentsIn.duration,
+              duration: 120,
               easing: Easing.out(Easing.quad),
               useNativeDriver: false,
             }),
           ])
         );
         Animated.parallel(activeSegmentAnimations).start();
-      }, SPLASH_TIMELINE.segmentsIn.start)
+      }, 2200)
     );
 
-    // --- Step 9: "Month X of 12" Label Fade In (2950ms - 3200ms) ---
+    // [2600ms - 2900ms]: Month label fade in
     timers.push(
       setTimeout(() => {
         Animated.timing(labelOpacity, {
           toValue: 1,
-          duration: SPLASH_TIMELINE.labelIn.duration,
+          duration: 260,
           easing: Easing.out(Easing.quad),
           useNativeDriver: true,
         }).start();
-      }, SPLASH_TIMELINE.labelIn.start)
+      }, 2600)
     );
 
-    // --- Step 10: Tile pales and Green Circle Flood (3270ms - 3650ms) ---
-    timers.push(
-      setTimeout(() => {
-        Animated.timing(tileOpacity, {
-          toValue: 0.55,
-          duration: SPLASH_TIMELINE.tileOut.duration,
-          useNativeDriver: true,
-        }).start();
-      }, SPLASH_TIMELINE.tileOut.start)
-    );
-
+    // [3050ms - 3350ms]: Green flood expands smoothly from dot
     timers.push(
       setTimeout(() => {
         Animated.parallel([
           Animated.timing(floodOpacity, {
             toValue: 1,
-            duration: 40,
+            duration: 50,
             useNativeDriver: true,
           }),
           Animated.timing(floodScale, {
-            toValue: 28,
-            duration: SPLASH_TIMELINE.flood.duration,
-            easing: Easing.bezier(0.2, 0.8, 0.3, 1),
+            toValue: 30,
+            duration: 320,
+            easing: Easing.bezier(0.2, 0.8, 0.25, 1),
             useNativeDriver: true,
           }),
         ]).start();
-      }, SPLASH_TIMELINE.flood.start)
+      }, 3050)
     );
 
     return () => {
@@ -343,7 +334,7 @@ export default function SplashAnimationScreen() {
     };
   }, [cycleMonth, letterAnims, segmentAnims]);
 
-  // --- Step 11: Navigation on complete (3700ms) ---
+  // [3450ms]: Seamless navigation into app
   useEffect(() => {
     if (!isLoaded) return;
 
@@ -351,10 +342,9 @@ export default function SplashAnimationScreen() {
       if (isNavigating.current) return;
       isNavigating.current = true;
 
-      // Clean transition after green screen flood
       Animated.timing(screenFadeAnim, {
         toValue: 0,
-        duration: 200,
+        duration: 180,
         useNativeDriver: true,
       }).start(async () => {
         const { isOnboarded, user, isSignedIn: signedIn } = useAuthStore.getState();
@@ -392,125 +382,125 @@ export default function SplashAnimationScreen() {
           router.replace("/intro" as any);
         }
       });
-    }, SPLASH_TIMELINE.complete);
+    }, 3450);
 
     return () => clearTimeout(navTimer);
   }, [isLoaded, screenFadeAnim, router]);
 
-  // Tile dimensions from reference artboard: 422x422 on 1080 artboard
-  const tileSize = u(422);
-  const tileRadius = u(100);
+  // Responsive squircle size
+  const tileSize = u(410);
+
+  // Hook rotation interpolation (8deg -> 0deg)
+  const hookRotateInterpolation = part2Rotate.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "8deg"],
+  });
 
   return (
     <Animated.View style={[styles.container, { opacity: screenFadeAnim }]}>
       <StatusBar style="dark" />
 
       <View style={styles.contentWrap}>
-        {/* ─── Animated Logo Tile ─── */}
+        {/* ─── The Animated 3-Part Logo ─── */}
         <Animated.View
           style={[
-            styles.squircle,
+            styles.tileWrapper,
             {
               width: tileSize,
               height: tileSize,
-              borderRadius: tileRadius,
               opacity: tileOpacity,
               transform: [{ scale: tileScale }],
             },
           ]}
         >
-          {/* Base green gradient background & vector layers */}
-          <View style={styles.squircleInner}>
-            {/* Top white capsule slit */}
-            <Animated.View
-              style={[
-                styles.topSlit,
-                {
-                  top: u(114),
-                  left: u(104),
-                  width: u(215),
-                  height: u(38),
-                  borderRadius: u(19),
-                  opacity: topBarOpacity,
-                  transform: [{ scaleX: topBarScaleX }],
-                },
-              ]}
-            />
+          {/* Base pristine green gradient squircle */}
+          <Image
+            source={require("@/assets/images/logo_squircle_bg.png")}
+            style={StyleSheet.absoluteFill}
+            resizeMode="contain"
+          />
 
-            {/* Middle hook curved arm */}
-            <Animated.View
-              style={[
-                styles.hookArm,
-                {
-                  top: u(176),
-                  left: u(130),
-                  width: u(160),
-                  height: u(98),
-                  borderTopRightRadius: u(46),
-                  borderBottomRightRadius: u(46),
-                  borderBottomLeftRadius: u(52),
-                  opacity: hookOpacity,
-                  transform: [
-                    { scale: hookScale },
-                    { translateY: hookTranslateY },
-                  ],
-                },
-              ]}
-            />
-
-            {/* Bottom white dot */}
-            <Animated.View
-              style={[
-                styles.centerDot,
-                {
-                  top: u(260),
-                  left: u(174),
-                  width: u(39),
-                  height: u(39),
-                  borderRadius: u(20),
-                  opacity: dotOpacity,
-                  transform: [
-                    { scale: dotScale },
-                    { translateY: dotTranslateY },
-                  ],
-                },
-              ]}
-            />
-
-            {/* Concentric ring ripple from dot */}
-            <Animated.View
-              style={[
-                styles.ringRipple,
-                {
-                  top: u(258),
-                  left: u(172),
-                  width: u(43),
-                  height: u(43),
-                  borderRadius: u(22),
-                  opacity: ringOpacity,
-                  transform: [{ scale: ringScale }],
-                },
-              ]}
-            />
-          </View>
-
-          {/* Master high-res razor-sharp icon crossfade */}
+          {/* Part 1: Top Bar (Slanted wing) */}
           <Animated.View
             style={[
               StyleSheet.absoluteFill,
-              { opacity: fullIconOpacity },
+              {
+                opacity: part1Opacity,
+                transform: [
+                  { translateX: part1TranslateX },
+                  { scaleX: part1ScaleX },
+                ],
+              },
             ]}
           >
             <Image
-              source={require("@/assets/images/icon.png")}
-              style={styles.masterIcon}
-              resizeMode="cover"
+              source={require("@/assets/images/logo_part_top_bar.png")}
+              style={StyleSheet.absoluteFill}
+              resizeMode="contain"
             />
           </Animated.View>
+
+          {/* Part 2: Middle Hook (Curved arm) */}
+          <Animated.View
+            style={[
+              StyleSheet.absoluteFill,
+              {
+                opacity: part2Opacity,
+                transform: [
+                  { translateX: part2TranslateX },
+                  { translateY: part2TranslateY },
+                  { scale: part2Scale },
+                  { rotate: hookRotateInterpolation },
+                ],
+              },
+            ]}
+          >
+            <Image
+              source={require("@/assets/images/logo_part_hook.png")}
+              style={StyleSheet.absoluteFill}
+              resizeMode="contain"
+            />
+          </Animated.View>
+
+          {/* Part 3: Center Dot */}
+          <Animated.View
+            style={[
+              StyleSheet.absoluteFill,
+              {
+                opacity: part3Opacity,
+                transform: [
+                  { translateY: part3TranslateY },
+                  { scale: part3Scale },
+                ],
+              },
+            ]}
+          >
+            <Image
+              source={require("@/assets/images/logo_part_dot.png")}
+              style={StyleSheet.absoluteFill}
+              resizeMode="contain"
+            />
+          </Animated.View>
+
+          {/* Impact Ripple Ring centered on the dot */}
+          <Animated.View
+            style={[
+              styles.rippleRing,
+              {
+                top: (684 / 1024) * tileSize - u(26),
+                left: (485 / 1040) * tileSize - u(26),
+                width: u(52),
+                height: u(52),
+                borderRadius: u(26),
+                opacity: rippleOpacity,
+                transform: [{ scale: rippleScale }],
+              },
+            ]}
+          />
         </Animated.View>
 
-        {/* ─── Wordmark "Zonofit" with letter-by-letter rising reveal ─── */}
-        <View style={[styles.wordmarkClipBox, { height: u(118), marginTop: u(54) }]}>
+        {/* ─── Wordmark "Zonofit" with staggered letter rise ─── */}
+        <View style={[styles.wordmarkClipBox, { height: u(118), marginTop: u(52) }]}>
           <View style={styles.wordmarkRow}>
             {WORDMARK_CHARS.map((char, index) => (
               <Animated.Text
@@ -518,7 +508,7 @@ export default function SplashAnimationScreen() {
                 style={[
                   styles.wordmarkChar,
                   {
-                    fontSize: u(93),
+                    fontSize: u(92),
                     lineHeight: u(114),
                     opacity: letterAnims[index].opacity,
                     transform: [{ translateY: letterAnims[index].y }],
@@ -536,8 +526,8 @@ export default function SplashAnimationScreen() {
           style={[
             styles.brandSubtitle,
             {
-              fontSize: u(44),
-              marginTop: u(24),
+              fontSize: u(43),
+              marginTop: u(20),
               opacity: taglineOpacity,
             },
           ]}
@@ -585,14 +575,14 @@ export default function SplashAnimationScreen() {
 
           {/* Current Month of 12 Label */}
           <Animated.View style={{ opacity: labelOpacity, marginTop: u(22) }}>
-            <Text style={[styles.monthLabel, { fontSize: u(38) }]}>
+            <Text style={[styles.monthLabel, { fontSize: u(37) }]}>
               Month {cycleMonth} of {TOTAL_JOURNEY_MONTHS}
             </Text>
           </Animated.View>
         </View>
       </View>
 
-      {/* ─── Signature Green Circle Screen Flood ─── */}
+      {/* ─── Signature Green Screen Flood Transition ─── */}
       <Animated.View
         pointerEvents="none"
         style={[
@@ -623,42 +613,19 @@ const styles = StyleSheet.create({
     width: "100%",
     paddingHorizontal: 20,
   },
-  squircle: {
-    overflow: "hidden",
+  tileWrapper: {
+    position: "relative",
     shadowColor: "#4A8A33",
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.16,
     shadowRadius: 20,
     elevation: 0,
-    backgroundColor: "#579D2D",
   },
-  squircleInner: {
-    width: "100%",
-    height: "100%",
-    backgroundColor: "#5EA533",
-    position: "relative",
-  },
-  topSlit: {
+  rippleRing: {
     position: "absolute",
-    backgroundColor: "#FFFFFF",
-  },
-  hookArm: {
-    position: "absolute",
-    backgroundColor: "#FFFFFF",
-  },
-  centerDot: {
-    position: "absolute",
-    backgroundColor: "#FFFFFF",
-  },
-  ringRipple: {
-    position: "absolute",
-    borderWidth: 2.5,
+    borderWidth: 3,
     borderColor: "#FFFFFF",
     backgroundColor: "transparent",
-  },
-  masterIcon: {
-    width: "100%",
-    height: "100%",
   },
   wordmarkClipBox: {
     overflow: "hidden",
