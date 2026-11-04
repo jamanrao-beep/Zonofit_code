@@ -25,6 +25,86 @@
   padding: clamp(44px, 7vw, 96px) 20px;
 }
 
+.lu-topbar {
+  max-width: 1080px;
+  margin: 0 auto clamp(24px, 4vw, 40px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.lu-top-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: #fff;
+  transition: opacity 0.2s ease;
+}
+
+.lu-top-brand:hover {
+  opacity: 0.85;
+}
+
+.lu-brand-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  overflow: hidden;
+  background: #4ea02b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.lu-brand-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.lu-brand-text {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+
+.lu-back-home-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  text-decoration: none;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.lu-back-home-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.lu-back-icon {
+  transition: transform 0.2s ease;
+}
+
+.lu-back-home-btn:hover .lu-back-icon {
+  transform: translateX(-3px);
+}
+
 .lu-wrap {
   max-width: 1080px;
   margin: 0 auto;
@@ -427,5 +507,19 @@
   .lu-seg button {
     padding: 12px 2px;
     font-size: 13px;
+  }
+
+  .lu-topbar {
+    margin-bottom: 20px;
+  }
+
+  .lu-back-home-btn {
+    padding: 7px 13px;
+    font-size: 12px;
+    gap: 6px;
+  }
+
+  .lu-brand-text {
+    font-size: 18px;
   }
 }

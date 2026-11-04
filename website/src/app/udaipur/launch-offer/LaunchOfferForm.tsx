@@ -129,6 +129,41 @@ export default function LaunchOfferForm() {
 
   return (
     <section className="lu" aria-labelledby="lu-h">
+      {/* Top Navigation Bar with Back to zonofit.com button */}
+      <div className="lu-topbar">
+        <a href="https://zonofit.com" className="lu-top-brand" title="ZonoFit Home">
+          <span className="lu-brand-mark">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/Zonofit_final_logo.jpeg"
+              alt="ZonoFit"
+              className="lu-brand-img"
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+              }}
+            />
+          </span>
+          <span className="lu-brand-text">ZonoFit</span>
+        </a>
+
+        <a href="https://zonofit.com" className="lu-back-home-btn" title="Back to zonofit.com">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="lu-back-icon"
+          >
+            <path d="m15 18-6-6 6-6" />
+          </svg>
+          <span>Back to zonofit.com</span>
+        </a>
+      </div>
+
       <div className="lu-wrap">
         <div>
           <span className="lu-eyebrow"><span className="lu-dot" />Launch offer · Udaipur</span>
