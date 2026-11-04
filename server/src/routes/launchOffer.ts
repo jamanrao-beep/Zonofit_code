@@ -101,11 +101,21 @@ function clientKey(req: Request): string {
   return raw.replace(/[^\w.:-]/g, "").slice(0, 64) || "unknown";
 }
 
+const DEFAULT_SHEET_URL =
+  "https://docs.google.com/spreadsheets/d/1HmMrKW35BYsgGBHdcF4XVxUtKn-ikQ4GRJHittKNh30/edit?usp=sharing";
+
+const DEFAULT_SHEET_WEBHOOK_URL =
+  "https://script.google.com/macros/s/AKfycbyALASJmd9MZ8HNqvvMTzleZkOEX6p4ZW588B2d5u8Nrujsx8uCpuZWzMcDTyJDawtl/exec";
+
 function applicationMessage(application: Application): string {
   const gymLine = application.gym || "(not listed)";
   const requested = application.customGym || "—";
   const instagram = application.instagram ? `@${application.instagram}` : "—";
-  const sheetUrl = (process.env.LAUNCH_OFFER_SHEET_URL || process.env.GOOGLE_SHEET_URL || "").trim();
+  const sheetUrl = (
+    process.env.LAUNCH_OFFER_SHEET_URL ||
+    process.env.GOOGLE_SHEET_URL ||
+    DEFAULT_SHEET_URL
+  ).trim();
 
   const lines = [
     "Udaipur launch offer",
@@ -128,9 +138,6 @@ function applicationMessage(application: Application): string {
 
   return lines.join("\n");
 }
-
-const DEFAULT_SHEET_WEBHOOK_URL =
-  "https://script.google.com/macros/s/AKfycbyALASJmd9MZ8HNqvvMTzleZkOEX6p4ZW588B2d5u8Nrujsx8uCpuZWzMcDTyJDawtl/exec";
 
 /**
  * Appends the new submission to a connected Google Sheet via Google Apps Script Web App.
