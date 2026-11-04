@@ -16,6 +16,13 @@ export type StoredSlot = {
 };
 /** Compare "06:00 AM", "6:00AM", and "6:00 AM - 7:00 AM" as the same start. */
 export declare function slotKey(value: string): string;
+/** The window members should see, using the saved end time when the gym set one. */
+export declare function slotWindowLabel(slot: {
+    startTime: string;
+    endTime: string;
+}): string;
+/** Prefer the gym's current slot over a stored start-only or one-hour guess. */
+export declare function currentSlotWindow(timeSlot: string | null | undefined, slotsJson: string | null | undefined): string;
 export declare function bookingMatchesSlot(timeSlot: string, slot: {
     startTime: string;
     endTime: string;

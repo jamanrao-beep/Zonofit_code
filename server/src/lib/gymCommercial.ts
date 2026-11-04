@@ -36,6 +36,24 @@ export function slotKey(value: string): string {
   return compact.replace(/^0(\d:\d{2})/, "$1");
 }
 
+/** The window members should see, using the saved end time when the gym set one. */
+export function slotWindowLabel(slot: { startTime: string; endTime: string }): string {
+  const start = slot.startTime.trim();
+  const end = slot.endTime.trim();
+  if (!start) return "";
+  if (!end || slotKey(end) === slotKey(start)) return start;
+  return `${start} - ${end}`;
+}
+
+/** Prefer the gym's current slot over a stored start-only or one-hour guess. */
+export function currentSlotWindow(timeSlot: string | null | undefined, slotsJson: string | null | undefined): string {
+  const raw = (timeSlot ?? "").trim();
+  if (!raw) return raw;
+  const match = readStoredSlots(slotsJson).find((slot) => bookingMatchesSlot(raw, slot));
+  if (!match) return raw;
+  return slotWindowLabel(match);
+}
+
 export function bookingMatchesSlot(
   timeSlot: string,
   slot: { startTime: string; endTime: string },

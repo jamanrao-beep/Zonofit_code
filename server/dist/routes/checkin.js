@@ -7,6 +7,7 @@ const crypto_1 = __importDefault(require("crypto"));
 const express_1 = require("express");
 const express_validator_1 = require("express-validator");
 const prisma_1 = __importDefault(require("../lib/prisma"));
+const gymCommercial_1 = require("../lib/gymCommercial");
 const auth_1 = require("../middleware/auth");
 const errorHandler_1 = require("../middleware/errorHandler");
 const notifications_1 = require("../services/notifications");
@@ -111,7 +112,7 @@ router.post("/staff", auth_1.requireAuth, [(0, express_validator_1.body)("passCo
         const result = await prisma_1.default.$transaction(async (tx) => {
             const include = {
                 checkIn: true,
-                gym: { select: { name: true } },
+                gym: { select: { name: true, slotsJson: true } },
                 user: { select: { id: true, name: true, referredByUserId: true, totalWorkouts: true } },
             };
             let booking = await tx.booking.findFirst({
@@ -157,7 +158,7 @@ router.post("/staff", auth_1.requireAuth, [(0, express_validator_1.body)("passCo
                 throw (0, errorHandler_1.createError)("This booking has already ended and was completed.", 400, "AlreadyCompleted");
             }
             // Validate if this booking can be checked in right now (date, time slot start, expiration)
-            const eligibility = (0, bookingTime_1.checkBookingCheckInEligibility)(booking.visitDate, booking.timeSlot);
+            const eligibility = (0, bookingTime_1.checkBookingCheckInEligibility)(booking.visitDate, (0, gymCommercial_1.currentSlotWindow)(booking.timeSlot, booking.gym?.slotsJson));
             if (!eligibility.eligible) {
                 if (eligibility.isExpired) {
                     if (checkIn.status === "PENDING") {

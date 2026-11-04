@@ -2,17 +2,17 @@
 export const VISIT_RULES = [
   {
     icon: "time-outline" as const,
-    title: "One-hour visit",
-    summary: "Every visit is one hour and is valid only for that hour.",
+    title: "Your slot",
+    summary: "A visit is valid only during the slot you booked.",
     detail:
-      "Every visit is a one-hour visit. It stays valid only for the booked hour. When that hour ends, the visit expires automatically. Check-in closes, and the pass moves to your history.",
+      "Check in during the slot you booked. The slot can be longer than one hour when the gym sets it that way. When that slot ends, the visit expires. Check-in closes, and the pass moves to your history.",
   },
   {
     icon: "hourglass-outline" as const,
     title: "Missed visit",
-    summary: "If the hour ends before check-in, the visit expires and what you used stays used.",
+    summary: "If the slot ends before check-in, the visit expires and what you used stays used.",
     detail:
-      "If you do not check in before the hour ends, the visit expires on its own. Credits already used, or the plan visit already used, are not returned.",
+      "If you do not check in before the slot ends, the visit expires on its own. Credits already used, or the plan visit already used, are not returned.",
   },
   {
     icon: "id-card-outline" as const,
@@ -26,7 +26,7 @@ export const VISIT_RULES = [
     title: "One booking",
     summary: "One active booking at a gym each day.",
     detail:
-      "You can hold one active booking at a gym on a day. After you cancel it, or after the hour ends, you can book that gym again.",
+      "You can hold one active booking at a gym on a day. After you cancel it, or after the slot ends, you can book that gym again.",
   },
   {
     icon: "card-outline" as const,

@@ -279,7 +279,7 @@ export const useBookingStore = create<BookingState>()(
         bookedDate: date,
         bookedVisitDateIso: visitDateIso,
         bookedCreatedAt: new Date().toISOString(),
-        bookedTime: time,
+        bookedTime: data.booking.timeSlot || time,
         bookedCost: deductedCost,
         bookedTokenNumber: data.booking?.tokenNumber || null,
         bookedGymPrefix: data.booking?.gymPrefix || null,

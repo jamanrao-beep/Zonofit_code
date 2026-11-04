@@ -15,7 +15,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useAuthStore } from "@/store/useAuthStore";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import CancelBookingSheet from "@/components/CancelBookingSheet";
@@ -67,24 +68,13 @@ function formatPassDate(dateVal: Date | string | null | undefined): string {
 
 function parseSlotStartEnd(timeSlot?: string | null): { start: string; end: string } {
   if (!timeSlot || typeof timeSlot !== "string") {
-    return { start: "7:00 AM", end: "8:00 AM" };
+    return { start: "", end: "" };
   }
-  const parts = timeSlot.split(/[-–—]/);
-  const start = parts[0]?.trim() || "7:00 AM";
-  let end = parts[1]?.trim();
-  if (!end) {
-    const match = start.match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?/i);
-    if (match) {
-      let hours = parseInt(match[1], 10);
-      const minutes = match[2] ? `:${match[2]}` : ":00";
-      const ampm = match[3]?.toUpperCase() || "AM";
-      const nextHour = (hours % 12) + 1;
-      end = `${nextHour}${minutes} ${ampm}`;
-    } else {
-      end = "8:00 AM";
-    }
-  }
-  return { start, end };
+  const parts = timeSlot.split(/\s*[-–—]\s*/);
+  return {
+    start: parts[0]?.trim() || "",
+    end: parts[1]?.trim() || "",
+  };
 }
 
 export default function BookingPassScreen() {
@@ -112,6 +102,13 @@ export default function BookingPassScreen() {
   } | null>(null);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const token = useAuthStore.getState().token;
+      if (token) useBookingStore.getState().fetchBookings(token);
+    }, [])
+  );
 
   useEffect(() => {
     const loop = Animated.loop(
@@ -406,11 +403,15 @@ export default function BookingPassScreen() {
                   </View>
                   <View style={[styles.dtCol, styles.dtColRight]}>
                     <Text style={styles.dtSmall}>CHECK-IN SLOT</Text>
-                    <View style={styles.slotRow}>
-                      <Text style={styles.dtStrong}>{slotRange.start}</Text>
-                      <Text style={styles.dtArrow}>→</Text>
-                      <Text style={styles.dtStrong}>{slotRange.end}</Text>
-                    </View>
+                    {slotRange.end ? (
+                      <View style={styles.slotRow}>
+                        <Text style={styles.dtStrong}>{slotRange.start}</Text>
+                        <Text style={styles.dtArrow}>→</Text>
+                        <Text style={styles.dtStrong}>{slotRange.end}</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.dtStrong}>{slotRange.start || "—"}</Text>
+                    )}
                   </View>
                 </View>
 
@@ -460,11 +461,7 @@ export default function BookingPassScreen() {
                   style={{ marginTop: 1 }}
                 />
                 <Text style={styles.slotruleText}>
-                  Check in anytime between{" "}
-                  <Text style={{ fontWeight: "800" }}>{slotRange.start}</Text>{" "}
-                  and{" "}
-                  <Text style={{ fontWeight: "800" }}>{slotRange.end}</Text>.
-                  Miss your slot and the visit expires.
+                  Check in anytime during your slot. Miss it and the visit is lost.
                 </Text>
               </View>
 

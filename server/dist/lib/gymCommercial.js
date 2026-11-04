@@ -2,6 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.visitPayoutInr = visitPayoutInr;
 exports.slotKey = slotKey;
+exports.slotWindowLabel = slotWindowLabel;
+exports.currentSlotWindow = currentSlotWindow;
 exports.bookingMatchesSlot = bookingMatchesSlot;
 exports.readStoredSlots = readStoredSlots;
 exports.setStoredSlotEnabled = setStoredSlotEnabled;
@@ -27,6 +29,26 @@ function visitPayoutInr(gym) {
 function slotKey(value) {
     const compact = value.trim().toLowerCase().replace(/\s+/g, "");
     return compact.replace(/^0(\d:\d{2})/, "$1");
+}
+/** The window members should see, using the saved end time when the gym set one. */
+function slotWindowLabel(slot) {
+    const start = slot.startTime.trim();
+    const end = slot.endTime.trim();
+    if (!start)
+        return "";
+    if (!end || slotKey(end) === slotKey(start))
+        return start;
+    return `${start} - ${end}`;
+}
+/** Prefer the gym's current slot over a stored start-only or one-hour guess. */
+function currentSlotWindow(timeSlot, slotsJson) {
+    const raw = (timeSlot ?? "").trim();
+    if (!raw)
+        return raw;
+    const match = readStoredSlots(slotsJson).find((slot) => bookingMatchesSlot(raw, slot));
+    if (!match)
+        return raw;
+    return slotWindowLabel(match);
 }
 function bookingMatchesSlot(timeSlot, slot) {
     const booked = slotKey(timeSlot);

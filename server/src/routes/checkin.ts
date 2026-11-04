@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { Router, Request, Response } from "express";
 import { body, validationResult } from "express-validator";
 import prisma from "../lib/prisma";
+import { currentSlotWindow } from "../lib/gymCommercial";
 import { requireAuth } from "../middleware/auth";
 import { createError } from "../middleware/errorHandler";
 import { sendPushNotification } from "../services/notifications";
@@ -132,7 +133,7 @@ router.post(
       const result = await prisma.$transaction(async (tx) => {
         const include = {
           checkIn: true,
-          gym: { select: { name: true } },
+          gym: { select: { name: true, slotsJson: true } },
           user: { select: { id: true, name: true, referredByUserId: true, totalWorkouts: true } },
         } as const;
         let booking = await tx.booking.findFirst({
@@ -180,7 +181,10 @@ router.post(
         }
 
         // Validate if this booking can be checked in right now (date, time slot start, expiration)
-        const eligibility = checkBookingCheckInEligibility(booking.visitDate, booking.timeSlot);
+        const eligibility = checkBookingCheckInEligibility(
+          booking.visitDate,
+          currentSlotWindow(booking.timeSlot, (booking.gym as any)?.slotsJson)
+        );
         if (!eligibility.eligible) {
           if (eligibility.isExpired) {
             if (checkIn.status === "PENDING") {

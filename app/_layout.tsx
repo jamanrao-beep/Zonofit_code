@@ -51,8 +51,8 @@ function AuthGate() {
     const inGuestExpired = firstSegment === "guest-expired";
     const inIntro = firstSegment === "intro";
     const inTabs = firstSegment === "(tabs)";
-    // segments is empty ([]) when we are on the root index screen (our splash)
-    const isOnRoot = (segments as string[]).length === 0;
+    // segments is empty ([]) or has "index" when on the root starting animation
+    const isOnRoot = (segments as string[]).length === 0 || firstSegment === "index" || !firstSegment;
 
     const isViewingOnboardingGym = useAuthStore.getState().isViewingOnboardingGym;
 

@@ -3,7 +3,7 @@ import { body, validationResult } from "express-validator";
 import { v4 as uuidv4 } from "uuid";
 import prisma from "../lib/prisma";
 import { bookingDiscountCredits, isCancellationTooLate } from "../lib/couponMath";
-import { bookingMatchesSlot, readStoredSlots, slotKey } from "../lib/gymCommercial";
+import { bookingMatchesSlot, currentSlotWindow, readStoredSlots, slotKey } from "../lib/gymCommercial";
 import { decrementCredits } from "../lib/wallet";
 import { requireAuth } from "../middleware/auth";
 import { sendPushNotification } from "../services/notifications";
@@ -113,6 +113,7 @@ router.post(
           }));
 
       if (!gym) throw createError("Gym not found or unavailable.", 404, "GymNotFound");
+      const storedTimeSlot = currentSlotWindow(timeSlot, gym.slotsJson);
 
       // 2. Check membership is active (auto-provision in test mode if unconfigured)
       let membership = await tx.membership.findUnique({
@@ -281,7 +282,7 @@ router.post(
           userId: req.dbUserId!,
           gymId: gym.id,
           visitDate: visitDateObj,
-          timeSlot,
+          timeSlot: storedTimeSlot,
           status: "CONFIRMED",
           creditsDeducted: isPrimaryVisit ? 0 : finalCreditCost,
           passCode,
@@ -335,7 +336,7 @@ router.post(
     sendPushNotification(
       req.dbUserId!,
       "Booking confirmed",
-      `Your workout at ${result.gymName} on ${visitDate} at ${timeSlot} is confirmed!`
+      `Your workout at ${result.gymName} on ${visitDate} at ${result.booking.timeSlot} is confirmed!`
     ).catch(e => console.error(e));
 
     res.status(201).json({
@@ -385,11 +386,13 @@ router.get(
           visitDate: true,
           timeSlot: true,
           status: true,
-          gym: { select: { requiresVerification: true } },
+          gym: { select: { requiresVerification: true, slotsJson: true } },
         },
       });
 
-      const passedBookings = activeCandidateBookings.filter((b) => isBookingSlotPast(b.visitDate, b.timeSlot));
+      const passedBookings = activeCandidateBookings.filter((b) =>
+        isBookingSlotPast(b.visitDate, currentSlotWindow(b.timeSlot, b.gym?.slotsJson))
+      );
       const checkedInPassedIds = passedBookings.filter((b) => b.status === "CHECKED_IN").map((b) => b.id);
       
       // If gym does not require verification (requiresVerification === false), uncancelled bookings automatically complete
@@ -451,6 +454,7 @@ router.get(
               city: true,
               imageUrls: true,
               requiresVerification: true,
+              slotsJson: true,
             },
           },
           checkIn: {
@@ -462,11 +466,20 @@ router.get(
     ]);
 
     res.json({
-      bookings: bookings.map((b) => ({
-        ...b,
-        tokenNumber: b.tokenNumber || ((parseInt(b.id.replace(/\D/g, "").slice(-3) || "1", 10) % 999) + 1),
-        gymPrefix: getGymPrefix(b.gym?.name),
-      })),
+      bookings: bookings.map((b) => {
+        const gymRecord = b.gym as (typeof b.gym & { slotsJson?: string | null }) | null;
+        const slotsJson = gymRecord?.slotsJson;
+        const gym = gymRecord
+          ? (({ slotsJson: _slots, ...rest }) => rest)(gymRecord)
+          : gymRecord;
+        return {
+          ...b,
+          timeSlot: currentSlotWindow(b.timeSlot, slotsJson),
+          gym,
+          tokenNumber: b.tokenNumber || ((parseInt(b.id.replace(/\D/g, "").slice(-3) || "1", 10) % 999) + 1),
+          gymPrefix: getGymPrefix(b.gym?.name),
+        };
+      }),
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
   }
@@ -498,11 +511,13 @@ router.get(
           visitDate: true,
           timeSlot: true,
           status: true,
-          gym: { select: { requiresVerification: true } },
+          gym: { select: { requiresVerification: true, slotsJson: true } },
         },
       });
 
-      const passedToday = todayActive.filter((b) => isBookingSlotPast(b.visitDate, b.timeSlot));
+      const passedToday = todayActive.filter((b) =>
+        isBookingSlotPast(b.visitDate, currentSlotWindow(b.timeSlot, b.gym?.slotsJson))
+      );
       const checkedInPassedIds = passedToday.filter((b) => b.status === "CHECKED_IN").map((b) => b.id);
       
       const autoPassedIds = passedToday
@@ -548,7 +563,7 @@ router.get(
         status: { in: ["CONFIRMED" as const, "CHECKED_IN" as const] },
       },
       include: {
-        gym: { select: { id: true, name: true, address: true, imageUrls: true, requiresVerification: true } },
+        gym: { select: { id: true, name: true, address: true, imageUrls: true, requiresVerification: true, slotsJson: true } },
         checkIn: { select: { status: true, verifiedAt: true } },
       },
     });
@@ -560,7 +575,7 @@ router.get(
       effectiveBooking &&
       effectiveBooking.gym?.requiresVerification === false &&
       effectiveBooking.status === "CONFIRMED" &&
-      isBookingSlotPast(effectiveBooking.visitDate, effectiveBooking.timeSlot)
+      isBookingSlotPast(effectiveBooking.visitDate, currentSlotWindow(effectiveBooking.timeSlot, effectiveBooking.gym?.slotsJson))
     ) {
       effectiveBooking = {
         ...effectiveBooking,
@@ -580,7 +595,11 @@ router.get(
         tokenNumber: tokenNum,
         gymPrefix: getGymPrefix(effectiveBooking.gym?.name),
         tokenFormatted: String(tokenNum).padStart(3, "0"),
+        timeSlot: currentSlotWindow(effectiveBooking.timeSlot, effectiveBooking.gym?.slotsJson),
       };
+      if (effectiveBooking.gym) {
+        delete effectiveBooking.gym.slotsJson;
+      }
     }
 
     res.json({ booking: effectiveBooking });

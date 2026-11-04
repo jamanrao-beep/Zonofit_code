@@ -47,6 +47,14 @@ const TIME_SLOTS = [
   "8:00 PM",
 ];
 
+function slotChoiceLabel(slot: { startTime?: string; endTime?: string }): string {
+  const start = typeof slot.startTime === "string" ? slot.startTime.trim() : "";
+  const end = typeof slot.endTime === "string" ? slot.endTime.trim() : "";
+  if (!start) return "";
+  if (!end || end.toLowerCase() === start.toLowerCase()) return start;
+  return `${start} - ${end}`;
+}
+
 export default function BookingModal({
   visible,
   onClose,
@@ -85,10 +93,10 @@ export default function BookingModal({
     let cancelled = false;
     setSlotSource(TIME_SLOTS);
     apiFetch(`/api/gyms/${encodeURIComponent(gym.id)}`, { silent: true })
-      .then((data: { slots?: { startTime?: string }[] }) => {
+      .then((data: { slots?: { startTime?: string; endTime?: string }[] }) => {
         if (cancelled || !Array.isArray(data?.slots)) return;
         const labels = data.slots
-          .map((slot) => (typeof slot?.startTime === "string" ? slot.startTime.trim() : ""))
+          .map((slot) => slotChoiceLabel(slot))
           .filter((label) => label.length > 0);
         if (labels.length > 0) setSlotSource(labels);
       })
@@ -106,7 +114,8 @@ export default function BookingModal({
     const now = new Date();
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
-    const parts = slot.trim().split(" ");
+    const startLabel = slot.split(/\s[-–—]\s/)[0]?.trim() || slot.trim();
+    const parts = startLabel.split(" ");
     if (parts.length < 2) return false;
     const [time, period] = parts;
     const timeParts = time.split(":").map(Number);
@@ -356,10 +365,12 @@ export default function BookingModal({
                             <Ionicons name="lock-closed" size={11} color="#9CA3AF" style={{ marginRight: 4 }} />
                           )}
                           <Text
+                            numberOfLines={2}
                             style={[
                               styles.timeBtnText,
                               isSelected && styles.timeBtnTextActive,
                               isPassed && styles.timeBtnTextDisabled,
+                              { textAlign: "center" },
                             ]}
                           >
                             {slot}

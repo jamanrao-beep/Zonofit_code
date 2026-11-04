@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { Router, Request, Response, NextFunction } from "express";
 import { query, validationResult } from "express-validator";
 import prisma from "../lib/prisma";
-import { bookingMatchesSlot, publicBookingSlots, readStoredSlots, setStoredSlotEnabled, visitPayoutInr } from "../lib/gymCommercial";
+import { bookingMatchesSlot, currentSlotWindow, publicBookingSlots, readStoredSlots, setStoredSlotEnabled, visitPayoutInr } from "../lib/gymCommercial";
 import { deskCodeFromBookingId, isBookingSlotPast } from "../lib/bookingTime";
 import { requireAuth, optionalAuth } from "../middleware/auth";
 
@@ -617,7 +617,8 @@ router.get("/today-visitors", requireAuth, async (req: Request, res: Response): 
 
         const mapVisitor = (booking: typeof bookings[number]) => {
           const gymRequiresVerification = (gym as any).requiresVerification !== false;
-          const slotIsPast = isBookingSlotPast(booking.visitDate, booking.timeSlot);
+          const slotWindow = currentSlotWindow(booking.timeSlot, gym.slotsJson);
+          const slotIsPast = isBookingSlotPast(booking.visitDate, slotWindow);
           // If gym verification is OFF, arrival of slot time means automatically checked in (never missed)
           const isAutoVerified = !gymRequiresVerification && slotIsPast && booking.status !== "CANCELLED";
           const isVerified = Boolean(booking.checkIn?.verifiedAt) || booking.status === "CHECKED_IN" || isAutoVerified;
@@ -633,7 +634,7 @@ router.get("/today-visitors", requireAuth, async (req: Request, res: Response): 
             name: booking.user?.name?.trim() || "Member",
             status: effectiveStatus,
             passCode: `ZF-${booking.id.replace(/[^a-zA-Z0-9]/g, "").slice(-6).toUpperCase()}`,
-            timeSlot: booking.timeSlot,
+            timeSlot: currentSlotWindow(booking.timeSlot, gym.slotsJson),
             isMissed,
             isVerified,
           };
@@ -658,12 +659,12 @@ router.get("/today-visitors", requireAuth, async (req: Request, res: Response): 
         });
 
         const checkedInToday = mine.filter((booking) => {
-          const autoV = (gym as any).requiresVerification === false && isBookingSlotPast(booking.visitDate, booking.timeSlot) && booking.status !== "CANCELLED";
+          const autoV = (gym as any).requiresVerification === false && isBookingSlotPast(booking.visitDate, currentSlotWindow(booking.timeSlot, gym.slotsJson)) && booking.status !== "CANCELLED";
           return Boolean(booking.checkIn?.verifiedAt) || booking.status === "CHECKED_IN" || autoV;
         }).length;
         const missedToday = mine.filter((booking) => {
           if ((gym as any).requiresVerification === false) return false;
-          return !booking.checkIn?.verifiedAt && booking.status !== "CHECKED_IN" && (booking.status === "NO_SHOW" || isBookingSlotPast(booking.visitDate, booking.timeSlot));
+          return !booking.checkIn?.verifiedAt && booking.status !== "CHECKED_IN" && (booking.status === "NO_SHOW" || isBookingSlotPast(booking.visitDate, currentSlotWindow(booking.timeSlot, gym.slotsJson)));
         }).length;
 
         return {
