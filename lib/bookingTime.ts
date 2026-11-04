@@ -79,3 +79,49 @@ export function isBookingDateFuture(visitDate: Date | string | null | undefined)
   }
 }
 
+export function isBookingSlotStarted(
+  visitDate: Date | string | null | undefined,
+  timeSlot?: string | null
+): boolean {
+  if (!visitDate) return false;
+  try {
+    const vDate = new Date(visitDate);
+    if (isNaN(vDate.getTime())) return false;
+    const now = new Date();
+
+    const todayYear = now.getFullYear();
+    const todayMonth = now.getMonth();
+    const todayDate = now.getDate();
+
+    const visitYear = vDate.getFullYear();
+    const visitMonth = vDate.getMonth();
+    const visitDay = vDate.getDate();
+
+    const startOfToday = new Date(todayYear, todayMonth, todayDate, 0, 0, 0, 0);
+    const startOfVisit = new Date(visitYear, visitMonth, visitDay, 0, 0, 0, 0);
+
+    if (startOfVisit.getTime() < startOfToday.getTime()) return true;
+    if (startOfVisit.getTime() > startOfToday.getTime()) return false;
+
+    if (!timeSlot || typeof timeSlot !== "string") return true;
+
+    const parts = timeSlot.split(/[-–—]/);
+    const startStr = parts[0].trim();
+    const match = startStr.match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?/i);
+    if (match) {
+      let hours = parseInt(match[1], 10);
+      const minutes = match[2] ? parseInt(match[2], 10) : 0;
+      const ampm = match[3]?.toUpperCase();
+
+      if (ampm === "PM" && hours < 12) hours += 12;
+      if (ampm === "AM" && hours === 12) hours = 0;
+
+      const slotStartTime = new Date(todayYear, todayMonth, todayDate, hours, minutes, 0, 0);
+      return now.getTime() >= slotStartTime.getTime();
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+

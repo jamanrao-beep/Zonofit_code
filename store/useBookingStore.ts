@@ -5,7 +5,7 @@ import { apiFetch } from "@/lib/api";
 import { useCreditsStore } from "./useCreditsStore";
 import { useUserStore } from "./useUserStore";
 import { useAuthStore } from "./useAuthStore";
-import { isBookingSlotPast } from "@/lib/bookingTime";
+import { isBookingSlotPast, isBookingSlotStarted } from "@/lib/bookingTime";
 
 const secureStorage = {
   getItem: async (name: string): Promise<string | null> => {
@@ -126,31 +126,56 @@ export const useBookingStore = create<BookingState>()(
           if (isBookingSlotPast(b.visitDate, b.timeSlot)) return true;
           return false;
         })
-        .map((b: any) => ({
-          id: b.id,
-          gymId: b.gymId,
-          gymName: b.gym?.name || "Gym",
-          date: new Date(b.visitDate).toLocaleDateString(),
-          time: b.timeSlot,
-          status: b.status === "CANCELLED" 
-            ? "Cancelled" 
-            : (b.status === "NO_SHOW" || (!b.checkIn?.verifiedAt && b.status !== "CHECKED_IN" && isBookingSlotPast(b.visitDate, b.timeSlot)))
-            ? "Missed"
-            : b.status === "CHECKED_IN"
-            ? "Checked In"
-            : (b.checkIn?.verifiedAt ? "Completed" : "Missed"),
-          credits: b.creditsDeducted || 0
-        }));
+        .map((b: any) => {
+          const gymRequiresVerification = b.gym?.requiresVerification !== false;
+          const slotIsPast = isBookingSlotPast(b.visitDate, b.timeSlot);
+          // When gym verification is OFF, passing of slot time means automatically checked in (never missed)
+          const autoVerified = !gymRequiresVerification && slotIsPast && b.status !== "CANCELLED";
 
-      // Find an active upcoming booking whose slot is still in the future
+          let status: "Completed" | "Cancelled" | "Checked In" | "Missed" = "Completed";
+          if (b.status === "CANCELLED") {
+            status = "Cancelled";
+          } else if (autoVerified) {
+            status = "Checked In";
+          } else if (b.status === "CHECKED_IN") {
+            status = "Checked In";
+          } else if (b.checkIn?.verifiedAt) {
+            status = "Completed";
+          } else if (gymRequiresVerification && (b.status === "NO_SHOW" || slotIsPast)) {
+            status = "Missed";
+          } else {
+            status = "Checked In";
+          }
+
+          return {
+            id: b.id,
+            gymId: b.gymId,
+            gymName: b.gym?.name || "Gym",
+            date: new Date(b.visitDate).toLocaleDateString(),
+            time: b.timeSlot,
+            status,
+            credits: b.creditsDeducted || 0,
+          };
+        });
+
+      // Find an active upcoming or today's booking
       const upcoming = bookings.find((b: any) => {
         if (!["PENDING", "CONFIRMED", "CHECKED_IN"].includes(b.status)) return false;
-        return !isBookingSlotPast(b.visitDate, b.timeSlot);
+        const gymRequiresVerification = b.gym?.requiresVerification !== false;
+        if (gymRequiresVerification && isBookingSlotPast(b.visitDate, b.timeSlot)) return false;
+        return true;
       });
       
       if (upcoming) {
+        const gymRequiresVerification = upcoming.gym?.requiresVerification !== false;
+        const slotHasStarted = isBookingSlotStarted(upcoming.visitDate, upcoming.timeSlot);
+        const autoCheckedInNow = !gymRequiresVerification && slotHasStarted && upcoming.status !== "CANCELLED";
+        const effectiveBookingStatus = (upcoming.status === "CHECKED_IN" || autoCheckedInNow)
+          ? "Checked In"
+          : "Booked";
+
         set({
-          bookingStatus: upcoming.status === "CHECKED_IN" ? "Checked In" : "Booked",
+          bookingStatus: effectiveBookingStatus,
           bookingId: upcoming.id,
           bookedGymId: upcoming.gymId,
           bookedGymName: upcoming.gym?.name || "Gym",

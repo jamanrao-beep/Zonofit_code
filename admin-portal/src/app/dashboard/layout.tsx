@@ -22,6 +22,7 @@ import {
   LifeBuoy,
   Store,
   MapPin,
+  CheckSquare,
   type LucideIcon,
 } from "lucide-react";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -43,6 +44,7 @@ const NAV: { group: string; items: NavItem[] }[] = [
     items: [
       { label: "Gyms & Approvals", path: "/dashboard/gyms", icon: Dumbbell, badge: "gyms" },
       { label: "Trial Gyms", path: "/dashboard/trial-gyms", icon: MapPin },
+      { label: "Verification Check", path: "/dashboard/verification", icon: CheckSquare },
       { label: "Financial Center", path: "/dashboard/finance", icon: CreditCard },
     ],
   },

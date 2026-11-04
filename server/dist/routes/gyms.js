@@ -402,6 +402,7 @@ async function gymsOwnedBy(userId, systemRole) {
             maxDailyVisits: true,
             maxSlotVisits: true,
             slotsJson: true,
+            requiresVerification: true,
         },
         orderBy: { name: "asc" },
     });
@@ -420,6 +421,7 @@ async function gymsOwnedBy(userId, systemRole) {
                 maxDailyVisits: true,
                 maxSlotVisits: true,
                 slotsJson: true,
+                requiresVerification: true,
             },
             orderBy: { name: "asc" },
         });
@@ -529,8 +531,12 @@ router.get("/today-visitors", auth_1.requireAuth, async (req, res) => {
                 const mine = bookings.filter((booking) => booking.gymId === gym.id);
                 const used = new Set();
                 const mapVisitor = (booking) => {
-                    const isVerified = Boolean(booking.checkIn?.verifiedAt) || booking.status === "CHECKED_IN";
-                    const isMissed = !isVerified && (booking.status === "NO_SHOW" || (0, bookingTime_1.isBookingSlotPast)(booking.visitDate, booking.timeSlot));
+                    const gymRequiresVerification = gym.requiresVerification !== false;
+                    const slotIsPast = (0, bookingTime_1.isBookingSlotPast)(booking.visitDate, booking.timeSlot);
+                    // If gym verification is OFF, arrival of slot time means automatically checked in (never missed)
+                    const isAutoVerified = !gymRequiresVerification && slotIsPast && booking.status !== "CANCELLED";
+                    const isVerified = Boolean(booking.checkIn?.verifiedAt) || booking.status === "CHECKED_IN" || isAutoVerified;
+                    const isMissed = gymRequiresVerification && !isVerified && (booking.status === "NO_SHOW" || slotIsPast);
                     const effectiveStatus = isVerified
                         ? (booking.status === "COMPLETED" ? "COMPLETED" : "CHECKED_IN")
                         : isMissed
@@ -564,8 +570,15 @@ router.get("/today-visitors", auth_1.requireAuth, async (req, res) => {
                     list.push(mapVisitor(booking));
                     otherMap.set(label, list);
                 });
-                const checkedInToday = mine.filter((booking) => Boolean(booking.checkIn?.verifiedAt) || booking.status === "CHECKED_IN").length;
-                const missedToday = mine.filter((booking) => !booking.checkIn?.verifiedAt && booking.status !== "CHECKED_IN" && (booking.status === "NO_SHOW" || (0, bookingTime_1.isBookingSlotPast)(booking.visitDate, booking.timeSlot))).length;
+                const checkedInToday = mine.filter((booking) => {
+                    const autoV = gym.requiresVerification === false && (0, bookingTime_1.isBookingSlotPast)(booking.visitDate, booking.timeSlot) && booking.status !== "CANCELLED";
+                    return Boolean(booking.checkIn?.verifiedAt) || booking.status === "CHECKED_IN" || autoV;
+                }).length;
+                const missedToday = mine.filter((booking) => {
+                    if (gym.requiresVerification === false)
+                        return false;
+                    return !booking.checkIn?.verifiedAt && booking.status !== "CHECKED_IN" && (booking.status === "NO_SHOW" || (0, bookingTime_1.isBookingSlotPast)(booking.visitDate, booking.timeSlot));
+                }).length;
                 return {
                     id: gym.id,
                     name: gym.name,
