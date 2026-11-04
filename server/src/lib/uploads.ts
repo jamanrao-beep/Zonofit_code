@@ -58,3 +58,18 @@ export function getAllCandidateUploadDirs(): string[] {
 
   return Array.from(dirs);
 }
+
+/** Absolute public URL for a file under /uploads, even if it was saved with a local host. */
+export function publicUploadUrl(stored: string): string {
+  const trimmed = stored.trim();
+  if (!trimmed) return "";
+  const base = (process.env.PUBLIC_API_URL || "https://api.zonofit.com").replace(/\/$/, "");
+  if (trimmed.startsWith("/uploads/")) return `${base}${trimmed}`;
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.pathname.startsWith("/uploads/")) return `${base}${parsed.pathname}`;
+  } catch {
+    return "";
+  }
+  return /^https?:\/\//i.test(trimmed) ? trimmed : "";
+}

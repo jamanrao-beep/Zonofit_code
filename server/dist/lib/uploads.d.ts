@@ -10,4 +10,6 @@ export declare function getUploadsDir(): string;
  * from root, from server/, or via PM2 in production.
  */
 export declare function getAllCandidateUploadDirs(): string[];
+/** Absolute public URL for a file under /uploads, even if it was saved with a local host. */
+export declare function publicUploadUrl(stored: string): string;
 //# sourceMappingURL=uploads.d.ts.map

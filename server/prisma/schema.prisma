@@ -69,6 +69,7 @@ enum CreditTransactionType {
   RECONVERSION // Cash converted back to credits
   EXPIRY // Credits expired after membership ended
   REFUND // Credits refunded on booking cancellation
+  MARKETPLACE_SPEND // Credits spent on a shop order
 }
 
 enum GymCategory {
@@ -545,9 +546,11 @@ model MarketplaceOrder {
   itemId        String
   quantity      Int      @default(1)
   totalPaise    Int
-  status        String   @default("COMPLETED")
+  status        String   @default("PLACED")
   selectedSize  String?
   selectedColor String?
+  creditsSpent  Int      @default(0)
+  addressJson   String?  @db.Text
   createdAt     DateTime @default(now())
 
   user User            @relation(fields: [userId], references: [id])

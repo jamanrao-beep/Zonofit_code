@@ -2,6 +2,9 @@ import { Router, Request, Response } from "express";
 import { body, validationResult } from "express-validator";
 import prisma from "../lib/prisma";
 import { marketplaceDiscountPaise } from "../lib/couponMath";
+import { presentMarketplaceItem } from "../lib/marketplaceItem";
+import { creditsForMarketplacePaise, MARKETPLACE_CREDIT_INR } from "../lib/marketplacePay";
+import { decrementCredits } from "../lib/wallet";
 import { requireAuth } from "../middleware/auth";
 import { createError } from "../middleware/errorHandler";
 
@@ -11,11 +14,11 @@ const router = Router();
 /**
  * Returns all available marketplace items.
  */
-router.get("/items", async (req: Request, res: Response): Promise<void> => {
+router.get("/items", async (_req: Request, res: Response): Promise<void> => {
   const items = await prisma.marketplaceItem.findMany({
     orderBy: { createdAt: "desc" },
   });
-  res.json(items);
+  res.json(items.map((item) => presentMarketplaceItem(item)));
 });
 
 // ─── GET /api/marketplace/orders ──────────────────────────────────────────────
@@ -28,12 +31,12 @@ router.get("/orders", requireAuth, async (req: Request, res: Response): Promise<
     include: { item: true },
     orderBy: { createdAt: "desc" },
   });
-  res.json(orders);
+  res.json(orders.map((order) => ({ ...order, item: presentMarketplaceItem(order.item) })));
 });
 
 // ─── POST /api/marketplace/order ──────────────────────────────────────────────
 /**
- * Place an order for a marketplace item using converted cash balance.
+ * Place one shop order. The price is paid in credits only, at ₹8 per credit.
  */
 router.post(
   "/order",
@@ -51,6 +54,7 @@ router.post(
 
     const { itemId, quantity } = req.body as { itemId: string; quantity: number };
 
+    try {
     const result = await prisma.$transaction(async (tx) => {
       const item = await tx.marketplaceItem.findUnique({
         where: { id: itemId },
@@ -64,46 +68,29 @@ router.post(
       }
 
       const totalPaise = item.pricePaise * quantity;
-
-      const wallet = await tx.creditWallet.findUnique({
-        where: { userId: req.dbUserId! },
-      });
-
-      if (!wallet) {
-        throw createError("Wallet not found.", 404, "WalletNotFound");
-      }
-
-      const totalAvailableCash = wallet.convertibleCashBalanceInPaise + wallet.nonConvertibleCashBalanceInPaise;
-
-      if (totalAvailableCash < totalPaise) {
+      const creditsNeeded = creditsForMarketplacePaise(totalPaise);
+      const currentWallet = await tx.creditWallet.findUnique({ where: { userId: req.dbUserId! } });
+      if (!currentWallet) throw createError("Wallet not found.", 404, "WalletNotFound");
+      if (currentWallet.balance < creditsNeeded) {
         throw createError(
-          `Insufficient cash balance. You need ₹${totalPaise / 100}, but you have ₹${
-            totalAvailableCash / 100
-          }. Convert credits or top up cash first.`,
+          `This order is ₹${Math.round(totalPaise / 100)} and costs ${creditsNeeded} credits (1 credit = ₹${MARKETPLACE_CREDIT_INR}). You have ${currentWallet.balance} credits.`,
           400,
-          "InsufficientCash"
+          "InsufficientCredits",
         );
       }
-
-      let remainingToDeduct = totalPaise;
-      let deductNonConvertible = 0;
-      let deductConvertible = 0;
-
-      if (wallet.nonConvertibleCashBalanceInPaise >= remainingToDeduct) {
-        deductNonConvertible = remainingToDeduct;
-      } else {
-        deductNonConvertible = wallet.nonConvertibleCashBalanceInPaise;
-        deductConvertible = remainingToDeduct - deductNonConvertible;
+      const wallet = await decrementCredits(tx, req.dbUserId!, creditsNeeded);
+      if (creditsNeeded > 0) {
+        await tx.creditTransaction.create({
+          data: {
+            userId: req.dbUserId!,
+            walletId: wallet.id,
+            type: "MARKETPLACE_SPEND",
+            amount: -creditsNeeded,
+            balanceAfter: wallet.balance,
+            description: `Shop order · ${quantity}x ${item.title} · ${creditsNeeded} credits`,
+          },
+        });
       }
-
-      // Deduct cash from wallet
-      await tx.creditWallet.update({
-        where: { id: wallet.id },
-        data: { 
-          nonConvertibleCashBalanceInPaise: { decrement: deductNonConvertible },
-          convertibleCashBalanceInPaise: { decrement: deductConvertible }
-        },
-      });
 
       const order = await tx.marketplaceOrder.create({
         data: {
@@ -111,24 +98,35 @@ router.post(
           itemId: item.id,
           quantity,
           totalPaise,
+          creditsSpent: creditsNeeded,
+          status: "PLACED",
         },
         include: { item: true },
       });
 
-      return order;
+      return { order, creditsNeeded, newCreditBalance: wallet.balance };
     });
 
     res.status(201).json({
       success: true,
-      order: result,
-      message: `Successfully ordered ${quantity}x ${result.item.title}.`,
+      order: { ...result.order, item: presentMarketplaceItem(result.order.item) },
+      creditsUsed: result.creditsNeeded,
+      newCreditBalance: result.newCreditBalance,
+      message: `Ordered ${quantity}x ${result.order.item.title} for ${result.creditsNeeded} credits.`,
     });
+    } catch (err: any) {
+      if (err.statusCode) {
+        res.status(err.statusCode).json({ error: err.code, message: err.message });
+      } else {
+        res.status(500).json({ error: "ServerError", message: err.message || "Failed to process order" });
+      }
+    }
   }
 );
 
 // ─── POST /api/marketplace/checkout ───────────────────────────────────────────
 /**
- * Place a bulk order for multiple marketplace items using converted cash balance.
+ * Place a cart of shop items. The price is paid in credits only, at ₹8 per credit.
  */
 router.post(
   "/checkout",
@@ -147,10 +145,37 @@ router.post(
       return;
     }
 
-    const { items, couponCode, creditsToUse = 0 } = req.body as { 
+    const { items, couponCode, address } = req.body as { 
       items: { itemId: string; quantity: number; selectedSize?: string; selectedColor?: string }[]; 
       couponCode?: string;
-      creditsToUse?: number;
+      address?: {
+        fullName?: string;
+        phoneNumber?: string;
+        flatHouse?: string;
+        areaStreet?: string;
+        landmark?: string;
+        city?: string;
+        state?: string;
+        pincode?: string;
+      };
+    };
+
+    const cleanAddress = () => {
+      const text = (value: unknown, max: number) => (typeof value === "string" ? value.trim().slice(0, max) : "");
+      const saved = {
+        fullName: text(address?.fullName, 80),
+        phoneNumber: text(address?.phoneNumber, 15),
+        flatHouse: text(address?.flatHouse, 120),
+        areaStreet: text(address?.areaStreet, 160),
+        landmark: text(address?.landmark, 120),
+        city: text(address?.city, 80),
+        state: text(address?.state, 80),
+        pincode: text(address?.pincode, 10),
+      };
+      if (!saved.fullName || !saved.flatHouse || !saved.city || !saved.pincode) {
+        throw createError("Add a delivery address before checkout.", 400, "AddressRequired");
+      }
+      return saved;
     };
 
     const cleanOption = (value: unknown): string | null => {
@@ -218,96 +243,78 @@ router.post(
           });
         }
 
-        const wallet = await tx.creditWallet.findUnique({
-          where: { userId: req.dbUserId! },
-        });
-
-        if (!wallet) {
-          throw createError("Wallet not found.", 404, "WalletNotFound");
-        }
-
-        const totalAvailableCash = wallet.convertibleCashBalanceInPaise + wallet.nonConvertibleCashBalanceInPaise;
-        
-        // 1. STEP 1: Auto-apply INR Balance
-        const inrPaiseUsed = Math.min(totalAvailableCash, totalPaise);
-        const remainderAfterInrPaise = totalPaise - inrPaiseUsed;
-
-        // 2. STEP 2: User-controlled credits (1 Credit = 1000 paise / ₹10)
-        const creditValuePaise = 1000;
-        const maxUsableCredits = Math.floor(remainderAfterInrPaise / creditValuePaise);
-        const actualCreditsToUse = Math.min(Math.max(0, Number(creditsToUse) || 0), wallet.balance, maxUsableCredits);
-        const creditsPaiseUsed = actualCreditsToUse * creditValuePaise;
-
-        // 3. STEP 3: Remaining amount for payment gateway
-        const onlinePaidPaise = remainderAfterInrPaise - creditsPaiseUsed;
-        if (onlinePaidPaise > 0) {
+        const delivery = cleanAddress();
+        const creditsNeeded = creditsForMarketplacePaise(totalPaise);
+        const currentWallet = await tx.creditWallet.findUnique({ where: { userId: req.dbUserId! } });
+        if (!currentWallet) throw createError("Wallet not found.", 404, "WalletNotFound");
+        if (currentWallet.balance < creditsNeeded) {
           throw createError(
-            "This order is not fully covered by your cash and credits. Add funds before checkout.",
-            402,
-            "PaymentRequired"
+            `This order is ₹${Math.round(totalPaise / 100)} and costs ${creditsNeeded} credits (1 credit = ₹${MARKETPLACE_CREDIT_INR}). You have ${currentWallet.balance} credits.`,
+            400,
+            "InsufficientCredits",
           );
         }
-
-        // Deduct INR balance (nonConvertible first, then convertible)
-        let remainingInrToDeduct = inrPaiseUsed;
-        let deductNonConvertible = 0;
-        let deductConvertible = 0;
-
-        if (wallet.nonConvertibleCashBalanceInPaise >= remainingInrToDeduct) {
-          deductNonConvertible = remainingInrToDeduct;
-        } else {
-          deductNonConvertible = wallet.nonConvertibleCashBalanceInPaise;
-          deductConvertible = remainingInrToDeduct - deductNonConvertible;
+        const wallet = await decrementCredits(tx, req.dbUserId!, creditsNeeded);
+        if (creditsNeeded > 0) {
+          const names = itemRecords.map((record) => `${record.quantity}x ${record.item.title}`).join(", ");
+          await tx.creditTransaction.create({
+            data: {
+              userId: req.dbUserId!,
+              walletId: wallet.id,
+              type: "MARKETPLACE_SPEND",
+              amount: -creditsNeeded,
+              balanceAfter: wallet.balance,
+              description: `Shop order · ₹${Math.round(totalPaise / 100)} · ${creditsNeeded} credits · ${names}`,
+            },
+          });
         }
 
-        const updatedWallet = await tx.creditWallet.updateMany({
-          where: {
-            id: wallet.id,
-            balance: { gte: actualCreditsToUse },
-            nonConvertibleCashBalanceInPaise: { gte: deductNonConvertible },
-            convertibleCashBalanceInPaise: { gte: deductConvertible },
-          },
-          data: {
-            nonConvertibleCashBalanceInPaise: { decrement: deductNonConvertible },
-            convertibleCashBalanceInPaise: { decrement: deductConvertible },
-            balance: { decrement: actualCreditsToUse },
-          },
-        });
-        if (updatedWallet.count !== 1) {
-          throw createError("Insufficient wallet balance.", 400, "InsufficientFunds");
+        const grossSum = itemRecords.reduce((sum, record) => sum + record.item.pricePaise * record.quantity, 0) || 1;
+        let paiseLeft = totalPaise;
+        let creditsLeft = creditsNeeded;
+        const addressJson = JSON.stringify(delivery);
+        const orders = [];
+        for (let index = 0; index < itemRecords.length; index += 1) {
+          const record = itemRecords[index];
+          const last = index === itemRecords.length - 1;
+          const gross = record.item.pricePaise * record.quantity;
+          const linePaise = last ? paiseLeft : Math.min(paiseLeft, Math.round(totalPaise * (gross / grossSum)));
+          const lineCredits = last ? creditsLeft : (totalPaise === 0 ? 0 : Math.min(creditsLeft, Math.round(creditsNeeded * (linePaise / totalPaise))));
+          paiseLeft -= linePaise;
+          creditsLeft -= lineCredits;
+          orders.push(await tx.marketplaceOrder.create({
+            data: {
+              userId: req.dbUserId!,
+              itemId: record.item.id,
+              quantity: record.quantity,
+              totalPaise: linePaise,
+              creditsSpent: lineCredits,
+              selectedSize: record.selectedSize,
+              selectedColor: record.selectedColor,
+              status: "PLACED",
+              addressJson,
+            },
+            include: { item: true },
+          }));
         }
-
-        const orders = await Promise.all(
-          itemRecords.map(record =>
-            tx.marketplaceOrder.create({
-              data: {
-                userId: req.dbUserId!,
-                itemId: record.item.id,
-                quantity: record.quantity,
-                totalPaise: record.item.pricePaise * record.quantity,
-                selectedSize: record.selectedSize,
-                selectedColor: record.selectedColor,
-              },
-              include: { item: true },
-            })
-          )
-        );
 
         return {
           orders,
           paymentBreakdown: {
             totalPaise,
-            inrPaiseUsed,
-            creditsUsed: actualCreditsToUse,
-            creditsPaiseUsed,
-            onlinePaidPaise,
+            inrPaiseUsed: 0,
+            creditsUsed: creditsNeeded,
+            creditValueInr: MARKETPLACE_CREDIT_INR,
+            creditsPaiseUsed: creditsNeeded * MARKETPLACE_CREDIT_INR * 100,
+            onlinePaidPaise: 0,
+            newCreditBalance: wallet.balance,
           },
         };
       });
 
       res.status(201).json({
         success: true,
-        orders: result.orders,
+        orders: result.orders.map((order) => ({ ...order, item: presentMarketplaceItem(order.item) })),
         breakdown: result.paymentBreakdown,
         message: `Successfully checked out ${items.length} items.`,
       });

@@ -9,8 +9,8 @@ import { getSystemSettings } from "../services/settings";
 import { roleCanAccess } from "../lib/adminAccess";
 import { slotsPayloadToJson } from "../lib/gymCommercial";
 import { cleanOwnerEmail, cleanOwnerPassword, createGymOwner, updateGymOwnerLogin } from "../lib/gymOwner";
-import { readMarketplaceWrite } from "../lib/marketplaceItem";
-import { getUploadsDir } from "../lib/uploads";
+import { presentMarketplaceItem, readMarketplaceWrite } from "../lib/marketplaceItem";
+import { getUploadsDir, publicUploadUrl } from "../lib/uploads";
 
 function asInt(value: unknown, fallback: number): number {
   if (typeof value === "number" && Number.isFinite(value)) return Math.round(value);
@@ -1216,8 +1216,7 @@ router.post("/marketplace/image", requireAuth, requireAdmin, acceptProductImage,
     res.status(400).json({ error: "ValidationError", message: "Choose an image file." });
     return;
   }
-  const baseUrl = (process.env.PUBLIC_API_URL ?? `${req.protocol}://${req.get("host")}`).replace(/\/$/, "");
-  res.json({ url: `${baseUrl}/uploads/${req.file.filename}` });
+  res.json({ url: publicUploadUrl(`/uploads/${req.file.filename}`) });
 });
 
 // ─── GET /api/admin/marketplace ──────────────────────────────────────────────
@@ -1226,7 +1225,28 @@ router.get("/marketplace", requireAuth, requireAdmin, async (req: Request, res: 
     const items = await prisma.marketplaceItem.findMany({
       orderBy: { createdAt: "desc" }
     });
-    res.json({ items });
+    res.json({ items: items.map((item) => presentMarketplaceItem(item)) });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
+router.get("/marketplace/orders", requireAuth, requireAdmin, async (_req: Request, res: Response) => {
+  try {
+    const orders = await prisma.marketplaceOrder.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 100,
+      include: {
+        item: { select: { id: true, title: true, imageUrl: true, imageUrls: true, pricePaise: true } },
+        user: { select: { id: true, name: true, phone: true, email: true } },
+      },
+    });
+    res.json({
+      orders: orders.map((order) => ({
+        ...order,
+        item: presentMarketplaceItem(order.item),
+      })),
+    });
   } catch (err: any) {
     res.status(500).json({ error: "ServerError", message: err.message });
   }

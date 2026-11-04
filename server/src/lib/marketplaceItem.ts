@@ -1,3 +1,5 @@
+import { publicUploadUrl } from "./uploads";
+
 const CATEGORIES = ["PRODUCTS", "SPORTS_ACTIVITIES", "APPAREL_GEAR", "RECOVERY_WELLNESS", "ZONOFIT_COMMON"] as const;
 
 export type MarketplaceVariant = { name: string; imageUrl: string };
@@ -49,8 +51,9 @@ function list(value: unknown, maxItems: number, maxLen: number): string[] {
 
 function httpUrl(value: unknown): string {
   const url = text(value, 2000);
-  if (!/^https?:\/\//i.test(url)) return "";
-  return url;
+  if (!url) return "";
+  if (url.startsWith("/uploads/") || /^https?:\/\//i.test(url)) return publicUploadUrl(url);
+  return "";
 }
 
 function extraBag(body: Record<string, unknown>): Record<string, unknown> {
@@ -137,4 +140,30 @@ export function readMarketplaceWrite(body: Record<string, unknown>): Marketplace
     variants,
     specs,
   };
+}
+
+export function presentPhotoList(imageUrls: unknown, imageUrl?: string | null): string[] {
+  let raw: unknown = imageUrls;
+  if (typeof raw === "string" && raw.trim().startsWith("[")) {
+    try {
+      raw = JSON.parse(raw);
+    } catch {
+      raw = [];
+    }
+  }
+  const list = (Array.isArray(raw) ? raw : []).map((entry) => httpUrl(entry)).filter(Boolean);
+  const single = httpUrl(imageUrl);
+  if (single && !list.includes(single)) list.unshift(single);
+  return list;
+}
+
+export function presentMarketplaceItem<T extends { imageUrl?: string | null; imageUrls?: unknown; variants?: unknown }>(item: T) {
+  const imageUrls = presentPhotoList(item.imageUrls, item.imageUrl);
+  const variants = Array.isArray(item.variants)
+    ? item.variants.map((row) => {
+        const entry = row && typeof row === "object" ? (row as { name?: string; imageUrl?: string }) : {};
+        return { ...entry, imageUrl: httpUrl(entry.imageUrl) };
+      })
+    : item.variants;
+  return { ...item, imageUrl: imageUrls[0] || "", imageUrls, variants };
 }

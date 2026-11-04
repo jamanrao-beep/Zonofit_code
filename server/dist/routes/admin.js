@@ -1080,8 +1080,7 @@ router.post("/marketplace/image", auth_1.requireAuth, requireAdmin, acceptProduc
         res.status(400).json({ error: "ValidationError", message: "Choose an image file." });
         return;
     }
-    const baseUrl = (process.env.PUBLIC_API_URL ?? `${req.protocol}://${req.get("host")}`).replace(/\/$/, "");
-    res.json({ url: `${baseUrl}/uploads/${req.file.filename}` });
+    res.json({ url: (0, uploads_1.publicUploadUrl)(`/uploads/${req.file.filename}`) });
 });
 // ─── GET /api/admin/marketplace ──────────────────────────────────────────────
 router.get("/marketplace", auth_1.requireAuth, requireAdmin, async (req, res) => {
@@ -1089,7 +1088,28 @@ router.get("/marketplace", auth_1.requireAuth, requireAdmin, async (req, res) =>
         const items = await prisma_1.default.marketplaceItem.findMany({
             orderBy: { createdAt: "desc" }
         });
-        res.json({ items });
+        res.json({ items: items.map((item) => (0, marketplaceItem_1.presentMarketplaceItem)(item)) });
+    }
+    catch (err) {
+        res.status(500).json({ error: "ServerError", message: err.message });
+    }
+});
+router.get("/marketplace/orders", auth_1.requireAuth, requireAdmin, async (_req, res) => {
+    try {
+        const orders = await prisma_1.default.marketplaceOrder.findMany({
+            orderBy: { createdAt: "desc" },
+            take: 100,
+            include: {
+                item: { select: { id: true, title: true, imageUrl: true, imageUrls: true, pricePaise: true } },
+                user: { select: { id: true, name: true, phone: true, email: true } },
+            },
+        });
+        res.json({
+            orders: orders.map((order) => ({
+                ...order,
+                item: (0, marketplaceItem_1.presentMarketplaceItem)(order.item),
+            })),
+        });
     }
     catch (err) {
         res.status(500).json({ error: "ServerError", message: err.message });

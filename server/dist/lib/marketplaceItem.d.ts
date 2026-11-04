@@ -28,5 +28,15 @@ export type MarketplaceWrite = {
 export declare function readMarketplaceWrite(body: Record<string, unknown>): MarketplaceWrite | {
     error: string;
 };
+export declare function presentPhotoList(imageUrls: unknown, imageUrl?: string | null): string[];
+export declare function presentMarketplaceItem<T extends {
+    imageUrl?: string | null;
+    imageUrls?: unknown;
+    variants?: unknown;
+}>(item: T): T & {
+    imageUrl: string;
+    imageUrls: string[];
+    variants: unknown;
+};
 export {};
 //# sourceMappingURL=marketplaceItem.d.ts.map

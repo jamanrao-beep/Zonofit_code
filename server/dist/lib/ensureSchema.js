@@ -52,6 +52,10 @@ const STATEMENTS = [
     "ALTER TABLE `marketplace_items` ADD COLUMN `mrpPaise` INTEGER NULL",
     "ALTER TABLE `marketplace_items` ADD COLUMN `variants` JSON NULL",
     "ALTER TABLE `marketplace_items` ADD COLUMN `specs` JSON NULL",
+    "ALTER TABLE `marketplace_items` MODIFY COLUMN `imageUrl` TEXT NOT NULL",
+    "ALTER TABLE `marketplace_orders` ADD COLUMN `creditsSpent` INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE `marketplace_orders` ADD COLUMN `addressJson` TEXT NULL",
+    "ALTER TABLE `credit_transactions` MODIFY COLUMN `type` ENUM('MEMBERSHIP_GRANT','VISIT_SPEND','PURCHASE','BONUS','CONVERSION','RECONVERSION','EXPIRY','REFUND','MARKETPLACE_SPEND') NOT NULL",
 ];
 function safeDbMessage(err) {
     const message = String(err?.message ?? "");

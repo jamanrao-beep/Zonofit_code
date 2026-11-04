@@ -1,6 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.readMarketplaceWrite = readMarketplaceWrite;
+exports.presentPhotoList = presentPhotoList;
+exports.presentMarketplaceItem = presentMarketplaceItem;
+const uploads_1 = require("./uploads");
 const CATEGORIES = ["PRODUCTS", "SPORTS_ACTIVITIES", "APPAREL_GEAR", "RECOVERY_WELLNESS", "ZONOFIT_COMMON"];
 function text(value, max) {
     return typeof value === "string" ? value.trim().slice(0, max) : "";
@@ -28,9 +31,11 @@ function list(value, maxItems, maxLen) {
 }
 function httpUrl(value) {
     const url = text(value, 2000);
-    if (!/^https?:\/\//i.test(url))
+    if (!url)
         return "";
-    return url;
+    if (url.startsWith("/uploads/") || /^https?:\/\//i.test(url))
+        return (0, uploads_1.publicUploadUrl)(url);
+    return "";
 }
 function extraBag(body) {
     return body.details && typeof body.details === "object" ? body.details : {};
@@ -113,5 +118,31 @@ function readMarketplaceWrite(body) {
         variants,
         specs,
     };
+}
+function presentPhotoList(imageUrls, imageUrl) {
+    let raw = imageUrls;
+    if (typeof raw === "string" && raw.trim().startsWith("[")) {
+        try {
+            raw = JSON.parse(raw);
+        }
+        catch {
+            raw = [];
+        }
+    }
+    const list = (Array.isArray(raw) ? raw : []).map((entry) => httpUrl(entry)).filter(Boolean);
+    const single = httpUrl(imageUrl);
+    if (single && !list.includes(single))
+        list.unshift(single);
+    return list;
+}
+function presentMarketplaceItem(item) {
+    const imageUrls = presentPhotoList(item.imageUrls, item.imageUrl);
+    const variants = Array.isArray(item.variants)
+        ? item.variants.map((row) => {
+            const entry = row && typeof row === "object" ? row : {};
+            return { ...entry, imageUrl: httpUrl(entry.imageUrl) };
+        })
+        : item.variants;
+    return { ...item, imageUrl: imageUrls[0] || "", imageUrls, variants };
 }
 //# sourceMappingURL=marketplaceItem.js.map

@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getUploadsDir = getUploadsDir;
 exports.getAllCandidateUploadDirs = getAllCandidateUploadDirs;
+exports.publicUploadUrl = publicUploadUrl;
 const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
 /**
@@ -59,5 +60,23 @@ function getAllCandidateUploadDirs() {
     dirs.add(path_1.default.resolve(__dirname, "../uploads"));
     dirs.add(path_1.default.resolve(__dirname, "../../../uploads"));
     return Array.from(dirs);
+}
+/** Absolute public URL for a file under /uploads, even if it was saved with a local host. */
+function publicUploadUrl(stored) {
+    const trimmed = stored.trim();
+    if (!trimmed)
+        return "";
+    const base = (process.env.PUBLIC_API_URL || "https://api.zonofit.com").replace(/\/$/, "");
+    if (trimmed.startsWith("/uploads/"))
+        return `${base}${trimmed}`;
+    try {
+        const parsed = new URL(trimmed);
+        if (parsed.pathname.startsWith("/uploads/"))
+            return `${base}${parsed.pathname}`;
+    }
+    catch {
+        return "";
+    }
+    return /^https?:\/\//i.test(trimmed) ? trimmed : "";
 }
 //# sourceMappingURL=uploads.js.map
