@@ -13,6 +13,8 @@ import {
   BackHandler,
   useWindowDimensions,
   ActivityIndicator,
+  Image,
+  ImageSourcePropType,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -23,61 +25,110 @@ import { apiFetch } from "@/lib/api";
 import { useAuthStore } from "@/store/useAuthStore";
 
 const HOME_CITY = "Udaipur";
-const COMING_SOON = ["Jaipur", "Ahmedabad", "Bhilwara", "Kota", "Ajmer", "Jodhpur"] as const;
+const COMING_SOON = [
+  "Jaipur",
+  "Ahmedabad",
+  "Delhi NCR",
+  "Mumbai",
+  "Bengaluru",
+  "Chandigarh",
+  "Pune",
+  "Hyderabad",
+  "Jodhpur",
+  "Kota",
+  "Ajmer",
+  "Bhilwara",
+] as const;
 
 type SoonCity = (typeof COMING_SOON)[number];
 type SheetState = { kind: "home" } | { kind: "soon"; city: SoonCity } | null;
 
-const MARKS: Record<string, { d: string; dots?: { cx: number; cy: number; r: number }[] }> = {
+const CITY_ICONS: Record<string, { base: ImageSourcePropType; selected: ImageSourcePropType }> = {
   Udaipur: {
-    d: "M5 38h38M10 38V27h28v11M10 27v-5a3 3 0 016 0v5M32 27v-5a3 3 0 016 0v5M20 27v-8a4 4 0 018 0v8M24 15v-4M19 38v-4a2 2 0 014 0v4M25 38v-4a2 2 0 014 0v4M8 43c3-2 5 2 8 0s5 2 8 0 5 2 8 0 5 2 8 0",
+    base: require("@/assets/images/cities/udaipur.png"),
+    selected: require("@/assets/images/cities/udaipur-selected.png"),
   },
   Jaipur: {
-    d: "M8 40h32M11 40V30h26v10M15 30v-8h18v8M19 22v-7h10v7M24 15v-4",
-    dots: [
-      { cx: 17, cy: 35, r: 1.2 },
-      { cx: 24, cy: 35, r: 1.2 },
-      { cx: 31, cy: 35, r: 1.2 },
-      { cx: 21, cy: 26, r: 1.2 },
-      { cx: 27, cy: 26, r: 1.2 },
-    ],
+    base: require("@/assets/images/cities/jaip.png"),
+    selected: require("@/assets/images/cities/jaip-selected.png"),
   },
   Ahmedabad: {
-    d: "M6 40h36M10 40V22a14 14 0 0128 0v18M24 40V27M24 31l-5-4M24 31l5-4M24 35l-4-3M24 35l4-3",
+    base: require("@/assets/images/cities/ahd.png"),
+    selected: require("@/assets/images/cities/ahd-selected.png"),
   },
-  Bhilwara: {
-    d: "M14 11h20M14 37h20M17 11v26M31 11v26M17 18l14 3M17 24l14 3M17 30l14 3",
+  "Delhi NCR": {
+    base: require("@/assets/images/cities/ncr.png"),
+    selected: require("@/assets/images/cities/ncr-selected.png"),
   },
-  Kota: {
-    d: "M6 32h36M14 12v26M34 12v26M14 14Q24 30 34 14M6 30Q10 20 14 14M34 14Q38 20 42 30M19 21v11M24 23v9M29 21v11M8 42c3-2 5 2 8 0s5 2 8 0 5 2 8 0 5 2 8 0",
+  Mumbai: {
+    base: require("@/assets/images/cities/mumbai.png"),
+    selected: require("@/assets/images/cities/mumbai-selected.png"),
   },
-  Ajmer: {
-    d: "M9 40h30M12 40V30h24v10M15 30a9 9 0 0118 0M24 21v-7M22 16h4M20 40v-5a4 4 0 018 0v5",
+  Bengaluru: {
+    base: require("@/assets/images/cities/bang.png"),
+    selected: require("@/assets/images/cities/bang-selected.png"),
+  },
+  Chandigarh: {
+    base: require("@/assets/images/cities/chd.png"),
+    selected: require("@/assets/images/cities/chd-selected.png"),
+  },
+  Hyderabad: {
+    base: require("@/assets/images/cities/hyd.png"),
+    selected: require("@/assets/images/cities/hyd-selected.png"),
+  },
+  Pune: {
+    base: require("@/assets/images/cities/pune.png"),
+    selected: require("@/assets/images/cities/pune-selected.png"),
+  },
+  Kolkata: {
+    base: require("@/assets/images/cities/kolk.png"),
+    selected: require("@/assets/images/cities/kolk-selected.png"),
+  },
+  Kochi: {
+    base: require("@/assets/images/cities/koch.png"),
+    selected: require("@/assets/images/cities/koch-selected.png"),
+  },
+  Chennai: {
+    base: require("@/assets/images/cities/chen.png"),
+    selected: require("@/assets/images/cities/chen-selected.png"),
   },
   Jodhpur: {
-    d: "M4 40h40M8 40V20M40 40V20M8 20h4v-4h4v4h4v-4h4v4h4v-4h4v4h4v-4h4v4M20 40v-8a4 4 0 018 0v8M12 28h3M33 28h3",
+    base: require("@/assets/images/cities/jodhpur.png"),
+    selected: require("@/assets/images/cities/jodhpur-selected.png"),
+  },
+  Kota: {
+    base: require("@/assets/images/cities/kota.png"),
+    selected: require("@/assets/images/cities/kota-selected.png"),
+  },
+  Ajmer: {
+    base: require("@/assets/images/cities/ajmer.png"),
+    selected: require("@/assets/images/cities/ajmer-selected.png"),
+  },
+  Bhilwara: {
+    base: require("@/assets/images/cities/bhilwara.png"),
+    selected: require("@/assets/images/cities/bhilwara-selected.png"),
   },
 };
 
-function CityMark({ name, color, size = 34 }: { name: string; color: string; size?: number }) {
-  const mark = MARKS[name];
-  if (!mark) return null;
+function CityMark({
+  name,
+  selected = false,
+  color,
+  size = 40,
+}: {
+  name: string;
+  selected?: boolean;
+  color?: string;
+  size?: number;
+}) {
+  const icon = CITY_ICONS[name] || CITY_ICONS["Udaipur"];
+  const source = selected ? icon.selected : icon.base;
   return (
-    <Canvas style={{ width: size, height: size }}>
-      <Group transform={[{ scale: size / 48 }]}>
-        <Path
-          path={mark.d}
-          style="stroke"
-          strokeWidth={1.7}
-          strokeCap="round"
-          strokeJoin="round"
-          color={color}
-        />
-        {mark.dots?.map((dot) => (
-          <Circle key={`${dot.cx}-${dot.cy}`} cx={dot.cx} cy={dot.cy} r={dot.r} color={color} />
-        ))}
-      </Group>
-    </Canvas>
+    <Image
+      source={source}
+      style={{ width: size, height: size }}
+      resizeMode="contain"
+    />
   );
 }
 
@@ -325,7 +376,7 @@ export default function SelectCityScreen() {
             <Text style={styles.sec}>Live now</Text>
             <Pressable style={styles.home} onPress={() => setSheet({ kind: "home" })}>
               <View style={styles.mark}>
-                <CityMark name="Udaipur" color="#1F7A3F" />
+                <CityMark name="Udaipur" selected={true} size={44} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.homeName}>Udaipur</Text>
@@ -357,7 +408,7 @@ export default function SelectCityScreen() {
                     ]}
                   >
                     <View style={[styles.soonMark, on && styles.soonMarkOn]}>
-                      <CityMark name={city} color={on ? "#1F7A3F" : "#66756B"} size={32} />
+                      <CityMark name={city} selected={on} size={40} />
                     </View>
                     <Text style={styles.cityName} numberOfLines={2}>{city}</Text>
                     <View style={[styles.soonChip, on && styles.soonChipOn]}>
@@ -403,7 +454,7 @@ export default function SelectCityScreen() {
               <View>
                 <View style={styles.sheetTop}>
                   <View style={styles.mark}>
-                    <CityMark name="Udaipur" color="#1F7A3F" />
+                    <CityMark name="Udaipur" selected={true} size={48} />
                   </View>
                   <Text style={styles.sheetTitle}>Udaipur is your home city</Text>
                 </View>
@@ -437,7 +488,7 @@ export default function SelectCityScreen() {
               <View>
                 <View style={styles.sheetTop}>
                   <View style={styles.mark}>
-                    <CityMark name={mountedSheet.city} color="#1F7A3F" />
+                    <CityMark name={mountedSheet.city} selected={notified.includes(mountedSheet.city)} size={48} />
                   </View>
                   <Text style={styles.sheetTitle}>{mountedSheet.city} is coming soon</Text>
                 </View>
