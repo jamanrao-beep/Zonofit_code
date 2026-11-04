@@ -626,10 +626,10 @@ const styles = StyleSheet.create({
   squircle: {
     overflow: "hidden",
     shadowColor: "#4A8A33",
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.22,
-    shadowRadius: 24,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.16,
+    shadowRadius: 20,
+    elevation: 0,
     backgroundColor: "#579D2D",
   },
   squircleInner: {
