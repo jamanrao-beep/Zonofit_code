@@ -7,6 +7,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useMemo, useRef } from "react";
 import {
   Animated,
+  Dimensions,
   Easing,
   Image,
   StyleSheet,
@@ -16,10 +17,28 @@ import {
 import { StatusBar } from "expo-status-bar";
 
 const TOTAL_JOURNEY_MONTHS = 12;
-// Hold duration so the user fully enjoys the assembled animation
-const ANIMATION_HOLD_MS = 2900;
-// Smooth fade out duration
-const FADE_OUT_DURATION_MS = 380;
+
+/* ------------------------------------------------------------------------ */
+/* Timeline (ms from mount) — measured from the 30 fps reference video      */
+/* ------------------------------------------------------------------------ */
+const SPLASH_TIMELINE = {
+  tileIn: { start: 100, duration: 330 }, // tile fades in + scales 0.78 → 1
+  barWipe: { start: 490, duration: 90 }, // F top bar wipes in L → R
+  barSolid: { start: 490, duration: 260 }, // …translucent → solid
+  hookDraw: { start: 600, duration: 110 }, // F lower hook draws on
+  hookSolid: { start: 600, duration: 360 }, // snaps solid
+  dotIn: { start: 1100, duration: 160 }, // dot drops in + scales up
+  ringPulse: { start: 1300, duration: 450 }, // single ring ripple from the dot
+  wordmarkIn: { start: 1740, duration: 220, stagger: 42 }, // letters rise from mask L → R
+  taglineIn: { start: 2100, duration: 300 }, // tagline fades in
+  segmentsIn: { start: 2580, step: 100, duration: 70 }, // segment fills
+  labelIn: { start: 2950, duration: 250 }, // "Month X of 12" fades in
+  tileOut: { start: 3270, duration: 150 }, // tile pales, F fades out
+  flood: { start: 3310, duration: 270 }, // green circle grows out of the dot and floods screen
+  complete: 3700, // onComplete navigation
+} as const;
+
+const WORDMARK_CHARS = ["Z", "o", "n", "o", "f", "i", "t"];
 
 export default function SplashAnimationScreen() {
   const { isLoaded } = useAuthStore();
@@ -29,43 +48,63 @@ export default function SplashAnimationScreen() {
   const membershipCycle = useCreditsStore((s) => s.membershipInfo?.cycleNumber);
   const cycleMonth = Math.max(1, Math.min(TOTAL_JOURNEY_MONTHS, membershipCycle || userMonth || 1));
 
+  const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
+  // 1080 artboard scaling factor
+  const artboardScale = Math.min(screenWidth, 480) / 1080;
+  const u = (px: number) => px * artboardScale;
+
   // Root screen fade out
   const screenFadeAnim = useRef(new Animated.Value(1)).current;
 
-  // Squircle container animations
-  const squircleScale = useRef(new Animated.Value(0.78)).current;
-  const squircleOpacity = useRef(new Animated.Value(0)).current;
+  // 1. Tile animation
+  const tileScale = useRef(new Animated.Value(0.78)).current;
+  const tileOpacity = useRef(new Animated.Value(0)).current;
 
-  // Phase 1 -> Phase 2 Logo assembly animations
-  // Top slit is visible from start
-  const topSlitOpacity = useRef(new Animated.Value(1)).current;
-  const topSlitScaleX = useRef(new Animated.Value(0.4)).current;
+  // 2. Mark animations: Top bar
+  const topBarScaleX = useRef(new Animated.Value(0)).current;
+  const topBarOpacity = useRef(new Animated.Value(0)).current;
 
-  // Hook curves and draws in
-  const hookOpacity = useRef(new Animated.Value(0)).current;
+  // 3. Mark animations: Hook
   const hookScale = useRef(new Animated.Value(0.3)).current;
-  const hookTranslateY = useRef(new Animated.Value(-8)).current;
+  const hookOpacity = useRef(new Animated.Value(0)).current;
+  const hookTranslateY = useRef(new Animated.Value(-12)).current;
 
-  // Center white dot pops in with spring bounce
-  const dotScale = useRef(new Animated.Value(0)).current;
+  // 4. Mark animations: Dot
+  const dotScale = useRef(new Animated.Value(0.5)).current;
   const dotOpacity = useRef(new Animated.Value(0)).current;
+  const dotTranslateY = useRef(new Animated.Value(-24)).current;
 
-  // Master icon image crossfade for pixel-perfect finishing
-  const fullIconOpacity = useRef(new Animated.Value(1)).current;
+  // 5. Dot ring ripple
+  const ringScale = useRef(new Animated.Value(1)).current;
+  const ringOpacity = useRef(new Animated.Value(0)).current;
 
-  // Text animations
-  const textTranslateY = useRef(new Animated.Value(14)).current;
-  const textOpacity = useRef(new Animated.Value(0)).current;
+  // 6. Master crisp icon cross-fade
+  const fullIconOpacity = useRef(new Animated.Value(0)).current;
 
-  // Journey Dashes & label
-  const dashesOpacity = useRef(new Animated.Value(0)).current;
-  const labelOpacity = useRef(new Animated.Value(0)).current;
+  // 7. Wordmark letters staggered rise
+  const letterAnims = useMemo(
+    () => WORDMARK_CHARS.map(() => ({
+      y: new Animated.Value(36),
+      opacity: new Animated.Value(0),
+    })),
+    []
+  );
 
-  // 12 individual dash animations
-  const dashAnims = useMemo(
+  // 8. Tagline fade in
+  const taglineOpacity = useRef(new Animated.Value(0)).current;
+
+  // 9. 12 Journey segments fill animations
+  const segmentAnims = useMemo(
     () => Array.from({ length: TOTAL_JOURNEY_MONTHS }, () => new Animated.Value(0)),
     []
   );
+
+  // 10. Month label
+  const labelOpacity = useRef(new Animated.Value(0)).current;
+
+  // 11. Green flood circle
+  const floodScale = useRef(new Animated.Value(0.001)).current;
+  const floodOpacity = useRef(new Animated.Value(0)).current;
 
   const isNavigating = useRef(false);
 
@@ -76,147 +115,235 @@ export default function SplashAnimationScreen() {
 
   // Multi-phase recreation of the animation video
   useEffect(() => {
-    // ─── Phase 1: Squircle entrance with top slit (0ms - 450ms) ───
-    Animated.parallel([
-      Animated.timing(squircleOpacity, {
-        toValue: 1,
-        duration: 400,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.spring(squircleScale, {
-        toValue: 1,
-        friction: 8,
-        tension: 55,
-        useNativeDriver: true,
-      }),
-      Animated.timing(topSlitScaleX, {
-        toValue: 1,
-        duration: 450,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(dashesOpacity, {
-        toValue: 1,
-        duration: 400,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }),
-    ]).start();
+    const timers: any[] = [];
 
-    // ─── Phase 2: Logo Assembly (Hook sweeps in & Dot pops) (400ms - 900ms) ───
-    const phase2Timer = setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(hookOpacity, {
-          toValue: 1,
-          duration: 380,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-        Animated.spring(hookScale, {
-          toValue: 1,
-          friction: 7,
-          tension: 60,
-          useNativeDriver: true,
-        }),
-        Animated.timing(hookTranslateY, {
-          toValue: 0,
-          duration: 380,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-        Animated.sequence([
-          Animated.delay(120),
-          Animated.parallel([
-            Animated.timing(dotOpacity, {
-              toValue: 1,
-              duration: 250,
+    // --- Step 1: Tile Entrance (100ms - 430ms) ---
+    timers.push(
+      setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(tileOpacity, {
+            toValue: 1,
+            duration: SPLASH_TIMELINE.tileIn.duration,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+          Animated.timing(tileScale, {
+            toValue: 1,
+            duration: SPLASH_TIMELINE.tileIn.duration,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }, SPLASH_TIMELINE.tileIn.start)
+    );
+
+    // --- Step 2: Top Bar Wipe In (490ms - 750ms) ---
+    timers.push(
+      setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(topBarOpacity, {
+            toValue: 1,
+            duration: SPLASH_TIMELINE.barSolid.duration,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.timing(topBarScaleX, {
+            toValue: 1,
+            duration: SPLASH_TIMELINE.barWipe.duration,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }, SPLASH_TIMELINE.barWipe.start)
+    );
+
+    // --- Step 3: Lower Hook Draw (600ms - 960ms) ---
+    timers.push(
+      setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(hookOpacity, {
+            toValue: 1,
+            duration: SPLASH_TIMELINE.hookSolid.duration,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.timing(hookScale, {
+            toValue: 1,
+            duration: SPLASH_TIMELINE.hookDraw.duration,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+          Animated.timing(hookTranslateY, {
+            toValue: 0,
+            duration: SPLASH_TIMELINE.hookDraw.duration,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }, SPLASH_TIMELINE.hookDraw.start)
+    );
+
+    // --- Step 4: Dot Drop In & Spring (1100ms - 1260ms) ---
+    timers.push(
+      setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(dotOpacity, {
+            toValue: 1,
+            duration: SPLASH_TIMELINE.dotIn.duration,
+            useNativeDriver: true,
+          }),
+          Animated.spring(dotScale, {
+            toValue: 1,
+            friction: 6,
+            tension: 80,
+            useNativeDriver: true,
+          }),
+          Animated.timing(dotTranslateY, {
+            toValue: 0,
+            duration: SPLASH_TIMELINE.dotIn.duration,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
+          // Cross-fade the pixel-perfect master icon
+          Animated.timing(fullIconOpacity, {
+            toValue: 1,
+            duration: 180,
+            useNativeDriver: true,
+          }).start();
+        });
+      }, SPLASH_TIMELINE.dotIn.start)
+    );
+
+    // --- Step 5: Ring Ripple around the Dot (1300ms - 1750ms) ---
+    timers.push(
+      setTimeout(() => {
+        Animated.parallel([
+          Animated.sequence([
+            Animated.timing(ringOpacity, {
+              toValue: 0.75,
+              duration: 100,
               useNativeDriver: true,
             }),
-            Animated.spring(dotScale, {
-              toValue: 1,
-              friction: 5,
-              tension: 90,
+            Animated.timing(ringOpacity, {
+              toValue: 0,
+              duration: 350,
               useNativeDriver: true,
             }),
           ]),
-        ]),
-      ]).start(() => {
-        // Smoothly cross-fade master high-res icon
-        Animated.timing(fullIconOpacity, {
+          Animated.timing(ringScale, {
+            toValue: 2.2,
+            duration: SPLASH_TIMELINE.ringPulse.duration,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }, SPLASH_TIMELINE.ringPulse.start)
+    );
+
+    // --- Step 6: Wordmark "Zonofit" Staggered Rise (1740ms - 2050ms) ---
+    timers.push(
+      setTimeout(() => {
+        const letterAnimations = letterAnims.map((item, index) =>
+          Animated.sequence([
+            Animated.delay(index * SPLASH_TIMELINE.wordmarkIn.stagger),
+            Animated.parallel([
+              Animated.timing(item.opacity, {
+                toValue: 1,
+                duration: SPLASH_TIMELINE.wordmarkIn.duration,
+                useNativeDriver: true,
+              }),
+              Animated.timing(item.y, {
+                toValue: 0,
+                duration: SPLASH_TIMELINE.wordmarkIn.duration,
+                easing: Easing.out(Easing.cubic),
+                useNativeDriver: true,
+              }),
+            ]),
+          ])
+        );
+        Animated.parallel(letterAnimations).start();
+      }, SPLASH_TIMELINE.wordmarkIn.start)
+    );
+
+    // --- Step 7: Tagline Fade In (2100ms - 2400ms) ---
+    timers.push(
+      setTimeout(() => {
+        Animated.timing(taglineOpacity, {
           toValue: 1,
-          duration: 250,
+          duration: SPLASH_TIMELINE.taglineIn.duration,
+          easing: Easing.out(Easing.quad),
           useNativeDriver: true,
         }).start();
-      });
-    }, 420);
+      }, SPLASH_TIMELINE.taglineIn.start)
+    );
 
-    // ─── Phase 3: Brand Text Slide Up & Reveal (850ms - 1300ms) ───
-    const phase3Timer = setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(textOpacity, {
-          toValue: 1,
-          duration: 400,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(textTranslateY, {
-          toValue: 0,
-          duration: 400,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }, 850);
+    // --- Step 8: 12-Segment Progress Fill up to cycleMonth (2580ms - 2950ms) ---
+    timers.push(
+      setTimeout(() => {
+        const filled = Math.max(1, Math.min(cycleMonth, TOTAL_JOURNEY_MONTHS));
+        const activeSegmentAnimations = segmentAnims.slice(0, filled).map((anim, index) =>
+          Animated.sequence([
+            Animated.delay(index * SPLASH_TIMELINE.segmentsIn.step),
+            Animated.timing(anim, {
+              toValue: 1,
+              duration: SPLASH_TIMELINE.segmentsIn.duration,
+              easing: Easing.out(Easing.quad),
+              useNativeDriver: false,
+            }),
+          ])
+        );
+        Animated.parallel(activeSegmentAnimations).start();
+      }, SPLASH_TIMELINE.segmentsIn.start)
+    );
 
-    // ─── Phase 4: Journey Dashes illuminate to current month (1300ms - 2000ms) ───
-    const phase4Timer = setTimeout(() => {
-      // Gentle card pulse like in video frame 00:03
-      Animated.sequence([
-        Animated.timing(squircleScale, {
-          toValue: 1.04,
-          duration: 240,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(squircleScale, {
-          toValue: 1,
-          duration: 240,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ]).start();
-
-      // Sequentially fill active journey months up to cycleMonth
-      const activeDashAnimations = dashAnims.slice(0, cycleMonth).map((anim, index) =>
-        Animated.timing(anim, {
-          toValue: 1,
-          duration: 180,
-          delay: index * 60,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: false,
-        })
-      );
-
-      Animated.parallel(activeDashAnimations).start(() => {
-        // Fade in month label
+    // --- Step 9: "Month X of 12" Label Fade In (2950ms - 3200ms) ---
+    timers.push(
+      setTimeout(() => {
         Animated.timing(labelOpacity, {
           toValue: 1,
-          duration: 280,
+          duration: SPLASH_TIMELINE.labelIn.duration,
           easing: Easing.out(Easing.quad),
           useNativeDriver: true,
         }).start();
-      });
-    }, 1300);
+      }, SPLASH_TIMELINE.labelIn.start)
+    );
+
+    // --- Step 10: Tile pales and Green Circle Flood (3270ms - 3650ms) ---
+    timers.push(
+      setTimeout(() => {
+        Animated.timing(tileOpacity, {
+          toValue: 0.55,
+          duration: SPLASH_TIMELINE.tileOut.duration,
+          useNativeDriver: true,
+        }).start();
+      }, SPLASH_TIMELINE.tileOut.start)
+    );
+
+    timers.push(
+      setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(floodOpacity, {
+            toValue: 1,
+            duration: 40,
+            useNativeDriver: true,
+          }),
+          Animated.timing(floodScale, {
+            toValue: 28,
+            duration: SPLASH_TIMELINE.flood.duration,
+            easing: Easing.bezier(0.2, 0.8, 0.3, 1),
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }, SPLASH_TIMELINE.flood.start)
+    );
 
     return () => {
-      clearTimeout(phase2Timer);
-      clearTimeout(phase3Timer);
-      clearTimeout(phase4Timer);
+      timers.forEach((t) => clearTimeout(t));
     };
-  }, [cycleMonth, dashAnims]);
+  }, [cycleMonth, letterAnims, segmentAnims]);
 
-  // ─── Phase 5: Smooth Fade Out & Navigation ───
+  // --- Step 11: Navigation on complete (3700ms) ---
   useEffect(() => {
     if (!isLoaded) return;
 
@@ -224,11 +351,10 @@ export default function SplashAnimationScreen() {
       if (isNavigating.current) return;
       isNavigating.current = true;
 
-      // Smooth fade out of entire splash screen
+      // Clean transition after green screen flood
       Animated.timing(screenFadeAnim, {
         toValue: 0,
-        duration: FADE_OUT_DURATION_MS,
-        easing: Easing.inOut(Easing.ease),
+        duration: 200,
         useNativeDriver: true,
       }).start(async () => {
         const { isOnboarded, user, isSignedIn: signedIn } = useAuthStore.getState();
@@ -266,44 +392,63 @@ export default function SplashAnimationScreen() {
           router.replace("/intro" as any);
         }
       });
-    }, ANIMATION_HOLD_MS);
+    }, SPLASH_TIMELINE.complete);
 
     return () => clearTimeout(navTimer);
   }, [isLoaded, screenFadeAnim, router]);
+
+  // Tile dimensions from reference artboard: 422x422 on 1080 artboard
+  const tileSize = u(422);
+  const tileRadius = u(100);
 
   return (
     <Animated.View style={[styles.container, { opacity: screenFadeAnim }]}>
       <StatusBar style="dark" />
 
       <View style={styles.contentWrap}>
-        {/* ─── Animated Logo Squircle ─── */}
+        {/* ─── Animated Logo Tile ─── */}
         <Animated.View
           style={[
             styles.squircle,
             {
-              opacity: squircleOpacity,
-              transform: [{ scale: squircleScale }],
+              width: tileSize,
+              height: tileSize,
+              borderRadius: tileRadius,
+              opacity: tileOpacity,
+              transform: [{ scale: tileScale }],
             },
           ]}
         >
-          {/* Base green background & top slit layer (Phase 1) */}
+          {/* Base green gradient background & vector layers */}
           <View style={styles.squircleInner}>
             {/* Top white capsule slit */}
             <Animated.View
               style={[
                 styles.topSlit,
                 {
-                  opacity: topSlitOpacity,
-                  transform: [{ scaleX: topSlitScaleX }],
+                  top: u(114),
+                  left: u(104),
+                  width: u(215),
+                  height: u(38),
+                  borderRadius: u(19),
+                  opacity: topBarOpacity,
+                  transform: [{ scaleX: topBarScaleX }],
                 },
               ]}
             />
 
-            {/* Middle hook curved arm (Phase 2 assembly) */}
+            {/* Middle hook curved arm */}
             <Animated.View
               style={[
                 styles.hookArm,
                 {
+                  top: u(176),
+                  left: u(130),
+                  width: u(160),
+                  height: u(98),
+                  borderTopRightRadius: u(46),
+                  borderBottomRightRadius: u(46),
+                  borderBottomLeftRadius: u(52),
                   opacity: hookOpacity,
                   transform: [
                     { scale: hookScale },
@@ -313,19 +458,43 @@ export default function SplashAnimationScreen() {
               ]}
             />
 
-            {/* Bottom white dot (Phase 2 assembly) */}
+            {/* Bottom white dot */}
             <Animated.View
               style={[
                 styles.centerDot,
                 {
+                  top: u(260),
+                  left: u(174),
+                  width: u(39),
+                  height: u(39),
+                  borderRadius: u(20),
                   opacity: dotOpacity,
-                  transform: [{ scale: dotScale }],
+                  transform: [
+                    { scale: dotScale },
+                    { translateY: dotTranslateY },
+                  ],
+                },
+              ]}
+            />
+
+            {/* Concentric ring ripple from dot */}
+            <Animated.View
+              style={[
+                styles.ringRipple,
+                {
+                  top: u(258),
+                  left: u(172),
+                  width: u(43),
+                  height: u(43),
+                  borderRadius: u(22),
+                  opacity: ringOpacity,
+                  transform: [{ scale: ringScale }],
                 },
               ]}
             />
           </View>
 
-          {/* Master high-res pixel-perfect icon overlay */}
+          {/* Master high-res razor-sharp icon crossfade */}
           <Animated.View
             style={[
               StyleSheet.absoluteFill,
@@ -340,55 +509,103 @@ export default function SplashAnimationScreen() {
           </Animated.View>
         </Animated.View>
 
-        {/* ─── Brand Title & Slogan ─── */}
-        <Animated.View
+        {/* ─── Wordmark "Zonofit" with letter-by-letter rising reveal ─── */}
+        <View style={[styles.wordmarkClipBox, { height: u(118), marginTop: u(54) }]}>
+          <View style={styles.wordmarkRow}>
+            {WORDMARK_CHARS.map((char, index) => (
+              <Animated.Text
+                key={index}
+                style={[
+                  styles.wordmarkChar,
+                  {
+                    fontSize: u(93),
+                    lineHeight: u(114),
+                    opacity: letterAnims[index].opacity,
+                    transform: [{ translateY: letterAnims[index].y }],
+                  },
+                ]}
+              >
+                {char}
+              </Animated.Text>
+            ))}
+          </View>
+        </View>
+
+        {/* ─── Tagline "Consistency over perfection" ─── */}
+        <Animated.Text
           style={[
-            styles.textContainer,
+            styles.brandSubtitle,
             {
-              opacity: textOpacity,
-              transform: [{ translateY: textTranslateY }],
+              fontSize: u(44),
+              marginTop: u(24),
+              opacity: taglineOpacity,
             },
           ]}
         >
-          <Text style={styles.brandTitle}>Zonofit</Text>
-          <Text style={styles.brandSubtitle}>Consistency over perfection</Text>
-        </Animated.View>
+          Consistency over perfection
+        </Animated.Text>
 
-        {/* ─── 12-Month Journey Indicator ─── */}
-        <Animated.View style={[styles.journeyContainer, { opacity: dashesOpacity }]}>
-          <View style={styles.dashesRow}>
-            {dashAnims.map((anim, index) => {
-              const isActive = index < cycleMonth;
-              const isCurrent = index === cycleMonth - 1;
-
+        {/* ─── 12-Month Journey Progress Segments ─── */}
+        <View style={[styles.journeyContainer, { marginTop: u(64) }]}>
+          <View style={[styles.dashesRow, { gap: u(14) }]}>
+            {segmentAnims.map((anim, index) => {
+              const isFilled = index < cycleMonth;
               const bgInterpolation = anim.interpolate({
                 inputRange: [0, 1],
-                outputRange: ["#E5E7EB", "#16A34A"],
+                outputRange: ["#DBE3D7", "#4A8A33"],
               });
 
               return (
-                <Animated.View
+                <View
                   key={index}
                   style={[
-                    styles.dash,
-                    isCurrent && styles.dashCurrent,
-                    isActive
-                      ? { backgroundColor: bgInterpolation }
-                      : { backgroundColor: "#E5E7EB" },
+                    styles.dashTrack,
+                    {
+                      width: u(46),
+                      height: u(17),
+                      borderRadius: u(9),
+                    },
                   ]}
-                />
+                >
+                  {isFilled && (
+                    <Animated.View
+                      style={[
+                        StyleSheet.absoluteFill,
+                        {
+                          borderRadius: u(9),
+                          backgroundColor: bgInterpolation,
+                        },
+                      ]}
+                    />
+                  )}
+                </View>
               );
             })}
           </View>
 
           {/* Current Month of 12 Label */}
-          <Animated.View style={{ opacity: labelOpacity }}>
-            <Text style={styles.monthLabel}>
+          <Animated.View style={{ opacity: labelOpacity, marginTop: u(22) }}>
+            <Text style={[styles.monthLabel, { fontSize: u(38) }]}>
               Month {cycleMonth} of {TOTAL_JOURNEY_MONTHS}
             </Text>
           </Animated.View>
-        </Animated.View>
+        </View>
       </View>
+
+      {/* ─── Signature Green Circle Screen Flood ─── */}
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.floodCircle,
+          {
+            width: u(120),
+            height: u(120),
+            borderRadius: u(60),
+            opacity: floodOpacity,
+            transform: [{ scale: floodScale }],
+          },
+        ]}
+      />
     </Animated.View>
   );
 }
@@ -404,17 +621,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     width: "100%",
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
   },
   squircle: {
-    width: 142,
-    height: 142,
-    borderRadius: 36,
     overflow: "hidden",
-    shadowColor: "#16A34A",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.28,
-    shadowRadius: 22,
+    shadowColor: "#4A8A33",
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.22,
+    shadowRadius: 24,
     elevation: 8,
     backgroundColor: "#579D2D",
   },
@@ -426,77 +640,65 @@ const styles = StyleSheet.create({
   },
   topSlit: {
     position: "absolute",
-    top: 38,
-    left: 34,
-    width: 74,
-    height: 12.5,
-    borderRadius: 6.5,
     backgroundColor: "#FFFFFF",
   },
   hookArm: {
     position: "absolute",
-    top: 59,
-    left: 44,
-    width: 54,
-    height: 31,
-    borderTopRightRadius: 16,
-    borderBottomRightRadius: 16,
-    borderBottomLeftRadius: 18,
     backgroundColor: "#FFFFFF",
   },
   centerDot: {
     position: "absolute",
-    top: 86,
-    left: 58,
-    width: 13,
-    height: 13,
-    borderRadius: 6.5,
     backgroundColor: "#FFFFFF",
+  },
+  ringRipple: {
+    position: "absolute",
+    borderWidth: 2.5,
+    borderColor: "#FFFFFF",
+    backgroundColor: "transparent",
   },
   masterIcon: {
     width: "100%",
     height: "100%",
   },
-  textContainer: {
+  wordmarkClipBox: {
+    overflow: "hidden",
     alignItems: "center",
-    marginTop: 22,
+    justifyContent: "center",
   },
-  brandTitle: {
-    fontSize: 34,
+  wordmarkRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  wordmarkChar: {
     fontWeight: "800",
-    color: "#111827",
-    letterSpacing: -0.8,
+    color: "#1B2B20",
+    letterSpacing: -0.6,
   },
   brandSubtitle: {
-    fontSize: 15,
     fontWeight: "500",
-    color: "#6B7280",
-    marginTop: 6,
-    letterSpacing: -0.2,
+    color: "#6B7470",
+    letterSpacing: 0.2,
   },
   journeyContainer: {
     alignItems: "center",
-    marginTop: 28,
   },
   dashesRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
   },
-  dash: {
-    width: 17,
-    height: 5,
-    borderRadius: 3,
-  },
-  dashCurrent: {
-    width: 24,
+  dashTrack: {
+    backgroundColor: "#DBE3D7",
+    overflow: "hidden",
   },
   monthLabel: {
-    marginTop: 12,
-    fontSize: 13.5,
     fontWeight: "700",
-    color: "#16A34A",
-    letterSpacing: 0.3,
+    color: "#6B7470",
+    letterSpacing: 0.2,
+  },
+  floodCircle: {
+    position: "absolute",
+    backgroundColor: "#248043",
   },
 });

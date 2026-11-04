@@ -23,6 +23,7 @@
     "admin-portal",
     "gym-portal",
     "android",
-    "dist"
+    "dist",
+    "assets/zono_splash"
   ]
 }

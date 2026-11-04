@@ -13,6 +13,8 @@ export const metadata: Metadata = {
   description: "Buy a ZonoFit membership, get credits, and book visits at partner gyms.",
 };
 
+import SplashGate from "@/components/splash/SplashGate";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -23,9 +25,11 @@ export default function RootLayout({
       <body
         className={`${jakarta.variable} antialiased bg-background text-foreground min-h-screen flex flex-col font-sans`}
       >
-        <main className="flex-1">
-          {children}
-        </main>
+        <SplashGate>
+          <main className="flex-1">
+            {children}
+          </main>
+        </SplashGate>
       </body>
     </html>
   );
