@@ -69,6 +69,25 @@ export default function LandingPage() {
               
               {/* Left Column: Hero Copy */}
               <div className="lg:col-span-6 flex flex-col items-start">
+                <Link
+                  href="/udaipur/launch-offer"
+                  className="sm:hidden mb-6 flex w-full items-center gap-3 rounded-2xl bg-[#14532d] px-4 py-3.5 text-white shadow-[0_10px_28px_rgba(20,83,45,0.28)]"
+                >
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#b6e86a] shadow-[0_0_0_6px_rgba(182,232,106,0.18)]" />
+                  <span className="min-w-0 flex-1 text-left">
+                    <span className="block text-[11px] font-black uppercase tracking-[0.14em] text-[#b6e86a]">
+                      Udaipur · Free
+                    </span>
+                    <span className="mt-0.5 block text-[17px] font-extrabold leading-tight">
+                      Launch offer is open
+                    </span>
+                    <span className="mt-0.5 block text-xs font-medium text-white/75">
+                      Claim a free gym membership
+                    </span>
+                  </span>
+                  <ArrowRight className="h-5 w-5 shrink-0" />
+                </Link>
+
                 {/* Tag Pill */}
                 <div className="inline-flex items-center px-4 py-1.5 rounded-full bg-[#cde8af] text-[#204712] text-xs sm:text-sm font-bold tracking-tight mb-6">
                   Fitness that fits real life

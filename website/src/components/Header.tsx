@@ -98,25 +98,6 @@ export default function Header() {
       {/* Mobile Menu Dropdown */}
       {mobileMenuOpen && (
         <div className="md:hidden bg-white/95 backdrop-blur-lg border-b border-gray-200 px-6 py-5 flex flex-col gap-4 shadow-xl">
-          {/* Mobile Launch Offer CTA */}
-          <Link
-            href="/udaipur/launch-offer"
-            onClick={() => setMobileMenuOpen(false)}
-            className="rounded-xl bg-gradient-to-r from-emerald-600 via-[#38a129] to-emerald-500 p-3.5 text-left shadow-md border border-emerald-400/30 flex flex-col justify-center text-white"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-[15px] font-extrabold uppercase tracking-wide">
-                Launch Offer
-              </span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-white/25 text-white tracking-wider">
-                FREE
-              </span>
-            </div>
-            <span className="text-xs font-medium text-emerald-100 mt-0.5">
-              Claim your free membership offer →
-            </span>
-          </Link>
-
           <Link
             href="#how-it-works"
             onClick={() => setMobileMenuOpen(false)}
