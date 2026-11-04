@@ -29,6 +29,7 @@ interface OrderItem {
   itemId: string;
   quantity: number;
   totalPaise: number;
+  status?: string;
   createdAt: string;
   selectedSize?: string | null;
   selectedColor?: string | null;
@@ -43,7 +44,33 @@ interface OrderItem {
 interface OrderGroup {
   id: string;
   createdAt: string;
+  status: string;
   lines: OrderItem[];
+}
+
+function groupStatus(lines: OrderItem[]): string {
+  const statuses = lines.map((line) => (line.status || "PLACED").toUpperCase());
+  if (statuses.some((status) => status === "ENQUIRY")) return "ENQUIRY";
+  if (statuses.length > 0 && statuses.every((status) => status === "COMPLETED")) return "COMPLETED";
+  if (statuses.length > 0 && statuses.every((status) => status === "CANCELLED")) return "CANCELLED";
+  if (statuses.some((status) => status === "PROCESSING")) return "PROCESSING";
+  return "PLACED";
+}
+
+function statusLabel(status: string): string {
+  if (status === "PROCESSING") return "Processing";
+  if (status === "COMPLETED") return "Completed";
+  if (status === "ENQUIRY") return "Enquiry";
+  if (status === "CANCELLED") return "Cancelled";
+  return "Order placed";
+}
+
+function statusCopy(status: string): string {
+  if (status === "PROCESSING") return "Your order is being prepared.";
+  if (status === "COMPLETED") return "This order is complete.";
+  if (status === "ENQUIRY") return "This order is with support. We'll follow up with you.";
+  if (status === "CANCELLED") return "This order was cancelled.";
+  return "We're arranging your order and will share delivery details with you.";
 }
 
 function groupOrders(orders: OrderItem[]): OrderGroup[] {
@@ -52,9 +79,9 @@ function groupOrders(orders: OrderItem[]): OrderGroup[] {
     const last = groups[groups.length - 1];
     const gap = last ? Math.abs(new Date(last.createdAt).getTime() - new Date(order.createdAt).getTime()) : Number.POSITIVE_INFINITY;
     if (last && gap < 8000) last.lines.push(order);
-    else groups.push({ id: order.id, createdAt: order.createdAt, lines: [order] });
+    else groups.push({ id: order.id, createdAt: order.createdAt, status: "PLACED", lines: [order] });
   }
-  return groups;
+  return groups.map((group) => ({ ...group, status: groupStatus(group.lines) }));
 }
 
 export default function OrdersScreen() {
@@ -157,24 +184,25 @@ export default function OrdersScreen() {
             const total = group.lines.reduce((sum, line) => sum + line.totalPaise, 0) / 100;
             const date = new Date(group.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
             const names = group.lines.map((line) => `${line.item?.title || "Item"} ×${line.quantity}`).join(", ");
+            const step = group.status === "COMPLETED" ? 2 : group.status === "PROCESSING" ? 1 : group.status === "CANCELLED" ? -1 : 0;
             return (
               <View key={group.id} style={shopStyles.card}>
                 <View style={styles.head}>
                   <Text style={styles.orderId}>#{group.id.slice(0, 8).toUpperCase()}</Text>
-                  <View style={styles.tag}><Text style={styles.tagText}>Order placed</Text></View>
+                  <View style={styles.tag}><Text style={styles.tagText}>{statusLabel(group.status)}</Text></View>
                 </View>
                 <Text style={styles.when}>{date}  {names}</Text>
                 <View style={styles.tl}>
-                  <View style={[styles.tlBar, styles.tlOn]} />
-                  <View style={styles.tlBar} />
-                  <View style={styles.tlBar} />
+                  {[0, 1, 2].map((index) => (
+                    <View key={index} style={[styles.tlBar, index <= step ? styles.tlOn : null]} />
+                  ))}
                 </View>
                 <View style={styles.tlLabels}>
                   <Text style={styles.tlLabel}>Placed</Text>
                   <Text style={styles.tlLabel}>Processing</Text>
                   <Text style={styles.tlLabel}>Completed</Text>
                 </View>
-                <Text style={styles.arrange}>We're arranging your order and will share delivery details with you.</Text>
+                <Text style={styles.arrange}>{statusCopy(group.status)}</Text>
                 <View style={styles.money}>
                   <Text style={styles.moneyNote}>{inr(total)}</Text>
                   <Text style={styles.moneyTotal}>{inr(total)}</Text>

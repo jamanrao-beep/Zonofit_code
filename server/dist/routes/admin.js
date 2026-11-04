@@ -1130,11 +1130,12 @@ router.get("/marketplace", auth_1.requireAuth, requireAdmin, async (req, res) =>
         res.status(500).json({ error: "ServerError", message: err.message });
     }
 });
+const MARKETPLACE_ORDER_STATUSES = new Set(["PLACED", "PROCESSING", "COMPLETED", "ENQUIRY", "CANCELLED"]);
 router.get("/marketplace/orders", auth_1.requireAuth, requireAdmin, async (_req, res) => {
     try {
         const orders = await prisma_1.default.marketplaceOrder.findMany({
             orderBy: { createdAt: "desc" },
-            take: 100,
+            take: 200,
             include: {
                 item: { select: { id: true, title: true, imageUrl: true, imageUrls: true, pricePaise: true } },
                 user: { select: { id: true, name: true, phone: true, email: true } },
@@ -1146,6 +1147,34 @@ router.get("/marketplace/orders", auth_1.requireAuth, requireAdmin, async (_req,
                 item: (0, marketplaceItem_1.presentMarketplaceItem)(order.item),
             })),
         });
+    }
+    catch (err) {
+        res.status(500).json({ error: "ServerError", message: err.message });
+    }
+});
+router.patch("/marketplace/orders/status", auth_1.requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const status = typeof req.body?.status === "string" ? req.body.status.trim().toUpperCase() : "";
+        const ids = Array.isArray(req.body?.ids)
+            ? req.body.ids.filter((id) => typeof id === "string" && id.trim().length > 0).slice(0, 40)
+            : [];
+        if (!MARKETPLACE_ORDER_STATUSES.has(status) || ids.length === 0) {
+            res.status(400).json({ error: "ValidationError", message: "Choose a status and at least one order line." });
+            return;
+        }
+        const result = await prisma_1.default.marketplaceOrder.updateMany({
+            where: { id: { in: ids } },
+            data: { status },
+        });
+        await prisma_1.default.adminAuditLog.create({
+            data: {
+                adminId: req.dbUserId,
+                actionType: "UPDATE_MARKETPLACE_ORDER",
+                targetId: ids[0],
+                details: `Set ${result.count} shop line(s) to ${status}`,
+            },
+        });
+        res.json({ updated: result.count, status });
     }
     catch (err) {
         res.status(500).json({ error: "ServerError", message: err.message });

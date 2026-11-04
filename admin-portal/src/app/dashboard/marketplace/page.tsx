@@ -94,9 +94,89 @@ type ShopOrder = {
   selectedColor?: string | null;
   addressJson?: string | null;
   createdAt: string;
-  item?: { title?: string; imageUrl?: string };
-  user?: { name?: string | null; phone?: string | null; email?: string | null };
+  item?: { title?: string; imageUrl?: string; imageUrls?: unknown };
+  user?: { id?: string; name?: string | null; phone?: string | null; email?: string | null };
 };
+
+type OrderGroup = {
+  id: string;
+  createdAt: string;
+  addressJson?: string | null;
+  user?: ShopOrder["user"];
+  lines: ShopOrder[];
+  status: string;
+};
+
+type ShopTicket = {
+  id: string;
+  subject?: string;
+  message?: string;
+  status?: string;
+  priority?: string;
+  createdAt?: string;
+  user?: { name?: string | null; email?: string | null } | null;
+  gym?: { name?: string | null } | null;
+};
+
+type Desk = "orders" | "enquiries" | "products";
+type OrderFilter = "ALL" | "PLACED" | "PROCESSING" | "COMPLETED" | "CANCELLED";
+
+const SHOP_TICKET = /shop|order|marketplace|product|deliver|enquiry|inquiry/i;
+
+function groupStatus(lines: ShopOrder[]): string {
+  const statuses = lines.map((line) => (line.status || "PLACED").toUpperCase());
+  if (statuses.some((status) => status === "ENQUIRY")) return "ENQUIRY";
+  if (statuses.length > 0 && statuses.every((status) => status === "COMPLETED")) return "COMPLETED";
+  if (statuses.length > 0 && statuses.every((status) => status === "CANCELLED")) return "CANCELLED";
+  if (statuses.some((status) => status === "PROCESSING")) return "PROCESSING";
+  return "PLACED";
+}
+
+function groupShopOrders(orders: ShopOrder[]): OrderGroup[] {
+  const sorted = [...orders].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const groups: OrderGroup[] = [];
+  for (const order of sorted) {
+    const last = groups[groups.length - 1];
+    const userId = order.user?.id || "";
+    const gap = last ? Math.abs(new Date(last.createdAt).getTime() - new Date(order.createdAt).getTime()) : Number.POSITIVE_INFINITY;
+    const sameCheckout = Boolean(
+      last &&
+      userId &&
+      userId === (last.user?.id || "") &&
+      (last.addressJson || "") === (order.addressJson || "") &&
+      gap < 8000,
+    );
+    if (last && sameCheckout) last.lines.push(order);
+    else {
+      groups.push({
+        id: order.id,
+        createdAt: order.createdAt,
+        addressJson: order.addressJson,
+        user: order.user,
+        lines: [order],
+        status: "PLACED",
+      });
+    }
+  }
+  return groups.map((group) => ({ ...group, status: groupStatus(group.lines) }));
+}
+
+function statusLabel(status: string): string {
+  if (status === "PLACED") return "Placed";
+  if (status === "PROCESSING") return "Processing";
+  if (status === "COMPLETED") return "Completed";
+  if (status === "ENQUIRY") return "Enquiry";
+  if (status === "CANCELLED") return "Cancelled";
+  return status;
+}
+
+function statusClass(status: string): string {
+  if (status === "COMPLETED") return "bg-emerald-50 text-emerald-700";
+  if (status === "PROCESSING") return "bg-blue-50 text-blue-700";
+  if (status === "ENQUIRY") return "bg-violet-50 text-violet-700";
+  if (status === "CANCELLED") return "bg-gray-100 text-gray-500";
+  return "bg-amber-50 text-amber-700";
+}
 
 function addressLines(value?: string | null): string {
   if (!value) return "No address saved";
@@ -117,6 +197,10 @@ function textList(value: unknown): string[] {
 export default function AdminMarketplacePage() {
   const [items, setItems] = useState<any[]>([]);
   const [orders, setOrders] = useState<ShopOrder[]>([]);
+  const [tickets, setTickets] = useState<ShopTicket[]>([]);
+  const [desk, setDesk] = useState<Desk>("orders");
+  const [orderFilter, setOrderFilter] = useState<OrderFilter>("ALL");
+  const [busyKey, setBusyKey] = useState("");
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [filterCategory, setFilterCategory] = useState("ALL");
@@ -155,10 +239,71 @@ export default function AdminMarketplacePage() {
     }
   };
 
+  const fetchTickets = async () => {
+    try {
+      const token = localStorage.getItem("zonofit_portal_token");
+      const res = await fetch("/api/admin/support", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      const list = Array.isArray(data.tickets) ? data.tickets as ShopTicket[] : [];
+      setTickets(list.filter((ticket) => SHOP_TICKET.test(`${ticket.subject || ""} ${ticket.message || ""}`)));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     fetchItems();
     fetchOrders();
+    fetchTickets();
   }, []);
+
+  const setGroupStatus = async (group: OrderGroup, status: string) => {
+    const key = `${group.id}:${status}`;
+    setBusyKey(key);
+    try {
+      const token = localStorage.getItem("zonofit_portal_token");
+      const res = await fetch("/api/admin/marketplace/orders/status", {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ ids: group.lines.map((line) => line.id), status }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(typeof data.message === "string" ? data.message : "Could not update that order.");
+        return;
+      }
+      await fetchOrders();
+      if (status === "ENQUIRY") setDesk("enquiries");
+    } catch (err) {
+      console.error(err);
+      alert("Could not update that order.");
+    } finally {
+      setBusyKey("");
+    }
+  };
+
+  const updateTicketStatus = async (ticketId: string, status: string) => {
+    try {
+      const token = localStorage.getItem("zonofit_portal_token");
+      await fetch(`/api/admin/support/${ticketId}/status`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status }),
+      });
+      fetchTickets();
+    } catch (err) {
+      console.error(err);
+      alert("Could not update that enquiry.");
+    }
+  };
 
   const setField = <K extends "title" | "description" | "info" | "priceRupees" | "mrpRupees" | "brand" | "pack" | "optionLabel" | "storeCategory" | "inStock">(
     name: K,
@@ -319,69 +464,198 @@ export default function AdminMarketplacePage() {
   if (loading) return <div className="p-8 text-gray-500 font-medium">Loading Marketplace...</div>;
 
   const inputClass = "w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black";
+  const groups = groupShopOrders(orders);
+  const orderGroups = groups.filter((group) => group.status !== "ENQUIRY");
+  const enquiryGroups = groups.filter((group) => group.status === "ENQUIRY");
+  const visibleOrders = orderGroups.filter((group) => orderFilter === "ALL" || group.status === orderFilter);
+  const deskCopy = {
+    orders: "Each card is one member checkout. Move it through placed, processing, and completed.",
+    enquiries: "Orders a member needs help with, plus support messages about the shop.",
+    products: "Add a product, or delete one. Only the name is required. The shop shows the fields you fill in.",
+  }[desk];
+
+  const renderGroup = (group: OrderGroup) => {
+    const when = new Date(group.createdAt).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
+    const rupeesTotal = group.lines.reduce((sum, line) => sum + (line.totalPaise || 0), 0);
+    const credits = group.lines.reduce((sum, line) => sum + (line.creditsSpent || 0), 0);
+    const actions = [
+      { status: "PROCESSING", label: "Mark processing" },
+      { status: "COMPLETED", label: "Mark completed" },
+      { status: "ENQUIRY", label: "Mark as enquiry" },
+      { status: "PLACED", label: "Back to placed" },
+      { status: "CANCELLED", label: "Cancel order" },
+    ].filter((action) => action.status !== group.status);
+    return (
+      <article key={group.id} className="rounded-2xl border border-gray-100 bg-[#F6F8F5] p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Order #{group.id.slice(0, 8).toUpperCase()}</p>
+            <p className="mt-1 font-bold text-black">{group.user?.name || "Member"}</p>
+            <p className="text-sm text-gray-600">
+              {[group.user?.phone, group.user?.email].filter(Boolean).join(" · ") || "No phone or email"}
+            </p>
+          </div>
+          <span className={`text-xs font-bold uppercase tracking-wide px-2 py-1 rounded-lg ${statusClass(group.status)}`}>{statusLabel(group.status)}</span>
+        </div>
+        <p className="text-sm text-gray-600 mt-3">{addressLines(group.addressJson)}</p>
+        <div className="mt-3 space-y-2">
+          {group.lines.map((line) => {
+            const photo = photosOf(line.item || {})[0];
+            const option = [line.selectedColor, line.selectedSize].filter(Boolean).join(" · ");
+            return (
+              <div key={line.id} className="flex gap-3 rounded-xl bg-white p-2">
+                {photo ? (
+                  <img src={photo} alt="" className="h-14 w-14 rounded-lg object-cover bg-gray-100 shrink-0" />
+                ) : (
+                  <div className="h-14 w-14 rounded-lg bg-gray-100 shrink-0" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold text-black">{line.item?.title || "Product"} × {line.quantity}</p>
+                  {option ? <p className="text-xs text-gray-500 mt-0.5">{option}</p> : null}
+                  <p className="text-xs font-bold text-gray-500 mt-1">₹{Math.round((line.totalPaise || 0) / 100)} · {line.creditsSpent || 0} credits</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <p className="text-xs font-bold text-gray-500 mt-3">{when} · {group.lines.length} {group.lines.length === 1 ? "item" : "items"} · ₹{Math.round(rupeesTotal / 100)} · {credits} credits</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {actions.map((action) => {
+            const key = `${group.id}:${action.status}`;
+            const quiet = action.status === "CANCELLED" || action.status === "PLACED";
+            return (
+              <button
+                key={action.status}
+                type="button"
+                disabled={busyKey === key}
+                onClick={() => setGroupStatus(group, action.status)}
+                className={`rounded-xl px-3 py-2 text-sm font-bold disabled:opacity-50 ${quiet ? "border border-gray-200 bg-white text-gray-700" : "bg-black text-white"}`}
+              >
+                {busyKey === key ? "Saving..." : action.label}
+              </button>
+            );
+          })}
+        </div>
+      </article>
+    );
+  };
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-8">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-wrap justify-between items-end gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-black">Marketplace Management</h1>
-          <p className="text-gray-500 mt-1 text-sm">Add a product, or delete one. Only the name is required. The shop shows the fields you fill in.</p>
+          <h1 className="text-3xl font-bold text-black">Marketplace</h1>
+          <p className="text-gray-500 mt-1 text-sm">{deskCopy}</p>
         </div>
-        <button
-          onClick={() => {
-            if (!showForm) {
-              setEditItemId(null);
-              setFormData(emptyForm());
-            }
-            setShowForm(!showForm);
-          }}
-          className="bg-black hover:bg-gray-800 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-colors"
-        >
-          <Plus size={18} /> {showForm ? "Cancel" : "Add Item"}
-        </button>
-      </div>
-
-      <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
-        <div className="flex items-center justify-between gap-3 mb-4">
-          <div>
-            <h2 className="text-xl font-bold text-black">Orders</h2>
-            <p className="text-sm text-gray-500 mt-1">Shop checkouts paid in credits show up here with the delivery address.</p>
-          </div>
-          <button type="button" onClick={fetchOrders} className="rounded-xl border border-gray-200 px-3 py-2 text-sm font-bold text-black">Refresh</button>
-        </div>
-        {orders.length === 0 ? (
-          <p className="text-sm text-gray-400">No shop orders yet.</p>
+        {desk === "products" ? (
+          <button
+            onClick={() => {
+              if (!showForm) {
+                setEditItemId(null);
+                setFormData(emptyForm());
+              }
+              setShowForm(!showForm);
+            }}
+            className="bg-black hover:bg-gray-800 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-colors"
+          >
+            <Plus size={18} /> {showForm ? "Cancel" : "Add Item"}
+          </button>
         ) : (
-          <div className="space-y-3">
-            {orders.map((order) => {
-              const photo = photosOf(order.item || {})[0];
-              const when = new Date(order.createdAt).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
-              const option = [order.selectedColor, order.selectedSize].filter(Boolean).join(" · ");
-              return (
-                <div key={order.id} className="flex gap-3 rounded-2xl border border-gray-100 p-3">
-                  {photo ? (
-                    <img src={photo} alt="" className="h-16 w-16 rounded-xl object-cover bg-gray-100 shrink-0" />
-                  ) : (
-                    <div className="h-16 w-16 rounded-xl bg-gray-100 shrink-0" />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="font-bold text-black">{order.item?.title || "Product"} × {order.quantity}</p>
-                      <span className="text-xs font-bold uppercase tracking-wide text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg">{order.status || "PLACED"}</span>
-                    </div>
-                    {option ? <p className="text-xs text-gray-500 mt-0.5">{option}</p> : null}
-                    <p className="text-sm text-gray-700 mt-1">{order.user?.name || "Member"}{order.user?.phone ? ` · ${order.user.phone}` : ""}{order.user?.email ? ` · ${order.user.email}` : ""}</p>
-                    <p className="text-sm text-gray-600 mt-1">{addressLines(order.addressJson)}</p>
-                    <p className="text-xs font-bold text-gray-500 mt-2">{when} · ₹{Math.round((order.totalPaise || 0) / 100)} · {order.creditsSpent || 0} credits</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <button
+            type="button"
+            onClick={() => { fetchOrders(); fetchTickets(); }}
+            className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-bold text-black"
+          >
+            Refresh
+          </button>
         )}
       </div>
 
-      {showForm && (
+      <div className="flex flex-wrap gap-2">
+        {([
+          ["orders", "Orders", orderGroups.length],
+          ["enquiries", "Enquiries", enquiryGroups.length + tickets.length],
+          ["products", "Products", items.length],
+        ] as const).map(([id, label, count]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setDesk(id)}
+            className={`rounded-xl px-4 py-2 text-sm font-bold ${desk === id ? "bg-black text-white" : "bg-white text-gray-600 border border-gray-200"}`}
+          >
+            {label} <span className={desk === id ? "text-white/70" : "text-gray-400"}>{count}</span>
+          </button>
+        ))}
+      </div>
+
+      {desk === "orders" && (
+        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
+          <div className="flex flex-wrap gap-2 mb-4">
+            {(["ALL", "PLACED", "PROCESSING", "COMPLETED", "CANCELLED"] as const).map((filter) => (
+              <button
+                key={filter}
+                type="button"
+                onClick={() => setOrderFilter(filter)}
+                className={`rounded-xl px-3 py-1.5 text-xs font-bold ${orderFilter === filter ? "bg-[#0C1F14] text-white" : "bg-gray-50 text-gray-600"}`}
+              >
+                {filter === "ALL" ? "All" : statusLabel(filter)}
+              </button>
+            ))}
+          </div>
+          {visibleOrders.length === 0 ? (
+            <p className="text-sm text-gray-400">{orders.length === 0 ? "No shop orders yet." : "Nothing in this status."}</p>
+          ) : (
+            <div className="space-y-3">{visibleOrders.map(renderGroup)}</div>
+          )}
+        </div>
+      )}
+
+      {desk === "enquiries" && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
+            <h2 className="text-xl font-bold text-black">Order enquiries</h2>
+            <p className="text-sm text-gray-500 mt-1 mb-4">Mark an order as an enquiry when a member needs help with delivery, a product, or a payment in credits.</p>
+            {enquiryGroups.length === 0 ? (
+              <p className="text-sm text-gray-400">No order enquiries yet. Open Orders and choose Mark as enquiry.</p>
+            ) : (
+              <div className="space-y-3">{enquiryGroups.map(renderGroup)}</div>
+            )}
+          </div>
+          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
+            <h2 className="text-xl font-bold text-black">Support messages</h2>
+            <p className="text-sm text-gray-500 mt-1 mb-4">Tickets whose subject or message mentions the shop, an order, a product, or delivery.</p>
+            {tickets.length === 0 ? (
+              <p className="text-sm text-gray-400">No shop support messages yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {tickets.map((ticket) => (
+                  <div key={ticket.id} className="rounded-2xl border border-gray-100 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="font-bold text-black">{ticket.subject || "Support message"}</p>
+                        <p className="text-xs text-gray-500 mt-1">#{ticket.id.slice(0, 8).toUpperCase()} · {ticket.user?.name || ticket.gym?.name || "Member"}{ticket.priority ? ` · ${ticket.priority}` : ""}</p>
+                      </div>
+                      <select
+                        value={ticket.status || "OPEN"}
+                        onChange={(event) => updateTicketStatus(ticket.id, event.target.value)}
+                        className="bg-gray-50 border border-gray-200 text-sm font-bold rounded-lg p-2"
+                      >
+                        <option value="OPEN">Open</option>
+                        <option value="IN_PROGRESS">In Progress</option>
+                        <option value="RESOLVED">Resolved</option>
+                        <option value="CLOSED">Closed</option>
+                      </select>
+                    </div>
+                    {ticket.message ? <p className="text-sm text-gray-600 mt-3 whitespace-pre-wrap">{ticket.message}</p> : null}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {desk === "products" && showForm && (
         <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
           <h2 className="text-xl font-bold text-black mb-1">{editItemId ? "Edit Item" : "Add New Item"}</h2>
           <p className="text-sm text-gray-500 mb-4">Leave a box empty when the product does not need it. Paste image links. Several images are allowed.</p>
@@ -583,6 +857,7 @@ export default function AdminMarketplacePage() {
         </div>
       )}
 
+      {desk === "products" && (<>
       <div className="flex items-center gap-2 overflow-x-auto pb-4">
         {["ALL", ...CATEGORIES].map((cat) => (
           <button
@@ -683,6 +958,7 @@ export default function AdminMarketplacePage() {
           </div>
         )}
       </div>
+      </>)}
     </div>
   );
 }

@@ -1273,11 +1273,13 @@ router.get("/marketplace", requireAuth, requireAdmin, async (req: Request, res: 
   }
 });
 
+const MARKETPLACE_ORDER_STATUSES = new Set(["PLACED", "PROCESSING", "COMPLETED", "ENQUIRY", "CANCELLED"]);
+
 router.get("/marketplace/orders", requireAuth, requireAdmin, async (_req: Request, res: Response) => {
   try {
     const orders = await prisma.marketplaceOrder.findMany({
       orderBy: { createdAt: "desc" },
-      take: 100,
+      take: 200,
       include: {
         item: { select: { id: true, title: true, imageUrl: true, imageUrls: true, pricePaise: true } },
         user: { select: { id: true, name: true, phone: true, email: true } },
@@ -1289,6 +1291,34 @@ router.get("/marketplace/orders", requireAuth, requireAdmin, async (_req: Reques
         item: presentMarketplaceItem(order.item),
       })),
     });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
+router.patch("/marketplace/orders/status", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const status = typeof req.body?.status === "string" ? req.body.status.trim().toUpperCase() : "";
+    const ids = Array.isArray(req.body?.ids)
+      ? req.body.ids.filter((id: unknown): id is string => typeof id === "string" && id.trim().length > 0).slice(0, 40)
+      : [];
+    if (!MARKETPLACE_ORDER_STATUSES.has(status) || ids.length === 0) {
+      res.status(400).json({ error: "ValidationError", message: "Choose a status and at least one order line." });
+      return;
+    }
+    const result = await prisma.marketplaceOrder.updateMany({
+      where: { id: { in: ids } },
+      data: { status },
+    });
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.dbUserId!,
+        actionType: "UPDATE_MARKETPLACE_ORDER",
+        targetId: ids[0],
+        details: `Set ${result.count} shop line(s) to ${status}`,
+      },
+    });
+    res.json({ updated: result.count, status });
   } catch (err: any) {
     res.status(500).json({ error: "ServerError", message: err.message });
   }
