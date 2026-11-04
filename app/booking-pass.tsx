@@ -246,6 +246,14 @@ export default function BookingPassScreen() {
     }
   };
 
+  const handleGoBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(tabs)");
+    }
+  };
+
   const isPassed = isBookingSlotPast(
     bookedVisitDateIso || bookedDate,
     bookedTime
@@ -260,7 +268,7 @@ export default function BookingPassScreen() {
       {/* ─── Top Bar ─── */}
       <View style={styles.bar}>
         <Pressable
-          onPress={() => router.back()}
+          onPress={handleGoBack}
           hitSlop={10}
           style={styles.ib}
           accessibilityLabel="Back"

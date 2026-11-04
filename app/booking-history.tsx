@@ -106,12 +106,20 @@ export default function BookingHistoryScreen() {
     .filter((b) => b.status === "checked_in")
     .reduce((sum, b) => sum + b.credits, 0);
 
+  const handleGoBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(tabs)");
+    }
+  };
+
   if (isGuest) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F7F4" }} edges={["top"]}>
         <View className="px-5 pt-3 pb-4 flex-row items-center justify-between">
           <Pressable
-            onPress={() => router.back()}
+            onPress={handleGoBack}
             className="w-9 h-9 rounded-full bg-white items-center justify-center border border-black/5"
           >
             <Ionicons name="arrow-back" size={18} color="#1F2520" />
@@ -147,7 +155,7 @@ export default function BookingHistoryScreen() {
       {/* Header */}
       <View className="px-5 pt-3 pb-4 flex-row items-center justify-between">
         <Pressable
-          onPress={() => router.back()}
+          onPress={handleGoBack}
           className="w-9 h-9 rounded-full bg-white items-center justify-center border border-black/5 shadow-sm"
         >
           <Ionicons name="arrow-back" size={18} color="#1F2520" />
