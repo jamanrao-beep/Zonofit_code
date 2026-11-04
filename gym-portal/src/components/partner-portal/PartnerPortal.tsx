@@ -16,7 +16,10 @@ const ART = [
   "linear-gradient(135deg,#3F8230,#14532B)",
 ];
 
-const UDAIPUR_ART = "M5 38h38M10 38V27h28v11M10 27v-5a3 3 0 016 0v5M32 27v-5a3 3 0 016 0v5M20 27v-8a4 4 0 018 0v8M24 15v-4M19 38v-4a2 2 0 014 0v4M25 38v-4a2 2 0 014 0v4M8 43c3-2 5 2 8 0s5 2 8 0 5 2 8 0 5 2 8 0";
+// BookMyShow-style Udaipur landmark (City Palace, domes, archway, balconies & Lake Pichola ripples)
+const UDAIPUR_ART =
+  "M8 86H92 M12 89Q21.5 92.5 31 89 M38 89Q47.5 92.5 57 89 M64 89Q73.5 92.5 83 89 M12 80H88 M16 80V53 M84 80V53 M34 80V37H66V80 M42 80V64A8 8 0 0 1 58 64V80 M34 37H66 M34 37A16 13 0 0 1 66 37 M50 19V10 M49 9.5A1 1 0 1 1 51 9.5A1 1 0 1 1 49 9.5 M16 53H34 M16 53A9 8 0 0 1 34 53 M25 41V36 M21 61H29V70H21Z M66 53H84 M66 53A9 8 0 0 1 84 53 M75 41V36 M71 61H79V70H71Z M20 52.5V50.5 M28 52.5V50.5 M36 52.5V50.5 M44 52.5V50.5 M52 52.5V50.5 M60 52.5V50.5 M68 52.5V50.5 M76 52.5V50.5";
+
 
 const MOUTH: Record<string, string> = {
   idle: "M104 144q16 14 32 0",
@@ -392,11 +395,12 @@ export function PartnerPortal({ fontClass }: { fontClass: string }) {
               <p>{t("c_lp")}</p>
               <div className="stub"><span>ZONOFIT</span><span>PARTNER NETWORK</span><span>UDAIPUR</span></div>
             </div>
-            <svg className="hp-a" viewBox="0 0 48 48" aria-hidden="true">
+            <svg className="hp-a" viewBox="0 0 100 100" aria-hidden="true">
               <defs>
                 <linearGradient id="zfp-art" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0" stopColor="#8DBE2A" />
-                  <stop offset="1" stopColor="#2B8A4B" />
+                  <stop offset="0%" stopColor="#b6e86a" />
+                  <stop offset="45%" stopColor="#8dbe2a" />
+                  <stop offset="100%" stopColor="#2b8a4b" />
                 </linearGradient>
               </defs>
               <path d={UDAIPUR_ART} stroke="url(#zfp-art)" />

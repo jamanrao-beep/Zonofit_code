@@ -160,8 +160,8 @@
 .zf-portal .hp h3 { font-size: clamp(56px, 8vw, 104px); margin: 20px 0 10px; background: linear-gradient(180deg, #fff 30%, #a9d7b3); -webkit-background-clip: text; background-clip: text; color: transparent; line-height: 0.95; }
 .zf-portal .hp p { margin: 0; color: rgba(255,255,255,.78); font-size: 18px; }
 .zf-portal .stub { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 28px; padding-top: 18px; border-top: 2px dashed rgba(255,255,255,.22); font-size: 11.5px; letter-spacing: .18em; color: rgba(255,255,255,.6); font-weight: 700; }
-.zf-portal .hp-a { width: min(100%, 220px); justify-self: center; fill: none; stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
-.zf-portal .hp-a path { stroke-dasharray: 420; stroke-dashoffset: 420; animation: zfp-draw 3.2s .3s ease forwards; }
+.zf-portal .hp-a { width: min(100%, 220px); justify-self: center; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.zf-portal .hp-a path { stroke-dasharray: 680; stroke-dashoffset: 680; animation: zfp-draw 3.2s .3s ease forwards; }
 @keyframes zfp-draw { to { stroke-dashoffset: 0; } }
 .zf-portal .mqh { display: flex; align-items: center; gap: 16px; margin: 72px 0 28px; }
 .zf-portal .mqh h3 { font-size: 22px; }
