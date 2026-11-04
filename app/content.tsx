@@ -176,7 +176,7 @@ export const FAQ_LIST: FAQItem[] = [
     id: 20,
     category: "Credits & Bookings",
     question: "Can I cancel a gym booking?",
-    answer: "Yes, bookings can be cancelled before the session time slot. A flat 2 Credits cancellation fee applies, and your visit or credits are restored."
+    answer: "Yes, more than 2 hours before the visit. Cancelling always costs 2 credits. On a credit booking the rest return to your wallet. On a plan visit, 2 credits are taken from your wallet and the visit returns to your plan. Once the visit is 2 hours away or closer, the booking cannot be cancelled."
   },
   {
     id: 21,

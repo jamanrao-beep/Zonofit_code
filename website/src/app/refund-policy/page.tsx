@@ -62,9 +62,9 @@ export default function RefundPolicyPage() {
               <h2 className="text-lg font-bold text-slate-950">3. Gym Booking Cancellation Rules</h2>
               <p>When you book a gym visit, the applicable credits are deducted. Cancellations are processed as follows:</p>
               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2 text-sm">
-                <p><strong>• More than 6 hours before booking:</strong> You receive <strong>80% of the booking credit value back</strong>.</p>
-                <p><strong>• Within 6 hours of booking:</strong> Non-refundable (0% credit refund).</p>
-                <p><strong>• No-show:</strong> If you do not attend a confirmed booking, the booking credits may be forfeited.</p>
+                <p><strong>• More than 2 hours before the visit:</strong> You may cancel. <strong>2 credits are kept by ZonoFit.</strong> On a credit booking the rest return to your wallet. On a plan visit, 2 credits are taken from your wallet and the visit returns to your plan.</p>
+                <p><strong>• 2 hours before the visit, or later:</strong> The booking cannot be cancelled.</p>
+                <p><strong>• No-show:</strong> If you do not cancel in time, the booking credits or the plan visit are not returned.</p>
               </div>
             </section>
 

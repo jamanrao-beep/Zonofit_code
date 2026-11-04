@@ -285,16 +285,16 @@ before confirming a booking.
 
 8. Cancellation
 
-A gym booking may be cancelled according to the following rules:
+A gym booking may be cancelled only more than 2 hours before the visit.
 
-More than 6 hours before the booking:
-You may cancel the booking and receive 80% of the booking's credit value back.
+Whenever a cancellation is allowed, 2 credits are kept by ZonoFit:
+• If the visit was booked with credits, 2 credits stay with ZonoFit and the rest return to your wallet.
+• If the visit is included in your plan, 2 credits are taken from your wallet and the visit returns to your plan. Your wallet must have at least 2 credits.
 
-Within 6 hours of the booking:
-The booking is non-refundable.
+Once the visit is 2 hours away or closer, the booking cannot be cancelled.
 
 No-show:
-If you make a booking and do not attend, the applicable credits may be forfeited.
+If you do not attend and do not cancel in time, the booking credits or the plan visit are not returned.
 
 9. Technical Problems
 
@@ -511,14 +511,14 @@ Cancelling future renewal does not automatically refund the already active month
 
 Once a gym booking is made, the applicable booking credits are deducted.
 
-• Cancellation more than 6 hours before booking:
-You receive 80% of the booking credit value back.
+• More than 2 hours before the visit:
+You may cancel. 2 credits are kept by ZonoFit. On a credit booking, the rest return to your wallet. On a plan visit, 2 credits are taken from your wallet and the visit returns to your plan. A plan visit can be cancelled only when your wallet has at least 2 credits.
 
-• Cancellation within 6 hours:
-No credit refund is provided.
+• 2 hours before the visit, or any time after that:
+The booking cannot be cancelled.
 
 • No-show:
-If you do not attend a confirmed booking, the applicable booking credits may be forfeited.
+If you do not attend and do not cancel in time, the booking credits or the plan visit are not returned.
 
 4. Gym Refuses Valid Booking
 
@@ -989,7 +989,7 @@ Yes. You can purchase additional credits while your plan is active.
 Credits remain valid during your active plan month. Unused credits may be converted into a spendable cash balance valid for an additional 15 days, after which any remaining balance is forfeited to ₹0.
 
 20. Can I cancel a gym booking?
-Bookings may be cancelled subject to the applicable cancellation window shown in the app.
+Yes, more than 2 hours before the visit. Cancelling always costs 2 credits. Once the visit is 2 hours away or closer, the booking cannot be cancelled.
 
 21. What happens if I miss a booked session?
 Missed bookings without timely cancellation may result in credit deduction.

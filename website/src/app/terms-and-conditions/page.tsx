@@ -86,9 +86,9 @@ export default function TermsAndConditionsPage() {
               <h2 className="text-lg font-bold text-slate-950">7. Gym Booking &amp; 8. Cancellation Policy</h2>
               <p>A booking is required before visiting a gym. Credits are deducted upon booking.</p>
               <ul className="list-disc list-inside text-sm space-y-1 text-slate-600 pl-2">
-                <li><strong>More than 6 hours before:</strong> Cancel and receive 80% credit value refund.</li>
-                <li><strong>Within 6 hours:</strong> Non-refundable.</li>
-                <li><strong>No-show:</strong> Credits may be forfeited.</li>
+                <li><strong>More than 2 hours before:</strong> You may cancel. 2 credits are kept by ZonoFit. On a credit booking the rest return to your wallet. On a plan visit, 2 credits are taken from your wallet and the visit returns to your plan.</li>
+                <li><strong>2 hours before, or later:</strong> The booking cannot be cancelled.</li>
+                <li><strong>No-show:</strong> The booking credits or the plan visit are not returned.</li>
               </ul>
             </section>
 

@@ -92,26 +92,24 @@ export const useBookingStore = create<BookingState>()(
     const { bookedVisitDateIso, bookedTime, bookedCreatedAt, bookedCost } = get();
     if (!bookedVisitDateIso || !bookedTime || !bookedCreatedAt) return null;
 
-    const [startHour, startMinute] = bookedTime.split('-')[0].split(':').map(Number);
+    const slotPart = bookedTime.split("-")[0].trim();
+    const timeParts = slotPart.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+    if (!timeParts) return null;
+    let hour = parseInt(timeParts[1], 10);
+    const minute = parseInt(timeParts[2], 10);
+    const meridian = timeParts[3]?.toUpperCase();
+    if (meridian === "PM" && hour < 12) hour += 12;
+    if (meridian === "AM" && hour === 12) hour = 0;
+
     const workoutTime = new Date(bookedVisitDateIso);
-    workoutTime.setHours(startHour, startMinute, 0, 0);
+    workoutTime.setHours(hour, minute, 0, 0);
 
-    const now = new Date();
-    const timeUntilWorkoutHours = (workoutTime.getTime() - now.getTime()) / (1000 * 60 * 60);
-    const timeSinceBookingHours = (now.getTime() - new Date(bookedCreatedAt).getTime()) / (1000 * 60 * 60);
-
-    let refundPercentage = 0;
-    if (timeUntilWorkoutHours > 6) {
-      // PRD Section 4 & 5: Early cancellation before 6 hours -> 80% credits refunded
-      refundPercentage = 80;
-    } else {
-      // PRD Section 4 & 6: Late cancellation within 6 hours -> 0% credits refunded
-      refundPercentage = 0;
-    }
+    const timeUntilWorkoutHours = (workoutTime.getTime() - Date.now()) / (1000 * 60 * 60);
+    if (timeUntilWorkoutHours < 2) return null;
 
     return {
-      percentage: refundPercentage,
-      refundAmount: Math.floor(bookedCost * (refundPercentage / 100))
+      percentage: 0,
+      refundAmount: Math.max(0, bookedCost - 2),
     };
   },
 
