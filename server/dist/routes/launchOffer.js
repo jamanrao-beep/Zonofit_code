@@ -85,7 +85,8 @@ function applicationMessage(application) {
     const gymLine = application.gym || "(not listed)";
     const requested = application.customGym || "—";
     const instagram = application.instagram ? `@${application.instagram}` : "—";
-    return [
+    const sheetUrl = (process.env.LAUNCH_OFFER_SHEET_URL || process.env.GOOGLE_SHEET_URL || "").trim();
+    const lines = [
         "Udaipur launch offer",
         "zonofit.com/udaipur/launch-offer",
         "",
@@ -98,9 +99,52 @@ function applicationMessage(application) {
         `Instagram: ${instagram}`,
         "Source: launch-udaipur",
         `Submitted: ${new Date().toISOString()}`,
-    ].join("\n");
+    ];
+    if (sheetUrl) {
+        lines.push("", `Google Sheet: ${sheetUrl}`);
+    }
+    return lines.join("\n");
 }
-/** Public application for the Udaipur launch page. Email only. No database row. */
+/**
+ * Appends the new submission to a connected Google Sheet via Google Apps Script Web App.
+ * Non-blocking and never throws to the client.
+ */
+async function appendToGoogleSheet(application) {
+    const webhookUrl = (process.env.LAUNCH_OFFER_SHEET_WEBHOOK_URL ||
+        process.env.GOOGLE_SHEET_WEBHOOK_URL ||
+        "").trim();
+    if (!webhookUrl)
+        return;
+    try {
+        const payload = {
+            timestamp: new Date().toISOString(),
+            name: application.name,
+            phone: `+91${application.phone}`,
+            age: application.age,
+            sex: application.sex,
+            gym: application.gym || "(not listed)",
+            customGym: application.customGym || "—",
+            instagram: application.instagram ? `@${application.instagram}` : "—",
+            source: "launch-udaipur",
+        };
+        const res = await fetch(webhookUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+            redirect: "follow",
+        });
+        if (!res.ok) {
+            console.warn(`[Launch] Google Sheet webhook returned HTTP ${res.status}`);
+        }
+        else {
+            console.log(`[Launch] Form response synced to Google Sheet for ${application.name}`);
+        }
+    }
+    catch (err) {
+        console.error("[Launch] Failed to sync to Google Sheet:", err instanceof Error ? err.message : "error");
+    }
+}
+/** Public application for the Udaipur launch page. Email + Google Sheet. No database row. */
 router.post("/", async (req, res) => {
     try {
         if (oneLine(req.body?.website, 200)) {
@@ -130,6 +174,8 @@ router.post("/", async (req, res) => {
             });
             return;
         }
+        // Append to Google Sheet in the background (non-blocking)
+        void appendToGoogleSheet(application);
         res.json({ ok: true });
     }
     catch (err) {
