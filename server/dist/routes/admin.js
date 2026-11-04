@@ -281,6 +281,40 @@ router.put("/gyms/:id/status", auth_1.requireAuth, requireAdmin, async (req, res
         res.status(500).json({ error: "ServerError", message: err.message });
     }
 });
+// ─── PUT & PATCH /api/admin/gyms/:id/verification ─────────────────────────────
+const handleVerificationToggle = async (req, res) => {
+    try {
+        const { requiresVerification } = req.body;
+        const gymId = req.params.id;
+        const flag = Boolean(requiresVerification);
+        const gym = await prisma_1.default.gym.update({
+            where: { id: gymId },
+            data: { requiresVerification: flag },
+            select: {
+                id: true,
+                name: true,
+                city: true,
+                isVerified: true,
+                requiresVerification: true,
+                isActive: true,
+            },
+        });
+        await prisma_1.default.adminAuditLog.create({
+            data: {
+                adminId: req.dbUserId,
+                actionType: "UPDATE_GYM_VERIFICATION",
+                targetId: gym.id,
+                details: `requiresVerification: ${flag}`,
+            },
+        });
+        res.json({ gym, success: true, message: `Verification check set to ${flag ? "ON" : "OFF"}` });
+    }
+    catch (err) {
+        res.status(500).json({ error: "ServerError", message: err.message });
+    }
+};
+router.put("/gyms/:id/verification", auth_1.requireAuth, requireAdmin, handleVerificationToggle);
+router.patch("/gyms/:id/verification", auth_1.requireAuth, requireAdmin, handleVerificationToggle);
 // ─── POST /api/admin/gyms ────────────────────────────────────────────────
 router.post("/gyms", auth_1.requireAuth, requireAdmin, async (req, res) => {
     try {
@@ -288,7 +322,7 @@ router.post("/gyms", auth_1.requireAuth, requireAdmin, async (req, res) => {
         // * star internal
         customGymId, ownerName, bankDetails, cappingMode, maxDailyVisits, maxSlotVisits, payoutModel, payoutCommissionRate, payoutFixedPerVisit, paymentCycle, isGstRegistered, gstNumber, invoicePrefix, 
         // public / user facing
-        name, description, address, city, state, landmark, googleMapsUrl, contactPhone, monthlyPrice, weekdayHours, weekendHours, facilities, slots, logoUrl, exteriorImageUrl, interiorImageUrls, lat, lng, isVerified, isActive, ownerEmail, ownerPassword, } = req.body;
+        name, description, address, city, state, landmark, googleMapsUrl, contactPhone, monthlyPrice, weekdayHours, weekendHours, facilities, slots, logoUrl, exteriorImageUrl, interiorImageUrls, lat, lng, isVerified, requiresVerification, isActive, ownerEmail, ownerPassword, } = req.body;
         if (!name || !address) {
             res.status(400).json({ error: "ValidationError", message: "Gym Name and Full Address are required." });
             return;
@@ -377,6 +411,7 @@ router.post("/gyms", auth_1.requireAuth, requireAdmin, async (req, res) => {
                         lat: latVal,
                         lng: lngVal,
                         isVerified: isVerified !== undefined ? !!isVerified : true,
+                        requiresVerification: requiresVerification !== undefined ? !!requiresVerification : false,
                         isActive: isActive !== undefined ? !!isActive : true,
                         partnerSince: new Date(),
                     },
@@ -463,7 +498,7 @@ router.put("/gyms/:id/slots", auth_1.requireAuth, requireAdmin, async (req, res)
 router.put("/gyms/:id", auth_1.requireAuth, requireAdmin, async (req, res) => {
     try {
         const gymId = req.params.id;
-        const { customGymId, ownerName, bankDetails, cappingMode, maxDailyVisits, maxSlotVisits, payoutModel, payoutCommissionRate, payoutFixedPerVisit, paymentCycle, isGstRegistered, gstNumber, invoicePrefix, name, description, address, city, state, landmark, googleMapsUrl, contactPhone, monthlyPrice, weekdayHours, weekendHours, facilities, slots, logoUrl, exteriorImageUrl, interiorImageUrls, lat, lng, isVerified, isActive, ownerEmail, ownerPassword, } = req.body;
+        const { customGymId, ownerName, bankDetails, cappingMode, maxDailyVisits, maxSlotVisits, payoutModel, payoutCommissionRate, payoutFixedPerVisit, paymentCycle, isGstRegistered, gstNumber, invoicePrefix, name, description, address, city, state, landmark, googleMapsUrl, contactPhone, monthlyPrice, weekdayHours, weekendHours, facilities, slots, logoUrl, exteriorImageUrl, interiorImageUrls, lat, lng, isVerified, requiresVerification, isActive, ownerEmail, ownerPassword, } = req.body;
         const existingGym = await prisma_1.default.gym.findUnique({ where: { id: gymId } });
         if (!existingGym) {
             res.status(404).json({ error: "NotFound", message: "Gym not found" });
@@ -580,6 +615,7 @@ router.put("/gyms/:id", auth_1.requireAuth, requireAdmin, async (req, res) => {
                         lat: latVal,
                         lng: lngVal,
                         isVerified: isVerified !== undefined ? !!isVerified : existingGym.isVerified,
+                        requiresVerification: requiresVerification !== undefined ? !!requiresVerification : (existingGym.requiresVerification ?? false),
                         isActive: isActive !== undefined ? !!isActive : existingGym.isActive,
                     },
                     include: {

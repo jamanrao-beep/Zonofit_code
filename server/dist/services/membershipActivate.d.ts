@@ -63,6 +63,7 @@ export declare function activatePaidMembership(tx: Tx, userId: string, input: Me
             lng: number;
             creditCost: number;
             isVerified: boolean;
+            requiresVerification: boolean;
             isActive: boolean;
             category: import(".prisma/client").$Enums.GymCategory;
             facilities: Prisma.JsonValue | null;
@@ -158,6 +159,7 @@ export declare function activatePaidMembership(tx: Tx, userId: string, input: Me
         lng: number;
         creditCost: number;
         isVerified: boolean;
+        requiresVerification: boolean;
         isActive: boolean;
         category: import(".prisma/client").$Enums.GymCategory;
         facilities: Prisma.JsonValue | null;
@@ -230,6 +232,7 @@ export declare function quotePaidMembership(userId: string, input: MembershipAct
         lng: number;
         creditCost: number;
         isVerified: boolean;
+        requiresVerification: boolean;
         isActive: boolean;
         category: import(".prisma/client").$Enums.GymCategory;
         facilities: Prisma.JsonValue | null;

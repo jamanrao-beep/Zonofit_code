@@ -352,25 +352,47 @@ router.get(
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
 
-    // Auto-reconcile past bookings: verified check-ins complete, unverified ones become NO_SHOW / EXPIRED
+    // Auto-reconcile past bookings: verified check-ins complete, auto-gyms complete, unverified ones become NO_SHOW / EXPIRED
     try {
       const activeCandidateBookings = await prisma.booking.findMany({
         where: {
           userId: req.dbUserId!,
           status: { in: ["PENDING", "CONFIRMED", "CHECKED_IN"] },
         },
-        select: { id: true, visitDate: true, timeSlot: true, status: true },
+        select: {
+          id: true,
+          visitDate: true,
+          timeSlot: true,
+          status: true,
+          gym: { select: { requiresVerification: true } },
+        },
       });
 
       const passedBookings = activeCandidateBookings.filter((b) => isBookingSlotPast(b.visitDate, b.timeSlot));
       const checkedInPassedIds = passedBookings.filter((b) => b.status === "CHECKED_IN").map((b) => b.id);
-      const unverifiedPassedIds = passedBookings.filter((b) => b.status === "PENDING" || b.status === "CONFIRMED").map((b) => b.id);
+      
+      // If gym does not require verification (requiresVerification === false), uncancelled bookings automatically complete
+      const autoPassedIds = passedBookings
+        .filter((b) => b.gym?.requiresVerification === false && (b.status === "PENDING" || b.status === "CONFIRMED"))
+        .map((b) => b.id);
 
-      if (checkedInPassedIds.length > 0) {
+      // Only gyms that require verification turn unverified bookings into NO_SHOW
+      const unverifiedPassedIds = passedBookings
+        .filter((b) => b.gym?.requiresVerification !== false && (b.status === "PENDING" || b.status === "CONFIRMED"))
+        .map((b) => b.id);
+
+      const allCompletedPassedIds = [...checkedInPassedIds, ...autoPassedIds];
+      if (allCompletedPassedIds.length > 0) {
         await prisma.booking.updateMany({
-          where: { id: { in: checkedInPassedIds } },
+          where: { id: { in: allCompletedPassedIds } },
           data: { status: "COMPLETED" },
         });
+        if (autoPassedIds.length > 0) {
+          await prisma.checkIn.updateMany({
+            where: { bookingId: { in: autoPassedIds } },
+            data: { status: "VERIFIED", verifiedAt: new Date() },
+          });
+        }
       }
 
       if (unverifiedPassedIds.length > 0) {
@@ -407,6 +429,7 @@ router.get(
               address: true,
               city: true,
               imageUrls: true,
+              requiresVerification: true,
             },
           },
           checkIn: {
@@ -445,18 +468,38 @@ router.get(
           visitDate: { gte: todayStart, lte: todayEnd },
           status: { in: ["PENDING", "CONFIRMED", "CHECKED_IN"] },
         },
-        select: { id: true, visitDate: true, timeSlot: true, status: true },
+        select: {
+          id: true,
+          visitDate: true,
+          timeSlot: true,
+          status: true,
+          gym: { select: { requiresVerification: true } },
+        },
       });
 
       const passedToday = todayActive.filter((b) => isBookingSlotPast(b.visitDate, b.timeSlot));
       const checkedInPassedIds = passedToday.filter((b) => b.status === "CHECKED_IN").map((b) => b.id);
-      const unverifiedPassedIds = passedToday.filter((b) => b.status === "PENDING" || b.status === "CONFIRMED").map((b) => b.id);
+      
+      const autoPassedIds = passedToday
+        .filter((b) => b.gym?.requiresVerification === false && (b.status === "PENDING" || b.status === "CONFIRMED"))
+        .map((b) => b.id);
 
-      if (checkedInPassedIds.length > 0) {
+      const unverifiedPassedIds = passedToday
+        .filter((b) => b.gym?.requiresVerification !== false && (b.status === "PENDING" || b.status === "CONFIRMED"))
+        .map((b) => b.id);
+
+      const allCompletedPassedIds = [...checkedInPassedIds, ...autoPassedIds];
+      if (allCompletedPassedIds.length > 0) {
         await prisma.booking.updateMany({
-          where: { id: { in: checkedInPassedIds } },
+          where: { id: { in: allCompletedPassedIds } },
           data: { status: "COMPLETED" },
         });
+        if (autoPassedIds.length > 0) {
+          await prisma.checkIn.updateMany({
+            where: { bookingId: { in: autoPassedIds } },
+            data: { status: "VERIFIED", verifiedAt: new Date() },
+          });
+        }
       }
 
       if (unverifiedPassedIds.length > 0) {
@@ -480,13 +523,32 @@ router.get(
         status: { in: ["CONFIRMED" as const, "CHECKED_IN" as const] },
       },
       include: {
-        gym: { select: { id: true, name: true, address: true, imageUrls: true } },
+        gym: { select: { id: true, name: true, address: true, imageUrls: true, requiresVerification: true } },
         checkIn: { select: { status: true, verifiedAt: true } },
       },
     });
 
-    // Append passCode from booking itself for QR display
-    res.json({ booking: booking ? { ...booking, passCode: booking.passCode } : null });
+    let effectiveBooking = booking ? { ...booking, passCode: booking.passCode } : null;
+
+    // If gym does not require verification and slot time has arrived/passed, reflect CHECKED_IN
+    if (
+      effectiveBooking &&
+      effectiveBooking.gym?.requiresVerification === false &&
+      effectiveBooking.status === "CONFIRMED" &&
+      isBookingSlotPast(effectiveBooking.visitDate, effectiveBooking.timeSlot)
+    ) {
+      effectiveBooking = {
+        ...effectiveBooking,
+        status: "CHECKED_IN",
+        checkIn: {
+          ...effectiveBooking.checkIn,
+          status: "VERIFIED" as any,
+          verifiedAt: effectiveBooking.checkIn?.verifiedAt || new Date(),
+        },
+      };
+    }
+
+    res.json({ booking: effectiveBooking });
   }
 );
 

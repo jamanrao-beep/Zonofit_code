@@ -292,6 +292,7 @@ model Gym {
 
   creditCost      Int // Credits required per visit — ZonoFit retains final say
   isVerified      Boolean     @default(false)
+  requiresVerification Boolean @default(false)
   isActive        Boolean     @default(true)
   category        GymCategory @default(STANDARD)
   facilities      Json? // e.g. ["Strength", "Cardio", "CrossFit", "Steam Room"]

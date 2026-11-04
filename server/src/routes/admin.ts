@@ -290,6 +290,44 @@ router.put("/gyms/:id/status", requireAuth, requireAdmin, async (req: Request, r
   }
 });
 
+// ─── PUT & PATCH /api/admin/gyms/:id/verification ─────────────────────────────
+const handleVerificationToggle = async (req: Request, res: Response) => {
+  try {
+    const { requiresVerification } = req.body;
+    const gymId = req.params.id as string;
+    const flag = Boolean(requiresVerification);
+
+    const gym = await prisma.gym.update({
+      where: { id: gymId },
+      data: { requiresVerification: flag },
+      select: {
+        id: true,
+        name: true,
+        city: true,
+        isVerified: true,
+        requiresVerification: true,
+        isActive: true,
+      },
+    });
+
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.dbUserId!,
+        actionType: "UPDATE_GYM_VERIFICATION",
+        targetId: gym.id,
+        details: `requiresVerification: ${flag}`,
+      },
+    });
+
+    res.json({ gym, success: true, message: `Verification check set to ${flag ? "ON" : "OFF"}` });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+};
+
+router.put("/gyms/:id/verification", requireAuth, requireAdmin, handleVerificationToggle);
+router.patch("/gyms/:id/verification", requireAuth, requireAdmin, handleVerificationToggle);
+
 // ─── POST /api/admin/gyms ────────────────────────────────────────────────
 router.post("/gyms", requireAuth, requireAdmin, async (req: Request, res: Response): Promise<void> => {
   try {
@@ -329,6 +367,7 @@ router.post("/gyms", requireAuth, requireAdmin, async (req: Request, res: Respon
       lat,
       lng,
       isVerified,
+      requiresVerification,
       isActive,
       ownerEmail,
       ownerPassword,
@@ -430,6 +469,7 @@ router.post("/gyms", requireAuth, requireAdmin, async (req: Request, res: Respon
             lat: latVal,
             lng: lngVal,
             isVerified: isVerified !== undefined ? !!isVerified : true,
+            requiresVerification: requiresVerification !== undefined ? !!requiresVerification : false,
             isActive: isActive !== undefined ? !!isActive : true,
             partnerSince: new Date(),
           },
@@ -551,6 +591,7 @@ router.put("/gyms/:id", requireAuth, requireAdmin, async (req: Request, res: Res
       lat,
       lng,
       isVerified,
+      requiresVerification,
       isActive,
       ownerEmail,
       ownerPassword,
@@ -685,6 +726,7 @@ router.put("/gyms/:id", requireAuth, requireAdmin, async (req: Request, res: Res
         lat: latVal,
         lng: lngVal,
         isVerified: isVerified !== undefined ? !!isVerified : existingGym.isVerified,
+        requiresVerification: requiresVerification !== undefined ? !!requiresVerification : (existingGym.requiresVerification ?? false),
         isActive: isActive !== undefined ? !!isActive : existingGym.isActive,
       },
       include: {
