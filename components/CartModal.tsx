@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { View, Text, ScrollView, Pressable, Modal, ActivityIndicator, TextInput, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -9,6 +9,7 @@ import { useGuestStore } from "@/store/useGuestStore";
 import { useAddressStore } from "@/store/useAddressStore";
 import DeliveryAddressModal from "@/components/DeliveryAddressModal";
 import { apiFetch } from "@/lib/api";
+import { SHOP_CREDIT_INR, shopCreditsForRupees } from "@/data/shopCatalog";
 
 interface CartModalProps {
   visible: boolean;
@@ -21,18 +22,15 @@ export default function CartModal({ visible, onClose }: CartModalProps) {
   const [couponInput, setCouponInput] = useState("");
   const [couponLoading, setCouponLoading] = useState(false);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
-  const [creditsToUse, setCreditsToUse] = useState(0);
 
   const { isGuest, endGuestSession } = useGuestStore();
-  const { cashBalance, credits, checkoutCart } = useCreditsStore();
+  const { credits, checkoutCart } = useCreditsStore();
   const { getSelectedAddress } = useAddressStore();
   const selectedAddress = getSelectedAddress();
   
   const { 
     cartItems, 
     updateQuantity, 
-    getTotalPrice, 
-    getDiscountedPrice, 
     getTotalItems, 
     clearCart,
     removeLines,
@@ -41,24 +39,15 @@ export default function CartModal({ visible, onClose }: CartModalProps) {
     clearCoupon 
   } = useCartStore();
 
-  const discountedPriceInr = getDiscountedPrice();
-  // Universal Checkout Step 1: Auto-applied INR Balance
-  const autoInrUsed = Math.min(cashBalance, discountedPriceInr);
-  const remainingAfterInr = discountedPriceInr - autoInrUsed;
-  
-  // Universal Checkout Step 2: User-controlled credits (1 Credit = ₹10)
-  const maxCreditsAllowed = Math.min(credits, Math.floor(remainingAfterInr / 10));
-
-  useEffect(() => {
-    // Keep creditsToUse bounded
-    if (creditsToUse > maxCreditsAllowed) {
-      setCreditsToUse(maxCreditsAllowed);
-    }
-  }, [maxCreditsAllowed, creditsToUse]);
-
-  const creditsValueUsed = creditsToUse * 10;
-  // Universal Checkout Step 3: Remaining amount to pay via gateway
-  const finalPayableOnline = Math.max(0, remainingAfterInr - creditsValueUsed);
+  const payableLines = cartItems.filter((ci) => isMarketplaceId(ci.item.id) && ci.item.purchasable !== false);
+  const payableTotal = payableLines.reduce((sum, ci) => sum + (Number(ci.item.price) || 0) * ci.quantity, 0);
+  let payableDiscount = 0;
+  if (appliedCoupon?.discountType === "PERCENTAGE") payableDiscount = Math.floor(payableTotal * (appliedCoupon.discountValue / 100));
+  if (appliedCoupon?.discountType === "RUPEES" || appliedCoupon?.discountType === "FIXED_AMOUNT") payableDiscount = appliedCoupon.discountValue;
+  payableDiscount = Math.min(payableTotal, Math.max(0, payableDiscount));
+  const discountedPriceInr = Math.max(0, payableTotal - payableDiscount);
+  const creditsNeeded = shopCreditsForRupees(discountedPriceInr);
+  const shortBy = Math.max(0, creditsNeeded - credits);
 
   const handleCheckout = async () => {
     if (cartItems.length === 0) return;
@@ -106,10 +95,10 @@ export default function CartModal({ visible, onClose }: CartModalProps) {
       setIsCheckingOut(false);
       return;
     }
-    if (finalPayableOnline > 0) {
+    if (shortBy > 0) {
       Alert.alert(
-        "Add funds",
-        `This order still needs ₹${finalPayableOnline}. Online payment is not connected yet. Cover it with wallet cash or credits.`
+        "Not enough credits",
+        `This order costs ${creditsNeeded} credits (1 credit = ₹${SHOP_CREDIT_INR}). You have ${credits}.`,
       );
       setIsCheckingOut(false);
       return;
@@ -122,13 +111,22 @@ export default function CartModal({ visible, onClose }: CartModalProps) {
       selectedColor: ci.item.selectedColor,
     }));
     
-    const result = await checkoutCart(checkoutItems, discountedPriceInr, appliedCoupon?.code, creditsToUse);
+    const result = await checkoutCart(checkoutItems, discountedPriceInr, appliedCoupon?.code, creditsNeeded, {
+      fullName: selectedAddress.fullName,
+      phoneNumber: selectedAddress.phoneNumber,
+      flatHouse: selectedAddress.flatHouse,
+      areaStreet: selectedAddress.areaStreet,
+      landmark: selectedAddress.landmark,
+      city: selectedAddress.city,
+      state: selectedAddress.state,
+      pincode: selectedAddress.pincode,
+    });
     
     if (result.success) {
       const skipped = cartItems.length - ready.length;
       Alert.alert(
         "Order Confirmed!",
-        `Items will be delivered to ${selectedAddress.flatHouse}, ${selectedAddress.city}. Fully covered with wallet cash and credits.` +
+        `Items will be delivered to ${selectedAddress.flatHouse}, ${selectedAddress.city}. ${result.breakdown?.creditsUsed ?? creditsNeeded} credits were used.` +
         (skipped > 0 ? " Preview items were left in the cart." : "")
       );
       removeLines(ready.map((ci) => cartLineKey(ci.item)));
@@ -289,106 +287,26 @@ export default function CartModal({ visible, onClose }: CartModalProps) {
                 </View>
                 <View className="flex-row justify-between mb-2">
                   <Text className="text-sm text-[#6B756E]">Subtotal:</Text>
-                  <Text className="text-sm font-bold text-[#1F2520]">₹{getTotalPrice()}</Text>
+                  <Text className="text-sm font-bold text-[#1F2520]">₹{Math.round(payableTotal)}</Text>
                 </View>
-                {appliedCoupon && (
+                {appliedCoupon && payableDiscount > 0 && (
                   <View className="flex-row justify-between mb-2">
                     <Text className="text-sm text-emerald-600 font-bold">Discount ({appliedCoupon.code}):</Text>
-                    <Text className="text-sm text-emerald-600 font-bold">-₹{(getTotalPrice() - getDiscountedPrice())}</Text>
+                    <Text className="text-sm text-emerald-600 font-bold">-₹{Math.round(payableDiscount)}</Text>
                   </View>
                 )}
 
-                {/* Universal Checkout Step 1: Auto-Applied INR Balance */}
-                <View className="bg-emerald-50/70 p-3 rounded-xl border border-emerald-100 my-2">
+                <View className="bg-emerald-50 p-3 rounded-xl border border-emerald-100 my-2">
                   <View className="flex-row justify-between items-center">
                     <View>
-                      <Text className="text-xs font-bold text-emerald-900">1. Auto-Applied INR Balance</Text>
-                      <Text className="text-[10px] text-emerald-700">₹{cashBalance} available in wallet</Text>
+                      <Text className="text-xs font-bold text-emerald-900">Pay with credits</Text>
+                      <Text className="text-[10px] text-emerald-700">1 credit = ₹{SHOP_CREDIT_INR}. You have {credits}.</Text>
                     </View>
-                    <Text className="text-sm font-extrabold text-emerald-700">
-                      {autoInrUsed > 0 ? `-₹${autoInrUsed}` : "₹0"}
-                    </Text>
+                    <Text className="text-sm font-extrabold text-emerald-700">{creditsNeeded} CR</Text>
                   </View>
-                </View>
-
-                {/* Universal Checkout Step 2: User-Controlled Credits */}
-                {credits > 0 && remainingAfterInr > 0 && (
-                  <View className="bg-blue-50/70 p-3 rounded-xl border border-blue-100 mb-2">
-                    <View className="flex-row justify-between items-center mb-2">
-                      <View>
-                        <Text className="text-xs font-bold text-blue-900">2. Use ZonoFit Credits</Text>
-                        <Text className="text-[10px] text-blue-700">{credits} Credits available (1 Cr = ₹10)</Text>
-                      </View>
-                      <Pressable 
-                        onPress={() => setCreditsToUse(maxCreditsAllowed)}
-                        className="bg-blue-600 px-2.5 py-1 rounded-lg"
-                      >
-                        <Text className="text-[10px] font-bold text-white">Use Max</Text>
-                      </Pressable>
-                    </View>
-                    <View className="flex-row justify-between items-center">
-                      <View className="flex-row items-center bg-white rounded-xl px-2 py-1 border border-blue-200">
-                        <Pressable 
-                          onPress={() => setCreditsToUse(Math.max(0, creditsToUse - 10))}
-                          className="w-7 h-7 items-center justify-center rounded-lg bg-blue-50 active:bg-blue-100 mr-1"
-                        >
-                          <Text className="text-[10px] font-bold text-blue-700">-10</Text>
-                        </Pressable>
-                        <Pressable 
-                          onPress={() => setCreditsToUse(Math.max(0, creditsToUse - 1))}
-                          className="w-7 h-7 items-center justify-center mr-1"
-                        >
-                          <Ionicons name="remove" size={14} color="#1D4ED8" />
-                        </Pressable>
-                        <TextInput
-                          keyboardType="number-pad"
-                          value={String(creditsToUse)}
-                          onChangeText={(text) => {
-                            const cleaned = text.replace(/[^0-9]/g, "");
-                            if (!cleaned) {
-                              setCreditsToUse(0);
-                            } else {
-                              const num = parseInt(cleaned, 10);
-                              setCreditsToUse(Math.min(maxCreditsAllowed, Math.max(0, num)));
-                            }
-                          }}
-                          selectTextOnFocus
-                          style={{ minWidth: 42, textAlign: "center", fontWeight: "800", color: "#1E3A8A", fontSize: 14, paddingVertical: 2 }}
-                        />
-                        <Pressable 
-                          onPress={() => setCreditsToUse(Math.min(maxCreditsAllowed, creditsToUse + 1))}
-                          className="w-7 h-7 items-center justify-center ml-1"
-                        >
-                          <Ionicons name="add" size={14} color="#1D4ED8" />
-                        </Pressable>
-                        <Pressable 
-                          onPress={() => setCreditsToUse(Math.min(maxCreditsAllowed, creditsToUse + 10))}
-                          className="w-7 h-7 items-center justify-center rounded-lg bg-blue-50 active:bg-blue-100 ml-1"
-                        >
-                          <Text className="text-[10px] font-bold text-blue-700">+10</Text>
-                        </Pressable>
-                      </View>
-                      <View className="items-end">
-                        <Text className="text-sm font-black text-blue-700">
-                          {creditsValueUsed > 0 ? `-₹${creditsValueUsed}` : "₹0"}
-                        </Text>
-                        <Text className="text-[10px] text-blue-500 font-semibold">
-                          Max: {maxCreditsAllowed} Cr
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                )}
-
-                {/* Universal Checkout Step 3: Payable Online */}
-                <View className="flex-row justify-between items-center mt-2 mb-4 pt-2 border-t border-dashed border-gray-300">
-                  <View>
-                    <Text className="text-xs uppercase font-extrabold text-gray-500 tracking-wider">3. Payable Online</Text>
-                    <Text className="text-[11px] text-gray-500">
-                      {finalPayableOnline === 0 ? "Covered completely by balances" : "Payment gateway remainder"}
-                    </Text>
-                  </View>
-                  <Text className="text-2xl font-black text-[#1F2520]">₹{finalPayableOnline}</Text>
+                  {shortBy > 0 ? (
+                    <Text className="text-[11px] text-amber-700 mt-2">You need {shortBy} more credits for this order.</Text>
+                  ) : null}
                 </View>
 
                 <Pressable 
@@ -402,11 +320,7 @@ export default function CartModal({ visible, onClose }: CartModalProps) {
                     <Ionicons name="card-outline" size={20} color="white" />
                   )}
                   <Text className="text-white font-bold text-lg">
-                    {isCheckingOut 
-                      ? "Processing..." 
-                      : finalPayableOnline === 0 
-                        ? "Confirm Purchase (₹0 Online)" 
-                        : `Pay Online ₹${finalPayableOnline}`}
+                    {isCheckingOut ? "Processing..." : `Pay ${creditsNeeded} credits`}
                   </Text>
                 </Pressable>
                 

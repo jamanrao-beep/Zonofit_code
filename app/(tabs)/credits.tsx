@@ -216,7 +216,6 @@ export default function CreditsScreen() {
     transactions,
     fetchWallet,
     buyCredits,
-    loading: creditsLoading,
   } = useCreditsStore();
 
   const {
@@ -264,22 +263,7 @@ export default function CreditsScreen() {
     ? !membershipInfo.isExpired && (membershipInfo.status === "ACTIVE" || membershipInfo.status === "Active")
     : isUserActive;
 
-  useEffect(() => {
-    if (isMembershipActive && !creditsLoading) {
-      if (credits === 0) {
-        useCreditsStore.setState({ credits: 180 });
-      } else if (credits < 180) {
-        // Recover the 180 base membership credits if top-up (e.g. 120) overwrote them
-        useCreditsStore.setState((state) => ({ credits: state.credits + 180 }));
-      }
-    }
-  }, [isMembershipActive, credits, creditsLoading]);
-
-  const displayCredits = credits >= 180
-    ? credits
-    : isMembershipActive
-      ? (credits > 0 ? credits + 180 : 180)
-      : credits;
+  const displayCredits = credits;
   const easedCredits = useEase(displayCredits, 1100);
   const easedValue = useEase(displayCredits * CREDIT_FITNESS_VALUE, 1100);
   const shownCredits = Math.round(easedCredits);

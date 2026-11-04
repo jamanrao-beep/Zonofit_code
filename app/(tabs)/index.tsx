@@ -31,8 +31,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { SwipeableTabScreen } from "@/components/SwipeableTabScreen";
 import { Alert, BackHandler, ToastAndroid, Platform } from "react-native";
-import { FALLBACK_NETWORK_GYMS } from "@/constants/fallbackGyms";
-import { calculateMembershipBreakdown, CREDIT_FITNESS_VALUE } from "@/constants/credits";
+import { CREDIT_FITNESS_VALUE } from "@/constants/credits";
 import { promptGuestAccount } from "@/lib/guestAccount";
 
 function BlinkingRedDot() {
@@ -158,11 +157,7 @@ export default function HomeScreen() {
   const isExpired = membershipInfo ? membershipInfo.isExpired : false;
   const isMembershipActive = membershipInfo ? (!membershipInfo.isExpired && membershipInfo.status === "ACTIVE") : false;
   const isPrimaryMember = !isGuest && (isMembershipActive || membershipStatus === "ACTIVE" || membershipStatus === "Active" || visitsRemaining > 0);
-  const effectiveCredits = credits >= 180
-    ? credits
-    : isPrimaryMember
-      ? (credits > 0 ? credits + 180 : 180)
-      : credits;
+  const effectiveCredits = credits;
   const daysRemaining = membershipInfo?.daysRemaining ?? 0;
   const isExpiringSoon = isMembershipActive && daysRemaining <= 3 && daysRemaining > 0;
   const showRenewalAlert = isExpired || isExpiringSoon;
@@ -174,20 +169,6 @@ export default function HomeScreen() {
       useBookingStore.getState().fetchBookings(token);
     }
   }, [token]);
-
-  // Auto-sync rest credits if user is an active member but credits show 0 and no transactions exist
-  React.useEffect(() => {
-    const isMember = !isGuest && (membershipStatus === "ACTIVE" || membershipStatus === "Active" || visitsRemaining > 0);
-    if (isMember && useCreditsStore.getState().credits === 0) {
-      const txs = useCreditsStore.getState().transactions;
-      if (txs.length === 0) {
-        const gymLookup = FALLBACK_NETWORK_GYMS.find(g => g.name === resolvedGymName || g.id === userPrimaryGymId);
-        const gymPrice = gymLookup?.membershipPrice || 3000;
-        const breakdown = calculateMembershipBreakdown(gymPrice, cycleNum);
-        useCreditsStore.setState({ credits: breakdown.walletCreditsCount });
-      }
-    }
-  }, [isGuest, membershipStatus, visitsRemaining, resolvedGymName, userPrimaryGymId, cycleNum]);
 
   const homeScrollRef = useRef<ScrollView>(null);
   const guestScrollRef = useRef<ScrollView>(null);

@@ -1,5 +1,16 @@
-export const SHOP_CREDIT_INR = 10;
-export const GYM_CREDIT_INR = 10;
+import { API_URL } from "@/lib/api";
+import { CREDIT_CASH_VALUE, CREDIT_FITNESS_VALUE } from "@/constants/credits";
+
+/** 1 shop credit = ₹8, the outside-gym rate. */
+export const SHOP_CREDIT_INR = CREDIT_CASH_VALUE;
+export const GYM_CREDIT_INR = CREDIT_FITNESS_VALUE;
+
+/** Credits required to pay a rupee total. Rounds up so the order is fully covered. */
+export function shopCreditsForRupees(rupees: number): number {
+  const paise = Math.round(Math.max(0, rupees) * 100);
+  if (paise <= 0) return 0;
+  return Math.ceil(paise / (SHOP_CREDIT_INR * 100));
+}
 
 export type ShopGoal = "mg" | "fl" | "st" | "en" | "rc" | "dw";
 export type ShopCategory = "Supplements" | "Gear" | "Apparel" | "Recovery" | "Accessories";
@@ -95,17 +106,34 @@ function variantRows(value: unknown): { names: string[]; images: Record<string, 
     .map((row) => {
       const entry = row && typeof row === "object" ? (row as { name?: string; imageUrl?: string }) : {};
       const name = String(entry.name || "").trim();
-      const imageUrl = String(entry.imageUrl || "").trim();
-      if (name && /^https?:\/\//i.test(imageUrl)) images[name] = imageUrl;
+      const imageUrl = photoUrl(String(entry.imageUrl || ""));
+      if (name && imageUrl) images[name] = imageUrl;
       return name;
     })
     .filter(Boolean);
   return { names, images };
 }
 
+function photoUrl(value: string): string {
+  const url = value.trim();
+  if (!url) return "";
+  if (url.startsWith("/uploads/")) return `${API_URL}${url}`;
+  if (/^https?:\/\//i.test(url)) {
+    try {
+      const parsed = new URL(url);
+      if (parsed.pathname.startsWith("/uploads/")) return `${API_URL}${parsed.pathname}`;
+    } catch {
+      return url;
+    }
+    return url;
+  }
+  return "";
+}
+
 function httpPhotos(value: unknown, single?: string): string[] {
-  const list = asStringList(value).filter((url) => /^https?:\/\//i.test(url));
-  if (single && /^https?:\/\//i.test(single) && !list.includes(single)) list.unshift(single);
+  const list = asStringList(value).map(photoUrl).filter(Boolean);
+  const first = single ? photoUrl(single) : "";
+  if (first && !list.includes(first)) list.unshift(first);
   return list;
 }
 
@@ -187,8 +215,22 @@ function norm(value: string): string {
 }
 
 function asStringList(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.map((entry) => String(entry).trim()).filter(Boolean);
+  let raw = value;
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (!trimmed) return [];
+    if (trimmed.startsWith("[")) {
+      try {
+        raw = JSON.parse(trimmed);
+      } catch {
+        raw = [trimmed];
+      }
+    } else {
+      raw = [trimmed];
+    }
+  }
+  if (!Array.isArray(raw)) return [];
+  return raw.map((entry) => String(entry).trim()).filter(Boolean);
 }
 
 function inferCategory(blob: string, storeCategory?: string): ShopCategory {

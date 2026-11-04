@@ -53,10 +53,64 @@ function rupees(paise: unknown): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(2);
 }
 
+function asUrlList(value: unknown): string[] {
+  let raw = value;
+  if (typeof raw === "string" && raw.trim().startsWith("[")) {
+    try {
+      raw = JSON.parse(raw);
+    } catch {
+      raw = [];
+    }
+  }
+  if (!Array.isArray(raw)) return [];
+  return raw.map((entry) => String(entry || "").trim()).filter((url) => url.startsWith("http") || url.startsWith("/"));
+}
+
+/** Uploaded files are served from the API. A relative /uploads path uses the admin rewrite. */
+function displayPhoto(url: string): string {
+  const trimmed = url.trim();
+  if (!trimmed) return "";
+  if (trimmed.startsWith("/uploads/")) return trimmed;
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.pathname.startsWith("/uploads/")) return parsed.pathname;
+  } catch {
+    return "";
+  }
+  return trimmed.startsWith("http") ? trimmed : "";
+}
+
 function photosOf(item: { imageUrls?: unknown; imageUrl?: string }): string[] {
-  const list = Array.isArray(item.imageUrls) ? item.imageUrls.map((url) => String(url)).filter((url) => url.startsWith("http")) : [];
-  if (item.imageUrl && item.imageUrl.startsWith("http") && !list.includes(item.imageUrl)) list.unshift(item.imageUrl);
+  const list = asUrlList(item.imageUrls).map(displayPhoto).filter(Boolean);
+  const single = item.imageUrl ? displayPhoto(item.imageUrl) : "";
+  if (single && !list.includes(single)) list.unshift(single);
   return list;
+}
+
+type ShopOrder = {
+  id: string;
+  quantity: number;
+  totalPaise: number;
+  creditsSpent: number;
+  status: string;
+  selectedSize?: string | null;
+  selectedColor?: string | null;
+  addressJson?: string | null;
+  createdAt: string;
+  item?: { title?: string; imageUrl?: string };
+  user?: { name?: string | null; phone?: string | null; email?: string | null };
+};
+
+function addressLines(value?: string | null): string {
+  if (!value) return "No address saved";
+  try {
+    const address = JSON.parse(value) as Record<string, string>;
+    const who = [address.fullName, address.phoneNumber ? `+91 ${address.phoneNumber}` : ""].filter(Boolean).join(" · ");
+    const where = [address.flatHouse, address.areaStreet, address.landmark, address.city, address.state, address.pincode].filter(Boolean).join(", ");
+    return [who, where].filter(Boolean).join(" — ");
+  } catch {
+    return "No address saved";
+  }
 }
 
 function textList(value: unknown): string[] {
@@ -65,6 +119,7 @@ function textList(value: unknown): string[] {
 
 export default function AdminMarketplacePage() {
   const [items, setItems] = useState<any[]>([]);
+  const [orders, setOrders] = useState<ShopOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [filterCategory, setFilterCategory] = useState("ALL");
@@ -90,8 +145,22 @@ export default function AdminMarketplacePage() {
     }
   };
 
+  const fetchOrders = async () => {
+    try {
+      const token = localStorage.getItem("zonofit_portal_token");
+      const res = await fetch("/api/admin/marketplace/orders", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setOrders(Array.isArray(data.orders) ? data.orders : []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     fetchItems();
+    fetchOrders();
   }, []);
 
   const setField = <K extends "title" | "description" | "info" | "priceRupees" | "mrpRupees" | "brand" | "pack" | "optionLabel" | "storeCategory" | "inStock">(
@@ -273,6 +342,46 @@ export default function AdminMarketplacePage() {
         >
           <Plus size={18} /> {showForm ? "Cancel" : "Add Item"}
         </button>
+      </div>
+
+      <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <div>
+            <h2 className="text-xl font-bold text-black">Orders</h2>
+            <p className="text-sm text-gray-500 mt-1">Shop checkouts paid in credits show up here with the delivery address.</p>
+          </div>
+          <button type="button" onClick={fetchOrders} className="rounded-xl border border-gray-200 px-3 py-2 text-sm font-bold text-black">Refresh</button>
+        </div>
+        {orders.length === 0 ? (
+          <p className="text-sm text-gray-400">No shop orders yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {orders.map((order) => {
+              const photo = photosOf(order.item || {})[0];
+              const when = new Date(order.createdAt).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
+              const option = [order.selectedColor, order.selectedSize].filter(Boolean).join(" · ");
+              return (
+                <div key={order.id} className="flex gap-3 rounded-2xl border border-gray-100 p-3">
+                  {photo ? (
+                    <img src={photo} alt="" className="h-16 w-16 rounded-xl object-cover bg-gray-100 shrink-0" />
+                  ) : (
+                    <div className="h-16 w-16 rounded-xl bg-gray-100 shrink-0" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="font-bold text-black">{order.item?.title || "Product"} × {order.quantity}</p>
+                      <span className="text-xs font-bold uppercase tracking-wide text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg">{order.status || "PLACED"}</span>
+                    </div>
+                    {option ? <p className="text-xs text-gray-500 mt-0.5">{option}</p> : null}
+                    <p className="text-sm text-gray-700 mt-1">{order.user?.name || "Member"}{order.user?.phone ? ` · ${order.user.phone}` : ""}{order.user?.email ? ` · ${order.user.email}` : ""}</p>
+                    <p className="text-sm text-gray-600 mt-1">{addressLines(order.addressJson)}</p>
+                    <p className="text-xs font-bold text-gray-500 mt-2">{when} · ₹{Math.round((order.totalPaise || 0) / 100)} · {order.creditsSpent || 0} credits</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {showForm && (

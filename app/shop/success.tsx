@@ -34,7 +34,7 @@ export default function ShopSuccessScreen() {
           ))}
           <Row label="Item total" value={inr(receipt?.itemTotal || 0)} />
           {receipt?.cashUsed ? <Row label="Wallet cash" value={inr(receipt.cashUsed)} green /> : null}
-          {receipt?.creditsUsed ? <Row label={`Credits used (${receipt.creditsUsed} CR)`} value={inr(receipt.creditsUsed * 10)} green /> : null}
+          {receipt?.creditsUsed ? <Row label="Credits used" value={`${receipt.creditsUsed} CR`} green /> : null}
           <View style={styles.total}>
             <Text style={styles.totalLabel}>Left to pay</Text>
             <Text style={styles.totalValue}>{inr(0)}</Text>

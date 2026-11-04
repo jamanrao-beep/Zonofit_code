@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import * as SecureStore from "expo-secure-store";
 import { Alert } from "react-native";
 import { apiFetch } from "@/lib/api";
+import { shopCreditsForRupees } from "@/data/shopCatalog";
 import { useAuthStore } from "./useAuthStore";
 
 const secureStorage = {
@@ -90,6 +91,16 @@ interface CreditsState {
     totalCostInr: number,
     couponCode?: string,
     creditsToUse?: number,
+    address?: {
+      fullName?: string;
+      phoneNumber?: string;
+      flatHouse?: string;
+      areaStreet?: string;
+      landmark?: string;
+      city?: string;
+      state?: string;
+      pincode?: string;
+    },
   ) => Promise<{ success: boolean; message?: string; breakdown?: any; orders?: { id: string; quantity: number; totalPaise: number; item?: { title?: string } }[] }>;
   reset: () => void;
 }
@@ -181,22 +192,7 @@ export const useCreditsStore = create<CreditsState>()(
         canBuyAdditionalCredits: true,
       } : currentMembership);
 
-      const currentCredits = get().credits;
-      const baseMembershipCredits = isLocallyActive ? 180 : 0;
-      let resolvedCredits = currentCredits;
-
-      if (typeof data.balance === "number") {
-        if (isLocallyActive && data.balance < baseMembershipCredits) {
-          // If server only recorded purchased top-up (e.g. 120) because base membership was direct-accepted in test mode
-          resolvedCredits = Math.max(currentCredits, baseMembershipCredits + data.balance);
-        } else if (data.balance >= baseMembershipCredits) {
-          resolvedCredits = Math.max(currentCredits, data.balance);
-        } else {
-          resolvedCredits = currentCredits > 0 ? currentCredits : baseMembershipCredits;
-        }
-      } else {
-        resolvedCredits = currentCredits > 0 ? currentCredits : baseMembershipCredits;
-      }
+      const resolvedCredits = typeof data.balance === "number" ? data.balance : get().credits;
 
       set({
         credits: resolvedCredits,
@@ -249,32 +245,9 @@ export const useCreditsStore = create<CreditsState>()(
         };
       }) || [];
 
-      // 2. Fetch Marketplace Orders (only on first page to avoid duplication for now)
-      let marketplaceTxs: any[] = [];
-      if (page === 1) {
-        try {
-          const orders = await apiFetch("/api/marketplace/orders", { token });
-          marketplaceTxs = orders.map((o: any) => ({
-            id: `mp-${o.id}`,
-            type: "debit",
-            amount: Math.abs(o.totalPaise / 100),
-            currency: "cash",
-            description: `Marketplace: ${o.quantity}x ${o.item.title}`,
-            dateRaw: new Date(o.createdAt),
-            date: new Date(o.createdAt).toLocaleDateString("en-IN", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            }),
-          }));
-        } catch(e) {
-          console.error("Failed to fetch marketplace orders", e);
-        }
-      }
-
       set((state) => {
-        const merged = page === 1 
-          ? [...newTxs, ...marketplaceTxs].sort((a, b) => b.dateRaw.getTime() - a.dateRaw.getTime())
+        const merged = page === 1
+          ? newTxs
           : [...state.transactions, ...newTxs];
         
         return { transactions: merged };
@@ -321,10 +294,9 @@ export const useCreditsStore = create<CreditsState>()(
       }
 
       if (orderData?.directAccepted) {
-        const prevCredits = get().credits > 0 ? get().credits : 180;
-        const newTotal = typeof orderData.newCreditBalance === "number" && orderData.newCreditBalance >= (prevCredits + creditsAmount)
+        const newTotal = typeof orderData.newCreditBalance === "number"
           ? orderData.newCreditBalance
-          : prevCredits + creditsAmount;
+          : get().credits + creditsAmount;
         set({ credits: newTotal });
         return { success: true, message: orderData.message || `Successfully purchased ${creditsAmount} credits.` };
       }
@@ -378,48 +350,46 @@ export const useCreditsStore = create<CreditsState>()(
   },
 
   buyMarketplaceItem: async (itemId, costInInr) => {
-    const { cashBalance } = get();
-
-    if (cashBalance < costInInr) {
-      return { success: false, message: "Insufficient Converted Cash Balance." };
+    const creditsNeeded = shopCreditsForRupees(costInInr);
+    if (get().credits < creditsNeeded) {
+      return {
+        success: false,
+        message: `This item costs ${creditsNeeded} credits (1 credit = ₹8). You have ${get().credits}.`,
+      };
     }
-    
+
     try {
       const token = useAuthStore.getState().token;
-      await apiFetch("/api/marketplace/order", {
+      const data = await apiFetch("/api/marketplace/order", {
         method: "POST",
         token,
         body: JSON.stringify({ itemId, quantity: 1 }),
       });
-      
-      // Update local state and fetch from server
-      set((state) => ({ cashBalance: state.cashBalance - costInInr }));
-      
-      // We assume there's a token stored in useAuthStore, but here we can just rely on the existing token or refetch when next needed.
-      return { success: true };
+      if (typeof data.newCreditBalance === "number") {
+        set({ credits: data.newCreditBalance });
+      } else if (typeof data.creditsUsed === "number") {
+        set((state) => ({ credits: Math.max(0, state.credits - data.creditsUsed) }));
+      }
+      return { success: true, message: data.message };
     } catch (err: any) {
       return { success: false, message: err.message || "Failed to process order." };
     }
   },
 
-  checkoutCart: async (items, totalCostInr, couponCode, creditsToUse = 0) => {
+  checkoutCart: async (items, _totalCostInr, couponCode, _creditsToUse = 0, address) => {
     try {
       const token = useAuthStore.getState().token;
       const data = await apiFetch("/api/marketplace/checkout", {
         method: "POST",
         token,
-        body: JSON.stringify({ items, couponCode, creditsToUse }),
+        body: JSON.stringify({ items, couponCode, address }),
       });
-      
-      if (data.breakdown) {
-        const inrUsed = (data.breakdown.inrPaiseUsed || 0) / 100;
+
+      if (typeof data.breakdown?.newCreditBalance === "number") {
+        set({ credits: data.breakdown.newCreditBalance });
+      } else if (data.breakdown) {
         const creditsUsed = data.breakdown.creditsUsed || 0;
-        set((state) => ({ 
-          cashBalance: Math.max(0, state.cashBalance - inrUsed),
-          credits: Math.max(0, state.credits - creditsUsed),
-        }));
-      } else {
-        set((state) => ({ cashBalance: Math.max(0, state.cashBalance - totalCostInr) }));
+        set((state) => ({ credits: Math.max(0, state.credits - creditsUsed) }));
       }
       return { success: true, breakdown: data.breakdown, orders: data.orders };
     } catch (err: any) {

@@ -23,6 +23,7 @@ import {
   offPercent,
   RATING_BARS,
   SHOP_CREDIT_INR,
+  shopCreditsForRupees,
   SHOP_REVIEWS,
   type ShopGoal,
 } from "@/data/shopCatalog";
@@ -58,6 +59,7 @@ export default function ProductDetailScreen() {
   const [colorChoice, setColorChoice] = useState("");
   const [slide, setSlide] = useState(0);
   const [addressOpen, setAddressOpen] = useState(false);
+  const [failedUris, setFailedUris] = useState<Record<string, boolean>>({});
   const carousel = useRef<ScrollView>(null);
   const credits = useCreditsStore((state) => state.credits);
   const addToCart = useCartStore((state) => state.addToCart);
@@ -75,6 +77,7 @@ export default function ProductDetailScreen() {
     setSizeChoice("");
     setColorChoice("");
     setSlide(0);
+    setFailedUris({});
   }, [productId]);
 
   const chosen = option || (product ? defaultOptionValue(product) : "");
@@ -108,7 +111,7 @@ export default function ProductDetailScreen() {
   }
 
   const off = offPercent(product);
-  const maxCredits = Math.min(credits, Math.floor(product.price / SHOP_CREDIT_INR));
+  const creditsNeeded = shopCreditsForRupees(product.price);
   const slideWidth = width - 40;
   const related = products.filter((entry) => entry.category === product.category && entry.id !== product.id).slice(0, 5);
   const addressLine = address
@@ -138,8 +141,6 @@ export default function ProductDetailScreen() {
     const next = Math.round(event.nativeEvent.contentOffset.x / slideWidth);
     if (next !== slide) setSlide(next);
   };
-
-  const [failedUris, setFailedUris] = useState<Record<string, boolean>>({});
 
   const photos = [
     ...(product.images?.length ? product.images : product.imageUrl ? [product.imageUrl] : []),
@@ -236,10 +237,10 @@ export default function ProductDetailScreen() {
                     : "Catalogue preview. This can be ordered once it is added in the admin marketplace."}
               </Text>
             </View>
-          ) : maxCredits > 0 ? (
+          ) : creditsNeeded > 0 ? (
             <View style={styles.teaser}>
               <Ionicons name="pricetag-outline" size={18} color={shop.hero} />
-              <Text style={styles.teaserText}>Pay up to {inr(maxCredits * SHOP_CREDIT_INR)} of this with your credits</Text>
+              <Text style={styles.teaserText}>This item is {creditsNeeded} credits. 1 credit = {inr(SHOP_CREDIT_INR)}. You have {credits}.</Text>
             </View>
           ) : null}
 

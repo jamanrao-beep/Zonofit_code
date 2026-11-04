@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -9,12 +9,11 @@ import {
   StatusBar,
   Alert,
   ActivityIndicator,
-  GestureResponderEvent,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
-import { inr, SHOP_CREDIT_INR, GYM_CREDIT_INR } from "@/data/shopCatalog";
+import { inr, SHOP_CREDIT_INR, shopCreditsForRupees } from "@/data/shopCatalog";
 import { cartLineKey, isMarketplaceId, useCartStore } from "@/store/useCartStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -27,12 +26,6 @@ import DeliveryAddressModal from "@/components/DeliveryAddressModal";
 import { ShopBackButton } from "@/components/shop/Chrome";
 import { shop, shopStyles } from "@/components/shop/theme";
 
-const METHODS = [
-  { id: "upi", title: "UPI", detail: "GPay, PhonePe, Paytm & more", icon: "qr-code-outline" },
-  { id: "card", title: "Credit / Debit card", detail: "Visa, Mastercard, RuPay", icon: "card-outline" },
-  { id: "net", title: "Netbanking", detail: "All major banks", icon: "business-outline" },
-] as const;
-
 export default function CheckoutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -42,7 +35,6 @@ export default function CheckoutScreen() {
   const clearCoupon = useCartStore((state) => state.clearCoupon);
   const removeLines = useCartStore((state) => state.removeLines);
   const credits = useCreditsStore((state) => state.credits);
-  const cashBalance = useCreditsStore((state) => state.cashBalance);
   const checkoutCart = useCreditsStore((state) => state.checkoutCart);
   const fetchWallet = useCreditsStore((state) => state.fetchWallet);
   const token = useAuthStore((state) => state.token);
@@ -51,13 +43,10 @@ export default function CheckoutScreen() {
   const address = useAddressStore((state) => state.addresses.find((entry) => entry.id === state.selectedAddressId) || state.addresses.find((entry) => entry.isDefault) || state.addresses[0] || null);
   const setReceipt = useShopReceiptStore((state) => state.setReceipt);
 
-  const [useCredits, setUseCredits] = useState(false);
-  const [creditsToUse, setCreditsToUse] = useState(0);
   const [couponInput, setCouponInput] = useState(appliedCoupon?.code || "");
   const [couponLoading, setCouponLoading] = useState(false);
   const [placing, setPlacing] = useState(false);
   const [addressOpen, setAddressOpen] = useState(false);
-  const [trackWidth, setTrackWidth] = useState(1);
 
   useFocusEffect(useCallback(() => {
     if (token && !isGuest) void fetchWallet(token);
@@ -70,36 +59,12 @@ export default function CheckoutScreen() {
   if (appliedCoupon?.discountType === "RUPEES" || appliedCoupon?.discountType === "FIXED_AMOUNT") discount = appliedCoupon.discountValue;
   discount = Math.min(subtotal, Math.max(0, discount));
   const afterCoupon = Math.max(0, subtotal - discount);
-  const cashUsed = Math.min(cashBalance, afterCoupon);
-  const remainder = afterCoupon - cashUsed;
-  const maxCredits = Math.min(credits, Math.floor(remainder / SHOP_CREDIT_INR));
-  const chosenCredits = useCredits ? Math.min(creditsToUse, maxCredits) : 0;
-  const creditValue = chosenCredits * SHOP_CREDIT_INR;
-  const stillDue = Math.max(0, remainder - creditValue);
-  const halfCredits = Math.floor(maxCredits / 2);
-
-  const setCreditsFromX = (x: number) => {
-    if (maxCredits <= 0 || trackWidth <= 0) return;
-    const ratio = Math.min(1, Math.max(0, x / trackWidth));
-    setCreditsToUse(Math.round(ratio * maxCredits));
-  };
-
-  const onSlide = (event: GestureResponderEvent) => setCreditsFromX(event.nativeEvent.locationX);
-
-  useEffect(() => {
-    if (creditsToUse > maxCredits) setCreditsToUse(maxCredits);
-  }, [creditsToUse, maxCredits]);
+  const creditsNeeded = shopCreditsForRupees(afterCoupon);
+  const shortBy = Math.max(0, creditsNeeded - credits);
 
   const addressLine = address
     ? [address.flatHouse, address.areaStreet, address.city, address.state, address.pincode].filter(Boolean).join(", ")
     : "";
-
-  const explainPayment = () => {
-    Alert.alert(
-      "Online payment is not connected",
-      `This order still needs ${inr(stillDue)}. UPI, cards, and netbanking are not taking shop payments yet. Cover the rest with wallet cash or credits, or add funds from Credits.`
-    );
-  };
 
   const validateCoupon = async () => {
     if (!couponInput.trim()) return;
@@ -141,8 +106,11 @@ export default function CheckoutScreen() {
       setAddressOpen(true);
       return;
     }
-    if (stillDue > 0) {
-      explainPayment();
+    if (shortBy > 0) {
+      Alert.alert(
+        "Not enough credits",
+        `This order costs ${creditsNeeded} credits (1 credit = ${inr(SHOP_CREDIT_INR)}). You have ${credits}.`,
+      );
       return;
     }
 
@@ -153,7 +121,16 @@ export default function CheckoutScreen() {
       selectedSize: line.item.selectedSize || line.item.variant,
       selectedColor: line.item.selectedColor,
     }));
-    const result = await checkoutCart(payload, afterCoupon, appliedCoupon?.code, chosenCredits);
+    const result = await checkoutCart(payload, afterCoupon, appliedCoupon?.code, creditsNeeded, {
+      fullName: address.fullName,
+      phoneNumber: address.phoneNumber,
+      flatHouse: address.flatHouse,
+      areaStreet: address.areaStreet,
+      landmark: address.landmark,
+      city: address.city,
+      state: address.state,
+      pincode: address.pincode,
+    });
     if (!result.success) {
       setPlacing(false);
       Alert.alert("Order not placed", result.message || "Checkout did not go through.");
@@ -170,8 +147,8 @@ export default function CheckoutScreen() {
       ids: orders.map((order) => order.id),
       lines: orders.map((order) => `${order.item?.title || "Item"}  ×${order.quantity}`),
       itemTotal: subtotal,
-      cashUsed: (result.breakdown?.inrPaiseUsed || 0) / 100,
-      creditsUsed: result.breakdown?.creditsUsed || chosenCredits,
+      cashUsed: 0,
+      creditsUsed: result.breakdown?.creditsUsed || creditsNeeded,
       creditsLeft: left,
     });
     removeLines(ready.map((line) => cartLineKey(line.item)));
@@ -188,9 +165,9 @@ export default function CheckoutScreen() {
         ? "Browse shop"
         : !address
           ? "Add address"
-          : stillDue > 0
-            ? "Add funds"
-            : "Place order";
+          : shortBy > 0
+            ? "Not enough credits"
+            : `Pay ${creditsNeeded} credits`;
   const showAmount = !placing && !needsAccount && ready.length > 0 && !!address;
 
   const onFooter = () => {
@@ -207,8 +184,11 @@ export default function CheckoutScreen() {
       setAddressOpen(true);
       return;
     }
-    if (stillDue > 0) {
-      router.push("/(tabs)/credits" as never);
+    if (shortBy > 0) {
+      Alert.alert(
+        "Not enough credits",
+        `This order costs ${creditsNeeded} credits (1 credit = ${inr(SHOP_CREDIT_INR)}). You have ${credits}.`,
+      );
       return;
     }
     void place();
@@ -266,63 +246,23 @@ export default function CheckoutScreen() {
 
         <View style={shopStyles.card}>
           <View style={styles.creditHead}>
-            <View style={styles.coin}><Text style={styles.coinText}>₹</Text></View>
-            <View style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
-              <Text style={styles.creditTitle} numberOfLines={1}>Use ZonoFit credits</Text>
-              <Text style={styles.creditSub} numberOfLines={2}>{credits} CR available · 1 CR = {inr(SHOP_CREDIT_INR)} here · {inr(GYM_CREDIT_INR)} at gyms</Text>
+            <View style={styles.coin}><Text style={styles.coinText}>CR</Text></View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.creditTitle}>Pay with credits</Text>
+              <Text style={styles.creditSub}>1 credit = {inr(SHOP_CREDIT_INR)} on the shop. You have {credits} credits.</Text>
             </View>
-            <Pressable
-              accessibilityRole="switch"
-              accessibilityState={{ checked: useCredits }}
-              accessibilityLabel="Use credits"
-              onPress={() => {
-                const next = !useCredits;
-                setUseCredits(next);
-                if (next) setCreditsToUse(maxCredits);
-              }}
-              style={[styles.sw, useCredits && styles.swOn]}
-            >
-              <View style={[styles.knob, useCredits && styles.knobOn]} />
-            </Pressable>
           </View>
-          {useCredits ? (
-            <View style={styles.crBox}>
-              <View style={styles.crBig}>
-                <Text style={styles.crValue}>{chosenCredits} CR</Text>
-                <Text style={styles.crDisc}>{inr(creditValue)}</Text>
-              </View>
-              <View
-                onLayout={(event) => setTrackWidth(event.nativeEvent.layout.width)}
-                onStartShouldSetResponder={() => maxCredits > 0}
-                onMoveShouldSetResponder={() => maxCredits > 0}
-                onResponderGrant={onSlide}
-                onResponderMove={onSlide}
-                style={styles.trackHit}
-              >
-                <View style={styles.track}>
-                  <View style={[styles.fill, { width: maxCredits ? `${(chosenCredits / maxCredits) * 100}%` : "0%" }]} />
-                </View>
-                <View
-                  pointerEvents="none"
-                  style={[styles.sliderKnob, { left: maxCredits ? `${(chosenCredits / maxCredits) * 100}%` : 0 }]}
-                />
-              </View>
-              <View style={styles.chips}>
-                <Pressable onPress={() => setCreditsToUse(0)} style={[styles.chip, chosenCredits === 0 && styles.chipOn]}>
-                  <Text style={[styles.chipText, chosenCredits === 0 && styles.chipTextOn]}>None</Text>
-                </Pressable>
-                <Pressable onPress={() => setCreditsToUse(halfCredits)} style={[styles.chip, halfCredits > 0 && chosenCredits === halfCredits && halfCredits !== maxCredits && styles.chipOn]}>
-                  <Text style={[styles.chipText, halfCredits > 0 && chosenCredits === halfCredits && halfCredits !== maxCredits && styles.chipTextOn]}>Half</Text>
-                </Pressable>
-                <Pressable onPress={() => setCreditsToUse(maxCredits)} style={[styles.chip, maxCredits > 0 && chosenCredits === maxCredits && styles.chipOn]}>
-                  <Text style={[styles.chipText, maxCredits > 0 && chosenCredits === maxCredits && styles.chipTextOn]}>Use max</Text>
-                </Pressable>
-              </View>
-              <Text style={styles.note}>
-                Wallet cash is applied first. Credits then cover what's left, at {inr(SHOP_CREDIT_INR)} each, up to your balance.
-              </Text>
+          <View style={styles.crBox}>
+            <View style={styles.crBig}>
+              <Text style={styles.crValue}>{creditsNeeded} CR</Text>
+              <Text style={styles.crDisc}>{inr(afterCoupon)}</Text>
             </View>
-          ) : null}
+            <Text style={styles.note}>
+              {shortBy > 0
+                ? `You need ${shortBy} more credits to place this order.`
+                : "The full order is paid in credits. Wallet cash is not used."}
+            </Text>
+          </View>
         </View>
 
         <View style={shopStyles.card}>
@@ -350,41 +290,15 @@ export default function CheckoutScreen() {
           ) : null}
         </View>
 
-        {stillDue > 0 ? (
-          <View style={shopStyles.card}>
-            <Text style={shopStyles.cardTitle}>Pay {inr(stillDue)} with</Text>
-            {METHODS.map((method) => (
-              <Pressable key={method.id} onPress={explainPayment} style={styles.pm}>
-                <View style={styles.pmIcon}><Ionicons name={method.icon} size={18} color={shop.hero} /></View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.pmTitle}>{method.title}</Text>
-                  <Text style={styles.pmDetail}>{method.detail}</Text>
-                </View>
-                <Text style={styles.soon}>Not live</Text>
-              </Pressable>
-            ))}
-          </View>
-        ) : ready.length > 0 ? (
-          <View style={styles.paid}>
-            <Ionicons name="lock-closed-outline" size={18} color={shop.hero} />
-            <Text style={styles.paidText}>Fully covered by your wallet. No payment needed.</Text>
-          </View>
-        ) : (
-          <View style={styles.paid}>
-            <Text style={styles.paidText}>No live products in this cart yet.</Text>
-          </View>
-        )}
-
         <View style={shopStyles.card}>
           <Text style={shopStyles.cardTitle}>Bill details</Text>
           <Row label="Item total" value={inr(subtotal)} />
           <Row label="Delivery" value="Free to confirm" green />
           {discount > 0 ? <Row label={`Coupon (${appliedCoupon?.code})`} value={`−${inr(discount)}`} green /> : null}
-          {cashUsed > 0 ? <Row label="Wallet cash" value={`−${inr(cashUsed)}`} green /> : null}
-          {chosenCredits > 0 ? <Row label={`Credits (${chosenCredits} CR × ${inr(SHOP_CREDIT_INR)})`} value={`−${inr(creditValue)}`} green /> : null}
+          <Row label="Credits" value={`${creditsNeeded} CR`} green />
           <View style={styles.total}>
             <Text style={styles.totalLabel}>To pay</Text>
-            <Text style={styles.totalValue}>{inr(stillDue)}</Text>
+            <Text style={styles.totalValue}>{creditsNeeded} CR</Text>
           </View>
         </View>
       </ScrollView>
@@ -395,14 +309,14 @@ export default function CheckoutScreen() {
           onPress={onFooter}
           disabled={placing}
         >
-          {showAmount ? <Text style={shopStyles.ctaText}>{inr(stillDue)}</Text> : null}
+          {showAmount ? <Text style={shopStyles.ctaText}>{creditsNeeded} CR</Text> : null}
           <View style={styles.ctaRight}>
             {placing ? <ActivityIndicator color="#fff" /> : null}
             <Text style={shopStyles.ctaText}>{footerLabel}</Text>
             {!placing ? <Ionicons name="arrow-forward" size={18} color="#fff" /> : null}
           </View>
         </Pressable>
-        <Text style={styles.fine}>Secure checkout · wallet cash and credits only</Text>
+        <Text style={styles.fine}>Shop orders are paid in credits · 1 credit = {inr(SHOP_CREDIT_INR)}</Text>
       </View>
 
       <DeliveryAddressModal visible={addressOpen} onClose={() => setAddressOpen(false)} initialAddress={address} />

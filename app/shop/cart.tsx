@@ -3,7 +3,7 @@ import { View, Text, ScrollView, Pressable, Image, StyleSheet, StatusBar } from 
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { inr, SHOP_CREDIT_INR } from "@/data/shopCatalog";
+import { inr, SHOP_CREDIT_INR, shopCreditsForRupees } from "@/data/shopCatalog";
 import { cartLineKey, isMarketplaceId, useCartStore } from "@/store/useCartStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
 import { ShopBackButton } from "@/components/shop/Chrome";
@@ -23,7 +23,7 @@ export default function CartScreen() {
   const payableLines = lines.filter((line) => line.item.purchasable !== false && isMarketplaceId(line.item.id));
   const itemTotal = lines.reduce((sum, line) => sum + line.item.price * line.quantity, 0);
   const payableTotal = payableLines.reduce((sum, line) => sum + line.item.price * line.quantity, 0);
-  const maxCredits = Math.min(credits, Math.floor(payableTotal / SHOP_CREDIT_INR));
+  const creditsNeeded = shopCreditsForRupees(payableTotal);
 
   return (
     <SafeAreaView style={shopStyles.screen} edges={["top"]}>
@@ -100,10 +100,10 @@ export default function CartScreen() {
               })}
             </View>
 
-            {maxCredits > 0 ? (
+            {creditsNeeded > 0 ? (
               <View style={styles.teaser}>
                 <Ionicons name="pricetag-outline" size={18} color={shop.hero} />
-                <Text style={styles.teaserText}>Save up to {inr(maxCredits * SHOP_CREDIT_INR)} with credits at checkout</Text>
+                <Text style={styles.teaserText}>Checkout pays {creditsNeeded} credits. You have {credits}. 1 credit = {inr(SHOP_CREDIT_INR)}.</Text>
               </View>
             ) : null}
 
