@@ -598,13 +598,15 @@ export default function LandingPage() {
                   <p className="text-base sm:text-lg text-gray-600 leading-relaxed mb-6 font-normal">
                     Reach people looking for flexible fitness, create another member-acquisition channel, and manage ZonoFit visits digitally.
                   </p>
-                  <Link
-                    href="/partners"
+                  <a
+                    href="https://wa.me/919694979694?text=Hello%20ZonoFit%2C%20I%20am%20a%20gym%20owner%20and%20I%20want%20to%20partner%20with%20ZonoFit."
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 text-[#2e6d1a] font-bold text-base hover:text-[#235314] transition-colors group"
                   >
                     <span>Become a ZonoFit partner</span>
                     <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                  </Link>
+                  </a>
                 </div>
 
               </div>

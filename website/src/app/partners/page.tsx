@@ -99,9 +99,22 @@ export default function PartnersPage() {
             <p className="text-gray-600 mb-6 max-w-xl">
               Fill your empty slots, acquire new members, and generate additional revenue. Join the ZonoFit network today and get access to our partner dashboard.
             </p>
-            <Link href={`${GYM_URL}/auth/signup`} className="inline-flex bg-primary hover:bg-primary-dark text-white px-8 py-4 rounded-full font-semibold transition-all shadow-[0_4px_20px_rgba(16,185,129,0.3)] items-center gap-2">
-              Register Your Gym <Plus size={20} />
-            </Link>
+            <div className="flex flex-wrap items-center gap-3">
+              <a
+                href="https://wa.me/919694979694?text=Hello%20ZonoFit%2C%20I%20am%20a%20gym%20owner%20and%20I%20want%20to%20partner%20with%20ZonoFit."
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex bg-primary hover:bg-primary-dark text-white px-8 py-4 rounded-full font-semibold transition-all shadow-[0_4px_20px_rgba(16,185,129,0.3)] items-center gap-2"
+              >
+                Join as Partner on WhatsApp <Plus size={20} />
+              </a>
+              <Link
+                href={`${GYM_URL}/auth/signup`}
+                className="inline-flex bg-white hover:bg-gray-100 text-gray-900 border border-gray-200 px-6 py-4 rounded-full font-semibold transition-all items-center gap-2"
+              >
+                Register via Portal
+              </Link>
+            </div>
           </div>
           
           <div className="flex-1 w-full flex justify-center">
