@@ -56,9 +56,7 @@ export default function GymDashboardLayout({
       {/* ─── Desktop Sidebar ────────────────────────────────────────── */}
       <aside className="hidden md:flex md:w-64 h-full bg-[#111111] border-r border-[#2A2A2A] flex-col z-20 shrink-0">
         <div className="p-6 border-b border-secondary-dark flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-emerald-600 shadow-sm">
-            <span className="text-white font-black text-base">Z</span>
-          </div>
+          <img src="/Zonofit_Logo_RemovedBackground.png" alt="" className="h-9 w-9 object-contain" />
           <div>
             <span className="font-bold text-lg text-white tracking-wide block leading-none">ZonoFit Partner</span>
             <span className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wider">Gym Console</span>
@@ -115,9 +113,7 @@ export default function GymDashboardLayout({
       {/* ─── Mobile Sticky Header with Hamburger ──────────────────────── */}
       <header className="md:hidden bg-[#111111] border-b border-[#2A2A2A] px-4 py-3.5 flex items-center justify-between shrink-0 z-30 shadow-md pt-[max(0.875rem,env(safe-area-inset-top))]">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-emerald-600 shadow-sm">
-            <span className="text-white font-bold text-sm">Z</span>
-          </div>
+          <img src="/Zonofit_Logo_RemovedBackground.png" alt="" className="h-8 w-8 object-contain" />
           <div>
             <span className="font-bold text-sm text-white tracking-wide block leading-none">ZonoFit Partner</span>
             <span className="text-[10px] text-emerald-400 font-semibold">Console</span>
@@ -157,9 +153,7 @@ export default function GymDashboardLayout({
             {/* Drawer Header */}
             <div className="p-5 border-b border-secondary-dark flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-emerald-600">
-                  <span className="text-white font-bold text-sm">Z</span>
-                </div>
+                <img src="/Zonofit_Logo_RemovedBackground.png" alt="" className="h-8 w-8 object-contain" />
                 <div>
                   <span className="font-bold text-sm text-white block">ZonoFit Partner</span>
                   <span className="text-[10px] text-emerald-400 font-bold uppercase">Active Partner</span>

@@ -260,7 +260,7 @@ export default function OnboardingScreen() {
       <View style={styles.wordmark}>
         <Image
           /* eslint-disable-next-line @typescript-eslint/no-require-imports */
-          source={require("@/assets/images/Zonofit logo.jpeg")}
+          source={require("@/assets/images/Zonofit_Logo_RemovedBackground.png")}
           style={styles.wordmarkLogo}
           resizeMode="contain"
         />

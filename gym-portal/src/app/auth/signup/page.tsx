@@ -23,10 +23,7 @@ export default function SignupPage() {
         <div className="top">
           <Link href="/auth/login" className="brand">
             <span className="logo" aria-hidden="true">
-              <svg width="22" height="22" viewBox="0 0 40 40">
-                <path d="M11 14h17c2 0 2.5 2.4.6 3H17M11 21h8" stroke="#fff" strokeWidth="3.4" strokeLinecap="round" fill="none" />
-                <circle cx="14" cy="28" r="2.6" fill="#fff" />
-              </svg>
+              <img src="/Zonofit_Logo_RemovedBackground.png" alt="" />
             </span>
             Zonofit <small>Partner</small>
           </Link>

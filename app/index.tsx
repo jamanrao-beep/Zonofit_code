@@ -51,7 +51,7 @@ export default function SplashAnimationScreen() {
   const dotOpacity = useRef(new Animated.Value(0)).current;
 
   // Master icon image crossfade for pixel-perfect finishing
-  const fullIconOpacity = useRef(new Animated.Value(0)).current;
+  const fullIconOpacity = useRef(new Animated.Value(1)).current;
 
   // Text animations
   const textTranslateY = useRef(new Animated.Value(14)).current;

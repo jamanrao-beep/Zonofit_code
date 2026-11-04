@@ -226,10 +226,7 @@ export function PartnerPortal({ fontClass }: { fontClass: string }) {
         <div className="top">
           <div className="brand">
             <span className="logo" aria-hidden="true">
-              <svg width="22" height="22" viewBox="0 0 40 40">
-                <path d="M11 14h17c2 0 2.5 2.4.6 3H17M11 21h8" stroke="#fff" strokeWidth="3.4" strokeLinecap="round" fill="none" />
-                <circle cx="14" cy="28" r="2.6" fill="#fff" />
-              </svg>
+              <img src="/Zonofit_Logo_RemovedBackground.png" alt="" />
             </span>
             Zonofit <small>{t("tag")}</small>
           </div>
@@ -456,10 +453,7 @@ export function PartnerPortal({ fontClass }: { fontClass: string }) {
             </blockquote>
             <figcaption>
               <span className="lg" aria-hidden="true">
-                <svg width="18" height="18" viewBox="0 0 40 40">
-                  <path d="M11 14h17c2 0 2.5 2.4.6 3H17M11 21h8" stroke="#fff" strokeWidth="3.4" strokeLinecap="round" fill="none" />
-                  <circle cx="14" cy="28" r="2.6" fill="#fff" />
-                </svg>
+                <img src="/Zonofit_Logo_RemovedBackground.png" alt="" />
               </span>
               <span>{t("q_by")}</span>
             </figcaption>
@@ -480,10 +474,7 @@ export function PartnerPortal({ fontClass }: { fontClass: string }) {
       <div className={`wipe${opening ? " on" : ""}`} />
       <div className={`done${opening ? " on" : ""}`}>
         <div className="logo">
-          <svg width="34" height="34" viewBox="0 0 40 40">
-            <path d="M11 14h17c2 0 2.5 2.4.6 3H17M11 21h8" stroke="#fff" strokeWidth="3.4" strokeLinecap="round" fill="none" />
-            <circle cx="14" cy="28" r="2.6" fill="#fff" />
-          </svg>
+          <img src="/Zonofit_Logo_RemovedBackground.png" alt="" />
         </div>
         <h2>{t("dh")}</h2>
         <p>{t("dp")}</p>

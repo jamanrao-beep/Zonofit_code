@@ -20,6 +20,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useGuestStore } from "@/store/useGuestStore";
 import { useUserStore } from "@/store/useUserStore";
 import { useAddressStore } from "@/store/useAddressStore";
+import { ZonoNoticeMark } from "@/components/ZonoNoticeMark";
 import { apiFetch } from "@/lib/api";
 
 export type OptionId = "new" | "other_gym" | "other_platform" | "returning";
@@ -206,9 +207,7 @@ export default function EligibilityScreen() {
 
       <View style={styles.top}>
         <View style={styles.logoRow}>
-          <View style={styles.mark}>
-            <Text style={styles.markText}>Z</Text>
-          </View>
+          <ZonoNoticeMark size={34} />
           <Text style={styles.logo}>Zonofit</Text>
         </View>
         <Pressable onPress={handleBack} hitSlop={10} disabled={done}>
@@ -408,15 +407,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   logoRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  mark: {
-    width: 34,
-    height: 34,
-    borderRadius: 11,
-    backgroundColor: "#2F7D1F",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  markText: { color: "#FFFFFF", fontSize: 18, fontWeight: "700" },
   logo: { fontSize: 20, fontWeight: "700", color: "#0F2417", letterSpacing: -0.4 },
   back: { color: "#5E6F63", fontSize: 14, fontWeight: "500", paddingVertical: 10, paddingHorizontal: 4 },
   scroll: { paddingHorizontal: 24, paddingBottom: 16 },

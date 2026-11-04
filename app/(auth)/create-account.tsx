@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { ZonoNoticeMark } from "@/components/ZonoNoticeMark";
 import { requestGoogleIdToken } from "@/lib/googleAuth";
 import { apiFetch } from "@/lib/api";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -432,9 +433,7 @@ export default function CreateAccountScreen() {
       >
         <View style={styles.top}>
           <View style={styles.logoRow}>
-            <View style={styles.logoMark}>
-              <Text style={styles.logoLetter}>Z</Text>
-            </View>
+            <ZonoNoticeMark size={34} />
             <Text style={styles.logoText}>Zonofit</Text>
           </View>
           <Pressable onPress={goSignIn} hitSlop={8}>
@@ -804,15 +803,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   logoRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  logoMark: {
-    width: 34,
-    height: 34,
-    borderRadius: 11,
-    backgroundColor: "#2F7D1F",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  logoLetter: { color: "#FFFFFF", fontSize: 18, fontWeight: "700" },
   logoText: { color: "#0F2417", fontSize: 20, fontWeight: "700", letterSpacing: -0.4 },
   signIn: { color: "#5E6F63", fontSize: 14, fontWeight: "500", paddingVertical: 10, paddingHorizontal: 4 },
   scroll: { flex: 1 },

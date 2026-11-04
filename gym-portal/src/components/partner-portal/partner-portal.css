@@ -70,7 +70,8 @@
 }
 .zf-portal .top { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; z-index: 5; }
 .zf-portal .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; }
-.zf-portal .logo { width: 38px; height: 38px; border-radius: 12px; background: linear-gradient(#92bb2b, #3f8230); display: grid; place-items: center; box-shadow: 0 10px 24px -10px rgba(141, 190, 42, 0.8); }
+.zf-portal .logo { width: 38px; height: 38px; display: grid; place-items: center; }
+.zf-portal .logo img, .zf-portal .q .lg img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .zf-portal .brand small { font-family: var(--font-dm), sans-serif; font-weight: 500; font-size: 12.5px; color: rgba(255,255,255,.7); border: 1px solid rgba(255,255,255,.2); padding: 3px 10px; border-radius: 99px; }
 .zf-portal .lang { display: flex; border: 1px solid rgba(255,255,255,.22); border-radius: 99px; padding: 3px; background: rgba(255,255,255,.06); backdrop-filter: blur(8px); }
 .zf-portal .lang button { border: 0; background: none; border-radius: 99px; padding: 5px 12px; font-size: 13px; font-weight: 700; color: rgba(255,255,255,.7); }
@@ -191,7 +192,7 @@
 .zf-portal .q.in blockquote span { opacity: 1; transform: none; filter: none; }
 .zf-portal .q blockquote .hl { background: linear-gradient(90deg, #8dbe2a, #d8f08a); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .zf-portal .q figcaption { display: flex; align-items: center; gap: 10px; color: rgba(255,255,255,.75); font-weight: 600; font-size: 14.5px; }
-.zf-portal .q .lg { width: 30px; height: 30px; border-radius: 10px; background: linear-gradient(#92bb2b, #3f8230); display: grid; place-items: center; flex: none; }
+.zf-portal .q .lg { width: 30px; height: 30px; display: grid; place-items: center; flex: none; }
 .zf-portal .qc { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 28px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,.14); }
 .zf-portal .qc span { display: flex; align-items: center; gap: 9px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); padding: 12px 16px; border-radius: 99px; font-size: 14.5px; }
 .zf-portal .qc svg { width: 18px; height: 18px; color: var(--lime); }

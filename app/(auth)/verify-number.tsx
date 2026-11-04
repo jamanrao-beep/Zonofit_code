@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { ZonoNoticeMark } from "@/components/ZonoNoticeMark";
 import { requestGoogleIdToken } from "@/lib/googleAuth";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useGuestStore } from "@/store/useGuestStore";
@@ -243,9 +244,7 @@ export default function VerifyNumberScreen() {
       <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <View style={styles.top}>
           <View style={styles.logoRow}>
-            <View style={styles.logoMark}>
-              <Text style={styles.logoLetter}>Z</Text>
-            </View>
+            <ZonoNoticeMark size={34} />
             <Text style={styles.logoText}>Zonofit</Text>
           </View>
           <Pressable onPress={browseAsGuest} hitSlop={8} disabled={guestBusy}>
@@ -410,15 +409,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   logoRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  logoMark: {
-    width: 34,
-    height: 34,
-    borderRadius: 11,
-    backgroundColor: "#2F7D1F",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  logoLetter: { color: "#FFFFFF", fontSize: 18, fontWeight: "700" },
   logoText: { color: "#0F2417", fontSize: 20, fontWeight: "700", letterSpacing: -0.4 },
   guestLink: { color: "#5E6F63", fontSize: 14, fontWeight: "500", paddingVertical: 10 },
   main: { flex: 1, justifyContent: "center", paddingHorizontal: 24, paddingVertical: 28 },

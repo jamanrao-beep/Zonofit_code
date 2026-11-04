@@ -2,7 +2,7 @@ const sharp = require('sharp');
 const fs = require('fs');
 const path = require('path');
 
-const srcImage = path.join(__dirname, 'assets/images/Zonofit logo.jpeg');
+const srcImage = path.join(__dirname, 'assets/images/Zonofit_Logo_RemovedBackground.png');
 
 const processImage = async (filename, size) => {
   const destPath = path.join(__dirname, 'assets/images', filename);
@@ -12,7 +12,7 @@ const processImage = async (filename, size) => {
       width: size,
       height: size,
       fit: 'contain',
-      background: { r: 255, g: 255, b: 255, alpha: 1 }
+      background: { r: 0, g: 0, b: 0, alpha: 0 }
     })
     .toFormat('png')
     .toFile(destPath);

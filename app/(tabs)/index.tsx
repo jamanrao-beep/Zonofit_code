@@ -17,6 +17,7 @@ import { useCreditsStore } from "@/store/useCreditsStore";
 import { useGuestStore } from "@/store/useGuestStore";
 import { useBookingStore } from "@/store/useBookingStore";
 import { apiFetch } from "@/lib/api";
+import { ZonoNoticeMark } from "@/components/ZonoNoticeMark";
 import BookingModal from "@/components/BookingModal";
 import BookingConfirmedModal from "@/components/BookingConfirmedModal";
 import CancelBookingSheet from "@/components/CancelBookingSheet";
@@ -612,13 +613,7 @@ export default function HomeScreen() {
                 <Ionicons name="chevron-forward" size={18} color="white" className="ml-1 mt-0.5" />
               </View>
             </View>
-            <View className="w-12 h-12 rounded-full bg-white shadow-sm items-center justify-center overflow-hidden border border-white/20">
-              <Image 
-                source={require("@/assets/Zonofit_final_logo.jpeg")} 
-                style={{ width: 44, height: 44, borderRadius: 22 }}
-                resizeMode="cover"
-              />
-            </View>
+            <ZonoNoticeMark size={48} />
           </Pressable>
 
           <View className="flex-row justify-between items-end mb-2">

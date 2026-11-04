@@ -680,17 +680,12 @@ export default function LandingPage() {
             {/* Brand Column */}
             <div className="md:col-span-4 lg:col-span-5">
               <Link href="/" className="flex items-center gap-3 mb-4 group inline-flex">
-                <div className="w-9 h-9 rounded-xl overflow-hidden shadow-sm flex items-center justify-center bg-[#4ea02b]">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src="/Zonofit_final_logo.jpeg"
-                    alt="ZonoFit Logo"
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none";
-                    }}
-                  />
-                </div>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/Zonofit_Logo_RemovedBackground.png"
+                  alt="ZonoFit"
+                  className="h-10 w-10 object-contain"
+                />
                 <span className="text-2xl font-black tracking-tight text-gray-900">
                   ZonoFit
                 </span>

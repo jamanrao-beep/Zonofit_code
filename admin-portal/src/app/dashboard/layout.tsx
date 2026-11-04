@@ -80,21 +80,11 @@ function pageTitle(pathname: string) {
 
 function Mark() {
   return (
-    <div
-      className="grid h-11 w-11 shrink-0 place-items-center rounded-[13px]"
-      style={{ background: "linear-gradient(#92BB2B, #3F8230)" }}
-    >
-      <svg width="22" height="22" viewBox="0 0 40 40" aria-hidden="true">
-        <path
-          d="M11 14h17c2 0 2.5 2.4.6 3H17M11 21h8"
-          stroke="#fff"
-          strokeWidth="3.4"
-          strokeLinecap="round"
-          fill="none"
-        />
-        <circle cx="14" cy="28" r="2.6" fill="#fff" />
-      </svg>
-    </div>
+    <img
+      src="/Zonofit_Logo_RemovedBackground.png"
+      alt=""
+      className="h-11 w-11 shrink-0 object-contain"
+    />
   );
 }
 
