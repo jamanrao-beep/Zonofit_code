@@ -7,6 +7,7 @@ exports.normalizeAppPassword = normalizeAppPassword;
 exports.emailOtpKey = emailOtpKey;
 exports.createEmailCode = createEmailCode;
 exports.sendEmailOTP = sendEmailOTP;
+exports.sendInboxNotice = sendInboxNotice;
 const crypto_1 = require("crypto");
 const tls_1 = __importDefault(require("tls"));
 const GMAIL_USER = "zonofitofficial@gmail.com";
@@ -90,7 +91,7 @@ async function expectCode(smtp, line, code) {
     if (!last.startsWith(code))
         throw new Error("SMTP rejected the message");
 }
-async function sendThroughGmail(to, code, password) {
+async function sendRawThroughGmail(to, password, message) {
     const from = process.env.GMAIL_USER?.trim() || GMAIL_USER;
     if (!isSafeEmail(from) || !isSafeEmail(to))
         throw new Error("Invalid email address");
@@ -104,13 +105,16 @@ async function sendThroughGmail(to, code, password) {
         await expectCode(smtp, `MAIL FROM:<${from}>`, "250");
         await expectCode(smtp, `RCPT TO:<${to}>`, "250");
         await expectCode(smtp, "DATA", "354");
-        const message = `${verificationMessage(from, to, code)}\r\n.`;
-        await expectCode(smtp, message, "250");
+        await expectCode(smtp, `${message}\r\n.`, "250");
         smtp.write("QUIT");
     }
     finally {
         smtp.socket.end();
     }
+}
+async function sendThroughGmail(to, code, password) {
+    const from = process.env.GMAIL_USER?.trim() || GMAIL_USER;
+    await sendRawThroughGmail(to, password, verificationMessage(from, to, code));
 }
 function verificationMessage(from, to, code) {
     const digits = code.replace(/\D/g, "");
@@ -208,6 +212,54 @@ async function sendEmailOTP(to, code) {
     }
     catch (err) {
         console.error("[Mail] Could not send the verification code.", err instanceof Error ? err.message : "SMTP error");
+        return false;
+    }
+}
+function oneLine(value, max) {
+    return value.replace(/[\u0000-\u001F\u007F]/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
+}
+function inboxMessage(to, subject, text) {
+    const from = process.env.GMAIL_USER?.trim() || GMAIL_USER;
+    const safeSubject = oneLine(subject, 180);
+    const body = text
+        .replace(/\r\n/g, "\n")
+        .replace(/\r/g, "\n")
+        .split("\n")
+        .map((line) => (line.startsWith(".") ? `.${line}` : line))
+        .join("\r\n");
+    const stamp = (0, crypto_1.createHash)("sha256").update(`${to}:${Date.now()}:${safeSubject}`).digest("hex").slice(0, 24);
+    return [
+        `From: ZonoFit <${from}>`,
+        `To: ${to}`,
+        `Date: ${new Date().toUTCString()}`,
+        `Message-ID: <${stamp}@zonofit.com>`,
+        `Subject: ${safeSubject}`,
+        "MIME-Version: 1.0",
+        "Content-Type: text/plain; charset=utf-8",
+        "Content-Transfer-Encoding: 8bit",
+        "",
+        body,
+    ].join("\r\n");
+}
+/** Emails a plain notice to the ZonoFit inbox. Never logs the body or the app password. */
+async function sendInboxNotice(subject, text) {
+    const password = normalizeAppPassword(process.env.GMAIL_APP_PASSWORD);
+    const to = GMAIL_USER;
+    if (!password) {
+        console.error("[Mail] Refusing to send. Set GMAIL_APP_PASSWORD.");
+        return false;
+    }
+    if (!isSafeEmail(to)) {
+        console.error("[Mail] Refusing to send. GMAIL_USER is not an email address.");
+        return false;
+    }
+    try {
+        await sendRawThroughGmail(to, password, inboxMessage(to, subject, text));
+        console.log("[Mail] Inbox notice sent.");
+        return true;
+    }
+    catch (err) {
+        console.error("[Mail] Could not send the inbox notice.", err instanceof Error ? err.message : "SMTP error");
         return false;
     }
 }

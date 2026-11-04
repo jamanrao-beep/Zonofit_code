@@ -25,6 +25,7 @@ const quotes_1 = __importDefault(require("./routes/quotes"));
 const roles_1 = __importDefault(require("./routes/roles"));
 const users_1 = __importDefault(require("./routes/users"));
 const feedback_1 = __importDefault(require("./routes/feedback"));
+const launchOffer_1 = __importDefault(require("./routes/launchOffer"));
 const challenges_1 = __importDefault(require("./routes/challenges"));
 const admin_1 = __importDefault(require("./routes/admin"));
 const trial_gyms_1 = __importDefault(require("./routes/trial-gyms"));
@@ -156,6 +157,7 @@ app.use("/api/trial-gyms", trial_gyms_1.default);
 app.use("/api/coupons", coupons_1.default);
 app.use("/api/content", content_1.default);
 app.use("/api/feedback", feedback_1.default);
+app.use("/api/launch-offer", launchOffer_1.default);
 app.use("/api/admin", admin_1.default);
 // ─── 404 & Error Handling ──────────────────────────────────────────────────────
 app.use(errorHandler_1.notFoundHandler);

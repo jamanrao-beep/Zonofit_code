@@ -26,6 +26,18 @@ const router = Router();
  * 5. Atomically: deduct credits + create booking + create check-in pass + log transaction
  * 6. Return booking with passCode for QR display
  */
+
+export function getGymPrefix(gymName?: string | null): string {
+  if (!gymName) return "ZF";
+  const words = gymName.trim().replace(/[^a-zA-Z\s]/g, "").split(/\s+/).filter(Boolean);
+  if (words.length >= 2) {
+    return (words[0][0] + words[1][0]).toUpperCase();
+  }
+  if (words.length === 1 && words[0].length >= 2) {
+    return words[0].slice(0, 2).toUpperCase();
+  }
+  return "ZF";
+}
 router.post(
   "/",
   requireAuth,
@@ -254,7 +266,15 @@ router.post(
         updatedWallet = await decrementCredits(tx, req.dbUserId!, finalCreditCost);
       }
 
-      // 8. Create the booking
+      // 8. Compute gym sequential token number
+      const lastBookingAtGym = await tx.booking.findFirst({
+        where: { gymId: gym.id },
+        orderBy: { createdAt: "desc" },
+        select: { tokenNumber: true },
+      });
+      const tokenNumber = (lastBookingAtGym?.tokenNumber || 0) + 1;
+
+      // Create the booking with tokenNumber
       const passCode = uuidv4();
       const booking = await tx.booking.create({
         data: {
@@ -265,6 +285,7 @@ router.post(
           status: "CONFIRMED",
           creditsDeducted: isPrimaryVisit ? 0 : finalCreditCost,
           passCode,
+          tokenNumber,
         },
       });
 
@@ -441,7 +462,11 @@ router.get(
     ]);
 
     res.json({
-      bookings,
+      bookings: bookings.map((b) => ({
+        ...b,
+        tokenNumber: b.tokenNumber || ((parseInt(b.id.replace(/\D/g, "").slice(-3) || "1", 10) % 999) + 1),
+        gymPrefix: getGymPrefix(b.gym?.name),
+      })),
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
   }
@@ -528,7 +553,7 @@ router.get(
       },
     });
 
-    let effectiveBooking = booking ? { ...booking, passCode: booking.passCode } : null;
+    let effectiveBooking: any = booking ? { ...booking, passCode: booking.passCode } : null;
 
     // If gym does not require verification and slot time has arrived/passed, reflect CHECKED_IN
     if (
@@ -545,6 +570,16 @@ router.get(
           status: "VERIFIED" as any,
           verifiedAt: effectiveBooking.checkIn?.verifiedAt || new Date(),
         },
+      };
+    }
+
+    if (effectiveBooking) {
+      const tokenNum = effectiveBooking.tokenNumber || ((parseInt(effectiveBooking.id.replace(/\D/g, "").slice(-3) || "1", 10) % 999) + 1);
+      effectiveBooking = {
+        ...effectiveBooking,
+        tokenNumber: tokenNum,
+        gymPrefix: getGymPrefix(effectiveBooking.gym?.name),
+        tokenFormatted: String(tokenNum).padStart(3, "0"),
       };
     }
 

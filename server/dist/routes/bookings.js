@@ -3,6 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.getGymPrefix = getGymPrefix;
 const express_1 = require("express");
 const express_validator_1 = require("express-validator");
 const uuid_1 = require("uuid");
@@ -29,6 +30,18 @@ const router = (0, express_1.Router)();
  * 5. Atomically: deduct credits + create booking + create check-in pass + log transaction
  * 6. Return booking with passCode for QR display
  */
+function getGymPrefix(gymName) {
+    if (!gymName)
+        return "ZF";
+    const words = gymName.trim().replace(/[^a-zA-Z\s]/g, "").split(/\s+/).filter(Boolean);
+    if (words.length >= 2) {
+        return (words[0][0] + words[1][0]).toUpperCase();
+    }
+    if (words.length === 1 && words[0].length >= 2) {
+        return words[0].slice(0, 2).toUpperCase();
+    }
+    return "ZF";
+}
 router.post("/", auth_1.requireAuth, [
     (0, express_validator_1.body)("gymId").isString().notEmpty().withMessage("Valid gym ID required."),
     (0, express_validator_1.body)("visitDate").isISO8601().withMessage("Valid visit date required (ISO 8601)."),
@@ -231,7 +244,14 @@ router.post("/", auth_1.requireAuth, [
         else {
             updatedWallet = await (0, wallet_1.decrementCredits)(tx, req.dbUserId, finalCreditCost);
         }
-        // 8. Create the booking
+        // 8. Compute gym sequential token number
+        const lastBookingAtGym = await tx.booking.findFirst({
+            where: { gymId: gym.id },
+            orderBy: { createdAt: "desc" },
+            select: { tokenNumber: true },
+        });
+        const tokenNumber = (lastBookingAtGym?.tokenNumber || 0) + 1;
+        // Create the booking with tokenNumber
         const passCode = (0, uuid_1.v4)();
         const booking = await tx.booking.create({
             data: {
@@ -242,6 +262,7 @@ router.post("/", auth_1.requireAuth, [
                 status: "CONFIRMED",
                 creditsDeducted: isPrimaryVisit ? 0 : finalCreditCost,
                 passCode,
+                tokenNumber,
             },
         });
         // 9. Mark coupon as used if applied
@@ -394,7 +415,11 @@ router.get("/", auth_1.requireAuth, async (req, res) => {
         prisma_1.default.booking.count({ where }),
     ]);
     res.json({
-        bookings,
+        bookings: bookings.map((b) => ({
+            ...b,
+            tokenNumber: b.tokenNumber || ((parseInt(b.id.replace(/\D/g, "").slice(-3) || "1", 10) % 999) + 1),
+            gymPrefix: getGymPrefix(b.gym?.name),
+        })),
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
 });
@@ -483,6 +508,15 @@ router.get("/today", auth_1.requireAuth, async (req, res) => {
                 status: "VERIFIED",
                 verifiedAt: effectiveBooking.checkIn?.verifiedAt || new Date(),
             },
+        };
+    }
+    if (effectiveBooking) {
+        const tokenNum = effectiveBooking.tokenNumber || ((parseInt(effectiveBooking.id.replace(/\D/g, "").slice(-3) || "1", 10) % 999) + 1);
+        effectiveBooking = {
+            ...effectiveBooking,
+            tokenNumber: tokenNum,
+            gymPrefix: getGymPrefix(effectiveBooking.gym?.name),
+            tokenFormatted: String(tokenNum).padStart(3, "0"),
         };
     }
     res.json({ booking: effectiveBooking });

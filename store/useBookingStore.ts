@@ -53,6 +53,8 @@ interface BookingState {
   bookedCreatedAt: string | null;
   bookedTime: string | null;
   bookedCost: number;
+  bookedTokenNumber: number | null;
+  bookedGymPrefix: string | null;
   pastBookings: PastBooking[];
   loading: boolean;
   isCancelling: boolean;
@@ -80,6 +82,8 @@ export const useBookingStore = create<BookingState>()(
   bookedCreatedAt: null,
   bookedTime: null,
   bookedCost: 0,
+  bookedTokenNumber: null,
+  bookedGymPrefix: null,
   pastBookings: [],
   loading: false,
   isCancelling: false,
@@ -184,6 +188,8 @@ export const useBookingStore = create<BookingState>()(
           bookedCreatedAt: upcoming.createdAt,
           bookedTime: upcoming.timeSlot,
           bookedCost: upcoming.creditsDeducted,
+          bookedTokenNumber: upcoming.tokenNumber || null,
+          bookedGymPrefix: upcoming.gymPrefix || null,
           pastBookings: past,
           loading: false
         });
@@ -198,6 +204,8 @@ export const useBookingStore = create<BookingState>()(
           bookedCreatedAt: null,
           bookedTime: null,
           bookedCost: 0,
+          bookedTokenNumber: null,
+          bookedGymPrefix: null,
           pastBookings: past.length > 0 ? past : get().pastBookings,
           loading: false,
         });
@@ -273,6 +281,8 @@ export const useBookingStore = create<BookingState>()(
         bookedCreatedAt: new Date().toISOString(),
         bookedTime: time,
         bookedCost: deductedCost,
+        bookedTokenNumber: data.booking?.tokenNumber || null,
+        bookedGymPrefix: data.booking?.gymPrefix || null,
         appliedCoupon: null,
       });
 

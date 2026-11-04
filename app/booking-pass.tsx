@@ -1,15 +1,17 @@
-import React, { useState } from "react";
-import { 
-  View, 
-  Text, 
-  Pressable, 
-  ScrollView, 
-  Image, 
-  Alert, 
-  StyleSheet, 
-  Dimensions,
+import React, { useState, useEffect, useRef } from "react";
+import {
+  View,
+  Text,
+  Pressable,
+  ScrollView,
+  Image,
+  Alert,
+  StyleSheet,
   StatusBar,
-  ActivityIndicator
+  ActivityIndicator,
+  Animated,
+  Platform,
+  Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -20,29 +22,87 @@ import CancelBookingSheet from "@/components/CancelBookingSheet";
 import { useBookingStore } from "@/store/useBookingStore";
 import { useUserStore } from "@/store/useUserStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
-import { 
-  FALLBACK_NETWORK_GYMS, 
-  getGymPolicies, 
-  CANCELLATION_POLICY_NOTE, 
-} from "@/constants/fallbackGyms";
-import { isBookingSlotPast, isBookingDateFuture } from "@/lib/bookingTime";
-import { VISIT_RULES } from "@/constants/bookingRules";
+import { FALLBACK_NETWORK_GYMS } from "@/constants/fallbackGyms";
+import { isBookingSlotPast } from "@/lib/bookingTime";
 
-const { width } = Dimensions.get("window");
+function getGymPrefix(gymName?: string | null): string {
+  if (!gymName) return "BF";
+  const words = gymName
+    .trim()
+    .replace(/[^a-zA-Z\s]/g, "")
+    .split(/\s+/)
+    .filter(Boolean);
+  if (words.length >= 2) {
+    return (words[0][0] + words[1][0]).toUpperCase();
+  }
+  if (words.length === 1 && words[0].length >= 2) {
+    return words[0].slice(0, 2).toUpperCase();
+  }
+  return "BF";
+}
+
+function formatPassDate(dateVal: Date | string | null | undefined): string {
+  if (!dateVal) {
+    const now = new Date();
+    return new Intl.DateTimeFormat("en-IN", {
+      timeZone: "Asia/Kolkata",
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+    }).format(now);
+  }
+  try {
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return String(dateVal);
+    return new Intl.DateTimeFormat("en-IN", {
+      timeZone: "Asia/Kolkata",
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+    }).format(d);
+  } catch {
+    return String(dateVal);
+  }
+}
+
+function parseSlotStartEnd(timeSlot?: string | null): { start: string; end: string } {
+  if (!timeSlot || typeof timeSlot !== "string") {
+    return { start: "7:00 AM", end: "8:00 AM" };
+  }
+  const parts = timeSlot.split(/[-–—]/);
+  const start = parts[0]?.trim() || "7:00 AM";
+  let end = parts[1]?.trim();
+  if (!end) {
+    const match = start.match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?/i);
+    if (match) {
+      let hours = parseInt(match[1], 10);
+      const minutes = match[2] ? `:${match[2]}` : ":00";
+      const ampm = match[3]?.toUpperCase() || "AM";
+      const nextHour = (hours % 12) + 1;
+      end = `${nextHour}${minutes} ${ampm}`;
+    } else {
+      end = "8:00 AM";
+    }
+  }
+  return { start, end };
+}
 
 export default function BookingPassScreen() {
   const router = useRouter();
-  const { 
-    bookingStatus, 
-    bookingId, 
-    bookedGymId, 
-    bookedGymName, 
-    bookedDate, 
+  const {
+    bookingStatus,
+    bookingId,
+    bookedGymId,
+    bookedGymName,
+    bookedDate,
     bookedVisitDateIso,
-    bookedTime, 
+    bookedTime,
     bookedCost,
-    cancelBooking
+    bookedTokenNumber,
+    bookedGymPrefix,
+    cancelBooking,
   } = useBookingStore();
+
   const { primaryGymId, primaryGymName } = useUserStore();
   const [copied, setCopied] = useState(false);
   const [isProcessingCancel, setIsProcessingCancel] = useState(false);
@@ -51,59 +111,88 @@ export default function BookingPassScreen() {
     refundAmount: number;
   } | null>(null);
 
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 0.35,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulseAnim]);
+
   // Fallback gym resolution
   const matchedGym = FALLBACK_NETWORK_GYMS.find(
-    (g) => 
+    (g) =>
       (bookedGymId && g.id.toLowerCase() === bookedGymId.toLowerCase()) ||
       (bookedGymName && g.name.toLowerCase() === bookedGymName.toLowerCase())
   );
 
-  const displayGymName = bookedGymName || matchedGym?.name || primaryGymName || "Being Fitness";
-  const displayAddress = matchedGym?.address || "City Center, Udaipur";
-  const displayImage = matchedGym?.image || "https://images.unsplash.com/photo-1540497077202-7c8a3999166f?auto=format&fit=crop&q=80&w=600";
-  
-  const deskTail = String(bookingId || "").replace(/[^a-zA-Z0-9]/g, "").slice(-6).toUpperCase();
-  const displayBookingId = deskTail.length === 6 ? `ZF-${deskTail}` : "";
+  const displayGymName =
+    bookedGymName || matchedGym?.name || primaryGymName || "Being Fitness";
+  const displayAddress = matchedGym?.address || "Rao Ji Ka Hata, Udaipur";
+  const displayImage =
+    matchedGym?.image ||
+    "https://images.unsplash.com/photo-1540497077202-7c8a3999166f?auto=format&fit=crop&q=80&w=600";
 
-  // Safe date display
-  const getFormattedDate = () => {
-    if (bookedDate) return bookedDate;
-    try {
-      return new Intl.DateTimeFormat("en-IN", {
-        weekday: "short",
-        day: "numeric",
-        month: "short",
-        year: "numeric"
-      }).format(new Date());
-    } catch {
-      const d = new Date();
-      return `${d.getDate()} Oct ${d.getFullYear()}`;
-    }
-  };
+  // Desk code (ZF-XXXXXX)
+  const deskTail = String(bookingId || "")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .slice(-6)
+    .toUpperCase();
+  const displayDeskCode = deskTail.length === 6 ? `ZF-${deskTail}` : "ZF-58E440";
 
-  const displayDate = getFormattedDate();
-  const displayTime = bookedTime || "7:00 PM";
+  // Gym Prefix (BF, IP, etc.)
+  const gymPrefix = bookedGymPrefix || getGymPrefix(displayGymName);
+
+  // Daily sequential token number (e.g. 014, 001)
+  const tokenNum =
+    bookedTokenNumber ||
+    (deskTail.length > 0 ? (parseInt(deskTail.replace(/\D/g, "") || "14", 10) % 999) + 1 : 14);
+  const dailySeq = String(tokenNum).padStart(3, "0");
+
+  // Formatted date in IST: "Tue, 3 Nov"
+  const dateLabel = formatPassDate(bookedVisitDateIso || bookedDate);
+
+  // Check-in slot start and end
+  const slotRange = parseSlotStartEnd(bookedTime);
+
   const isCostZero = bookedCost === 0 || bookedCost === undefined;
-  const isFutureBooking = isBookingDateFuture(bookedVisitDateIso || bookedDate);
   const isPrimary = Boolean(
     (bookedGymId && primaryGymId && bookedGymId === primaryGymId) ||
-    (bookedGymName && primaryGymName && bookedGymName.toLowerCase() === primaryGymName.toLowerCase()) ||
-    isCostZero
+      (bookedGymName &&
+        primaryGymName &&
+        bookedGymName.toLowerCase() === primaryGymName.toLowerCase()) ||
+      isCostZero
   );
 
-  // Gym policies
-  const gymPolicies = getGymPolicies(matchedGym?.id || displayGymName);
-
   const handleCopyId = async () => {
-    if (!displayBookingId) return;
+    if (!displayDeskCode) return;
     try {
-      await Clipboard.setStringAsync(displayBookingId);
+      await Clipboard.setStringAsync(displayDeskCode);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     } catch {
       // ignore
     }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleOpenMaps = () => {
+    const query = encodeURIComponent(`${displayGymName} ${displayAddress}`);
+    const url = `https://www.google.com/maps/search/?api=1&query=${query}`;
+    Linking.openURL(url).catch(() => {});
   };
 
   const handleCancelBooking = () => {
@@ -117,7 +206,7 @@ export default function BookingPassScreen() {
         `Cancelling a mandatory visit requires a flat 2 Credits fee, but your wallet balance is only ${currentCredits} Credits.\n\nPlease buy credits to cancel this booking.`,
         [
           { text: "OK", style: "cancel" },
-          { text: "Buy Credits", onPress: () => router.push("/credits") }
+          { text: "Buy Credits", onPress: () => router.push("/credits") },
         ]
       );
       return;
@@ -135,67 +224,64 @@ export default function BookingPassScreen() {
     try {
       const result = await cancelBooking();
       if (!result?.success) {
-        Alert.alert("Cancellation Failed", result?.message || "Could not cancel booking.");
+        Alert.alert(
+          "Cancellation Failed",
+          result?.message || "Could not cancel booking."
+        );
         return;
       }
       setCancelPrompt(null);
       router.replace("/(tabs)");
     } catch (err: unknown) {
-      const message = typeof err === "object" && err !== null && "message" in err && typeof err.message === "string"
-        ? err.message
-        : "Could not cancel booking.";
+      const message =
+        typeof err === "object" &&
+        err !== null &&
+        "message" in err &&
+        typeof err.message === "string"
+          ? err.message
+          : "Could not cancel booking.";
       Alert.alert("Cancellation Failed", message);
     } finally {
       setIsProcessingCancel(false);
     }
   };
 
-  const isPassed = isBookingSlotPast(bookedVisitDateIso || bookedDate, bookedTime);
-  const hasActiveBooking = (bookingStatus === "Booked" || bookingStatus === "Checked In") && !isPassed;
-
-  React.useEffect(() => {
-    if (isPassed && (bookingStatus === "Booked" || bookingStatus === "Checked In")) {
-      useBookingStore.setState({
-        bookingStatus: "Not Booked",
-        bookingId: null,
-        bookedGymId: null,
-        bookedGymName: null,
-        bookedDate: null,
-        bookedVisitDateIso: null,
-        bookedCreatedAt: null,
-        bookedTime: null,
-        bookedCost: 0,
-      });
-    }
-  }, [isPassed, bookingStatus]);
+  const isPassed = isBookingSlotPast(
+    bookedVisitDateIso || bookedDate,
+    bookedTime
+  );
+  const hasActiveBooking =
+    (bookingStatus === "Booked" || bookingStatus === "Checked In") && !isPassed;
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <StatusBar barStyle="dark-content" />
 
-      {/* Top Header */}
-      <View style={styles.header}>
-        <Pressable 
+      {/* ─── Top Bar ─── */}
+      <View style={styles.bar}>
+        <Pressable
           onPress={() => router.back()}
-          hitSlop={12}
-          style={styles.headerBtn}
+          hitSlop={10}
+          style={styles.ib}
+          accessibilityLabel="Back"
         >
-          <Ionicons name="chevron-back" size={22} color="#111827" />
+          <Ionicons name="chevron-back" size={20} color="#111827" />
         </Pressable>
 
-        <Text style={styles.headerTitle}>Booking Pass</Text>
+        <Text style={styles.barTitle}>Booking Pass</Text>
 
-        <Pressable 
+        <Pressable
           onPress={() => router.replace("/(tabs)")}
-          hitSlop={12}
-          style={styles.headerBtn}
+          hitSlop={10}
+          style={styles.ib}
+          accessibilityLabel="Home"
         >
-          <Ionicons name="home-outline" size={20} color="#111827" />
+          <Ionicons name="home-outline" size={19} color="#111827" />
         </Pressable>
       </View>
 
-      <ScrollView 
-        style={styles.scroll} 
+      <ScrollView
+        style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
@@ -203,270 +289,294 @@ export default function BookingPassScreen() {
           /* Empty / No Active Booking State */
           <View style={styles.emptyCard}>
             <View style={styles.emptyIconCircle}>
-              <Ionicons name="calendar-outline" size={40} color="#9CA3AF" />
+              <Ionicons name="calendar-outline" size={38} color="#9CA3AF" />
             </View>
             <Text style={styles.emptyTitle}>No Active Booking</Text>
             <Text style={styles.emptySubtitle}>
-              You don't have an active workout booking right now. Book a slot at your primary gym or any network partner gym to generate your pass.
+              You don't have an active workout booking right now. Book a slot at
+              your primary gym or any network partner gym to generate your
+              pass.
             </Text>
             <Pressable
               onPress={() => router.replace("/(tabs)/explore" as any)}
-              style={styles.primaryActionButton}
+              style={styles.priBtn}
             >
-              <Text style={styles.primaryActionButtonText}>Book Today's Workout</Text>
-              <Ionicons name="arrow-forward" size={16} color="#FFFFFF" style={{ marginLeft: 6 }} />
+              <Text style={styles.priBtnText}>Book Today's Workout</Text>
             </Pressable>
             <Pressable
               onPress={() => router.push("/booking-history" as any)}
-              style={styles.secondaryActionButton}
+              style={styles.ghBtn}
             >
-              <Text style={styles.secondaryActionButtonText}>View Booking History</Text>
+              <Text style={styles.ghBtnText}>View Booking History</Text>
             </Pressable>
           </View>
         ) : (
           /* Active Booking Pass Content */
           <>
-            {/* Confirmed Banner Header */}
-            <View style={styles.successBanner}>
-              <View style={styles.successOuterCircle}>
-                <View style={styles.successInnerCircle}>
-                  <Ionicons name="checkmark" size={28} color="#FFFFFF" />
+            {/* ─── Confirmed Status Header (.ok) ─── */}
+            <View style={styles.ok}>
+              <View style={styles.ring}>
+                <View style={styles.ringInner}>
+                  <Ionicons name="checkmark" size={26} color="#FFFFFF" />
                 </View>
               </View>
-              <Text style={styles.successTitle}>
-                {bookingStatus === "Checked In" ? "Checked In Successfully!" : "Booking Confirmed!"}
+              <Text style={styles.okTitle}>
+                {bookingStatus === "Checked In"
+                  ? "Checked In Successfully!"
+                  : "Booking Confirmed!"}
               </Text>
-              <Text style={styles.successSubtitle}>
-                {bookingStatus === "Checked In" 
-                  ? "Great workout! Stay consistent with your streak." 
+              <Text style={styles.okSub}>
+                {bookingStatus === "Checked In"
+                  ? "Great workout! Keep your habit streak going."
                   : "Show this pass at the front desk to check in."}
               </Text>
             </View>
 
-            {/* Ticket / Pass Card */}
-            <View style={styles.ticketCard}>
-              {/* Gym info row */}
+            {/* ─── Ticket Main Card (.card) ─── */}
+            <View style={styles.card}>
+              {/* Gym Row (.gym) */}
               <View style={styles.gymRow}>
-                <Image 
-                  source={{ uri: displayImage }} 
-                  style={styles.gymImage} 
+                <Image
+                  source={{ uri: displayImage }}
+                  style={styles.thumb}
                   resizeMode="cover"
                 />
-                <View style={{ flex: 1, marginLeft: 14 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
-                    <View style={[styles.badgePill, isPrimary ? styles.primaryBadge : styles.partnerBadge]}>
-                      <Text style={[styles.badgeText, isPrimary ? styles.primaryBadgeText : styles.partnerBadgeText]}>
-                        {isPrimary ? "Primary Gym" : "Partner Gym"}
-                      </Text>
-                    </View>
+                <View style={{ flex: 1 }}>
+                  <View style={styles.pill}>
+                    <Text style={styles.pillText}>
+                      {isPrimary ? "Primary Gym" : "Partner Gym"}
+                    </Text>
                   </View>
-
-                  <Text style={styles.gymName} numberOfLines={1}>
+                  <Text style={styles.gymTitle} numberOfLines={1}>
                     {displayGymName}
                   </Text>
-                  
-                  <Text style={styles.gymAddress} numberOfLines={1}>
+                  <Text style={styles.gymArea} numberOfLines={1}>
                     {displayAddress}
                   </Text>
                 </View>
               </View>
 
-              {/* Dashed Separator / Ticket Notches */}
-              <View style={styles.ticketDividerWrap}>
+              {/* Get Directions Button */}
+              <View style={styles.mapsWrap}>
+                <Pressable onPress={handleOpenMaps} style={styles.mapsBtn}>
+                  <Ionicons name="location" size={14} color="#15803D" />
+                  <Text style={styles.mapsBtnText}>Get directions</Text>
+                </Pressable>
+              </View>
+
+              {/* ─── The Token Number Panel (.token) ─── */}
+              <View style={styles.tokenPanel}>
+                <Text style={styles.tokenSmall}>TELL THE DESK YOUR NUMBER</Text>
+                <Text style={styles.tokenPre}>{gymPrefix}</Text>
+                <Text style={styles.tokenNum}>{dailySeq}</Text>
+                <View style={styles.livePill}>
+                  <Animated.View
+                    style={[styles.dot, { opacity: pulseAnim }]}
+                  />
+                  <Text style={styles.liveText}>
+                    {bookingStatus === "Checked In"
+                      ? "Checked In · Workout Active"
+                      : "Confirmed · Ready for Entry"}
+                  </Text>
+                </View>
+              </View>
+
+              {/* ─── Tear / Ticket Cutout Divider (.tear) ─── */}
+              <View style={styles.tearWrap}>
                 <View style={styles.notchLeft} />
-                <View style={styles.dashedLine} />
+                <View style={styles.dashedDivider} />
                 <View style={styles.notchRight} />
               </View>
 
-              {/* Date & Time pill banner */}
-              <View style={styles.dateTimeRow}>
-                <View style={styles.dateTimeCol}>
-                  <View style={styles.miniIconBox}>
-                    <Ionicons name="calendar-outline" size={16} color="#16A34A" />
+              {/* ─── Info Section (.info) ─── */}
+              <View style={styles.infoSection}>
+                {/* Date & Check-in Slot Grid (.dt) */}
+                <View style={styles.dtGrid}>
+                  <View style={styles.dtCol}>
+                    <Text style={styles.dtSmall}>DATE</Text>
+                    <Text style={styles.dtStrong}>{dateLabel}</Text>
                   </View>
-                  <View>
-                    <Text style={styles.miniLabel}>DATE</Text>
-                    <Text style={styles.miniValue}>{displayDate}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.verticalDivider} />
-
-                <View style={styles.dateTimeCol}>
-                  <View style={styles.miniIconBox}>
-                    <Ionicons name="time-outline" size={16} color="#16A34A" />
-                  </View>
-                  <View>
-                    <Text style={styles.miniLabel}>TIME SLOT</Text>
-                    <Text style={styles.miniValue}>{displayTime}</Text>
+                  <View style={[styles.dtCol, styles.dtColRight]}>
+                    <Text style={styles.dtSmall}>CHECK-IN SLOT</Text>
+                    <View style={styles.slotRow}>
+                      <Text style={styles.dtStrong}>{slotRange.start}</Text>
+                      <Text style={styles.dtArrow}>→</Text>
+                      <Text style={styles.dtStrong}>{slotRange.end}</Text>
+                    </View>
                   </View>
                 </View>
-              </View>
 
-              {/* Booking Details Metadata */}
-              <View style={styles.metaContainer}>
-                <View style={styles.metaRow}>
-                  <Text style={styles.metaKey}>Booking Type</Text>
-                  <Text style={styles.metaValue}>
-                    {isCostZero ? "Mandatory Visit (Plan Included)" : `Credit Visit (${bookedCost || 8} Credits)`}
+                {/* Booking Type Row */}
+                <View style={styles.row}>
+                  <Text style={styles.rowLabel}>Booking Type</Text>
+                  <Text style={styles.rowVal}>
+                    {isCostZero
+                      ? "Mandatory Visit (Plan Included)"
+                      : `Credit Visit (${bookedCost || 8} Credits)`}
                   </Text>
                 </View>
 
-                {displayBookingId ? (
-                  <View style={styles.metaRow}>
-                    <Text style={styles.metaKey}>Desk code</Text>
-                    <Pressable 
-                      onPress={handleCopyId} 
+                {/* Desk Code Row */}
+                <View style={styles.row}>
+                  <Text style={styles.rowLabel}>Desk code</Text>
+                  <View style={styles.deskWrap}>
+                    <Text style={styles.deskCodeText}>{displayDeskCode}</Text>
+                    <Pressable
+                      onPress={handleCopyId}
+                      style={styles.cpBtn}
                       hitSlop={8}
-                      accessibilityLabel="Copy desk code to clipboard"
-                      style={({ pressed }) => [
-                        { flexDirection: "row", alignItems: "center", opacity: pressed ? 0.7 : 1 }
-                      ]}
                     >
-                      <Text style={styles.bookingIdText}>{displayBookingId}</Text>
-                      <View style={{ marginLeft: 6, flexDirection: "row", alignItems: "center" }}>
-                        <Ionicons 
-                          name={copied ? "checkmark-circle" : "copy-outline"} 
-                          size={15} 
-                          color="#16A34A" 
-                        />
-                        {copied ? (
-                          <Text style={{ fontSize: 11, fontWeight: "700", color: "#16A34A", marginLeft: 3 }}>
-                            Copied!
-                          </Text>
-                        ) : null}
-                      </View>
+                      <Text style={styles.cpBtnText}>
+                        {copied ? "Copied" : "Copy"}
+                      </Text>
                     </Pressable>
                   </View>
-                ) : null}
+                </View>
 
-                <View style={styles.metaRow}>
-                  <Text style={styles.metaKey}>Entry Verification</Text>
-                  <View style={{ flexDirection: "row", alignItems: "center" }}>
-                    <View style={isFutureBooking && bookingStatus !== "Checked In" ? [styles.greenDot, { backgroundColor: "#2563EB" }] : styles.greenDot} />
-                    <Text style={[styles.verifiedText, isFutureBooking && bookingStatus !== "Checked In" ? { color: "#2563EB" } : null]}>
-                      {bookingStatus === "Checked In"
-                        ? "Checked In"
-                        : isFutureBooking
-                        ? `Scheduled • Valid on ${displayDate}`
-                        : "Confirmed • Ready for Entry"}
-                    </Text>
+                {/* Entry Verification Row */}
+                <View style={[styles.row, { borderBottomWidth: 0 }]}>
+                  <Text style={styles.rowLabel}>Entry Verification</Text>
+                  <View style={styles.verifyRow}>
+                    <View style={styles.verifyDot} />
+                    <Text style={styles.verifyText}>Staff confirms at desk</Text>
                   </View>
                 </View>
               </View>
 
-              {/* Check-In CTA inside the pass */}
-              {bookingStatus !== "Checked In" && (
-                <View style={[styles.qrScanBtn, isFutureBooking ? { backgroundColor: "#1E293B" } : null]}>
-                  <Ionicons name="information-circle-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-                  <Text style={styles.qrScanBtnText}>
-                    {isFutureBooking
-                      ? `This pass is scheduled for ${displayDate}. Front desk check-in opens on the day of your visit.`
-                      : "Show this pass at the front desk. Staff confirm your visit."}
+              {/* ─── Slot Rule Banner (.slotrule) ─── */}
+              <View style={styles.slotrule}>
+                <Ionicons
+                  name="time-outline"
+                  size={19}
+                  color="#FFFFFF"
+                  style={{ marginTop: 1 }}
+                />
+                <Text style={styles.slotruleText}>
+                  Check in anytime between{" "}
+                  <Text style={{ fontWeight: "800" }}>{slotRange.start}</Text>{" "}
+                  and{" "}
+                  <Text style={{ fontWeight: "800" }}>{slotRange.end}</Text>.
+                  Miss your slot and the visit expires.
+                </Text>
+              </View>
+
+              {/* ─── Gym Rules (.sec & .rules) ─── */}
+              <View style={styles.secWrap}>
+                <Text style={styles.secText}>Gym rules</Text>
+                <View style={styles.secLine} />
+              </View>
+
+              <View style={styles.rulesGrid}>
+                <View style={styles.ruleItem}>
+                  <Ionicons name="footsteps-outline" size={22} color="#16A34A" />
+                  <Text style={styles.ruleLabel}>Clean shoes</Text>
+                </View>
+                <View style={styles.ruleItem}>
+                  <Ionicons name="water-outline" size={22} color="#16A34A" />
+                  <Text style={styles.ruleLabel}>Bring towel</Text>
+                </View>
+                <View style={styles.ruleItem}>
+                  <Ionicons name="barbell-outline" size={22} color="#16A34A" />
+                  <Text style={styles.ruleLabel}>Re-rack weights</Text>
+                </View>
+                <View style={styles.ruleItem}>
+                  <Ionicons
+                    name="phone-portrait-outline"
+                    size={22}
+                    color="#16A34A"
+                  />
+                  <Text style={styles.ruleLabel}>Show this pass</Text>
+                </View>
+              </View>
+
+              <Text style={styles.oneText}>
+                <Text style={{ fontWeight: "700", color: "#111827" }}>
+                  One booking
+                </Text>{" "}
+                per gym, per day.
+              </Text>
+
+              {/* ─── Cancellation Policy (.cancel) ─── */}
+              <View style={styles.cancelBox}>
+                <View style={styles.cancelHeader}>
+                  <Ionicons
+                    name="shield-checkmark"
+                    size={17}
+                    color="#16A34A"
+                  />
+                  <Text style={styles.cancelTitle}>Cancellation Policy</Text>
+                </View>
+                <Text style={styles.cancelBody}>
+                  <Text style={{ fontWeight: "700", color: "#111827" }}>
+                    Flat 2 credits, every time.{" "}
                   </Text>
-                </View>
-              )}
-            </View>
-
-            <View style={styles.rulesCard}>
-              <View style={styles.rulesHeader}>
-                <View style={{ flexDirection: "row", alignItems: "center" }}>
-                  <Ionicons name="time-outline" size={16} color="#111827" style={{ marginRight: 6 }} />
-                  <Text style={styles.rulesTitle}>How this visit works</Text>
-                </View>
-              </View>
-              <View style={{ gap: 10 }}>
-                {VISIT_RULES.map((rule) => (
-                  <View key={rule.title} style={{ flexDirection: "row", alignItems: "flex-start" }}>
-                    <Ionicons name={rule.icon} size={15} color="#1F7A3E" style={{ marginTop: 2, marginRight: 8 }} />
-                    <Text style={styles.policyText}>
-                      <Text style={{ fontWeight: "700", color: "#111827" }}>{rule.title}. </Text>
-                      {rule.summary}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* Cancellation Notice Card */}
-            <View style={styles.cancelNoticeCard}>
-              <Ionicons name="shield-checkmark" size={18} color="#059669" style={{ marginTop: 2, marginRight: 10 }} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.cancelNoticeTitle}>Cancellation Policy</Text>
-                <Text style={styles.cancelNoticeText}>{CANCELLATION_POLICY_NOTE}</Text>
-              </View>
-            </View>
-
-            {/* Gym Rules Card */}
-            <View style={styles.rulesCard}>
-              <View style={styles.rulesHeader}>
-                <View style={{ flexDirection: "row", alignItems: "center" }}>
-                  <Ionicons name="document-text-outline" size={16} color="#111827" style={{ marginRight: 6 }} />
-                  <Text style={styles.rulesTitle}>{displayGymName} Rules</Text>
-                </View>
-                <View style={styles.rulesTag}>
-                  <Text style={styles.rulesTagText}>Gym Guidelines</Text>
-                </View>
+                  Credit visit: 2 credits stay with ZonoFit, the rest returns.
+                  Plan visit: 2 credits are taken from your wallet and the visit
+                  returns to your plan.
+                </Text>
               </View>
 
-              <View style={{ gap: 8 }}>
-                {gymPolicies.map((policy, idx) => (
-                  <View key={idx} style={{ flexDirection: "row", alignItems: "flex-start" }}>
-                    <Ionicons name="checkmark-circle" size={15} color="#16A34A" style={{ marginTop: 2, marginRight: 8 }} />
-                    <Text style={styles.policyText}>{policy}</Text>
-                  </View>
-                ))}
-              </View>
-
-              <View style={styles.rulesFooter}>
-                <Text style={styles.rulesFooterText}>
-                  * Please carry a clean gym towel, athletic shoes, and show this pass to front desk staff upon arrival.
+              {/* ─── Footer Tag (.tag) ─── */}
+              <View style={styles.tagWrap}>
+                <Text style={styles.tagText}>
+                  <Text style={{ fontWeight: "800", color: "#16A34A" }}>
+                    Pay for the workout,{" "}
+                  </Text>
+                  not the membership.
                 </Text>
               </View>
             </View>
 
-            {/* Action Buttons */}
-            <View style={styles.bottomActions}>
+            {/* ─── Bottom Actions (.acts) ─── */}
+            <View style={styles.acts}>
               <Pressable
                 onPress={() => router.push("/booking-history" as any)}
-                style={styles.primaryActionButton}
+                style={styles.priBtn}
               >
-                <Text style={styles.primaryActionButtonText}>View Booking History</Text>
+                <Text style={styles.priBtnText}>View Booking History</Text>
               </Pressable>
 
               {bookingStatus !== "Checked In" && (
                 <Pressable
                   onPress={handleCancelBooking}
                   disabled={isProcessingCancel}
-                  style={[styles.cancelBookingBtn, isProcessingCancel && { opacity: 0.6 }]}
+                  style={styles.dngBtn}
                 >
                   {isProcessingCancel ? (
-                    <ActivityIndicator size="small" color="#DC2626" />
+                    <ActivityIndicator size="small" color="#D92D20" />
                   ) : (
-                    <Text style={styles.cancelBookingBtnText}>Cancel This Booking</Text>
+                    <>
+                      <Text style={styles.dngBtnText}>Cancel This Booking</Text>
+                      <Text style={styles.dngBtnSub}>
+                        Flat 2-credit fee applies
+                      </Text>
+                    </>
                   )}
                 </Pressable>
               )}
 
               <Pressable
                 onPress={() => router.replace("/(tabs)")}
-                style={styles.backHomeBtn}
+                style={styles.ghBtn}
               >
-                <Text style={styles.backHomeBtnText}>Back to Home</Text>
+                <Text style={styles.ghBtnText}>Back to Home</Text>
               </Pressable>
             </View>
           </>
         )}
       </ScrollView>
 
-      <CancelBookingSheet
-        visible={cancelPrompt !== null}
-        loading={isProcessingCancel}
-        isMandatory={cancelPrompt?.isMandatory ?? false}
-        refundCredits={cancelPrompt?.refundAmount ?? 0}
-        onKeep={() => setCancelPrompt(null)}
-        onConfirm={confirmCancelBooking}
-      />
+      {/* Cancellation Sheet Modal */}
+      {cancelPrompt && (
+        <CancelBookingSheet
+          visible={true}
+          isMandatory={cancelPrompt.isMandatory}
+          refundCredits={cancelPrompt.refundAmount}
+          onConfirm={confirmCancelBooking}
+          onKeep={() => setCancelPrompt(null)}
+          loading={isProcessingCancel}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -474,30 +584,28 @@ export default function BookingPassScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: "#F3F6FA",
   },
-  header: {
-    height: 56,
-    paddingHorizontal: 20,
-    backgroundColor: "#FFFFFF",
-    borderBottomWidth: 1,
-    borderColor: "#F3F4F6",
+  bar: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 8,
   },
-  headerBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: "#F9FAFB",
-    alignItems: "center",
-    justifyContent: "center",
+  ib: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     borderWidth: 1,
     borderColor: "#E5E7EB",
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  headerTitle: {
-    fontSize: 16,
+  barTitle: {
+    fontSize: 17,
     fontWeight: "700",
     color: "#111827",
   },
@@ -505,24 +613,476 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 50,
+    paddingHorizontal: 16,
+    paddingBottom: 36,
+    maxWidth: 440,
+    width: "100%",
+    alignSelf: "center",
   },
-
-  // Empty state
+  ok: {
+    alignItems: "center",
+    paddingTop: 12,
+    paddingBottom: 16,
+  },
+  ring: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: "#E8F8EE",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ringInner: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "#16A34A",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#16A34A",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  okTitle: {
+    fontSize: 25,
+    fontWeight: "800",
+    color: "#111827",
+    marginTop: 12,
+    letterSpacing: -0.3,
+  },
+  okSub: {
+    color: "#6B7280",
+    fontSize: 14.5,
+    marginTop: 3,
+    textAlign: "center",
+  },
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    shadowColor: "#0B3D26",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 24,
+    elevation: 3,
+    overflow: "hidden",
+  },
+  gymRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 12,
+  },
+  thumb: {
+    width: 62,
+    height: 62,
+    borderRadius: 14,
+    backgroundColor: "#1F2937",
+  },
+  pill: {
+    alignSelf: "flex-start",
+    backgroundColor: "#E8F8EE",
+    borderWidth: 1,
+    borderColor: "#CAEFD7",
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    borderRadius: 99,
+  },
+  pillText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#15803D",
+  },
+  gymTitle: {
+    fontSize: 19,
+    fontWeight: "700",
+    color: "#111827",
+    marginTop: 4,
+  },
+  gymArea: {
+    fontSize: 13.5,
+    color: "#6B7280",
+    marginTop: 1,
+  },
+  mapsWrap: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    marginTop: -2,
+  },
+  mapsBtn: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 13,
+    borderRadius: 99,
+    backgroundColor: "#E8F8EE",
+  },
+  mapsBtnText: {
+    color: "#15803D",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  tokenPanel: {
+    marginHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: "#0B3D26",
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    alignItems: "center",
+    shadowColor: "#0B3D26",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  tokenSmall: {
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 1.6,
+    textTransform: "uppercase",
+    color: "rgba(255, 255, 255, 0.7)",
+  },
+  tokenPre: {
+    fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
+    fontWeight: "700",
+    fontSize: 15,
+    letterSpacing: 3.5,
+    color: "#4ADE80",
+    marginTop: 8,
+  },
+  tokenNum: {
+    fontSize: 88,
+    fontWeight: "800",
+    lineHeight: 92,
+    letterSpacing: -1,
+    color: "#FFFFFF",
+    marginTop: 2,
+  },
+  livePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
+    paddingVertical: 6,
+    paddingHorizontal: 13,
+    borderRadius: 99,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#4ADE80",
+  },
+  liveText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  tearWrap: {
+    position: "relative",
+    marginHorizontal: 16,
+    marginTop: 20,
+    marginBottom: 4,
+    height: 24,
+    justifyContent: "center",
+  },
+  dashedDivider: {
+    borderTopWidth: 2,
+    borderColor: "#E5E7EB",
+    borderStyle: "dashed",
+    width: "100%",
+  },
+  notchLeft: {
+    position: "absolute",
+    left: -28,
+    top: 0,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#F3F6FA",
+    zIndex: 10,
+  },
+  notchRight: {
+    position: "absolute",
+    right: -28,
+    top: 0,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#F3F6FA",
+    zIndex: 10,
+  },
+  infoSection: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  dtGrid: {
+    flexDirection: "row",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 16,
+    backgroundColor: "rgba(127,127,127,0.04)",
+    marginBottom: 10,
+  },
+  dtCol: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  dtColRight: {
+    flex: 1.3,
+    borderLeftWidth: 1,
+    borderLeftColor: "#E5E7EB",
+  },
+  dtSmall: {
+    fontSize: 11.5,
+    fontWeight: "700",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    color: "#6B7280",
+  },
+  dtStrong: {
+    marginTop: 4,
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  slotRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  dtArrow: {
+    color: "#16A34A",
+    marginHorizontal: 4,
+    fontWeight: "800",
+  },
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 13,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+    gap: 12,
+  },
+  rowLabel: {
+    fontSize: 14.5,
+    fontWeight: "500",
+    color: "#6B7280",
+  },
+  rowVal: {
+    fontSize: 14.5,
+    fontWeight: "700",
+    color: "#111827",
+    textAlign: "right",
+    flexShrink: 1,
+  },
+  deskWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  deskCodeText: {
+    fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
+    fontSize: 14,
+    fontWeight: "700",
+    letterSpacing: 0.8,
+    color: "#16A34A",
+  },
+  cpBtn: {
+    backgroundColor: "#E8F8EE",
+    paddingVertical: 4,
+    paddingHorizontal: 9,
+    borderRadius: 8,
+  },
+  cpBtnText: {
+    color: "#15803D",
+    fontWeight: "700",
+    fontSize: 11.5,
+  },
+  verifyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  verifyDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: "#16A34A",
+  },
+  verifyText: {
+    color: "#16A34A",
+    fontWeight: "700",
+    fontSize: 14,
+  },
+  slotrule: {
+    marginHorizontal: 20,
+    marginTop: 10,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    backgroundColor: "#16A34A",
+    borderRadius: 16,
+    paddingVertical: 13,
+    paddingHorizontal: 15,
+  },
+  slotruleText: {
+    flex: 1,
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
+    lineHeight: 19,
+  },
+  secWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  secText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  secLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#E5E7EB",
+  },
+  rulesGrid: {
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+  },
+  ruleItem: {
+    flex: 1,
+    backgroundColor: "#E8F8EE",
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 2,
+    alignItems: "center",
+  },
+  ruleLabel: {
+    fontSize: 11.5,
+    fontWeight: "600",
+    color: "#111827",
+    marginTop: 6,
+    textAlign: "center",
+    lineHeight: 14,
+  },
+  oneText: {
+    paddingHorizontal: 22,
+    paddingTop: 12,
+    fontSize: 13,
+    color: "#6B7280",
+  },
+  cancelBox: {
+    marginHorizontal: 20,
+    marginTop: 16,
+    marginBottom: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    backgroundColor: "#E8F8EE",
+    borderWidth: 1,
+    borderColor: "#CAEFD7",
+  },
+  cancelHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  cancelTitle: {
+    fontSize: 14.5,
+    fontWeight: "700",
+    color: "#15803D",
+  },
+  cancelBody: {
+    marginTop: 5,
+    fontSize: 13,
+    lineHeight: 18,
+    color: "#4B5563",
+  },
+  tagWrap: {
+    borderTopWidth: 1,
+    borderTopColor: "#E5E7EB",
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    alignItems: "center",
+  },
+  tagText: {
+    fontSize: 12.5,
+    color: "#6B7280",
+  },
+  acts: {
+    marginTop: 16,
+    gap: 10,
+  },
+  priBtn: {
+    backgroundColor: "#16A34A",
+    borderRadius: 16,
+    paddingVertical: 15,
+    alignItems: "center",
+    shadowColor: "#16A34A",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  priBtnText: {
+    color: "#FFFFFF",
+    fontSize: 15.5,
+    fontWeight: "700",
+  },
+  dngBtn: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: "rgba(217, 45, 32, 0.3)",
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  dngBtnText: {
+    color: "#D92D20",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  dngBtnSub: {
+    color: "#D92D20",
+    fontSize: 11.5,
+    fontWeight: "500",
+    opacity: 0.85,
+    marginTop: 2,
+  },
+  ghBtn: {
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  ghBtnText: {
+    color: "#6B7280",
+    fontSize: 14.5,
+    fontWeight: "600",
+  },
   emptyCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 24,
-    padding: 24,
+    padding: 28,
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    marginTop: 20,
+    marginTop: 40,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
     elevation: 2,
   },
   emptyIconCircle: {
@@ -535,404 +1095,16 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "700",
     color: "#111827",
     marginBottom: 8,
   },
   emptySubtitle: {
-    fontSize: 13,
-    color: "#6B7280",
-    textAlign: "center",
-    lineHeight: 19,
-    marginBottom: 20,
-  },
-
-  // Success Banner
-  successBanner: {
-    alignItems: "center",
-    marginBottom: 18,
-  },
-  successOuterCircle: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: "#DCFCE7",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 10,
-    borderWidth: 4,
-    borderColor: "#FFFFFF",
-    shadowColor: "#16A34A",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  successInnerCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#16A34A",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  successTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#111827",
-    letterSpacing: -0.3,
-  },
-  successSubtitle: {
-    fontSize: 13,
-    color: "#6B7280",
-    marginTop: 3,
-  },
-
-  // Ticket Card
-  ticketCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3,
-    marginBottom: 16,
-    overflow: "hidden",
-  },
-  gymRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 18,
-  },
-  gymImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 16,
-    backgroundColor: "#F3F4F6",
-  },
-  badgePill: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-  },
-  primaryBadge: {
-    backgroundColor: "#DCFCE7",
-    borderWidth: 1,
-    borderColor: "#86EFAC",
-  },
-  partnerBadge: {
-    backgroundColor: "#DBEAFE",
-    borderWidth: 1,
-    borderColor: "#93C5FD",
-  },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: "700",
-  },
-  primaryBadgeText: {
-    color: "#166534",
-  },
-  partnerBadgeText: {
-    color: "#1E40AF",
-  },
-  gymName: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#111827",
-  },
-  gymAddress: {
-    fontSize: 12,
-    color: "#6B7280",
-    marginTop: 2,
-  },
-
-  // Ticket Divider
-  ticketDividerWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    position: "relative",
-    marginVertical: 4,
-  },
-  notchLeft: {
-    width: 14,
-    height: 28,
-    backgroundColor: "#F9FAFB",
-    borderTopRightRadius: 14,
-    borderBottomRightRadius: 14,
-    borderRightWidth: 1,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: "#E5E7EB",
-    marginLeft: -1,
-  },
-  dashedLine: {
-    flex: 1,
-    height: 1,
-    borderStyle: "dashed",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    marginHorizontal: 8,
-  },
-  notchRight: {
-    width: 14,
-    height: 28,
-    backgroundColor: "#F9FAFB",
-    borderTopLeftRadius: 14,
-    borderBottomLeftRadius: 14,
-    borderLeftWidth: 1,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: "#E5E7EB",
-    marginRight: -1,
-  },
-
-  // Date Time Row
-  dateTimeRow: {
-    flexDirection: "row",
-    backgroundColor: "#F9FAFB",
-    borderRadius: 16,
-    marginHorizontal: 16,
-    marginVertical: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: "#F3F4F6",
-  },
-  dateTimeCol: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  miniIconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    marginRight: 8,
-  },
-  miniLabel: {
-    fontSize: 9,
-    fontWeight: "800",
-    color: "#9CA3AF",
-    letterSpacing: 0.5,
-  },
-  miniValue: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#111827",
-    marginTop: 1,
-  },
-  verticalDivider: {
-    width: 1,
-    height: 28,
-    backgroundColor: "#E5E7EB",
-    marginHorizontal: 8,
-  },
-
-  // Meta details
-  metaContainer: {
-    paddingHorizontal: 18,
-    paddingBottom: 14,
-    gap: 10,
-  },
-  metaRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  metaKey: {
-    fontSize: 12,
-    color: "#6B7280",
-    fontWeight: "500",
-  },
-  metaValue: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  bookingIdText: {
-    fontSize: 12.5,
-    fontFamily: "monospace",
-    fontWeight: "800",
-    color: "#16A34A",
-  },
-  greenDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: "#16A34A",
-    marginRight: 6,
-  },
-  verifiedText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#166534",
-  },
-
-  // QR Scan Button
-  qrScanBtn: {
-    margin: 16,
-    marginTop: 6,
-    backgroundColor: "#16A34A",
-    borderRadius: 14,
-    paddingVertical: 13,
-    paddingHorizontal: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#16A34A",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 3,
-  },
-  qrScanBtnText: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "700",
-    flex: 1,
-    textAlign: "center",
-  },
-
-  // Cancellation notice
-  cancelNoticeCard: {
-    backgroundColor: "#F0FDF4",
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: "#DCFCE7",
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 16,
-  },
-  cancelNoticeTitle: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#166534",
-    marginBottom: 2,
-  },
-  cancelNoticeText: {
-    fontSize: 11.5,
-    color: "#15803D",
-    lineHeight: 16,
-  },
-
-  // Rules card
-  rulesCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    marginBottom: 20,
-  },
-  rulesHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  rulesTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  rulesTag: {
-    backgroundColor: "#F3F4F6",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-  rulesTagText: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: "#4B5563",
-  },
-  policyText: {
-    fontSize: 12,
-    color: "#4B5563",
-    flex: 1,
-    lineHeight: 17,
-  },
-  rulesFooter: {
-    marginTop: 10,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderColor: "#F3F4F6",
-  },
-  rulesFooterText: {
-    fontSize: 10.5,
-    color: "#9CA3AF",
-    fontStyle: "italic",
-    lineHeight: 15,
-  },
-
-  // Bottom action buttons
-  bottomActions: {
-    gap: 10,
-  },
-  primaryActionButton: {
-    backgroundColor: "#16A34A",
-    borderRadius: 14,
-    paddingVertical: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#16A34A",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 5,
-    elevation: 2,
-  },
-  primaryActionButtonText: {
-    color: "#FFFFFF",
     fontSize: 14,
-    fontWeight: "700",
-  },
-  secondaryActionButton: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    paddingVertical: 13,
-    borderWidth: 1,
-    borderColor: "#D1D5DB",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 8,
-    width: "100%",
-  },
-  secondaryActionButtonText: {
-    color: "#374151",
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  cancelBookingBtn: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: "#FECACA",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cancelBookingBtnText: {
-    color: "#DC2626",
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  backHomeBtn: {
-    paddingVertical: 10,
-    alignItems: "center",
-  },
-  backHomeBtnText: {
     color: "#6B7280",
-    fontSize: 12.5,
-    fontWeight: "600",
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 24,
   },
 });

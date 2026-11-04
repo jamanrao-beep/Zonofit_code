@@ -474,6 +474,7 @@ model Booking {
 
   // QR pass code generated at booking — displayed in app for gym staff to scan
   passCode String @unique @default(uuid())
+  tokenNumber Int?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

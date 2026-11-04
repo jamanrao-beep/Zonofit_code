@@ -6,4 +6,6 @@ export declare function emailOtpKey(email: string): string;
 export declare function createEmailCode(): string;
 /** Emails a one-time code from the ZonoFit Gmail account. Never logs the code. */
 export declare function sendEmailOTP(to: string, code: string): Promise<boolean>;
+/** Emails a plain notice to the ZonoFit inbox. Never logs the body or the app password. */
+export declare function sendInboxNotice(subject: string, text: string): Promise<boolean>;
 //# sourceMappingURL=mail.d.ts.map
