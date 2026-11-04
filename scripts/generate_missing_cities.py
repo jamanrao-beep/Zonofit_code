@@ -189,12 +189,60 @@ def draw_bhilwara(color):
 
     return im.resize((80, 80), Image.Resampling.LANCZOS)
 
+def draw_indore(color):
+    # Rajwada Palace (Holkar 7-storey landmark)
+    im = Image.new('RGBA', (320, 320), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    w = 6
+
+    # Base steps & platform
+    d.line([(30, 265), (290, 265)], fill=color, width=w)
+    d.line([(45, 255), (275, 255)], fill=color, width=w)
+
+    # Lower Stone Structure (Stories 1-2)
+    d.rectangle([(65, 190), (255, 255)], outline=color, width=w)
+
+    # Grand Arch Entrance Gate
+    d.line([(125, 255), (125, 215)], fill=color, width=w)
+    d.line([(195, 255), (195, 215)], fill=color, width=w)
+    d.arc([(125, 185), (195, 245)], 180, 360, fill=color, width=w)
+
+    # Side arched niches in stone base
+    d.arc([(75, 205), (105, 245)], 180, 360, fill=color, width=w-2)
+    d.arc([(215, 205), (245, 245)], 180, 360, fill=color, width=w-2)
+
+    # Story 3 & 4 (Upper wooden facade)
+    d.rectangle([(75, 135), (245, 190)], outline=color, width=w)
+    d.line([(75, 162), (245, 162)], fill=color, width=w-2)
+    # Windows
+    for x in (90, 125, 165, 200):
+        d.rectangle([(x, 142), (x+20, 155)], outline=color, width=w-2)
+        d.rectangle([(x, 169), (x+20, 182)], outline=color, width=w-2)
+
+    # Story 5 (Stepped top floor)
+    d.rectangle([(95, 85), (225, 135)], outline=color, width=w)
+    # Jharokhas
+    d.rectangle([(110, 95), (140, 125)], outline=color, width=w-2)
+    d.rectangle([(180, 95), (210, 125)], outline=color, width=w-2)
+
+    # Top Roof / Central Bangla Dome & Kalash
+    d.arc([(120, 50), (200, 100)], 180, 360, fill=color, width=w)
+    d.line([(160, 50), (160, 30)], fill=color, width=w)
+    d.ellipse([(156, 26), (164, 34)], fill=color)
+
+    # Side corner chhatris on roof
+    d.arc([(90, 70), (115, 95)], 180, 360, fill=color, width=w-2)
+    d.arc([(205, 70), (230, 95)], 180, 360, fill=color, width=w-2)
+
+    return im.resize((80, 80), Image.Resampling.LANCZOS)
+
 cities = {
     'udaipur': draw_udaipur,
     'jodhpur': draw_jodhpur,
     'kota': draw_kota,
     'ajmer': draw_ajmer,
     'bhilwara': draw_bhilwara,
+    'indore': draw_indore,
 }
 
 for name, draw_fn in cities.items():
@@ -204,4 +252,5 @@ for name, draw_fn in cities.items():
     sel = draw_fn(COLOR_SEL)
     sel.save(os.path.join(CITIES_DIR, f'{name}-selected.png'), 'PNG')
 
-print("Generated custom landmark icons for Udaipur, Jodhpur, Kota, Ajmer, Bhilwara!")
+print("Generated custom landmark icons for Udaipur, Jodhpur, Kota, Ajmer, Bhilwara, Indore!")
+

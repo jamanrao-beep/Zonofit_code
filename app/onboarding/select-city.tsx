@@ -108,6 +108,10 @@ const CITY_ICONS: Record<string, { base: ImageSourcePropType; selected: ImageSou
     base: require("@/assets/images/cities/bhilwara.png"),
     selected: require("@/assets/images/cities/bhilwara-selected.png"),
   },
+  Indore: {
+    base: require("@/assets/images/cities/indore.png"),
+    selected: require("@/assets/images/cities/indore-selected.png"),
+  },
 };
 
 function CityMark({
