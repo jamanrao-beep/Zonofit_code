@@ -25,14 +25,13 @@ import { useAuthStore } from "@/store/useAuthStore";
 
 const HOME_CITY = "Udaipur";
 
-const ACTIVE_PARTNER_CITIES = [
-  { name: "Delhi NCR", state: "Delhi & NCR", centres: 15 },
-  { name: "Mumbai", state: "Maharashtra", centres: 12 },
-  { name: "Bengaluru", state: "Karnataka", centres: 14 },
-  { name: "Jaipur", state: "Rajasthan", centres: 8 },
-] as const;
+const ACTIVE_PARTNER_CITIES: readonly { name: string; state: string; centres: number }[] = [];
 
 const UPCOMING_PARTNER_CITIES = [
+  "Delhi NCR",
+  "Mumbai",
+  "Bengaluru",
+  "Jaipur",
   "Ahmedabad",
   "Pune",
   "Indore",
@@ -47,7 +46,7 @@ const UPCOMING_PARTNER_CITIES = [
   "Bhilwara",
 ] as const;
 
-type ActiveCityName = (typeof ACTIVE_PARTNER_CITIES)[number]["name"];
+type ActiveCityName = string;
 type UpcomingCityName = (typeof UPCOMING_PARTNER_CITIES)[number];
 
 type SheetState =
