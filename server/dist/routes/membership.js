@@ -122,7 +122,7 @@ router.post("/create-order", auth_1.requireAuth, [
                 planId: quote.planId,
                 gymPlanId: quote.gymPlanId,
             });
-            await (0, notifications_1.sendPushNotification)(req.dbUserId, "Membership Activated 🎉", `Your membership at ${activationResult.gym.name} is active! ${activationResult.initialVisits} primary visits and ${activationResult.remainingCreditsToAdd} credits added to your wallet.`).catch(() => { });
+            await (0, notifications_1.sendPushNotification)(req.dbUserId, "Membership activated", `Your membership at ${activationResult.gym.name} is active! ${activationResult.initialVisits} primary visits and ${activationResult.remainingCreditsToAdd} credits added to your wallet.`).catch(() => { });
             res.status(200).json({
                 directAccepted: true,
                 success: true,

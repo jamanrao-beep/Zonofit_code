@@ -287,7 +287,7 @@ router.post(
         });
         await sendPushNotification(
           req.dbUserId!,
-          "Credits Added ⚡",
+          "Credits added",
           `Successfully added ${credits} Credits (₹${credits * 10} fitness value) to your wallet. New balance: ${updatedWallet.balance} Credits.`
         ).catch(() => {});
         res.status(200).json({

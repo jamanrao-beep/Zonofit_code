@@ -100,7 +100,7 @@ router.post(
             // Send push notification
             await sendPushNotification(
                 req.dbUserId!,
-                "Challenge Completed! 🎉",
+                "Challenge completed",
                 `You successfully completed the "${challenge.title}" challenge. Great work!`
             );
 

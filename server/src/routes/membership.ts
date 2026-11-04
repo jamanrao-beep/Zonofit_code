@@ -148,7 +148,7 @@ router.post(
 
         await sendPushNotification(
           req.dbUserId!,
-          "Membership Activated 🎉",
+          "Membership activated",
           `Your membership at ${activationResult.gym.name} is active! ${activationResult.initialVisits} primary visits and ${activationResult.remainingCreditsToAdd} credits added to your wallet.`
         ).catch(() => {});
 

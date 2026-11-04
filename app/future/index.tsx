@@ -231,19 +231,13 @@ export default function FutureOverviewScreen() {
 
         {/* Help Us Build Banner */}
         <View className="mx-5 bg-[#FFFBEB] rounded-[24px] p-5 mb-6 flex-row items-center border border-amber-100 shadow-sm relative overflow-hidden" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6 }}>
-          <View className="w-12 h-12 bg-amber-100 rounded-full items-center justify-center mr-4">
-            <Text className="text-2xl">🏆</Text>
-          </View>
-          <View className="flex-1 pr-16 z-10">
+          <View className="flex-1 z-10">
             <Text className="font-bold text-black text-[14px] mb-1">Help Us Build ZonoFit Faster</Text>
             <Text className="text-[11px] text-gray-700 mb-3">More members, more partners, faster launches!</Text>
             <Pressable className="bg-[#0B711A] self-start px-4 py-2 rounded-lg flex-row items-center">
               <Text className="text-white font-bold text-[11px] mr-1">Invite Friends</Text>
               <Ionicons name="chevron-forward" size={12} color="white" />
             </Pressable>
-          </View>
-          <View className="absolute right-0 bottom-0 opacity-80 pointer-events-none">
-            <Ionicons name="people" size={80} color="#FCD34D" style={{ marginRight: -10, marginBottom: -10 }} />
           </View>
         </View>
 

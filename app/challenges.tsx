@@ -24,7 +24,7 @@ const FALLBACK_CHALLENGES: Challenge[] = [
     id: "ch-1",
     title: "10-Visit Monthly Habit",
     description: "Complete 10 gym check-ins this month to build an unbreakable workout routine.",
-    emoji: "🔥",
+    emoji: "",
     targetCount: 10,
     rewardCredits: 0,
     type: "VISITS",
@@ -35,7 +35,7 @@ const FALLBACK_CHALLENGES: Challenge[] = [
     id: "ch-2",
     title: "Weekend Warrior",
     description: "Work out on 3 consecutive Saturdays or Sundays this month.",
-    emoji: "⚡",
+    emoji: "",
     targetCount: 3,
     rewardCredits: 0,
     type: "WEEKEND",
@@ -46,7 +46,7 @@ const FALLBACK_CHALLENGES: Challenge[] = [
     id: "ch-3",
     title: "Network Explorer",
     description: "Visit at least 2 different partner gyms in the ZonoFit access network.",
-    emoji: "🗺️",
+    emoji: "",
     targetCount: 2,
     rewardCredits: 0,
     type: "EXPLORE",
@@ -95,7 +95,7 @@ export default function ChallengesScreen() {
         });
       }
 
-      Alert.alert("Milestone Unlocked! 🏆", "Great consistency! You've completed this habit challenge.");
+      Alert.alert("Milestone unlocked", "You completed this challenge.");
       setChallenges((prev) =>
         prev.map((c) => (c.id === id ? { ...c, completed: true } : c))
       );
@@ -103,7 +103,7 @@ export default function ChallengesScreen() {
       setChallenges((prev) =>
         prev.map((c) => (c.id === id ? { ...c, completed: true } : c))
       );
-      Alert.alert("Milestone Unlocked! 🏆", "Great consistency! You've completed this habit challenge.");
+      Alert.alert("Milestone unlocked", "You completed this challenge.");
     } finally {
       setClaimingId(null);
     }
@@ -160,9 +160,6 @@ export default function ChallengesScreen() {
               >
                 <View className="flex-row justify-between items-start mb-4">
                   <View className="flex-row flex-1 mr-4">
-                    <View className="w-12 h-12 rounded-full bg-indigo-50 items-center justify-center mr-4 border border-indigo-100">
-                      <Text className="text-2xl">{challenge.emoji}</Text>
-                    </View>
                     <View className="flex-1">
                       <Text className="text-base font-bold text-[#1F2520] mb-1">{challenge.title}</Text>
                       <Text className="text-xs text-[#6B756E] leading-relaxed">{challenge.description}</Text>

@@ -208,7 +208,7 @@ export default function OrderSummaryScreen() {
                 />
               </View>
               <Text style={styles.gymLocationText}>
-                📍 {gymLocation}
+                {gymLocation}
               </Text>
             </View>
 

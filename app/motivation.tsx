@@ -67,7 +67,7 @@ export default function DailyMotivationScreen() {
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `🔥 Day ${activeQuote.day} Daily Motivation on ZonoFit:\n\n"${activeQuote.quote}"\n— ${activeQuote.author}\n\nBuild your fitness consistency with ZonoFit!`,
+        message: `Day ${activeQuote.day} on ZonoFit:\n\n"${activeQuote.quote}"\n— ${activeQuote.author}`,
       });
     } catch {
       // Ignored

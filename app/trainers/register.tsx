@@ -82,7 +82,7 @@ export default function TrainerRegisterScreen() {
       }, { token });
 
       Alert.alert(
-        "Application Submitted! 🎉",
+        "Application submitted",
         isTrainer ? "Your trainer profile has been submitted and is pending admin approval." : "Your buddy profile has been created successfully!",
         [{ text: "Go to Home", onPress: () => router.push("/") }]
       );

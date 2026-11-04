@@ -153,7 +153,7 @@ export default function TrainerDetailScreen() {
                 )}
                 <View className="flex-1">
                   <Text className="text-base font-bold text-[#1F2520]">{g.gym.name}</Text>
-                  <Text className="text-xs text-[#6B756E] mt-1" numberOfLines={1}>📍 {g.gym.address}</Text>
+                  <Text className="text-xs text-[#6B756E] mt-1" numberOfLines={1}>{g.gym.address}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
               </Pressable>

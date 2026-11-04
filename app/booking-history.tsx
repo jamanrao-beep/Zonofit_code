@@ -246,7 +246,7 @@ export default function BookingHistoryScreen() {
                   <View className="flex-row justify-between items-start mb-2">
                     <View className="flex-1 mr-3">
                       <Text className="font-bold text-sm text-[#1F2520]">{booking.gymName}</Text>
-                      <Text className="text-[10px] text-[#6B756E] mt-0.5">📍 {booking.gymAddress}</Text>
+                      <Text className="text-[10px] text-[#6B756E] mt-0.5">{booking.gymAddress}</Text>
                     </View>
                     <View className={`flex-row items-center px-2.5 py-1 rounded-full ${config.bg}`}>
                       <Ionicons name={config.icon} size={11} color={config.color} />
@@ -268,7 +268,7 @@ export default function BookingHistoryScreen() {
                       </View>
                     </View>
                     <Text className={`text-xs font-bold ${booking.status === "cancelled" ? "text-[#9CA3AF] line-through" : "text-emerald-700"}`}>
-                      ⚡ {booking.credits} Credits
+                      {booking.credits} Credits
                     </Text>
                   </View>
                 </View>

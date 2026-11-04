@@ -93,7 +93,7 @@ export default function AdminUsersPage() {
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
           >
-            🏋️ App Members
+            App Members
           </button>
           <button
             onClick={() => setRoleFilter("GYM_OWNER")}
@@ -103,7 +103,7 @@ export default function AdminUsersPage() {
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
           >
-            🏢 Gym Partners / Owners
+            Gym Partners / Owners
           </button>
           <button
             onClick={() => setRoleFilter("ALL")}
@@ -113,7 +113,7 @@ export default function AdminUsersPage() {
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
           >
-            👥 All Accounts
+            All Accounts
           </button>
         </div>
 
@@ -167,7 +167,7 @@ export default function AdminUsersPage() {
                       <div className="text-sm text-gray-500">{user.email || user.phone}</div>
                       {user.gymsOwned && user.gymsOwned.length > 0 && (
                         <div className="text-xs text-purple-700 font-semibold mt-0.5">
-                          🏢 Gym: {user.gymsOwned.map((g: any) => g.name).join(", ")}
+                          Gym: {user.gymsOwned.map((g: any) => g.name).join(", ")}
                         </div>
                       )}
                     </td>

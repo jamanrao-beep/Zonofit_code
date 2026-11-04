@@ -485,13 +485,13 @@ router.get(
 
                 for (const tx of txs) {
                     if (tx.type === "PURCHASE") {
-                        const title = "Credits Added ⚡";
+                        const title = "Credits added";
                         const body = `Successfully added ${tx.amount} Credits (₹${tx.amount * 10} fitness value) to your wallet.`;
                         if (!existingTitles.has(title) && !existingBodies.has(body)) {
                             newNotifs.push({ userId, title, body, type: "SUCCESS", createdAt: tx.createdAt });
                         }
                     } else if (tx.type === "MEMBERSHIP_GRANT") {
-                        const title = "Membership Credits Added 🪙";
+                        const title = "Membership credits added";
                         const body = `10 primary visits and ${tx.amount} credits are credited to your wallet for Month 1.`;
                         if (!existingTitles.has(title) && !existingBodies.has(body)) {
                             newNotifs.push({ userId, title, body, type: "SUCCESS", createdAt: tx.createdAt });
@@ -505,7 +505,7 @@ router.get(
                     include: { primaryGym: { select: { name: true } } }
                 });
                 if (membership && membership.status === "ACTIVE") {
-                    const title = "Membership Activated 🎉";
+                    const title = "Membership activated";
                     if (!existingTitles.has(title)) {
                         newNotifs.push({
                             userId,

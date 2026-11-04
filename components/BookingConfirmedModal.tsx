@@ -123,7 +123,7 @@ export default function BookingConfirmedModal({
               </Animated.View>
             </View>
 
-            <Text style={styles.title}>Workout Booked! 🎉</Text>
+            <Text style={styles.title}>Workout booked</Text>
             <Text style={styles.subtitle}>
               Your session is confirmed. Show your pass when you arrive at the gym.
             </Text>
@@ -173,7 +173,7 @@ export default function BookingConfirmedModal({
                 </View>
                 <Text style={styles.gymName} numberOfLines={1}>{gymName}</Text>
                 {gymAddress ? (
-                  <Text style={styles.gymAddress} numberOfLines={1}>📍 {gymAddress}</Text>
+                  <Text style={styles.gymAddress} numberOfLines={1}>{gymAddress}</Text>
                 ) : null}
               </View>
             </View>

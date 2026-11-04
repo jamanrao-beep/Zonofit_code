@@ -142,7 +142,7 @@ export default function NotificationsScreen() {
       const synthesized: NotificationItem[] = [];
 
       for (const tx of localTxs) {
-        const txTitle = tx.type === "credit" ? "Credits Added ⚡" : "Credits Used 🪙";
+        const txTitle = tx.type === "credit" ? "Credits added" : "Credits used";
         if (!existingBodies.has(tx.description)) {
           synthesized.push({
             id: `tx-${tx.id}`,
@@ -158,11 +158,12 @@ export default function NotificationsScreen() {
         }
       }
 
-      if (isMember && !existingTitles.has("Membership Activated 🎉") && !existingTitles.has("Membership Active 🎉")) {
+      const hasMembershipNotice = [...existingTitles].some((title) => /membership activ/i.test(title));
+      if (isMember && !hasMembershipNotice) {
         const gym = membership?.gymName || userStore.primaryGymName || "your primary gym";
         synthesized.push({
           id: "local-membership-active",
-          title: "Membership Active 🎉",
+          title: "Membership active",
           body: `Your membership at ${gym} is active! 10 primary visits and credits are available in your wallet.`,
           type: "SUCCESS",
           isRead: false,

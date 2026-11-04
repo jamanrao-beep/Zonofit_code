@@ -266,7 +266,7 @@ export default function BookingPassScreen() {
                   </Text>
                   
                   <Text style={styles.gymAddress} numberOfLines={1}>
-                    📍 {displayAddress}
+                    {displayAddress}
                   </Text>
                 </View>
               </View>

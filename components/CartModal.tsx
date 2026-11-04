@@ -275,7 +275,7 @@ export default function CartModal({ visible, onClose }: CartModalProps) {
                   </View>
                 ) : (
                   <Pressable onPress={() => setIsAddressModalOpen(true)}>
-                    <Text className="text-xs text-amber-700 font-medium">⚠️ No delivery address selected. Tap to add.</Text>
+                    <Text className="text-xs text-amber-700 font-medium">No delivery address selected. Tap to add.</Text>
                   </Pressable>
                 )}
               </View>

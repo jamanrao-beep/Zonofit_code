@@ -82,7 +82,7 @@ router.post("/:id/claim", auth_1.requireAuth, async (req, res) => {
             data: { completed: true },
         });
         // Send push notification
-        await (0, notifications_1.sendPushNotification)(req.dbUserId, "Challenge Completed! 🎉", `You successfully completed the "${challenge.title}" challenge. Great work!`);
+        await (0, notifications_1.sendPushNotification)(req.dbUserId, "Challenge completed", `You successfully completed the "${challenge.title}" challenge. Great work!`);
         res.json({
             message: "Challenge marked as completed",
             updatedUc,

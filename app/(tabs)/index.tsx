@@ -423,7 +423,7 @@ export default function HomeScreen() {
               >
                 <Ionicons name="calendar-outline" size={20} color="#9CA3AF" />
                 <Text className="text-xs font-bold text-gray-700 mt-1">Visits</Text>
-                <Text className="text-[10px] text-gray-400 mt-0.5">🔒 Locked</Text>
+                <Text className="text-[10px] text-gray-400 mt-0.5">Locked</Text>
               </Pressable>
               <Pressable
                 onPress={() => router.push("/(tabs)/credits" as any)}
@@ -431,7 +431,7 @@ export default function HomeScreen() {
               >
                 <Ionicons name="flash-outline" size={20} color="#9CA3AF" />
                 <Text className="text-xs font-bold text-gray-700 mt-1">Credits</Text>
-                <Text className="text-[10px] text-gray-400 mt-0.5">🔒 Locked</Text>
+                <Text className="text-[10px] text-gray-400 mt-0.5">Locked</Text>
               </Pressable>
               <Pressable
                 onPress={() => promptGuestAccount(router, endGuestSession, "The cash wallet unlocks with an account. Credits stay on the server, and a guest cannot spend or convert them.")}
@@ -439,7 +439,7 @@ export default function HomeScreen() {
               >
                 <Ionicons name="wallet-outline" size={20} color="#9CA3AF" />
                 <Text className="text-xs font-bold text-gray-700 mt-1">Wallet</Text>
-                <Text className="text-[10px] text-gray-400 mt-0.5">🔒 Locked</Text>
+                <Text className="text-[10px] text-gray-400 mt-0.5">Locked</Text>
               </Pressable>
             </View>
 
@@ -658,9 +658,6 @@ export default function HomeScreen() {
               className="flex-row items-center active:opacity-80"
               style={{ flex: 1, minWidth: 0, marginRight: 8 }}
             >
-              <View className="w-5 h-5 rounded-full bg-yellow-500/20 items-center justify-center mr-1.5 flex-shrink-0">
-                <Text className="text-yellow-500 text-[10px] font-bold">🪙</Text>
-              </View>
               <Text className="text-white text-sm font-medium" numberOfLines={1} style={{ flexShrink: 1 }}>
                 Available Credits: <Text className="font-extrabold">{effectiveCredits}</Text>
                 <Text className="text-white/70 text-xs"> (≈ ₹{effectiveCredits * 10})</Text>
@@ -735,7 +732,7 @@ export default function HomeScreen() {
           ) : (
             <View className="flex-row items-center">
               <View className="w-10 h-10 rounded-full bg-[#FEF3C7] items-center justify-center mr-3">
-                <Text className="text-lg">🔥</Text>
+                <Ionicons name="checkmark-circle" size={22} color="#B45309" />
               </View>
               <View>
                 <Text className="text-sm font-bold text-[#111827]">Checked In Successfully</Text>
@@ -805,13 +802,13 @@ export default function HomeScreen() {
               onPress={() => {
                 const val = credits * CREDIT_FITNESS_VALUE;
                 Alert.alert(
-                  "Value Protected from Wastage 🐷",
+                  "Value protected from wastage",
                   `In traditional gym memberships, unused days are 100% wasted.\n\nIn ZonoFit, your ₹${val.toLocaleString()} unused fitness value stays protected in your wallet and rolls over or converts to cash at month end!`
                 );
               }}
               className="w-10 h-10 rounded-full bg-[#E8F5E9] items-center justify-center active:bg-green-100"
             >
-              <Text className="text-lg">🐷</Text>
+              <Ionicons name="information-circle-outline" size={22} color="#1F7A3E" />
             </Pressable>
           </View>
         </Pressable>
@@ -912,12 +909,7 @@ export default function HomeScreen() {
           className="bg-white rounded-[24px] p-5 mb-8 border border-black/5 shadow-sm" 
           style={styles.cardShadow}
         >
-          <View className="flex-row items-center mb-2.5">
-            <View className="w-6 h-6 rounded-full bg-[#EDF7EC] items-center justify-center mr-2">
-              <Text className="text-xs">⚡</Text>
-            </View>
-            <Text className="text-[#0B6E4F] text-[11px] font-bold uppercase tracking-wider">Daily Motivation</Text>
-          </View>
+          <Text className="text-[#0B6E4F] text-[11px] font-bold uppercase tracking-wider mb-2.5">Daily Motivation</Text>
           <Text className="text-[#1F2520] text-[15px] font-bold italic leading-relaxed">
             {motivationQuote.startsWith('"') ? motivationQuote : `"${motivationQuote}"`}
           </Text>
@@ -925,10 +917,7 @@ export default function HomeScreen() {
 
         {/* More Coming Your Way — Premium Glassmorphism Locked Features */}
         <View className="mb-10">
-          <View className="flex-row items-center mb-4 ml-1">
-            <Ionicons name="sparkles" size={17} color="#1F7A3E" />
-            <Text className="text-[#1F2520] text-[16px] font-bold ml-2">More Coming Your Way</Text>
-          </View>
+          <Text className="text-[#1F2520] text-[16px] font-bold mb-4 ml-1">More coming your way</Text>
 
           {/* 2x2 Glassmorphism Locked Grid */}
           <View className="gap-y-3">

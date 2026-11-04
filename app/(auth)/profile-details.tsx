@@ -119,7 +119,7 @@ export default function ProfileDetailsScreen() {
       return;
     }
     setReferralApplied(true);
-    Alert.alert("Code Applied! 🎉", "Your referral code has been validated. You will receive bonus credits upon activation.");
+    Alert.alert("Code applied", "Your referral code has been validated. You will receive bonus credits upon activation.");
   };
 
   // Open calendar

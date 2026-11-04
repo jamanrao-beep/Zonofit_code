@@ -282,7 +282,7 @@ router.post("/", auth_1.requireAuth, [
         return { booking, updatedWallet, gymName: gym.name };
     });
     // Send push notification asynchronously
-    (0, notifications_1.sendPushNotification)(req.dbUserId, "Booking Confirmed ✅", `Your workout at ${result.gymName} on ${visitDate} at ${timeSlot} is confirmed!`).catch(e => console.error(e));
+    (0, notifications_1.sendPushNotification)(req.dbUserId, "Booking confirmed", `Your workout at ${result.gymName} on ${visitDate} at ${timeSlot} is confirmed!`).catch(e => console.error(e));
     res.status(201).json({
         booking: {
             id: result.booking.id,
@@ -533,7 +533,7 @@ const cancelBookingHandler = async (req, res) => {
         }
         return { refundedCredits, newBalance, gymName };
     }, { maxWait: 4000, timeout: 8000 });
-    (0, notifications_1.sendPushNotification)(req.dbUserId, "Booking Cancelled ℹ️", `Your visit at ${result.gymName} was cancelled with a 2 Credits fee applied.`).catch(e => console.error(e));
+    (0, notifications_1.sendPushNotification)(req.dbUserId, "Booking cancelled", `Your visit at ${result.gymName} was cancelled with a 2 Credits fee applied.`).catch(e => console.error(e));
     res.json({
         message: "Booking cancelled successfully with a 2 Credits fee applied.",
         refundedCredits: result.refundedCredits,

@@ -246,7 +246,7 @@ export default function JourneyScreen() {
                       <Text style={{ fontSize: 14, fontWeight: '700', color: '#6B7280' }}> / 100</Text>
                     </View>
                     <Text style={{ fontSize: 12, fontWeight: '600', color: tScore > 0 ? '#4C9A2A' : '#6B7280' }}>
-                      {tScore > 60 ? 'Consistent Habit 🔥' : tScore > 20 ? 'Building Momentum ⚡' : 'Start your first workout'}
+                      {tScore > 60 ? 'Consistent habit' : tScore > 20 ? 'Building momentum' : 'Start your first workout'}
                     </Text>
                   </View>
                   
@@ -403,7 +403,7 @@ export default function JourneyScreen() {
                   return (
                     <Pressable 
                       key={m} 
-                      onPress={() => Alert.alert(`Month ${m} — ${label}`, `Target: ${target}\nFocus: ${focus}${isCurrent ? '\n\n👉 Your Current Month' : isCompleted ? '\n\n✅ Completed' : ''}`)}
+                      onPress={() => Alert.alert(`Month ${m} — ${label}`, `Target: ${target}\nFocus: ${focus}${isCurrent ? '\n\nYour current month' : isCompleted ? '\n\nCompleted' : ''}`)}
                       style={{ alignItems: 'center', zIndex: 2, marginRight: m === 12 ? 8 : 18, width: 64 }}
                     >
                       <View style={{ 

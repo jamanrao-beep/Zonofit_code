@@ -313,7 +313,7 @@ router.post(
     // Send push notification asynchronously
     sendPushNotification(
       req.dbUserId!,
-      "Booking Confirmed ✅",
+      "Booking confirmed",
       `Your workout at ${result.gymName} on ${visitDate} at ${timeSlot} is confirmed!`
     ).catch(e => console.error(e));
 
@@ -612,7 +612,7 @@ const cancelBookingHandler = async (req: Request, res: Response): Promise<void> 
 
   sendPushNotification(
     req.dbUserId!,
-    "Booking Cancelled ℹ️",
+    "Booking cancelled",
     `Your visit at ${result.gymName} was cancelled with a 2 Credits fee applied.`
   ).catch(e => console.error(e));
 

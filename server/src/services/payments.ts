@@ -135,7 +135,7 @@ export async function fulfillPaymentOrder(input: {
       });
       await sendPushNotification(
         order.userId,
-        "Membership Activated 🎉",
+        "Membership activated",
         `Your membership at ${meta.gymName || "your primary gym"} is now active! 10 primary visits and credits are ready in your wallet.`
       ).catch(() => {});
     } else {

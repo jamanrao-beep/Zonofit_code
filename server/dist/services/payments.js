@@ -123,7 +123,7 @@ async function fulfillPaymentOrder(input) {
                 primaryGymId: meta.primaryGymId,
                 gymName: meta.gymName,
             });
-            await (0, notifications_1.sendPushNotification)(order.userId, "Membership Activated 🎉", `Your membership at ${meta.gymName || "your primary gym"} is now active! 10 primary visits and credits are ready in your wallet.`).catch(() => { });
+            await (0, notifications_1.sendPushNotification)(order.userId, "Membership activated", `Your membership at ${meta.gymName || "your primary gym"} is now active! 10 primary visits and credits are ready in your wallet.`).catch(() => { });
         }
         else {
             await grantPurchase(tx, order, input.referenceId);
