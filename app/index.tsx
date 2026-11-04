@@ -20,7 +20,6 @@ const TOTAL_JOURNEY_MONTHS = 12;
 const WORDMARK_CHARS = ["Z", "o", "n", "o", "f", "i", "t"];
 
 export default function SplashAnimationScreen() {
-  const { isLoaded } = useAuthStore();
   const router = useRouter();
 
   const userMonth = useUserStore((s) => s.currentMonth);
@@ -28,32 +27,28 @@ export default function SplashAnimationScreen() {
   const cycleMonth = Math.max(1, Math.min(TOTAL_JOURNEY_MONTHS, membershipCycle || userMonth || 1));
 
   const { width: screenWidth } = Dimensions.get("window");
-  // Scale for a 1080 artboard
+  // Scale factor mapped from 1080 artboard to device screen
   const artboardScale = Math.min(screenWidth, 440) / 1080;
-  const u = (px: number) => px * artboardScale;
+  const u = (px: number) => Math.round(px * artboardScale);
 
-  // Master fade out of the entire splash screen
+  // Screen-level smooth fade-out into app
   const screenFadeAnim = useRef(new Animated.Value(1)).current;
 
-  // 1. Tile Base Animation
-  const tileScale = useRef(new Animated.Value(0.82)).current;
+  // 1. Logo Squircle Tile
+  const tileScale = useRef(new Animated.Value(0.85)).current;
   const tileOpacity = useRef(new Animated.Value(0)).current;
 
-  // 2. Part 1: Top Bar Animation (Sweeps from left)
-  const part1TranslateX = useRef(new Animated.Value(-45)).current;
-  const part1ScaleX = useRef(new Animated.Value(0.7)).current;
+  // 2. Part 1: Top Bar (slides in from left)
+  const part1TranslateX = useRef(new Animated.Value(-30)).current;
   const part1Opacity = useRef(new Animated.Value(0)).current;
 
-  // 3. Part 2: Middle Hook Animation (Curves in from bottom-right)
-  const part2TranslateX = useRef(new Animated.Value(30)).current;
-  const part2TranslateY = useRef(new Animated.Value(40)).current;
-  const part2Scale = useRef(new Animated.Value(0.72)).current;
-  const part2Rotate = useRef(new Animated.Value(1)).current; // 1 -> 0 (8deg -> 0deg)
+  // 3. Part 2: Middle Hook (slides in smoothly from below)
+  const part2TranslateY = useRef(new Animated.Value(25)).current;
   const part2Opacity = useRef(new Animated.Value(0)).current;
 
-  // 4. Part 3: Center Dot Animation (Drops from above with elastic bounce)
-  const part3TranslateY = useRef(new Animated.Value(-48)).current;
-  const part3Scale = useRef(new Animated.Value(0.35)).current;
+  // 4. Part 3: Center Dot (drops in from above with spring)
+  const part3TranslateY = useRef(new Animated.Value(-30)).current;
+  const part3Scale = useRef(new Animated.Value(0.4)).current;
   const part3Opacity = useRef(new Animated.Value(0)).current;
 
   // 5. Circular ripple on dot impact
@@ -64,7 +59,7 @@ export default function SplashAnimationScreen() {
   const letterAnims = useMemo(
     () =>
       WORDMARK_CHARS.map(() => ({
-        y: new Animated.Value(30),
+        y: new Animated.Value(24),
         opacity: new Animated.Value(0),
       })),
     []
@@ -82,28 +77,63 @@ export default function SplashAnimationScreen() {
   // 9. Month label
   const labelOpacity = useRef(new Animated.Value(0)).current;
 
-  // 10. Final green circle screen flood
-  const floodScale = useRef(new Animated.Value(0.001)).current;
-  const floodOpacity = useRef(new Animated.Value(0)).current;
-
+  // Destination route pre-resolved on mount so navigation is instantaneous
+  const nextRouteRef = useRef<string>("/(tabs)");
   const isNavigating = useRef(false);
 
   useEffect(() => {
     // Hide static splash immediately
     SplashScreen.hideAsync().catch(() => {});
+
+    // Pre-resolve target route early in the background
+    (async () => {
+      try {
+        const { isOnboarded, user, isSignedIn: signedIn } = useAuthStore.getState();
+        if (signedIn) {
+          if (isOnboarded) {
+            nextRouteRef.current = "/(tabs)";
+          } else {
+            const phoneDigits = (user?.phone || "").replace(/\D/g, "");
+            const needsProfile =
+              phoneDigits.length < 10 ||
+              !user?.username ||
+              user.username === "ZonoFit Member" ||
+              user.username === "Google User";
+            nextRouteRef.current = needsProfile ? "/(auth)/create-account" : "/onboarding/select-city";
+          }
+          return;
+        }
+
+        const { initializeGuest } = useGuestStore.getState();
+        const guestStatus = await initializeGuest();
+        if (guestStatus.isGuest) {
+          nextRouteRef.current = guestStatus.isExpired ? "/guest-expired" : "/(tabs)";
+        } else {
+          nextRouteRef.current = "/intro";
+        }
+      } catch {
+        nextRouteRef.current = "/(tabs)";
+      }
+    })();
   }, []);
 
-  // ─── 3-Part Logo Master Choreography ───
+  const navigateNext = () => {
+    if (isNavigating.current) return;
+    isNavigating.current = true;
+    router.replace((nextRouteRef.current || "/(tabs)") as any);
+  };
+
+  // ─── Choreographed Splash Animation ───
   useEffect(() => {
     const timers: any[] = [];
 
-    // [0ms - 400ms]: Green squircle tile scales in smoothly
+    // [0ms - 380ms]: Green squircle tile scales in smoothly
     timers.push(
       setTimeout(() => {
         Animated.parallel([
           Animated.timing(tileOpacity, {
             toValue: 1,
-            duration: 380,
+            duration: 340,
             easing: Easing.out(Easing.cubic),
             useNativeDriver: true,
           }),
@@ -117,69 +147,45 @@ export default function SplashAnimationScreen() {
       }, 50)
     );
 
-    // [350ms - 750ms]: Part 1 — Top Bar sweeps in dynamically from left
+    // [380ms - 720ms]: Part 1 — Top Bar slides in from left
     timers.push(
       setTimeout(() => {
         Animated.parallel([
           Animated.timing(part1Opacity, {
             toValue: 1,
-            duration: 280,
+            duration: 260,
             useNativeDriver: true,
           }),
           Animated.timing(part1TranslateX, {
             toValue: 0,
-            duration: 380,
+            duration: 320,
             easing: Easing.bezier(0.16, 1, 0.3, 1),
             useNativeDriver: true,
           }),
-          Animated.timing(part1ScaleX, {
-            toValue: 1,
-            duration: 380,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-          }),
         ]).start();
-      }, 350)
+      }, 380)
     );
 
-    // [650ms - 1050ms]: Part 2 — Middle Hook curves in from bottom-right and snaps into place
+    // [640ms - 980ms]: Part 2 — Middle Hook slides up smoothly
     timers.push(
       setTimeout(() => {
         Animated.parallel([
           Animated.timing(part2Opacity, {
             toValue: 1,
-            duration: 280,
-            useNativeDriver: true,
-          }),
-          Animated.timing(part2TranslateX, {
-            toValue: 0,
-            duration: 380,
-            easing: Easing.out(Easing.cubic),
+            duration: 260,
             useNativeDriver: true,
           }),
           Animated.timing(part2TranslateY, {
             toValue: 0,
-            duration: 380,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-          }),
-          Animated.spring(part2Scale, {
-            toValue: 1,
-            friction: 7,
-            tension: 80,
-            useNativeDriver: true,
-          }),
-          Animated.timing(part2Rotate, {
-            toValue: 0,
-            duration: 360,
+            duration: 320,
             easing: Easing.out(Easing.cubic),
             useNativeDriver: true,
           }),
         ]).start();
-      }, 650)
+      }, 640)
     );
 
-    // [1050ms - 1450ms]: Part 3 — Center Dot drops into the hook with elastic spring
+    // [950ms - 1350ms]: Part 3 — Center Dot drops into the hook with elastic spring
     timers.push(
       setTimeout(() => {
         Animated.parallel([
@@ -191,13 +197,13 @@ export default function SplashAnimationScreen() {
           Animated.spring(part3TranslateY, {
             toValue: 0,
             friction: 5,
-            tension: 95,
+            tension: 90,
             useNativeDriver: true,
           }),
           Animated.spring(part3Scale, {
             toValue: 1,
             friction: 5,
-            tension: 95,
+            tension: 90,
             useNativeDriver: true,
           }),
         ]).start(() => {
@@ -205,58 +211,58 @@ export default function SplashAnimationScreen() {
           Animated.parallel([
             Animated.sequence([
               Animated.timing(rippleOpacity, {
-                toValue: 0.85,
-                duration: 90,
+                toValue: 0.8,
+                duration: 80,
                 useNativeDriver: true,
               }),
               Animated.timing(rippleOpacity, {
                 toValue: 0,
-                duration: 380,
+                duration: 360,
                 useNativeDriver: true,
               }),
             ]),
             Animated.timing(rippleScale, {
-              toValue: 2.5,
-              duration: 470,
+              toValue: 2.2,
+              duration: 440,
               easing: Easing.out(Easing.quad),
               useNativeDriver: true,
             }),
           ]).start();
 
-          // Subtle whole-logo micro-punch impact
+          // Gentle logo settle impact
           Animated.sequence([
             Animated.timing(tileScale, {
-              toValue: 1.035,
-              duration: 130,
+              toValue: 1.025,
+              duration: 110,
               easing: Easing.out(Easing.quad),
               useNativeDriver: true,
             }),
             Animated.timing(tileScale, {
               toValue: 1.0,
-              duration: 180,
+              duration: 160,
               easing: Easing.inOut(Easing.quad),
               useNativeDriver: true,
             }),
           ]).start();
         });
-      }, 1050)
+      }, 950)
     );
 
-    // [1600ms - 2000ms]: Wordmark letters staggered reveal
+    // [1500ms - 1900ms]: Wordmark letters staggered rise
     timers.push(
       setTimeout(() => {
         const letterAnimations = letterAnims.map((item, index) =>
           Animated.sequence([
-            Animated.delay(index * 38),
+            Animated.delay(index * 36),
             Animated.parallel([
               Animated.timing(item.opacity, {
                 toValue: 1,
-                duration: 220,
+                duration: 200,
                 useNativeDriver: true,
               }),
               Animated.timing(item.y, {
                 toValue: 0,
-                duration: 220,
+                duration: 200,
                 easing: Easing.out(Easing.cubic),
                 useNativeDriver: true,
               }),
@@ -264,69 +270,71 @@ export default function SplashAnimationScreen() {
           ])
         );
         Animated.parallel(letterAnimations).start();
-      }, 1600)
+      }, 1500)
     );
 
-    // [1950ms - 2250ms]: Tagline fade in
+    // [1850ms - 2150ms]: Tagline fade in
     timers.push(
       setTimeout(() => {
         Animated.timing(taglineOpacity, {
           toValue: 1,
-          duration: 300,
+          duration: 280,
           easing: Easing.out(Easing.quad),
           useNativeDriver: true,
         }).start();
-      }, 1950)
+      }, 1850)
     );
 
-    // [2200ms - 2700ms]: 12-Segment Progress fills to current journey month
+    // [2100ms - 2600ms]: 12-Segment Progress fills to current journey month
     timers.push(
       setTimeout(() => {
         const filled = Math.max(1, Math.min(cycleMonth, TOTAL_JOURNEY_MONTHS));
         const activeSegmentAnimations = segmentAnims.slice(0, filled).map((anim, index) =>
           Animated.sequence([
-            Animated.delay(index * 80),
+            Animated.delay(index * 70),
             Animated.timing(anim, {
               toValue: 1,
-              duration: 120,
+              duration: 110,
               easing: Easing.out(Easing.quad),
               useNativeDriver: false,
             }),
           ])
         );
         Animated.parallel(activeSegmentAnimations).start();
-      }, 2200)
+      }, 2100)
     );
 
-    // [2600ms - 2900ms]: Month label fade in
+    // [2500ms - 2800ms]: Month label fade in
     timers.push(
       setTimeout(() => {
         Animated.timing(labelOpacity, {
           toValue: 1,
-          duration: 260,
+          duration: 240,
           easing: Easing.out(Easing.quad),
           useNativeDriver: true,
         }).start();
-      }, 2600)
+      }, 2500)
     );
 
-    // [3050ms - 3350ms]: Green flood expands smoothly from dot
+    // [3000ms - 3300ms]: Smooth, beautiful fade-out of splash screen into the app
     timers.push(
       setTimeout(() => {
-        Animated.parallel([
-          Animated.timing(floodOpacity, {
-            toValue: 1,
-            duration: 50,
-            useNativeDriver: true,
-          }),
-          Animated.timing(floodScale, {
-            toValue: 30,
-            duration: 320,
-            easing: Easing.bezier(0.2, 0.8, 0.25, 1),
-            useNativeDriver: true,
-          }),
-        ]).start();
-      }, 3050)
+        Animated.timing(screenFadeAnim, {
+          toValue: 0,
+          duration: 280,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }).start(() => {
+          navigateNext();
+        });
+      }, 3000)
+    );
+
+    // Safety fallback navigation after 3500ms
+    timers.push(
+      setTimeout(() => {
+        navigateNext();
+      }, 3500)
     );
 
     return () => {
@@ -334,80 +342,27 @@ export default function SplashAnimationScreen() {
     };
   }, [cycleMonth, letterAnims, segmentAnims]);
 
-  // [3450ms]: Seamless navigation into app
-  useEffect(() => {
-    if (!isLoaded) return;
+  const tileSize = u(420);
+  const tileRadius = u(102);
 
-    const navTimer = setTimeout(() => {
-      if (isNavigating.current) return;
-      isNavigating.current = true;
-
-      Animated.timing(screenFadeAnim, {
-        toValue: 0,
-        duration: 180,
-        useNativeDriver: true,
-      }).start(async () => {
-        const { isOnboarded, user, isSignedIn: signedIn } = useAuthStore.getState();
-
-        if (signedIn) {
-          if (isOnboarded) {
-            router.replace("/(tabs)");
-            return;
-          } else {
-            const phoneDigits = (user?.phone || "").replace(/\D/g, "");
-            const needsProfile =
-              phoneDigits.length < 10 ||
-              !user?.username ||
-              user.username === "ZonoFit Member" ||
-              user.username === "Google User";
-            if (needsProfile) {
-              router.replace("/(auth)/create-account" as any);
-            } else {
-              router.replace("/onboarding/select-city" as any);
-            }
-            return;
-          }
-        }
-
-        const { initializeGuest } = useGuestStore.getState();
-        const guestStatus = await initializeGuest();
-
-        if (guestStatus.isGuest) {
-          if (guestStatus.isExpired) {
-            router.replace("/guest-expired" as any);
-          } else {
-            router.replace("/(tabs)");
-          }
-        } else {
-          router.replace("/intro" as any);
-        }
-      });
-    }, 3450);
-
-    return () => clearTimeout(navTimer);
-  }, [isLoaded, screenFadeAnim, router]);
-
-  // Responsive squircle size
-  const tileSize = u(410);
-
-  // Hook rotation interpolation (8deg -> 0deg)
-  const hookRotateInterpolation = part2Rotate.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0deg", "8deg"],
-  });
+  // Dot position relative to squircle (dot center is at 46.6% width, 66.7% height)
+  const dotCenterX = 0.466 * tileSize;
+  const dotCenterY = 0.667 * tileSize;
+  const rippleRadius = u(26);
 
   return (
     <Animated.View style={[styles.container, { opacity: screenFadeAnim }]}>
       <StatusBar style="dark" />
 
       <View style={styles.contentWrap}>
-        {/* ─── The Animated 3-Part Logo ─── */}
+        {/* ─── The Animated 3-Part Logo Squircle ─── */}
         <Animated.View
           style={[
             styles.tileWrapper,
             {
               width: tileSize,
               height: tileSize,
+              borderRadius: tileRadius,
               opacity: tileOpacity,
               transform: [{ scale: tileScale }],
             },
@@ -426,10 +381,7 @@ export default function SplashAnimationScreen() {
               StyleSheet.absoluteFill,
               {
                 opacity: part1Opacity,
-                transform: [
-                  { translateX: part1TranslateX },
-                  { scaleX: part1ScaleX },
-                ],
+                transform: [{ translateX: part1TranslateX }],
               },
             ]}
           >
@@ -446,12 +398,7 @@ export default function SplashAnimationScreen() {
               StyleSheet.absoluteFill,
               {
                 opacity: part2Opacity,
-                transform: [
-                  { translateX: part2TranslateX },
-                  { translateY: part2TranslateY },
-                  { scale: part2Scale },
-                  { rotate: hookRotateInterpolation },
-                ],
+                transform: [{ translateY: part2TranslateY }],
               },
             ]}
           >
@@ -482,16 +429,16 @@ export default function SplashAnimationScreen() {
             />
           </Animated.View>
 
-          {/* Impact Ripple Ring centered on the dot */}
+          {/* Impact Ripple Ring centered exactly on the dot */}
           <Animated.View
             style={[
               styles.rippleRing,
               {
-                top: (684 / 1024) * tileSize - u(26),
-                left: (485 / 1040) * tileSize - u(26),
-                width: u(52),
-                height: u(52),
-                borderRadius: u(26),
+                top: dotCenterY - rippleRadius,
+                left: dotCenterX - rippleRadius,
+                width: rippleRadius * 2,
+                height: rippleRadius * 2,
+                borderRadius: rippleRadius,
                 opacity: rippleOpacity,
                 transform: [{ scale: rippleScale }],
               },
@@ -500,7 +447,7 @@ export default function SplashAnimationScreen() {
         </Animated.View>
 
         {/* ─── Wordmark "Zonofit" with staggered letter rise ─── */}
-        <View style={[styles.wordmarkClipBox, { height: u(118), marginTop: u(52) }]}>
+        <View style={[styles.wordmarkClipBox, { height: u(118), marginTop: u(54) }]}>
           <View style={styles.wordmarkRow}>
             {WORDMARK_CHARS.map((char, index) => (
               <Animated.Text
@@ -527,7 +474,7 @@ export default function SplashAnimationScreen() {
             styles.brandSubtitle,
             {
               fontSize: u(43),
-              marginTop: u(20),
+              marginTop: u(22),
               opacity: taglineOpacity,
             },
           ]}
@@ -552,8 +499,8 @@ export default function SplashAnimationScreen() {
                     styles.dashTrack,
                     {
                       width: u(46),
-                      height: u(17),
-                      borderRadius: u(9),
+                      height: u(16),
+                      borderRadius: u(8),
                     },
                   ]}
                 >
@@ -562,7 +509,7 @@ export default function SplashAnimationScreen() {
                       style={[
                         StyleSheet.absoluteFill,
                         {
-                          borderRadius: u(9),
+                          borderRadius: u(8),
                           backgroundColor: bgInterpolation,
                         },
                       ]}
@@ -575,27 +522,12 @@ export default function SplashAnimationScreen() {
 
           {/* Current Month of 12 Label */}
           <Animated.View style={{ opacity: labelOpacity, marginTop: u(22) }}>
-            <Text style={[styles.monthLabel, { fontSize: u(37) }]}>
+            <Text style={[styles.monthLabel, { fontSize: u(38) }]}>
               Month {cycleMonth} of {TOTAL_JOURNEY_MONTHS}
             </Text>
           </Animated.View>
         </View>
       </View>
-
-      {/* ─── Signature Green Screen Flood Transition ─── */}
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          styles.floodCircle,
-          {
-            width: u(120),
-            height: u(120),
-            borderRadius: u(60),
-            opacity: floodOpacity,
-            transform: [{ scale: floodScale }],
-          },
-        ]}
-      />
     </Animated.View>
   );
 }
@@ -615,15 +547,16 @@ const styles = StyleSheet.create({
   },
   tileWrapper: {
     position: "relative",
+    overflow: "hidden",
     shadowColor: "#4A8A33",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.16,
-    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
     elevation: 0,
   },
   rippleRing: {
     position: "absolute",
-    borderWidth: 3,
+    borderWidth: 2.5,
     borderColor: "#FFFFFF",
     backgroundColor: "transparent",
   },
@@ -663,9 +596,5 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#6B7470",
     letterSpacing: 0.2,
-  },
-  floodCircle: {
-    position: "absolute",
-    backgroundColor: "#248043",
   },
 });
