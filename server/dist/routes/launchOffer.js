@@ -8,18 +8,33 @@ const router = (0, express_1.Router)();
 const GYM_NAMES = [
     // Registered / Live on ZonoFit
     "Pro Fitness Studio",
+    "Pro Fitness Studio (Madri Industrial Area)",
     "Mrinaal Fitness Empire",
+    "Mrinaal Fitness Empire (Branch 1 – Sector 11, Hiran Magri)",
+    "Mrinaal Fitness Empire (Branch 2)",
     "Prime Fitness Studio",
+    "Prime Fitness Studio (Sector 3, Hiran Magri)",
     "Veer Fitness Gym",
+    "Veer Fitness Gym (Sector 3, Hiran Magri)",
     "Fireup Wolverinez Gym & Fitness",
+    "Fireup Wolverinez Gym & Fitness (Sector 5, Hiran Magri)",
     "B1 Fitness Gym and Supplement Store",
+    "B1 Fitness Gym and Supplement Store (Sajjangarh Road)",
     "Zoro Fitness",
+    "Zoro Fitness (100 Feet Road)",
     "B&H Gym",
+    "B&H Gym (Main Road)",
     "The Gym Zone",
+    "The Gym Zone (Ashirwad Nagar)",
+    "The Gym Zone (University Road)",
     "The Fitness Zone Unisex Gym",
+    "The Fitness Zone Unisex Gym (Ashok Nagar)",
     "108 Being Fit Fitness",
+    "108 Being Fit Fitness (Sector 4, Hiran Magri)",
     "Being Fit Fitness 2.0",
+    "Being Fit Fitness 2.0 (Pulla Bhuwana)",
     "Dolphin Health Club",
+    "Dolphin Health Club (Thoker Chouraha, Ganapati Nagar)",
     // Unlock / About to join
     "Healthline Fitness Studio",
     "ALPHA FITNESS CLUB",
@@ -69,7 +84,8 @@ function parseApplication(body) {
         return { ok: false, message: "Pick one" };
     const gymText = oneLine(input.gym, 120);
     const customGym = oneLine(input.customGym, 120);
-    const listed = GYM_NAMES.find((item) => item.toLowerCase() === gymText.toLowerCase());
+    const listed = GYM_NAMES.find((item) => item.toLowerCase() === gymText.toLowerCase() ||
+        gymText.toLowerCase().startsWith(item.toLowerCase()));
     if (!listed && customGym.length < 3) {
         return { ok: false, message: "Pick a gym or tell us yours" };
     }

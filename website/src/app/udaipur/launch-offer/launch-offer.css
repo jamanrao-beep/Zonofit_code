@@ -523,15 +523,22 @@
 .lu-card-info {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  min-height: 36px;
+  gap: 3px;
+  min-height: 44px;
 }
 
 .lu-card-name {
   font-size: 13.5px;
   font-weight: 700;
   color: #ffffff;
-  line-height: 1.28;
+  line-height: 1.25;
+}
+
+.lu-card-area {
+  font-size: 11.5px;
+  color: #8d9c92;
+  font-weight: 500;
+  line-height: 1.3;
 }
 
 .lu-badge-row {

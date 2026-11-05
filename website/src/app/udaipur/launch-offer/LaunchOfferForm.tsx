@@ -23,6 +23,8 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? "https://api.zonofit.com";
 
 export type LiveGym = {
   name: string;
+  branch: string;
+  fullName: string;
 };
 
 export type UnlockGym = {
@@ -31,19 +33,21 @@ export type UnlockGym = {
 };
 
 const LIVE_GYMS: LiveGym[] = [
-  { name: "Pro Fitness Studio" },
-  { name: "Mrinaal Fitness Empire" },
-  { name: "Prime Fitness Studio" },
-  { name: "Veer Fitness Gym" },
-  { name: "Fireup Wolverinez Gym & Fitness" },
-  { name: "B1 Fitness Gym and Supplement Store" },
-  { name: "Zoro Fitness" },
-  { name: "B&H Gym" },
-  { name: "The Gym Zone" },
-  { name: "The Fitness Zone Unisex Gym" },
-  { name: "108 Being Fit Fitness" },
-  { name: "Being Fit Fitness 2.0" },
-  { name: "Dolphin Health Club" },
+  { name: "Pro Fitness Studio", branch: "Madri Industrial Area", fullName: "Pro Fitness Studio (Madri Industrial Area)" },
+  { name: "Mrinaal Fitness Empire", branch: "Branch 1 – Sector 11, Hiran Magri", fullName: "Mrinaal Fitness Empire (Branch 1 – Sector 11, Hiran Magri)" },
+  { name: "Mrinaal Fitness Empire", branch: "Branch 2", fullName: "Mrinaal Fitness Empire (Branch 2)" },
+  { name: "Prime Fitness Studio", branch: "Sector 3, Hiran Magri", fullName: "Prime Fitness Studio (Sector 3, Hiran Magri)" },
+  { name: "Veer Fitness Gym", branch: "Sector 3, Hiran Magri", fullName: "Veer Fitness Gym (Sector 3, Hiran Magri)" },
+  { name: "Fireup Wolverinez Gym & Fitness", branch: "Sector 5, Hiran Magri", fullName: "Fireup Wolverinez Gym & Fitness (Sector 5, Hiran Magri)" },
+  { name: "B1 Fitness Gym and Supplement Store", branch: "Sajjangarh Road", fullName: "B1 Fitness Gym and Supplement Store (Sajjangarh Road)" },
+  { name: "Zoro Fitness", branch: "100 Feet Road", fullName: "Zoro Fitness (100 Feet Road)" },
+  { name: "B&H Gym", branch: "Main Road", fullName: "B&H Gym (Main Road)" },
+  { name: "The Gym Zone", branch: "Ashirwad Nagar branch", fullName: "The Gym Zone (Ashirwad Nagar)" },
+  { name: "The Gym Zone", branch: "University Road branch", fullName: "The Gym Zone (University Road)" },
+  { name: "The Fitness Zone Unisex Gym", branch: "Ashok Nagar branch", fullName: "The Fitness Zone Unisex Gym (Ashok Nagar)" },
+  { name: "108 Being Fit Fitness", branch: "Branch 1 – Sector 4, Hiran Magri", fullName: "108 Being Fit Fitness (Sector 4, Hiran Magri)" },
+  { name: "Being Fit Fitness 2.0", branch: "Pulla Bhuwana", fullName: "Being Fit Fitness 2.0 (Pulla Bhuwana)" },
+  { name: "Dolphin Health Club", branch: "Thoker Chouraha, Ganapati Nagar", fullName: "Dolphin Health Club (Thoker Chouraha, Ganapati Nagar)" },
 ];
 
 const UNLOCK_GYMS: UnlockGym[] = [
@@ -64,6 +68,7 @@ const UNLOCK_GYMS: UnlockGym[] = [
 
 /** Keep this list in sync with server/src/routes/launchOffer.ts */
 const GYMS = [
+  ...LIVE_GYMS.map((g) => g.fullName),
   ...LIVE_GYMS.map((g) => g.name),
   ...UNLOCK_GYMS.map((g) => g.name),
 ];
@@ -303,7 +308,9 @@ export default function LaunchOfferForm() {
   const filteredLive = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return LIVE_GYMS;
-    return LIVE_GYMS.filter((item) => item.name.toLowerCase().includes(q));
+    return LIVE_GYMS.filter(
+      (item) => item.name.toLowerCase().includes(q) || item.branch.toLowerCase().includes(q)
+    );
   }, [query]);
 
   const filteredUnlock = useMemo(() => {
@@ -536,20 +543,21 @@ export default function LaunchOfferForm() {
                       </div>
                       <div className="lu-card-grid">
                         {filteredLive.map((item) => {
-                          const isSelected = !custom && gym === item.name;
+                          const isSelected = !custom && (gym === item.fullName || gym === item.name);
                           return (
                             <button
-                              key={item.name}
+                              key={item.fullName}
                               type="button"
                               className={`lu-gym-card lu-live-card ${isSelected ? "selected" : ""}`}
                               aria-pressed={isSelected}
                               onClick={() => {
-                                setGym(item.name);
+                                setGym(item.fullName);
                                 setCustom(false);
                               }}
                             >
                               <div className="lu-card-info">
                                 <strong className="lu-card-name">{item.name}</strong>
+                                <span className="lu-card-area">{item.branch}</span>
                               </div>
                               <div className="lu-badge-row">
                                 <span className="lu-live-pill">Free seats open</span>
