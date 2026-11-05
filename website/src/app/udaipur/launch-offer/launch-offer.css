@@ -741,8 +741,9 @@
   align-items: center;
   gap: 8px;
   font-weight: 800;
-  letter-spacing: 0.18em;
-  font-size: 13px;
+  letter-spacing: 0.04em;
+  font-size: 15px;
+  color: #ffffff;
 }
 
 .lu-brand img {
@@ -751,8 +752,10 @@
   object-fit: contain;
 }
 
+.lu-brand span,
 .lu-brand b {
-  color: var(--g2);
+  color: #ffffff;
+  font-weight: 800;
 }
 
 .lu-ring2 {

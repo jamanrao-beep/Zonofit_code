@@ -229,8 +229,8 @@ function SuccessPage({ sent, onClose }: { sent: Sent; onClose: () => void }) {
         <div className="lu-pin">
           <div className="lu-brand">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/Zonofit_Logo_RemovedBackground.png" alt="" />
-            ZONO<b>FIT</b>
+            <img src="/Zonofit_Logo_RemovedBackground.png" alt="ZonoFit" />
+            <span>ZONOFIT</span>
           </div>
           <div className="lu-ring2">
             <i>
