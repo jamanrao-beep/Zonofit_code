@@ -21,21 +21,44 @@ function InstaIcon({ size = 22 }: { size?: number }) {
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "https://api.zonofit.com";
 
+export type LiveGym = {
+  name: string;
+  area: string;
+};
+
+export type UnlockGym = {
+  name: string;
+  area: string;
+  baseVotes: number;
+};
+
+const LIVE_GYMS: LiveGym[] = [
+  { name: "Pro Fitness Studio", area: "Hiran Magri" },
+  { name: "Mrinaal Fitness Empire", area: "Sector 4" },
+  { name: "Prime Fitness Studio", area: "Bhupalpura" },
+  { name: "Veer Fitness Gym", area: "Sukher" },
+];
+
+const UNLOCK_GYMS: UnlockGym[] = [
+  { name: "Healthline Fitness Studio", area: "Udaipur · Not live yet", baseVotes: 6 },
+  { name: "ALPHA FITNESS CLUB", area: "Udaipur · Not live yet", baseVotes: 7 },
+  { name: "The Fitness Freak Health Club", area: "Udaipur · Not live yet", baseVotes: 5 },
+  { name: "Core fitness gym udaipur", area: "Udaipur · Not live yet", baseVotes: 6 },
+  { name: "Scitify Gym & Performance", area: "Udaipur · Not live yet", baseVotes: 8 },
+  { name: "Shape Up Fitness", area: "Udaipur · Not live yet", baseVotes: 4 },
+  { name: "Delta fitness", area: "Udaipur · Not live yet", baseVotes: 5 },
+  { name: "Metroflex gym", area: "Udaipur · Not live yet", baseVotes: 7 },
+  { name: "Ekaay fitness", area: "Udaipur · Not live yet", baseVotes: 3 },
+  { name: "Energy Fitness", area: "Udaipur · Not live yet", baseVotes: 6 },
+  { name: "Paliwal Gym", area: "Udaipur · Not live yet", baseVotes: 4 },
+  { name: "Strong Fit Gym", area: "Udaipur · Not live yet", baseVotes: 7 },
+  { name: "Daesthetic club", area: "Udaipur · Not live yet", baseVotes: 5 },
+];
+
 /** Keep this list in sync with server/src/routes/launchOffer.ts */
 const GYMS = [
-  "Pro Fitness Studio",
-  "Mrinaal Fitness Empire",
-  "Prime Fitness Studio",
-  "Veer Fitness Gym",
-  "Fireup Wolverinez Gym & Fitness",
-  "B1 Fitness Gym and Supplement Store",
-  "Zoro Fitness",
-  "B&H Gym",
-  "The Gym Zone",
-  "The Fitness Zone Unisex Gym",
-  "108 Being Fit Fitness",
-  "Being Fit Fitness 2.0",
-  "Dolphin Health Club",
+  ...LIVE_GYMS.map((g) => g.name),
+  ...UNLOCK_GYMS.map((g) => g.name),
 ];
 
 const SEX = ["Male", "Female", "Other"] as const;
@@ -270,9 +293,20 @@ export default function LaunchOfferForm() {
     setMounted(true);
   }, []);
 
-  const visibleGyms = useMemo(() => {
+  const filteredLive = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return GYMS.filter((item) => item.toLowerCase().includes(q));
+    if (!q) return LIVE_GYMS;
+    return LIVE_GYMS.filter(
+      (item) => item.name.toLowerCase().includes(q) || item.area.toLowerCase().includes(q)
+    );
+  }, [query]);
+
+  const filteredUnlock = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return UNLOCK_GYMS;
+    return UNLOCK_GYMS.filter(
+      (item) => item.name.toLowerCase().includes(q) || item.area.toLowerCase().includes(q)
+    );
   }, [query]);
 
   function validate(): boolean {
@@ -467,42 +501,135 @@ export default function LaunchOfferForm() {
 
             <div className="lu-f">
               <span className="lu-lab">Pick your gym</span>
-              <input
-                className="lu-in"
-                id="lu-q"
-                placeholder="Search gym"
-                aria-label="Search gym"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-              />
-              <div className="lu-list">
-                {visibleGyms.map((item) => (
+              <div className="lu-gym-picker">
+                <div className="lu-search-wrap">
+                  <svg className="lu-search-ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                  <input
+                    className="lu-search-in"
+                    id="lu-q"
+                    placeholder="Search gyms"
+                    aria-label="Search gyms"
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                  />
+                  {query ? (
+                    <button type="button" className="lu-search-clear" aria-label="Clear search" onClick={() => setQuery("")}>
+                      ×
+                    </button>
+                  ) : null}
+                </div>
+
+                <div className="lu-gym-scroll">
+                  {filteredLive.length > 0 && (
+                    <div className="lu-gym-sec">
+                      <div className="lu-sec-hdr">
+                        <span className="lu-sec-title">
+                          <span className="lu-live-dot" /> LIVE ON ZONOFIT
+                        </span>
+                        <span className="lu-sec-count">{filteredLive.length} {filteredLive.length === 1 ? "gym" : "gyms"}</span>
+                      </div>
+                      <div className="lu-card-grid">
+                        {filteredLive.map((item) => {
+                          const isSelected = !custom && gym === item.name;
+                          return (
+                            <button
+                              key={item.name}
+                              type="button"
+                              className={`lu-gym-card lu-live-card ${isSelected ? "selected" : ""}`}
+                              aria-pressed={isSelected}
+                              onClick={() => {
+                                setGym(item.name);
+                                setCustom(false);
+                              }}
+                            >
+                              <div className="lu-card-info">
+                                <strong className="lu-card-name">{item.name}</strong>
+                                <span className="lu-card-area">{item.area}</span>
+                              </div>
+                              <div className="lu-badge-row">
+                                <span className="lu-live-pill">Free seats open</span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {filteredUnlock.length > 0 && (
+                    <div className="lu-gym-sec">
+                      <div className="lu-sec-hdr">
+                        <span className="lu-sec-title">UNLOCK YOUR GYM</span>
+                        <span className="lu-sec-meta">Votes needed to go live</span>
+                      </div>
+                      <div className="lu-card-grid">
+                        {filteredUnlock.map((item) => {
+                          const isSelected = !custom && gym === item.name;
+                          const votes = Math.min(30, item.baseVotes + (isSelected ? 1 : 0));
+                          const needed = Math.max(0, 30 - votes);
+                          const pct = Math.min(100, Math.round((votes / 30) * 100));
+
+                          return (
+                            <button
+                              key={item.name}
+                              type="button"
+                              className={`lu-gym-card lu-unlock-card ${isSelected ? "selected" : ""}`}
+                              aria-pressed={isSelected}
+                              onClick={() => {
+                                setGym(item.name);
+                                setCustom(false);
+                              }}
+                            >
+                              <div className="lu-card-info">
+                                <strong className="lu-card-name">{item.name}</strong>
+                                <span className="lu-card-area">{item.area}</span>
+                              </div>
+                              <div className="lu-prog-wrap">
+                                <div className="lu-prog-track">
+                                  <div className="lu-prog-fill" style={{ width: `${pct}%` }} />
+                                </div>
+                                <div className="lu-count-row">
+                                  <span className="lu-count-left">
+                                    <b>{votes}</b> / 30 members
+                                  </span>
+                                  <span className="lu-count-right">
+                                    {needed} to unlock
+                                  </span>
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {filteredLive.length === 0 && filteredUnlock.length === 0 && (
+                    <div className="lu-no-matches">
+                      No gyms found matching &ldquo;{query}&rdquo;
+                    </div>
+                  )}
+
                   <button
-                    key={item}
                     type="button"
-                    className="lu-gym"
-                    aria-pressed={!custom && gym === item}
+                    className={`lu-gym-card lu-custom-toggle ${custom ? "selected" : ""}`}
+                    aria-pressed={custom}
                     onClick={() => {
-                      setGym(item);
-                      setCustom(false);
+                      setCustom(true);
+                      setGym("");
+                      requestAnimationFrame(() => customRef.current?.focus());
                     }}
                   >
-                    <strong>{item}</strong>
+                    <div className="lu-custom-info">
+                      <strong>My gym isn’t listed</strong>
+                      <small>Request it — we unlock partner gyms as votes reach 30</small>
+                    </div>
+                    <span className="lu-custom-plus">{custom ? "✓" : "+"}</span>
                   </button>
-                ))}
-                <button
-                  type="button"
-                  className="lu-gym"
-                  aria-pressed={custom}
-                  onClick={() => {
-                    setCustom(true);
-                    setGym("");
-                    requestAnimationFrame(() => customRef.current?.focus());
-                  }}
-                >
-                  <strong>My gym isn’t listed</strong>
-                  <small>Request it</small>
-                </button>
+                </div>
               </div>
               {custom ? (
                 <div className="lu-custom">

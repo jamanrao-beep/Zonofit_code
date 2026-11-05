@@ -6,19 +6,25 @@ const rateLimit_1 = require("../lib/rateLimit");
 const router = (0, express_1.Router)();
 /** Names the Udaipur launch page offers. Keep this list in sync with the website form. */
 const GYM_NAMES = [
+    // Live on ZonoFit
     "Pro Fitness Studio",
     "Mrinaal Fitness Empire",
     "Prime Fitness Studio",
     "Veer Fitness Gym",
-    "Fireup Wolverinez Gym & Fitness",
-    "B1 Fitness Gym and Supplement Store",
-    "Zoro Fitness",
-    "B&H Gym",
-    "The Gym Zone",
-    "The Fitness Zone Unisex Gym",
-    "108 Being Fit Fitness",
-    "Being Fit Fitness 2.0",
-    "Dolphin Health Club",
+    // Unlock / About to join
+    "Healthline Fitness Studio",
+    "ALPHA FITNESS CLUB",
+    "The Fitness Freak Health Club",
+    "Core fitness gym udaipur",
+    "Scitify Gym & Performance",
+    "Shape Up Fitness",
+    "Delta fitness",
+    "Metroflex gym",
+    "Ekaay fitness",
+    "Energy Fitness",
+    "Paliwal Gym",
+    "Strong Fit Gym",
+    "Daesthetic club",
 ];
 const SEX = ["Male", "Female", "Other"];
 function oneLine(value, max) {

@@ -1,91 +1,96 @@
 import { useAuthStore } from "@/store/useAuthStore";
-import { useCreditsStore } from "@/store/useCreditsStore";
 import { useGuestStore } from "@/store/useGuestStore";
-import { useUserStore } from "@/store/useUserStore";
+import { Canvas, LinearGradient, Rect, vec } from "@shopify/react-native-skia";
+import { useFonts } from "expo-font";
 import { useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import { useEffect, useMemo, useRef } from "react";
+import { StatusBar } from "expo-status-bar";
+import { useEffect, useRef, useState } from "react";
 import {
+  AccessibilityInfo,
   Animated,
   Dimensions,
   Easing,
   Image,
   StyleSheet,
-  Text,
   View,
 } from "react-native";
-import { StatusBar } from "expo-status-bar";
 
-const TOTAL_JOURNEY_MONTHS = 12;
-const WORDMARK_CHARS = ["Z", "o", "n", "o", "f", "i", "t"];
+const EASE_QUINT = Easing.bezier(0.22, 1, 0.36, 1);
+const EASE_EXPO = Easing.bezier(0.16, 1, 0.3, 1);
+const EASE_BACK = Easing.bezier(0.34, 1.56, 0.64, 1);
+const EASE_SHINE = Easing.bezier(0.65, 0, 0.35, 1);
 
+const HOLD_MS = 3700;
+
+/**
+ * Opening splash. Same beat as the website: the green tile pops, the mark
+ * slides together, a shine crosses it, then the name and tagline rise.
+ */
 export default function SplashAnimationScreen() {
   const router = useRouter();
+  const [fontsLoaded, fontError] = useFonts({
+    PoppinsMedium: require("@/assets/fonts/Poppins-Medium.ttf"),
+  });
+  const fontReady = fontsLoaded || fontError != null;
 
-  const userMonth = useUserStore((s) => s.currentMonth);
-  const membershipCycle = useCreditsStore((s) => s.membershipInfo?.cycleNumber);
-  const cycleMonth = Math.max(1, Math.min(TOTAL_JOURNEY_MONTHS, membershipCycle || userMonth || 1));
+  const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
+  const vmin = Math.min(screenWidth, screenHeight) / 100;
+  const tileSize = Math.min(screenWidth * 0.42, 230);
+  const motion = tileSize / 230;
+  const tileRadius = tileSize * (250 / 1017);
+  const lift = Math.max(18, Math.min(34, 4 * vmin));
+  const nameGap = Math.max(26, Math.min(48, 6 * vmin));
+  const nameSize = Math.max(34, Math.min(52, 9 * vmin));
+  const tagGap = Math.max(12, Math.min(18, 2.4 * vmin));
+  const tagSize = Math.max(12, Math.min(15, 2.9 * vmin));
+  const slideX = 260 * motion;
+  const dropY = 40 * motion;
+  const shineFrom = -900 * motion;
+  const shineTo = 1400 * motion;
+  const shineW = tileSize * (260 / 1017);
+  const shineH = tileSize * 1.8;
 
-  const { width: screenWidth } = Dimensions.get("window");
-  // Scale factor mapped from 1080 artboard to device screen
-  const artboardScale = Math.min(screenWidth, 440) / 1080;
-  const u = (px: number) => Math.round(px * artboardScale);
+  const [motionValues] = useState(() => ({
+    groupY: new Animated.Value(lift),
+    tileOpacity: new Animated.Value(0),
+    tileScale: new Animated.Value(0.7),
+    barOpacity: new Animated.Value(0),
+    barX: new Animated.Value(-slideX),
+    hookOpacity: new Animated.Value(0),
+    hookX: new Animated.Value(-slideX),
+    dotOpacity: new Animated.Value(0),
+    dotY: new Animated.Value(-dropY),
+    dotScale: new Animated.Value(0.01),
+    shineX: new Animated.Value(shineFrom),
+    nameOpacity: new Animated.Value(0),
+    nameY: new Animated.Value(20),
+    tagOpacity: new Animated.Value(0),
+    tagY: new Animated.Value(10),
+  }));
+  const {
+    groupY,
+    tileOpacity,
+    tileScale,
+    barOpacity,
+    barX,
+    hookOpacity,
+    hookX,
+    dotOpacity,
+    dotY,
+    dotScale,
+    shineX,
+    nameOpacity,
+    nameY,
+    tagOpacity,
+    tagY,
+  } = motionValues;
 
-  // Screen-level smooth fade-out into app
-  const screenFadeAnim = useRef(new Animated.Value(1)).current;
-
-  // 1. Logo Squircle Tile
-  const tileScale = useRef(new Animated.Value(0.85)).current;
-  const tileOpacity = useRef(new Animated.Value(0)).current;
-
-  // 2. Part 1: Top Bar (slides in from left)
-  const part1TranslateX = useRef(new Animated.Value(-30)).current;
-  const part1Opacity = useRef(new Animated.Value(0)).current;
-
-  // 3. Part 2: Middle Hook (slides in smoothly from below)
-  const part2TranslateY = useRef(new Animated.Value(25)).current;
-  const part2Opacity = useRef(new Animated.Value(0)).current;
-
-  // 4. Part 3: Center Dot (drops in from above with spring)
-  const part3TranslateY = useRef(new Animated.Value(-30)).current;
-  const part3Scale = useRef(new Animated.Value(0.4)).current;
-  const part3Opacity = useRef(new Animated.Value(0)).current;
-
-  // 5. Circular ripple on dot impact
-  const rippleScale = useRef(new Animated.Value(1.0)).current;
-  const rippleOpacity = useRef(new Animated.Value(0)).current;
-
-  // 6. Wordmark letters staggered reveal
-  const letterAnims = useMemo(
-    () =>
-      WORDMARK_CHARS.map(() => ({
-        y: new Animated.Value(24),
-        opacity: new Animated.Value(0),
-      })),
-    []
-  );
-
-  // 7. Tagline
-  const taglineOpacity = useRef(new Animated.Value(0)).current;
-
-  // 8. 12-Month Journey segments
-  const segmentAnims = useMemo(
-    () => Array.from({ length: TOTAL_JOURNEY_MONTHS }, () => new Animated.Value(0)),
-    []
-  );
-
-  // 9. Month label
-  const labelOpacity = useRef(new Animated.Value(0)).current;
-
-  // Destination route pre-resolved on mount so navigation is instantaneous
   const nextRouteRef = useRef<string>("/(tabs)");
   const isNavigating = useRef(false);
 
   useEffect(() => {
-    // Hide static splash immediately
-    SplashScreen.hideAsync().catch(() => {});
-
-    // Pre-resolve target route early in the background
+    let cancelled = false;
     (async () => {
       try {
         const { isOnboarded, user, isSignedIn: signedIn } = useAuthStore.getState();
@@ -106,6 +111,7 @@ export default function SplashAnimationScreen() {
 
         const { initializeGuest } = useGuestStore.getState();
         const guestStatus = await initializeGuest();
+        if (cancelled) return;
         if (guestStatus.isGuest) {
           nextRouteRef.current = guestStatus.isExpired ? "/guest-expired" : "/(tabs)";
         } else {
@@ -115,250 +121,157 @@ export default function SplashAnimationScreen() {
         nextRouteRef.current = "/(tabs)";
       }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const navigateNext = () => {
-    if (isNavigating.current) return;
-    isNavigating.current = true;
-    router.replace((nextRouteRef.current || "/(tabs)") as any);
-  };
-
-  // ─── Choreographed Splash Animation ───
   useEffect(() => {
-    const timers: any[] = [];
+    if (!fontReady) return;
 
-    // [0ms - 380ms]: Green squircle tile scales in smoothly
-    timers.push(
-      setTimeout(() => {
+    const navigateNext = () => {
+      if (isNavigating.current) return;
+      isNavigating.current = true;
+      router.replace((nextRouteRef.current || "/(tabs)") as never);
+    };
+
+    SplashScreen.hideAsync().catch(() => {});
+
+    let reduced = false;
+    let alive = true;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
+    const finishAfter = (ms: number) => {
+      timers.push(setTimeout(() => {
+        if (alive) navigateNext();
+      }, ms));
+    };
+
+    const play = () => {
+      groupY.setValue(reduced ? 0 : lift);
+      tileOpacity.setValue(reduced ? 1 : 0);
+      tileScale.setValue(reduced ? 1 : 0.7);
+      barOpacity.setValue(reduced ? 1 : 0);
+      barX.setValue(reduced ? 0 : -slideX);
+      hookOpacity.setValue(reduced ? 1 : 0);
+      hookX.setValue(reduced ? 0 : -slideX);
+      dotOpacity.setValue(reduced ? 1 : 0);
+      dotY.setValue(reduced ? 0 : -dropY);
+      dotScale.setValue(reduced ? 1 : 0.01);
+      shineX.setValue(reduced ? shineTo : shineFrom);
+      nameOpacity.setValue(reduced ? 1 : 0);
+      nameY.setValue(reduced ? 0 : 20);
+      tagOpacity.setValue(reduced ? 1 : 0);
+      tagY.setValue(reduced ? 0 : 10);
+
+      if (reduced) {
+        finishAfter(700);
+        return;
+      }
+
+      timers.push(setTimeout(() => {
         Animated.parallel([
-          Animated.timing(tileOpacity, {
-            toValue: 1,
-            duration: 340,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-          }),
-          Animated.spring(tileScale, {
-            toValue: 1,
-            friction: 7,
-            tension: 70,
-            useNativeDriver: true,
-          }),
+          Animated.timing(tileOpacity, { toValue: 1, duration: 850, easing: EASE_QUINT, useNativeDriver: true }),
+          Animated.timing(tileScale, { toValue: 1, duration: 850, easing: EASE_QUINT, useNativeDriver: true }),
         ]).start();
-      }, 50)
-    );
+      }, 150));
 
-    // [380ms - 720ms]: Part 1 — Top Bar slides in from left
-    timers.push(
-      setTimeout(() => {
+      timers.push(setTimeout(() => {
         Animated.parallel([
-          Animated.timing(part1Opacity, {
-            toValue: 1,
-            duration: 260,
-            useNativeDriver: true,
-          }),
-          Animated.timing(part1TranslateX, {
-            toValue: 0,
-            duration: 320,
-            easing: Easing.bezier(0.16, 1, 0.3, 1),
-            useNativeDriver: true,
-          }),
+          Animated.timing(barOpacity, { toValue: 1, duration: 240, useNativeDriver: true }),
+          Animated.timing(barX, { toValue: 0, duration: 1200, easing: EASE_EXPO, useNativeDriver: true }),
         ]).start();
-      }, 380)
-    );
+      }, 800));
 
-    // [640ms - 980ms]: Part 2 — Middle Hook slides up smoothly
-    timers.push(
-      setTimeout(() => {
+      timers.push(setTimeout(() => {
         Animated.parallel([
-          Animated.timing(part2Opacity, {
-            toValue: 1,
-            duration: 260,
-            useNativeDriver: true,
-          }),
-          Animated.timing(part2TranslateY, {
-            toValue: 0,
-            duration: 320,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-          }),
+          Animated.timing(hookOpacity, { toValue: 1, duration: 240, useNativeDriver: true }),
+          Animated.timing(hookX, { toValue: 0, duration: 1200, easing: EASE_EXPO, useNativeDriver: true }),
         ]).start();
-      }, 640)
-    );
+      }, 980));
 
-    // [950ms - 1350ms]: Part 3 — Center Dot drops into the hook with elastic spring
-    timers.push(
-      setTimeout(() => {
+      timers.push(setTimeout(() => {
         Animated.parallel([
-          Animated.timing(part3Opacity, {
-            toValue: 1,
-            duration: 140,
-            useNativeDriver: true,
-          }),
-          Animated.spring(part3TranslateY, {
-            toValue: 0,
-            friction: 5,
-            tension: 90,
-            useNativeDriver: true,
-          }),
-          Animated.spring(part3Scale, {
-            toValue: 1,
-            friction: 5,
-            tension: 90,
-            useNativeDriver: true,
-          }),
-        ]).start(() => {
-          // Circular ripple outward from the dot
-          Animated.parallel([
-            Animated.sequence([
-              Animated.timing(rippleOpacity, {
-                toValue: 0.8,
-                duration: 80,
-                useNativeDriver: true,
-              }),
-              Animated.timing(rippleOpacity, {
-                toValue: 0,
-                duration: 360,
-                useNativeDriver: true,
-              }),
-            ]),
-            Animated.timing(rippleScale, {
-              toValue: 2.2,
-              duration: 440,
-              easing: Easing.out(Easing.quad),
-              useNativeDriver: true,
-            }),
-          ]).start();
+          Animated.timing(dotOpacity, { toValue: 1, duration: 165, useNativeDriver: true }),
+          Animated.timing(dotY, { toValue: 0, duration: 550, easing: EASE_BACK, useNativeDriver: true }),
+          Animated.timing(dotScale, { toValue: 1, duration: 550, easing: EASE_BACK, useNativeDriver: true }),
+        ]).start();
+      }, 1400));
 
-          // Gentle logo settle impact
-          Animated.sequence([
-            Animated.timing(tileScale, {
-              toValue: 1.025,
-              duration: 110,
-              easing: Easing.out(Easing.quad),
-              useNativeDriver: true,
-            }),
-            Animated.timing(tileScale, {
-              toValue: 1.0,
-              duration: 160,
-              easing: Easing.inOut(Easing.quad),
-              useNativeDriver: true,
-            }),
-          ]).start();
-        });
-      }, 950)
-    );
+      timers.push(setTimeout(() => {
+        Animated.timing(groupY, { toValue: 0, duration: 800, easing: EASE_QUINT, useNativeDriver: true }).start();
+      }, 1950));
 
-    // [1500ms - 1900ms]: Wordmark letters staggered rise
-    timers.push(
-      setTimeout(() => {
-        const letterAnimations = letterAnims.map((item, index) =>
-          Animated.sequence([
-            Animated.delay(index * 36),
-            Animated.parallel([
-              Animated.timing(item.opacity, {
-                toValue: 1,
-                duration: 200,
-                useNativeDriver: true,
-              }),
-              Animated.timing(item.y, {
-                toValue: 0,
-                duration: 200,
-                easing: Easing.out(Easing.cubic),
-                useNativeDriver: true,
-              }),
-            ]),
-          ])
-        );
-        Animated.parallel(letterAnimations).start();
-      }, 1500)
-    );
+      timers.push(setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(nameOpacity, { toValue: 1, duration: 800, easing: EASE_QUINT, useNativeDriver: true }),
+          Animated.timing(nameY, { toValue: 0, duration: 800, easing: EASE_QUINT, useNativeDriver: true }),
+        ]).start();
+      }, 2200));
 
-    // [1850ms - 2150ms]: Tagline fade in
-    timers.push(
-      setTimeout(() => {
-        Animated.timing(taglineOpacity, {
-          toValue: 1,
-          duration: 280,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }).start();
-      }, 1850)
-    );
+      timers.push(setTimeout(() => {
+        Animated.timing(shineX, { toValue: shineTo, duration: 800, easing: EASE_SHINE, useNativeDriver: true }).start();
+      }, 2250));
 
-    // [2100ms - 2600ms]: 12-Segment Progress fills to current journey month
-    timers.push(
-      setTimeout(() => {
-        const filled = Math.max(1, Math.min(cycleMonth, TOTAL_JOURNEY_MONTHS));
-        const activeSegmentAnimations = segmentAnims.slice(0, filled).map((anim, index) =>
-          Animated.sequence([
-            Animated.delay(index * 70),
-            Animated.timing(anim, {
-              toValue: 1,
-              duration: 110,
-              easing: Easing.out(Easing.quad),
-              useNativeDriver: false,
-            }),
-          ])
-        );
-        Animated.parallel(activeSegmentAnimations).start();
-      }, 2100)
-    );
+      timers.push(setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(tagOpacity, { toValue: 1, duration: 800, easing: EASE_QUINT, useNativeDriver: true }),
+          Animated.timing(tagY, { toValue: 0, duration: 800, easing: EASE_QUINT, useNativeDriver: true }),
+        ]).start();
+      }, 2700));
 
-    // [2500ms - 2800ms]: Month label fade in
-    timers.push(
-      setTimeout(() => {
-        Animated.timing(labelOpacity, {
-          toValue: 1,
-          duration: 240,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }).start();
-      }, 2500)
-    );
+      finishAfter(HOLD_MS);
+      finishAfter(HOLD_MS + 800);
+    };
 
-    // [3000ms - 3300ms]: Smooth, beautiful fade-out of splash screen into the app
-    timers.push(
-      setTimeout(() => {
-        Animated.timing(screenFadeAnim, {
-          toValue: 0,
-          duration: 280,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }).start(() => {
-          navigateNext();
-        });
-      }, 3000)
-    );
-
-    // Safety fallback navigation after 3500ms
-    timers.push(
-      setTimeout(() => {
-        navigateNext();
-      }, 3500)
-    );
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then((value) => {
+        if (!alive) return;
+        reduced = value;
+        play();
+      })
+      .catch(() => {
+        if (alive) play();
+      });
 
     return () => {
-      timers.forEach((t) => clearTimeout(t));
+      alive = false;
+      timers.forEach((timer) => clearTimeout(timer));
     };
-  }, [cycleMonth, letterAnims, segmentAnims]);
+  }, [
+    fontReady,
+    router,
+    barOpacity,
+    barX,
+    dotOpacity,
+    dotScale,
+    dotY,
+    dropY,
+    groupY,
+    hookOpacity,
+    hookX,
+    lift,
+    nameOpacity,
+    nameY,
+    shineFrom,
+    shineTo,
+    shineX,
+    slideX,
+    tagOpacity,
+    tagY,
+    tileOpacity,
+    tileScale,
+  ]);
 
-  const tileSize = u(420);
-  const tileRadius = u(102);
-
-  // Dot position relative to squircle (dot center is at 46.6% width, 66.7% height)
-  const dotCenterX = 0.466 * tileSize;
-  const dotCenterY = 0.667 * tileSize;
-  const rippleRadius = u(26);
+  const fontFamily = fontsLoaded ? "PoppinsMedium" : undefined;
 
   return (
-    <Animated.View style={[styles.container, { opacity: screenFadeAnim }]}>
+    <View style={styles.container} accessibilityRole="progressbar" accessibilityLabel="Zonofit — loading">
       <StatusBar style="dark" />
-
-      <View style={styles.contentWrap}>
-        {/* ─── The Animated 3-Part Logo Squircle ─── */}
+      <Animated.View style={[styles.group, { transform: [{ translateY: groupY }] }]}>
         <Animated.View
           style={[
-            styles.tileWrapper,
+            styles.tileShadow,
             {
               width: tileSize,
               height: tileSize,
@@ -368,167 +281,110 @@ export default function SplashAnimationScreen() {
             },
           ]}
         >
-          {/* Base pristine green gradient squircle */}
-          <Image
-            source={require("@/assets/images/logo_squircle_bg.png")}
-            style={StyleSheet.absoluteFill}
-            resizeMode="contain"
-          />
-
-          {/* Part 1: Top Bar (Slanted wing) */}
-          <Animated.View
-            style={[
-              StyleSheet.absoluteFill,
-              {
-                opacity: part1Opacity,
-                transform: [{ translateX: part1TranslateX }],
-              },
-            ]}
-          >
+          <View style={[styles.tileClip, { borderRadius: tileRadius }]}>
             <Image
-              source={require("@/assets/images/logo_part_top_bar.png")}
+              source={require("@/assets/images/logo_squircle_bg.png")}
               style={StyleSheet.absoluteFill}
               resizeMode="contain"
             />
-          </Animated.View>
-
-          {/* Part 2: Middle Hook (Curved arm) */}
-          <Animated.View
-            style={[
-              StyleSheet.absoluteFill,
-              {
-                opacity: part2Opacity,
-                transform: [{ translateY: part2TranslateY }],
-              },
-            ]}
-          >
-            <Image
-              source={require("@/assets/images/logo_part_hook.png")}
-              style={StyleSheet.absoluteFill}
-              resizeMode="contain"
-            />
-          </Animated.View>
-
-          {/* Part 3: Center Dot */}
-          <Animated.View
-            style={[
-              StyleSheet.absoluteFill,
-              {
-                opacity: part3Opacity,
-                transform: [
-                  { translateY: part3TranslateY },
-                  { scale: part3Scale },
-                ],
-              },
-            ]}
-          >
-            <Image
-              source={require("@/assets/images/logo_part_dot.png")}
-              style={StyleSheet.absoluteFill}
-              resizeMode="contain"
-            />
-          </Animated.View>
-
-          {/* Impact Ripple Ring centered exactly on the dot */}
-          <Animated.View
-            style={[
-              styles.rippleRing,
-              {
-                top: dotCenterY - rippleRadius,
-                left: dotCenterX - rippleRadius,
-                width: rippleRadius * 2,
-                height: rippleRadius * 2,
-                borderRadius: rippleRadius,
-                opacity: rippleOpacity,
-                transform: [{ scale: rippleScale }],
-              },
-            ]}
-          />
+            <Animated.View
+              style={[StyleSheet.absoluteFill, { opacity: barOpacity, transform: [{ translateX: barX }] }]}
+            >
+              <Image
+                source={require("@/assets/images/logo_part_top_bar.png")}
+                style={StyleSheet.absoluteFill}
+                resizeMode="contain"
+              />
+            </Animated.View>
+            <Animated.View
+              style={[StyleSheet.absoluteFill, { opacity: hookOpacity, transform: [{ translateX: hookX }] }]}
+            >
+              <Image
+                source={require("@/assets/images/logo_part_hook.png")}
+                style={StyleSheet.absoluteFill}
+                resizeMode="contain"
+              />
+            </Animated.View>
+            <Animated.View
+              style={[
+                StyleSheet.absoluteFill,
+                {
+                  opacity: dotOpacity,
+                  transformOrigin: "45.7% 66.8%",
+                  transform: [{ translateY: dotY }, { scale: dotScale }],
+                },
+              ]}
+            >
+              <Image
+                source={require("@/assets/images/logo_part_dot.png")}
+                style={StyleSheet.absoluteFill}
+                resizeMode="contain"
+              />
+            </Animated.View>
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.shine,
+                {
+                  width: shineW,
+                  height: shineH,
+                  top: -tileSize * 0.3,
+                  transform: [{ translateX: shineX }, { skewX: "-20deg" }],
+                },
+              ]}
+            >
+              <Canvas style={StyleSheet.absoluteFill}>
+                <Rect x={0} y={0} width={shineW} height={shineH}>
+                  <LinearGradient
+                    start={vec(0, 0)}
+                    end={vec(shineW, 0)}
+                    colors={["rgba(255,255,255,0)", "rgba(255,255,255,0.35)", "rgba(255,255,255,0)"]}
+                  />
+                </Rect>
+              </Canvas>
+            </Animated.View>
+          </View>
         </Animated.View>
 
-        {/* ─── Wordmark "Zonofit" with staggered letter rise ─── */}
-        <View style={[styles.wordmarkClipBox, { height: u(118), marginTop: u(54) }]}>
-          <View style={styles.wordmarkRow}>
-            {WORDMARK_CHARS.map((char, index) => (
-              <Animated.Text
-                key={index}
-                style={[
-                  styles.wordmarkChar,
-                  {
-                    fontSize: u(92),
-                    lineHeight: u(114),
-                    opacity: letterAnims[index].opacity,
-                    transform: [{ translateY: letterAnims[index].y }],
-                  },
-                ]}
-              >
-                {char}
-              </Animated.Text>
-            ))}
-          </View>
-        </View>
-
-        {/* ─── Tagline "Consistency over perfection" ─── */}
         <Animated.Text
           style={[
-            styles.brandSubtitle,
+            styles.name,
             {
-              fontSize: u(43),
-              marginTop: u(22),
-              opacity: taglineOpacity,
+              marginTop: nameGap,
+              fontSize: nameSize,
+              lineHeight: nameSize,
+              letterSpacing: -0.015 * nameSize,
+              fontFamily,
+              fontWeight: fontsLoaded ? "normal" : "500",
+              opacity: nameOpacity,
+              transform: [{ translateY: nameY }],
+            },
+          ]}
+        >
+          Zonofit
+        </Animated.Text>
+        <Animated.Text
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.8}
+          style={[
+            styles.tagline,
+            {
+              marginTop: tagGap,
+              fontSize: tagSize,
+              lineHeight: tagSize * 1.3,
+              letterSpacing: 0.14 * tagSize,
+              fontFamily,
+              fontWeight: fontsLoaded ? "normal" : "500",
+              opacity: tagOpacity,
+              transform: [{ translateY: tagY }],
             },
           ]}
         >
           Consistency over perfection
         </Animated.Text>
-
-        {/* ─── 12-Month Journey Progress Segments ─── */}
-        <View style={[styles.journeyContainer, { marginTop: u(64) }]}>
-          <View style={[styles.dashesRow, { gap: u(14) }]}>
-            {segmentAnims.map((anim, index) => {
-              const isFilled = index < cycleMonth;
-              const bgInterpolation = anim.interpolate({
-                inputRange: [0, 1],
-                outputRange: ["#DBE3D7", "#4A8A33"],
-              });
-
-              return (
-                <View
-                  key={index}
-                  style={[
-                    styles.dashTrack,
-                    {
-                      width: u(46),
-                      height: u(16),
-                      borderRadius: u(8),
-                    },
-                  ]}
-                >
-                  {isFilled && (
-                    <Animated.View
-                      style={[
-                        StyleSheet.absoluteFill,
-                        {
-                          borderRadius: u(8),
-                          backgroundColor: bgInterpolation,
-                        },
-                      ]}
-                    />
-                  )}
-                </View>
-              );
-            })}
-          </View>
-
-          {/* Current Month of 12 Label */}
-          <Animated.View style={{ opacity: labelOpacity, marginTop: u(22) }}>
-            <Text style={[styles.monthLabel, { fontSize: u(38) }]}>
-              Month {cycleMonth} of {TOTAL_JOURNEY_MONTHS}
-            </Text>
-          </Animated.View>
-        </View>
-      </View>
-    </Animated.View>
+      </Animated.View>
+    </View>
   );
 }
 
@@ -539,62 +395,34 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  contentWrap: {
+  group: {
     alignItems: "center",
     justifyContent: "center",
     width: "100%",
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
   },
-  tileWrapper: {
-    position: "relative",
+  tileShadow: {
+    backgroundColor: "#33782d",
+    shadowColor: "rgb(60, 110, 25)",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.28,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  tileClip: {
+    flex: 1,
     overflow: "hidden",
-    shadowColor: "#4A8A33",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.18,
-    shadowRadius: 18,
-    elevation: 0,
   },
-  rippleRing: {
+  shine: {
     position: "absolute",
-    borderWidth: 2.5,
-    borderColor: "#FFFFFF",
-    backgroundColor: "transparent",
+    left: 0,
   },
-  wordmarkClipBox: {
-    overflow: "hidden",
-    alignItems: "center",
-    justifyContent: "center",
+  name: {
+    color: "#182812",
+    textAlign: "center",
   },
-  wordmarkRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  wordmarkChar: {
-    fontWeight: "800",
-    color: "#1B2B20",
-    letterSpacing: -0.6,
-  },
-  brandSubtitle: {
-    fontWeight: "500",
-    color: "#6B7470",
-    letterSpacing: 0.2,
-  },
-  journeyContainer: {
-    alignItems: "center",
-  },
-  dashesRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  dashTrack: {
-    backgroundColor: "#DBE3D7",
-    overflow: "hidden",
-  },
-  monthLabel: {
-    fontWeight: "700",
-    color: "#6B7470",
-    letterSpacing: 0.2,
+  tagline: {
+    color: "#6b7a62",
+    textAlign: "center",
   },
 });
