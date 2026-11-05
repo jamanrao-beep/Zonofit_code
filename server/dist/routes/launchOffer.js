@@ -84,8 +84,9 @@ function parseApplication(body) {
         return { ok: false, message: "Pick one" };
     const gymText = oneLine(input.gym, 120);
     const customGym = oneLine(input.customGym, 120);
-    const listed = GYM_NAMES.find((item) => item.toLowerCase() === gymText.toLowerCase() ||
-        gymText.toLowerCase().startsWith(item.toLowerCase()));
+    const normalized = gymText.toLowerCase();
+    const listed = GYM_NAMES.filter((item) => normalized === item.toLowerCase() ||
+        normalized.startsWith(item.toLowerCase())).sort((a, b) => b.length - a.length)[0];
     if (!listed && customGym.length < 3) {
         return { ok: false, message: "Pick a gym or tell us yours" };
     }
