@@ -37,6 +37,15 @@ const LIVE_GYMS: LiveGym[] = [
   { name: "Mrinaal Fitness Empire", area: "Sector 4" },
   { name: "Prime Fitness Studio", area: "Bhupalpura" },
   { name: "Veer Fitness Gym", area: "Sukher" },
+  { name: "Fireup Wolverinez Gym & Fitness", area: "Shobhagpura" },
+  { name: "B1 Fitness Gym and Supplement Store", area: "Pratap Nagar" },
+  { name: "Zoro Fitness", area: "Udaipur" },
+  { name: "B&H Gym", area: "Udaipur" },
+  { name: "The Gym Zone", area: "Udaipur" },
+  { name: "The Fitness Zone Unisex Gym", area: "Udaipur" },
+  { name: "108 Being Fit Fitness", area: "Udaipur" },
+  { name: "Being Fit Fitness 2.0", area: "Udaipur" },
+  { name: "Dolphin Health Club", area: "Udaipur" },
 ];
 
 const UNLOCK_GYMS: UnlockGym[] = [
