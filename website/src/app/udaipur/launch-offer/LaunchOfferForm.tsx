@@ -23,45 +23,43 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? "https://api.zonofit.com";
 
 export type LiveGym = {
   name: string;
-  area: string;
 };
 
 export type UnlockGym = {
   name: string;
-  area: string;
   baseVotes: number;
 };
 
 const LIVE_GYMS: LiveGym[] = [
-  { name: "Pro Fitness Studio", area: "Hiran Magri" },
-  { name: "Mrinaal Fitness Empire", area: "Sector 4" },
-  { name: "Prime Fitness Studio", area: "Bhupalpura" },
-  { name: "Veer Fitness Gym", area: "Sukher" },
-  { name: "Fireup Wolverinez Gym & Fitness", area: "Shobhagpura" },
-  { name: "B1 Fitness Gym and Supplement Store", area: "Pratap Nagar" },
-  { name: "Zoro Fitness", area: "Udaipur" },
-  { name: "B&H Gym", area: "Udaipur" },
-  { name: "The Gym Zone", area: "Udaipur" },
-  { name: "The Fitness Zone Unisex Gym", area: "Udaipur" },
-  { name: "108 Being Fit Fitness", area: "Udaipur" },
-  { name: "Being Fit Fitness 2.0", area: "Udaipur" },
-  { name: "Dolphin Health Club", area: "Udaipur" },
+  { name: "Pro Fitness Studio" },
+  { name: "Mrinaal Fitness Empire" },
+  { name: "Prime Fitness Studio" },
+  { name: "Veer Fitness Gym" },
+  { name: "Fireup Wolverinez Gym & Fitness" },
+  { name: "B1 Fitness Gym and Supplement Store" },
+  { name: "Zoro Fitness" },
+  { name: "B&H Gym" },
+  { name: "The Gym Zone" },
+  { name: "The Fitness Zone Unisex Gym" },
+  { name: "108 Being Fit Fitness" },
+  { name: "Being Fit Fitness 2.0" },
+  { name: "Dolphin Health Club" },
 ];
 
 const UNLOCK_GYMS: UnlockGym[] = [
-  { name: "Healthline Fitness Studio", area: "Udaipur · Not live yet", baseVotes: 6 },
-  { name: "ALPHA FITNESS CLUB", area: "Udaipur · Not live yet", baseVotes: 7 },
-  { name: "The Fitness Freak Health Club", area: "Udaipur · Not live yet", baseVotes: 5 },
-  { name: "Core fitness gym udaipur", area: "Udaipur · Not live yet", baseVotes: 6 },
-  { name: "Scitify Gym & Performance", area: "Udaipur · Not live yet", baseVotes: 8 },
-  { name: "Shape Up Fitness", area: "Udaipur · Not live yet", baseVotes: 4 },
-  { name: "Delta fitness", area: "Udaipur · Not live yet", baseVotes: 5 },
-  { name: "Metroflex gym", area: "Udaipur · Not live yet", baseVotes: 7 },
-  { name: "Ekaay fitness", area: "Udaipur · Not live yet", baseVotes: 3 },
-  { name: "Energy Fitness", area: "Udaipur · Not live yet", baseVotes: 6 },
-  { name: "Paliwal Gym", area: "Udaipur · Not live yet", baseVotes: 4 },
-  { name: "Strong Fit Gym", area: "Udaipur · Not live yet", baseVotes: 7 },
-  { name: "Daesthetic club", area: "Udaipur · Not live yet", baseVotes: 5 },
+  { name: "Healthline Fitness Studio", baseVotes: 6 },
+  { name: "ALPHA FITNESS CLUB", baseVotes: 7 },
+  { name: "The Fitness Freak Health Club", baseVotes: 5 },
+  { name: "Core fitness gym udaipur", baseVotes: 6 },
+  { name: "Scitify Gym & Performance", baseVotes: 8 },
+  { name: "Shape Up Fitness", baseVotes: 4 },
+  { name: "Delta fitness", baseVotes: 5 },
+  { name: "Metroflex gym", baseVotes: 7 },
+  { name: "Ekaay fitness", baseVotes: 3 },
+  { name: "Energy Fitness", baseVotes: 6 },
+  { name: "Paliwal Gym", baseVotes: 4 },
+  { name: "Strong Fit Gym", baseVotes: 7 },
+  { name: "Daesthetic club", baseVotes: 5 },
 ];
 
 /** Keep this list in sync with server/src/routes/launchOffer.ts */
@@ -305,17 +303,13 @@ export default function LaunchOfferForm() {
   const filteredLive = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return LIVE_GYMS;
-    return LIVE_GYMS.filter(
-      (item) => item.name.toLowerCase().includes(q) || item.area.toLowerCase().includes(q)
-    );
+    return LIVE_GYMS.filter((item) => item.name.toLowerCase().includes(q));
   }, [query]);
 
   const filteredUnlock = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return UNLOCK_GYMS;
-    return UNLOCK_GYMS.filter(
-      (item) => item.name.toLowerCase().includes(q) || item.area.toLowerCase().includes(q)
-    );
+    return UNLOCK_GYMS.filter((item) => item.name.toLowerCase().includes(q));
   }, [query]);
 
   function validate(): boolean {
@@ -556,7 +550,6 @@ export default function LaunchOfferForm() {
                             >
                               <div className="lu-card-info">
                                 <strong className="lu-card-name">{item.name}</strong>
-                                <span className="lu-card-area">{item.area}</span>
                               </div>
                               <div className="lu-badge-row">
                                 <span className="lu-live-pill">Free seats open</span>
@@ -594,7 +587,6 @@ export default function LaunchOfferForm() {
                             >
                               <div className="lu-card-info">
                                 <strong className="lu-card-name">{item.name}</strong>
-                                <span className="lu-card-area">{item.area}</span>
                               </div>
                               <div className="lu-prog-wrap">
                                 <div className="lu-prog-track">
