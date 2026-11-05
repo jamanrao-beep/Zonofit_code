@@ -13,6 +13,10 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  Sparkles,
+  MapPin,
+  RotateCcw,
+  Zap,
 } from "lucide-react";
 
 export default function LandingPage() {
@@ -531,49 +535,155 @@ export default function LandingPage() {
         </section>
 
         {/* ========================================================= */}
-        {/* SECTION 5: "WHAT IF..." CONTINUATION SERIES (Images 1 & 2)*/}
+        {/* SECTION 5: "WHAT IF..." CONTINUATION SERIES               */}
         {/* ========================================================= */}
-        <section className="pt-16 pb-20 overflow-hidden">
+        <section className="pt-16 pb-20 overflow-hidden relative">
           <div className="max-w-7xl mx-auto px-6 lg:px-12">
             
-            {/* Question 1: Centered / Top */}
-            <div className="text-center mb-24 sm:mb-32">
-              <span className="text-xs font-black uppercase tracking-wider text-[#2e6d1a] mb-5 block">
-                IMAGINE A MORE FLEXIBLE MEMBERSHIP
+            {/* Section Header */}
+            <div className="text-center max-w-3xl mx-auto mb-14 sm:mb-16">
+              <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider text-[#1b6c23] bg-[#eef7ed] border border-[#d2e4ce] mb-4">
+                <Sparkles className="w-3.5 h-3.5 text-[#2e6d1a]" />
+                <span>Imagine A More Flexible Membership</span>
               </span>
-              <h2 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.12]">
-                <span className="text-gray-950">What if your membership</span><br />
-                <span className="text-[#1b6c23]">could move with you?</span>
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-gray-950 leading-tight">
+                Fitness that fits your life, <br className="hidden sm:inline" />
+                <span className="text-[#1b6c23]">not the other way around.</span>
               </h2>
+              <p className="text-base sm:text-lg text-gray-600 mt-4 leading-relaxed font-normal">
+                Traditional gym memberships lock your money to one room. ZonoFit replaces that with complete flexibility, seamless network access, and zero membership wastage.
+              </p>
             </div>
 
-            {/* Question 2: Right-aligned (Image 1) */}
-            <div className="flex justify-end mb-24 sm:mb-32">
-              <div className="text-right max-w-3xl">
-                <h2 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.12]">
-                  <span className="text-gray-950">What if fitness</span><br />
-                  <span className="text-gray-950">wasn&apos;t </span>
-                  <span className="text-[#1b6c23]">just one gym?</span>
-                </h2>
+            {/* 3-Card Value Proposition Bento Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
+              
+              {/* Card 1: Multi-Location Access */}
+              <div className="group bg-white rounded-3xl p-7 sm:p-8 border border-[#d2e4ce] shadow-sm hover:shadow-xl hover:border-[#1b6c23]/40 transition-all duration-300 flex flex-col justify-between hover:-translate-y-1">
+                <div>
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="w-12 h-12 rounded-2xl bg-[#eef7ed] flex items-center justify-center text-[#1b6c23] group-hover:scale-110 transition-transform">
+                      <MapPin className="w-6 h-6 stroke-[2.2]" />
+                    </div>
+                    <span className="text-xs font-black uppercase tracking-wider text-gray-400">
+                      01 · Freedom
+                    </span>
+                  </div>
+
+                  <h3 className="text-xl sm:text-2xl font-extrabold text-gray-950 tracking-tight leading-snug mb-3">
+                    What if your membership <br className="hidden lg:inline" />
+                    <span className="text-[#1b6c23]">could move with you?</span>
+                  </h3>
+                  <p className="text-sm sm:text-base text-gray-600 leading-relaxed font-normal">
+                    Train near home on weekends, near work on weekdays, or discover new gyms when traveling. One active membership unlocks every partner gym in the network.
+                  </p>
+                </div>
+
+                <div className="pt-6 mt-6 border-t border-gray-100 flex items-center justify-between">
+                  <span className="text-xs font-bold text-[#1b6c23] bg-[#eef7ed] px-3 py-1 rounded-full">
+                    📍 1 Pass · Any Partner Gym
+                  </span>
+                </div>
               </div>
+
+              {/* Card 2: Unlimited Variety (Featured) */}
+              <div className="group bg-gradient-to-b from-[#f7fbf6] to-white rounded-3xl p-7 sm:p-8 border-2 border-[#1b6c23]/30 shadow-md hover:shadow-xl hover:border-[#1b6c23] transition-all duration-300 flex flex-col justify-between hover:-translate-y-1 relative">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <span className="bg-[#1b6c23] text-white text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full shadow-sm">
+                    Most Loved
+                  </span>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-6 mt-1">
+                    <div className="w-12 h-12 rounded-2xl bg-[#a1d942]/25 flex items-center justify-center text-[#122409] group-hover:scale-110 transition-transform">
+                      <Zap className="w-6 h-6 stroke-[2.2]" />
+                    </div>
+                    <span className="text-xs font-black uppercase tracking-wider text-[#1b6c23]">
+                      02 · Variety
+                    </span>
+                  </div>
+
+                  <h3 className="text-xl sm:text-2xl font-extrabold text-gray-950 tracking-tight leading-snug mb-3">
+                    What if fitness <br className="hidden lg:inline" />
+                    <span className="text-[#1b6c23]">wasn&apos;t just one gym?</span>
+                  </h3>
+                  <p className="text-sm sm:text-base text-gray-600 leading-relaxed font-normal">
+                    Break routine fatigue. Switch freely between heavy iron clubs, CrossFit boxes, cardio floors, and recovery zones anytime you want without buying separate passes.
+                  </p>
+                </div>
+
+                <div className="pt-6 mt-6 border-t border-gray-100 flex items-center justify-between">
+                  <span className="text-xs font-bold text-[#122409] bg-[#a1d942]/20 px-3 py-1 rounded-full">
+                    ⚡ Strength · CrossFit · Recovery
+                  </span>
+                </div>
+              </div>
+
+              {/* Card 3: Zero Waste Value */}
+              <div className="group bg-white rounded-3xl p-7 sm:p-8 border border-[#d2e4ce] shadow-sm hover:shadow-xl hover:border-[#1b6c23]/40 transition-all duration-300 flex flex-col justify-between hover:-translate-y-1">
+                <div>
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="w-12 h-12 rounded-2xl bg-[#eef7ed] flex items-center justify-center text-[#1b6c23] group-hover:scale-110 transition-transform">
+                      <RotateCcw className="w-6 h-6 stroke-[2.2]" />
+                    </div>
+                    <span className="text-xs font-black uppercase tracking-wider text-gray-400">
+                      03 · Value
+                    </span>
+                  </div>
+
+                  <h3 className="text-xl sm:text-2xl font-extrabold text-gray-950 tracking-tight leading-snug mb-3">
+                    What if unused value could <br className="hidden lg:inline" />
+                    <span className="text-[#1b6c23]">still help you stay active?</span>
+                  </h3>
+                  <p className="text-sm sm:text-base text-gray-600 leading-relaxed font-normal">
+                    Never lose money when life gets busy. Your credits stay valid, hold fixed value (1 Credit = ₹10), and give you real fitness purchasing power whenever you return.
+                  </p>
+                </div>
+
+                <div className="pt-6 mt-6 border-t border-gray-100 flex items-center justify-between">
+                  <span className="text-xs font-bold text-[#1b6c23] bg-[#eef7ed] px-3 py-1 rounded-full">
+                    💰 1 Credit = ₹10 · Zero Wastage
+                  </span>
+                </div>
+              </div>
+
             </div>
 
-            {/* Question 3: Left / Centered (Image 1) */}
-            <div className="mb-24 sm:mb-28 max-w-4xl">
-              <h2 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.12]">
-                <span className="text-gray-950">What if unused value could</span><br />
-                <span className="text-gray-950">still help you </span>
-                <span className="text-[#1b6c23]">stay active?</span>
-              </h2>
-            </div>
+            {/* Climax Showcase Banner: "That's ZonoFit." */}
+            <div className="mt-12 sm:mt-16 rounded-3xl bg-gradient-to-br from-[#122409] via-[#1a3814] to-[#122409] text-white p-8 sm:p-12 relative overflow-hidden shadow-2xl border border-[#2d5924]">
+              <div className="absolute -top-24 -right-24 w-80 h-80 bg-[#a1d942]/10 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-[#1b6c23]/20 rounded-full blur-3xl pointer-events-none" />
 
-            {/* That's ZonoFit. Divider (Image 2) */}
-            <div className="py-16 sm:py-24 flex items-center justify-center gap-6 sm:gap-10">
-              <div className="h-[1.5px] bg-[#d2e4ce] flex-1 max-w-xs" />
-              <h3 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-gray-950 tracking-tight text-center whitespace-nowrap">
-                That&apos;s ZonoFit.
-              </h3>
-              <div className="h-[1.5px] bg-[#d2e4ce] flex-1 max-w-xs" />
+              <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-8 text-center lg:text-left">
+                <div className="max-w-2xl">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest text-[#a1d942] bg-[#a1d942]/15 border border-[#a1d942]/25 mb-4">
+                    <span>The Flexible Fitness Access Network</span>
+                  </div>
+                  <h3 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">
+                    That&apos;s ZonoFit.
+                  </h3>
+                  <p className="text-gray-300 text-base sm:text-lg mt-3 leading-relaxed font-normal">
+                    One connected membership. Credits that adapt to your schedule. Access to partner gyms across Udaipur with zero long-term lock-in.
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center gap-3.5 shrink-0 w-full sm:w-auto">
+                  <Link
+                    href="/udaipur/launch-offer"
+                    className="w-full sm:w-auto px-7 py-4 rounded-2xl bg-[#a1d942] hover:bg-[#b2e850] text-[#122409] font-extrabold text-base transition-all duration-200 shadow-lg hover:shadow-[#a1d942]/20 hover:scale-[1.02] flex items-center justify-center gap-2.5"
+                  >
+                    <span>Claim Free Launch Offer</span>
+                    <ArrowRight className="w-4 h-4 stroke-[2.5]" />
+                  </Link>
+                  <a
+                    href="#how-it-works"
+                    className="w-full sm:w-auto px-6 py-4 rounded-2xl bg-white/10 hover:bg-white/15 text-white font-bold text-base transition-all duration-200 border border-white/15 flex items-center justify-center"
+                  >
+                    <span>How Credits Work</span>
+                  </a>
+                </div>
+              </div>
             </div>
 
             {/* Subtle Divider Line */}
