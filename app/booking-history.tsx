@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { ScrollView, Text, View, Pressable, Alert, ActivityIndicator } from "react-native";
+import { ScrollView, Text, View, Pressable, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
+import { afterPaint } from "@/lib/afterPaint";
 import CancelBookingSheet from "@/components/CancelBookingSheet";
 import { useBookingStore } from "@/store/useBookingStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
@@ -41,10 +42,23 @@ export default function BookingHistoryScreen() {
   const endGuestSession = useGuestStore((state) => state.endGuestSession);
   const { pastBookings, bookingStatus, bookedGymName, bookedTime, cancelBooking } = useBookingStore();
   const [isProcessingCancel, setIsProcessingCancel] = useState(false);
+  const [openingPass, setOpeningPass] = useState(false);
   const [cancelPrompt, setCancelPrompt] = useState<{
     isMandatory: boolean;
     refundAmount: number;
   } | null>(null);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      setOpeningPass(false);
+    }, [])
+  );
+
+  const openPass = () => {
+    if (openingPass) return;
+    setOpeningPass(true);
+    afterPaint(() => router.push("/booking-pass" as never));
+  };
 
   const handleCancel = () => {
     if (isProcessingCancel) return;
@@ -187,17 +201,18 @@ export default function BookingHistoryScreen() {
                 disabled={isProcessingCancel}
                 className={`flex-1 bg-red-50 border border-red-200 py-2 rounded-xl items-center active:opacity-80 ${isProcessingCancel ? "opacity-60" : ""}`}
               >
-                {isProcessingCancel ? (
-                  <ActivityIndicator size="small" color="#DC2626" />
-                ) : (
-                  <Text className="text-red-600 font-bold text-xs">Cancel Booking</Text>
-                )}
+                <Text className="text-red-600 font-bold text-xs">
+                  {isProcessingCancel ? "Cancelling..." : "Cancel Booking"}
+                </Text>
               </Pressable>
-              <Pressable 
-                onPress={() => router.push("/booking-pass" as any)}
-                className="flex-1 bg-[#1F7A3E] py-2 rounded-xl items-center active:opacity-90"
+              <Pressable
+                disabled={openingPass}
+                onPress={openPass}
+                className={`flex-1 bg-[#1F7A3E] py-2 rounded-xl items-center active:opacity-90 ${openingPass ? "opacity-80" : ""}`}
               >
-                <Text className="text-white font-bold text-xs">View Pass</Text>
+                <Text className="text-white font-bold text-xs">
+                  {openingPass ? "Opening..." : "View Pass"}
+                </Text>
               </Pressable>
             </View>
           </View>

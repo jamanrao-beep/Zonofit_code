@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Modal,
   View,
@@ -23,6 +23,7 @@ import Animated, {
 import { InAppNoticeBanner } from "@/components/InAppNoticeBanner";
 import { showInAppNotice, useInAppNoticeStore } from "@/store/useInAppNoticeStore";
 import { VISIT_RULES } from "@/constants/bookingRules";
+import { afterPaint } from "@/lib/afterPaint";
 
 interface BookingConfirmedModalProps {
   visible: boolean;
@@ -59,9 +60,11 @@ export default function BookingConfirmedModal({
 }: BookingConfirmedModalProps) {
   const insets = useSafeAreaInsets();
   const checkScale = useSharedValue(0);
+  const [openingPass, setOpeningPass] = useState(false);
 
   useEffect(() => {
     if (visible) {
+      setOpeningPass(false);
       checkScale.value = withDelay(180, withSpring(1, { damping: 10, stiffness: 150 }));
     } else {
       checkScale.value = 0;
@@ -237,12 +240,17 @@ export default function BookingConfirmedModal({
 
           {/* Action CTAs */}
           <View style={styles.actions}>
-            <Pressable 
-              style={styles.primaryBtn}
-              onPress={onViewPass}
+            <Pressable
+              style={[styles.primaryBtn, openingPass && { opacity: 0.85 }]}
+              disabled={openingPass}
+              onPress={() => {
+                if (openingPass) return;
+                setOpeningPass(true);
+                afterPaint(onViewPass);
+              }}
             >
               <Ionicons name="ticket-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-              <Text style={styles.primaryBtnText}>View Pass</Text>
+              <Text style={styles.primaryBtnText}>{openingPass ? "Opening..." : "View Pass"}</Text>
             </Pressable>
 
             <Pressable 

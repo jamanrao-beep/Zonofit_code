@@ -1,8 +1,9 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, Dimensions, Alert } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { afterPaint } from '@/lib/afterPaint';
 import { useUserStore } from '@/store/useUserStore';
 import { useCreditsStore } from '@/store/useCreditsStore';
 import { useBookingStore } from '@/store/useBookingStore';
@@ -23,6 +24,13 @@ export default function JourneyScreen() {
   const { totalWorkouts, currentMonth, totalMonths, streak, identityStage } = useUserStore();
   const { membershipInfo } = useCreditsStore();
   const { bookingStatus, bookedGymName, bookedTime, pastBookings } = useBookingStore();
+  const [openingNext, setOpeningNext] = useState(false);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      setOpeningNext(false);
+    }, [])
+  );
 
   // Refresh live progress from backend on mount
   useEffect(() => {
@@ -182,18 +190,18 @@ export default function JourneyScreen() {
                 {bookingStatus === "Booked" ? (bookedGymName || "Partner Gym") : "Choose a gym to workout"}
               </Text>
             </View>
-            <Pressable 
+            <Pressable
+              disabled={openingNext}
               onPress={() => {
-                if (bookingStatus === "Booked") {
-                  router.push("/booking-pass" as any);
-                } else {
-                  router.push("/partner-gyms" as any);
-                }
+                if (openingNext) return;
+                setOpeningNext(true);
+                const path = bookingStatus === "Booked" ? "/booking-pass" : "/partner-gyms";
+                afterPaint(() => router.push(path as never));
               }}
-              style={{ backgroundColor: '#4C9A2A', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, flexDirection: 'row', alignItems: 'center' }}
+              style={{ backgroundColor: '#4C9A2A', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, flexDirection: 'row', alignItems: 'center', opacity: openingNext ? 0.8 : 1 }}
             >
               <Text style={{ color: 'white', fontSize: 12, fontWeight: '700', marginRight: 4 }}>
-                {bookingStatus === "Booked" ? "VIEW PASS" : "BOOK VISIT"}
+                {openingNext ? "OPENING..." : bookingStatus === "Booked" ? "VIEW PASS" : "BOOK VISIT"}
               </Text>
               <Ionicons name="arrow-forward" size={14} color="white" />
             </Pressable>

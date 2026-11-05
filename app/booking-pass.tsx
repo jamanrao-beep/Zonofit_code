@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
+import { afterPaint } from "@/lib/afterPaint";
 import { useAuthStore } from "@/store/useAuthStore";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
@@ -96,6 +97,7 @@ export default function BookingPassScreen() {
   const { primaryGymId, primaryGymName } = useUserStore();
   const [copied, setCopied] = useState(false);
   const [isProcessingCancel, setIsProcessingCancel] = useState(false);
+  const [opening, setOpening] = useState<null | "history" | "book">(null);
   const [cancelPrompt, setCancelPrompt] = useState<{
     isMandatory: boolean;
     refundAmount: number;
@@ -105,10 +107,20 @@ export default function BookingPassScreen() {
 
   useFocusEffect(
     React.useCallback(() => {
+      setOpening(null);
       const token = useAuthStore.getState().token;
       if (token) useBookingStore.getState().fetchBookings(token);
     }, [])
   );
+
+  const openScreen = (key: "history" | "book", path: string, replace = false) => {
+    if (opening) return;
+    setOpening(key);
+    afterPaint(() => {
+      if (replace) router.replace(path as never);
+      else router.push(path as never);
+    });
+  };
 
   useEffect(() => {
     const loop = Animated.loop(
@@ -303,16 +315,22 @@ export default function BookingPassScreen() {
               pass.
             </Text>
             <Pressable
-              onPress={() => router.replace("/(tabs)/explore" as any)}
+              disabled={opening !== null}
+              onPress={() => openScreen("book", "/(tabs)/explore", true)}
               style={styles.priBtn}
             >
-              <Text style={styles.priBtnText}>Book Today's Workout</Text>
+              <Text style={styles.priBtnText}>
+                {opening === "book" ? "Opening..." : "Book Today's Workout"}
+              </Text>
             </Pressable>
             <Pressable
-              onPress={() => router.push("/booking-history" as any)}
+              disabled={opening !== null}
+              onPress={() => openScreen("history", "/booking-history")}
               style={styles.ghBtn}
             >
-              <Text style={styles.ghBtnText}>View Booking History</Text>
+              <Text style={styles.ghBtnText}>
+                {opening === "history" ? "Opening..." : "View Booking History"}
+              </Text>
             </Pressable>
           </View>
         ) : (
@@ -535,10 +553,13 @@ export default function BookingPassScreen() {
             {/* ─── Bottom Actions (.acts) ─── */}
             <View style={styles.acts}>
               <Pressable
-                onPress={() => router.push("/booking-history" as any)}
+                disabled={opening !== null}
+                onPress={() => openScreen("history", "/booking-history")}
                 style={styles.priBtn}
               >
-                <Text style={styles.priBtnText}>View Booking History</Text>
+                <Text style={styles.priBtnText}>
+                  {opening === "history" ? "Opening..." : "View Booking History"}
+                </Text>
               </Pressable>
 
               {bookingStatus !== "Checked In" && (
@@ -547,15 +568,13 @@ export default function BookingPassScreen() {
                   disabled={isProcessingCancel}
                   style={styles.dngBtn}
                 >
-                  {isProcessingCancel ? (
-                    <ActivityIndicator size="small" color="#D92D20" />
-                  ) : (
-                    <>
-                      <Text style={styles.dngBtnText}>Cancel This Booking</Text>
-                      <Text style={styles.dngBtnSub}>
-                        Flat 2-credit fee applies
-                      </Text>
-                    </>
+                  <Text style={styles.dngBtnText}>
+                    {isProcessingCancel ? "Cancelling..." : "Cancel This Booking"}
+                  </Text>
+                  {!isProcessingCancel && (
+                    <Text style={styles.dngBtnSub}>
+                      Flat 2-credit fee applies
+                    </Text>
                   )}
                 </Pressable>
               )}

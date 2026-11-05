@@ -6,7 +6,6 @@ import {
   Pressable, 
   Image,
   StyleSheet,
-  ActivityIndicator
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -17,6 +16,7 @@ import { useCreditsStore } from "@/store/useCreditsStore";
 import { useGuestStore } from "@/store/useGuestStore";
 import { useBookingStore } from "@/store/useBookingStore";
 import { apiFetch } from "@/lib/api";
+import { afterPaint } from "@/lib/afterPaint";
 import { ZonoNoticeMark } from "@/components/ZonoNoticeMark";
 import BookingModal from "@/components/BookingModal";
 import BookingConfirmedModal from "@/components/BookingConfirmedModal";
@@ -107,6 +107,7 @@ export default function HomeScreen() {
   const { bookingStatus, bookedGymName, bookedTime, bookedCost, isCancelling } = useBookingStore();
 
   const [isCancellingTodayBooking, setIsCancellingTodayBooking] = React.useState(false);
+  const [opening, setOpening] = React.useState<null | "pass" | "journey">(null);
   const [cancelPrompt, setCancelPrompt] = React.useState<{
     isMandatory: boolean;
     refundAmount: number;
@@ -177,6 +178,7 @@ export default function HomeScreen() {
 
   useFocusEffect(
     React.useCallback(() => {
+      setOpening(null);
       const onBackPress = () => {
         const now = Date.now();
         if (now - lastBackPressTime.current < 2000) {
@@ -201,6 +203,12 @@ export default function HomeScreen() {
     homeScrollRef.current?.scrollTo({ y: 0, animated: false });
     guestScrollRef.current?.scrollTo({ y: 0, animated: false });
   }, []);
+
+  const openScreen = (key: "pass" | "journey", path: string) => {
+    if (opening) return;
+    setOpening(key);
+    afterPaint(() => router.push(path as never));
+  };
 
   const askCancelToday = () => {
     if (isCancellingTodayBooking) return;
@@ -710,17 +718,18 @@ export default function HomeScreen() {
                   onPress={askCancelToday}
                   className={`bg-red-50 border border-red-200 px-2.5 py-2 rounded-xl active:opacity-80 ${isCancellingTodayBooking ? "opacity-60" : ""}`}
                 >
-                  {isCancellingTodayBooking ? (
-                    <ActivityIndicator size="small" color="#DC2626" />
-                  ) : (
-                    <Text className="text-red-600 font-bold text-xs">Cancel</Text>
-                  )}
+                  <Text className="text-red-600 font-bold text-xs">
+                    {isCancellingTodayBooking ? "Cancelling..." : "Cancel"}
+                  </Text>
                 </Pressable>
-                <Pressable 
-                  onPress={() => router.push("/booking-pass" as any)}
-                  className="bg-[#1F7A3E] px-3.5 py-2 rounded-xl active:opacity-90"
+                <Pressable
+                  disabled={opening === "pass"}
+                  onPress={() => openScreen("pass", "/booking-pass")}
+                  className={`bg-[#1F7A3E] px-3.5 py-2 rounded-xl active:opacity-90 ${opening === "pass" ? "opacity-80" : ""}`}
                 >
-                  <Text className="text-white font-bold text-xs">View Pass</Text>
+                  <Text className="text-white font-bold text-xs">
+                    {opening === "pass" ? "Opening..." : "View Pass"}
+                  </Text>
                 </Pressable>
               </View>
             </View>
@@ -738,15 +747,17 @@ export default function HomeScreen() {
         </View>
 
         {/* Your Journey Card */}
-        <Pressable 
-          onPress={() => router.push("/journey")}
-          className="bg-white rounded-[32px] p-5 mb-6 border border-gray-100 shadow-sm active:opacity-95" 
+        <Pressable
+          onPress={() => openScreen("journey", "/journey")}
+          className="bg-white rounded-[32px] p-5 mb-6 border border-gray-100 shadow-sm active:opacity-95"
           style={styles.cardShadow}
         >
           <View className="flex-row justify-between items-center mb-5">
             <Text className="text-[17px] font-bold text-black">Your Journey</Text>
             <View className="flex-row items-center">
-              <Text className="text-[#1F7A3E] font-bold text-xs tracking-wide mr-0.5">View Journey</Text>
+              <Text className="text-[#1F7A3E] font-bold text-xs tracking-wide mr-0.5">
+                {opening === "journey" ? "Opening..." : "View Journey"}
+              </Text>
               <Ionicons name="chevron-forward" size={12} color="#1F7A3E" />
             </View>
           </View>

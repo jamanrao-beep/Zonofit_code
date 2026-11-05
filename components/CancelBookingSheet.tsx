@@ -58,7 +58,10 @@ export default function CancelBookingSheet({
             style={({ pressed }) => [styles.cancelBtn, (pressed || loading) && styles.pressed]}
           >
             {loading ? (
-              <ActivityIndicator color="#DC2626" />
+              <View style={styles.busyRow}>
+                <ActivityIndicator color="#DC2626" />
+                <Text style={styles.cancelText}>Cancelling...</Text>
+              </View>
             ) : (
               <Text style={styles.cancelText}>Yes, cancel booking</Text>
             )}
@@ -127,6 +130,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
+  },
+  busyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   cancelText: {
     fontSize: 16,
