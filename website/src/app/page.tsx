@@ -13,10 +13,6 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
-  Sparkles,
-  MapPin,
-  RotateCcw,
-  Zap,
 } from "lucide-react";
 
 export default function LandingPage() {
@@ -542,8 +538,7 @@ export default function LandingPage() {
             
             {/* Section Header */}
             <div className="text-center max-w-3xl mx-auto mb-14 sm:mb-16">
-              <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider text-[#1b6c23] bg-[#eef7ed] border border-[#d2e4ce] mb-4">
-                <Sparkles className="w-3.5 h-3.5 text-[#2e6d1a]" />
+              <span className="inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider text-[#1b6c23] bg-[#eef7ed] border border-[#d2e4ce] mb-4">
                 <span>Imagine A More Flexible Membership</span>
               </span>
               <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-gray-950 leading-tight">
@@ -561,27 +556,21 @@ export default function LandingPage() {
               {/* Card 1: Multi-Location Access */}
               <div className="group bg-white rounded-3xl p-7 sm:p-8 border border-[#d2e4ce] shadow-sm hover:shadow-xl hover:border-[#1b6c23]/40 transition-all duration-300 flex flex-col justify-between hover:-translate-y-1">
                 <div>
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="w-12 h-12 rounded-2xl bg-[#eef7ed] flex items-center justify-center text-[#1b6c23] group-hover:scale-110 transition-transform">
-                      <MapPin className="w-6 h-6 stroke-[2.2]" />
-                    </div>
+                  <div className="flex items-center justify-between mb-5">
                     <span className="text-xs font-black uppercase tracking-wider text-gray-400">
                       01 · Freedom
                     </span>
                   </div>
 
-                  <h3 className="text-xl sm:text-2xl font-extrabold text-gray-950 tracking-tight leading-snug mb-3">
+                  <h3 className="text-xl sm:text-2xl font-extrabold text-gray-950 tracking-tight leading-snug">
                     What if your membership <br className="hidden lg:inline" />
                     <span className="text-[#1b6c23]">could move with you?</span>
                   </h3>
-                  <p className="text-sm sm:text-base text-gray-600 leading-relaxed font-normal">
-                    Train near home on weekends, near work on weekdays, or discover new gyms when traveling. One active membership unlocks every partner gym in the network.
-                  </p>
                 </div>
 
-                <div className="pt-6 mt-6 border-t border-gray-100 flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#1b6c23] bg-[#eef7ed] px-3 py-1 rounded-full">
-                    📍 1 Pass · Any Partner Gym
+                <div className="pt-6 mt-8 border-t border-gray-100 flex items-center justify-between">
+                  <span className="text-xs font-bold text-[#1b6c23] bg-[#eef7ed] px-3.5 py-1.5 rounded-full">
+                    1 Pass · Any Partner Gym
                   </span>
                 </div>
               </div>
@@ -595,27 +584,21 @@ export default function LandingPage() {
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-6 mt-1">
-                    <div className="w-12 h-12 rounded-2xl bg-[#a1d942]/25 flex items-center justify-center text-[#122409] group-hover:scale-110 transition-transform">
-                      <Zap className="w-6 h-6 stroke-[2.2]" />
-                    </div>
+                  <div className="flex items-center justify-between mb-5 mt-1">
                     <span className="text-xs font-black uppercase tracking-wider text-[#1b6c23]">
                       02 · Variety
                     </span>
                   </div>
 
-                  <h3 className="text-xl sm:text-2xl font-extrabold text-gray-950 tracking-tight leading-snug mb-3">
+                  <h3 className="text-xl sm:text-2xl font-extrabold text-gray-950 tracking-tight leading-snug">
                     What if fitness <br className="hidden lg:inline" />
                     <span className="text-[#1b6c23]">wasn&apos;t just one gym?</span>
                   </h3>
-                  <p className="text-sm sm:text-base text-gray-600 leading-relaxed font-normal">
-                    Break routine fatigue. Switch freely between heavy iron clubs, CrossFit boxes, cardio floors, and recovery zones anytime you want without buying separate passes.
-                  </p>
                 </div>
 
-                <div className="pt-6 mt-6 border-t border-gray-100 flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#122409] bg-[#a1d942]/20 px-3 py-1 rounded-full">
-                    ⚡ Strength · CrossFit · Recovery
+                <div className="pt-6 mt-8 border-t border-gray-100 flex items-center justify-between">
+                  <span className="text-xs font-bold text-[#122409] bg-[#a1d942]/20 px-3.5 py-1.5 rounded-full">
+                    Strength · CrossFit · Recovery
                   </span>
                 </div>
               </div>
@@ -623,27 +606,21 @@ export default function LandingPage() {
               {/* Card 3: Zero Waste Value */}
               <div className="group bg-white rounded-3xl p-7 sm:p-8 border border-[#d2e4ce] shadow-sm hover:shadow-xl hover:border-[#1b6c23]/40 transition-all duration-300 flex flex-col justify-between hover:-translate-y-1">
                 <div>
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="w-12 h-12 rounded-2xl bg-[#eef7ed] flex items-center justify-center text-[#1b6c23] group-hover:scale-110 transition-transform">
-                      <RotateCcw className="w-6 h-6 stroke-[2.2]" />
-                    </div>
+                  <div className="flex items-center justify-between mb-5">
                     <span className="text-xs font-black uppercase tracking-wider text-gray-400">
                       03 · Value
                     </span>
                   </div>
 
-                  <h3 className="text-xl sm:text-2xl font-extrabold text-gray-950 tracking-tight leading-snug mb-3">
+                  <h3 className="text-xl sm:text-2xl font-extrabold text-gray-950 tracking-tight leading-snug">
                     What if unused value could <br className="hidden lg:inline" />
                     <span className="text-[#1b6c23]">still help you stay active?</span>
                   </h3>
-                  <p className="text-sm sm:text-base text-gray-600 leading-relaxed font-normal">
-                    Never lose money when life gets busy. Your credits stay valid, hold fixed value (1 Credit = ₹10), and give you real fitness purchasing power whenever you return.
-                  </p>
                 </div>
 
-                <div className="pt-6 mt-6 border-t border-gray-100 flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#1b6c23] bg-[#eef7ed] px-3 py-1 rounded-full">
-                    💰 1 Credit = ₹10 · Zero Wastage
+                <div className="pt-6 mt-8 border-t border-gray-100 flex items-center justify-between">
+                  <span className="text-xs font-bold text-[#1b6c23] bg-[#eef7ed] px-3.5 py-1.5 rounded-full">
+                    1 Credit = ₹10 · Zero Wastage
                   </span>
                 </div>
               </div>
