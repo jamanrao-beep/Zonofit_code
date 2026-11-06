@@ -554,75 +554,51 @@ export default function LandingPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
               
               {/* Card 1: Multi-Location Access */}
-              <div className="group bg-white rounded-3xl p-7 sm:p-8 border border-[#d2e4ce] shadow-sm hover:shadow-xl hover:border-[#1b6c23]/40 transition-all duration-300 flex flex-col justify-between hover:-translate-y-1">
-                <div>
-                  <div className="flex items-center justify-between mb-5">
-                    <span className="text-xs font-black uppercase tracking-wider text-gray-400">
-                      01 · Freedom
-                    </span>
-                  </div>
-
-                  <h3 className="text-xl sm:text-2xl font-extrabold text-gray-950 tracking-tight leading-snug">
-                    What if your membership <br className="hidden lg:inline" />
-                    <span className="text-[#1b6c23]">could move with you?</span>
-                  </h3>
-                </div>
-
-                <div className="pt-6 mt-8 border-t border-gray-100 flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#1b6c23] bg-[#eef7ed] px-3.5 py-1.5 rounded-full">
-                    1 Pass · Any Partner Gym
+              <div className="group bg-white rounded-3xl p-7 sm:p-9 border border-[#d2e4ce] shadow-sm hover:shadow-xl hover:border-[#1b6c23]/40 transition-all duration-300 flex flex-col hover:-translate-y-1">
+                <div className="flex items-center justify-between mb-5">
+                  <span className="text-xs font-black uppercase tracking-wider text-gray-400">
+                    01 · Freedom
                   </span>
                 </div>
+
+                <h3 className="text-xl sm:text-2xl font-extrabold text-gray-950 tracking-tight leading-snug">
+                  What if your membership <br className="hidden lg:inline" />
+                  <span className="text-[#1b6c23]">could move with you?</span>
+                </h3>
               </div>
 
               {/* Card 2: Unlimited Variety (Featured) */}
-              <div className="group bg-gradient-to-b from-[#f7fbf6] to-white rounded-3xl p-7 sm:p-8 border-2 border-[#1b6c23]/30 shadow-md hover:shadow-xl hover:border-[#1b6c23] transition-all duration-300 flex flex-col justify-between hover:-translate-y-1 relative">
+              <div className="group bg-gradient-to-b from-[#f7fbf6] to-white rounded-3xl p-7 sm:p-9 border-2 border-[#1b6c23]/30 shadow-md hover:shadow-xl hover:border-[#1b6c23] transition-all duration-300 flex flex-col hover:-translate-y-1 relative">
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                   <span className="bg-[#1b6c23] text-white text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full shadow-sm">
                     Most Loved
                   </span>
                 </div>
 
-                <div>
-                  <div className="flex items-center justify-between mb-5 mt-1">
-                    <span className="text-xs font-black uppercase tracking-wider text-[#1b6c23]">
-                      02 · Variety
-                    </span>
-                  </div>
-
-                  <h3 className="text-xl sm:text-2xl font-extrabold text-gray-950 tracking-tight leading-snug">
-                    What if fitness <br className="hidden lg:inline" />
-                    <span className="text-[#1b6c23]">wasn&apos;t just one gym?</span>
-                  </h3>
-                </div>
-
-                <div className="pt-6 mt-8 border-t border-gray-100 flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#122409] bg-[#a1d942]/20 px-3.5 py-1.5 rounded-full">
-                    Strength · CrossFit · Recovery
+                <div className="flex items-center justify-between mb-5 mt-1">
+                  <span className="text-xs font-black uppercase tracking-wider text-[#1b6c23]">
+                    02 · Variety
                   </span>
                 </div>
+
+                <h3 className="text-xl sm:text-2xl font-extrabold text-gray-950 tracking-tight leading-snug">
+                  What if fitness <br className="hidden lg:inline" />
+                  <span className="text-[#1b6c23]">wasn&apos;t just one gym?</span>
+                </h3>
               </div>
 
               {/* Card 3: Zero Waste Value */}
-              <div className="group bg-white rounded-3xl p-7 sm:p-8 border border-[#d2e4ce] shadow-sm hover:shadow-xl hover:border-[#1b6c23]/40 transition-all duration-300 flex flex-col justify-between hover:-translate-y-1">
-                <div>
-                  <div className="flex items-center justify-between mb-5">
-                    <span className="text-xs font-black uppercase tracking-wider text-gray-400">
-                      03 · Value
-                    </span>
-                  </div>
-
-                  <h3 className="text-xl sm:text-2xl font-extrabold text-gray-950 tracking-tight leading-snug">
-                    What if unused value could <br className="hidden lg:inline" />
-                    <span className="text-[#1b6c23]">still help you stay active?</span>
-                  </h3>
-                </div>
-
-                <div className="pt-6 mt-8 border-t border-gray-100 flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#1b6c23] bg-[#eef7ed] px-3.5 py-1.5 rounded-full">
-                    1 Credit = ₹10 · Zero Wastage
+              <div className="group bg-white rounded-3xl p-7 sm:p-9 border border-[#d2e4ce] shadow-sm hover:shadow-xl hover:border-[#1b6c23]/40 transition-all duration-300 flex flex-col hover:-translate-y-1">
+                <div className="flex items-center justify-between mb-5">
+                  <span className="text-xs font-black uppercase tracking-wider text-gray-400">
+                    03 · Value
                   </span>
                 </div>
+
+                <h3 className="text-xl sm:text-2xl font-extrabold text-gray-950 tracking-tight leading-snug">
+                  What if unused value could <br className="hidden lg:inline" />
+                  <span className="text-[#1b6c23]">still help you stay active?</span>
+                </h3>
               </div>
 
             </div>
