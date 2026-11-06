@@ -138,6 +138,11 @@ export default function SplashAnimationScreen() {
     let cancelled = false;
     (async () => {
       try {
+        if (!useAuthStore.getState().isLoaded) {
+          await useAuthStore.getState().initialize();
+        }
+        if (cancelled) return;
+
         const { isOnboarded, user, isSignedIn: signedIn } = useAuthStore.getState();
         if (signedIn) {
           if (isOnboarded) {
@@ -162,7 +167,7 @@ export default function SplashAnimationScreen() {
           nextRouteRef.current = "/intro";
         }
       } catch {
-        nextRouteRef.current = "/(tabs)";
+        nextRouteRef.current = "/intro";
       }
     })();
     return () => {
@@ -194,7 +199,12 @@ export default function SplashAnimationScreen() {
     const navigateNext = () => {
       if (!alive || isNavigating.current) return;
       isNavigating.current = true;
-      routerRef.current.replace((nextRouteRef.current || "/(tabs)") as never);
+      const { isSignedIn: signedIn, isOnboarded } = useAuthStore.getState();
+      let target = nextRouteRef.current || "/intro";
+      if (signedIn && isOnboarded) {
+        target = "/(tabs)";
+      }
+      routerRef.current.replace(target as never);
     };
 
     SplashScreen.hideAsync().catch(() => {});

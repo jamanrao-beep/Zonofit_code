@@ -56,8 +56,15 @@ function AuthGate() {
 
     const isViewingOnboardingGym = useAuthStore.getState().isViewingOnboardingGym;
 
-    // Don't redirect away from the animated splash screen, onboarding, gym preview during onboarding, or intro screens.
-    if (isOnRoot || inOnboarding || isViewingOnboardingGym || inIntro) return;
+    // Don't redirect away from the animated splash screen, onboarding, or gym preview during onboarding.
+    if (isOnRoot || inOnboarding || isViewingOnboardingGym) return;
+
+    if (inIntro) {
+      if (isSignedIn && !isGuest) {
+        router.replace(isOnboarded ? "/(tabs)" : "/(auth)/create-account");
+      }
+      return;
+    }
 
     if (isGuest && isGuestExpired) {
       if (!inGuestExpired) {

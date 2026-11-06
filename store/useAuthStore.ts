@@ -92,6 +92,8 @@ async function saveSignedInSession(
   await useGuestStore.getState().convertGuest();
 }
 
+let initPromise: Promise<void> | null = null;
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   token: null,
@@ -110,34 +112,50 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setIsViewingOnboardingGym: (val) => set({ isViewingOnboardingGym: val }),
 
   initialize: async () => {
-    try {
-      const token = await SecureStore.getItemAsync(TOKEN_KEY);
-      const sessionStr = await SecureStore.getItemAsync(SESSION_KEY);
-      const storedOnboardedFlag = await SecureStore.getItemAsync(ONBOARDED_KEY);
-      
-      if (token && sessionStr) {
-        let cachedUser: User;
-        try {
-          cachedUser = JSON.parse(sessionStr) as User;
-        } catch {
-          await get().signOut();
-          set({ isLoaded: true });
-          return;
-        }
+    if (initPromise) return initPromise;
+    initPromise = (async () => {
+      try {
+        const token = await SecureStore.getItemAsync(TOKEN_KEY);
+        const sessionStr = await SecureStore.getItemAsync(SESSION_KEY);
+        const storedOnboardedFlag = await SecureStore.getItemAsync(ONBOARDED_KEY);
+        
+        if (token && sessionStr) {
+          let cachedUser: User;
+          try {
+            cachedUser = JSON.parse(sessionStr) as User;
+          } catch {
+            await get().signOut();
+            set({ isLoaded: true });
+            return;
+          }
 
-        const isDefaultName = (n?: string) => !n || n === "Google User" || n === "ZonoFit Member";
+          const isDefaultName = (n?: string) => !n || n === "Google User" || n === "ZonoFit Member";
 
-        try {
-          const freshData = await apiFetch("/api/users/me", { token });
-          
-          // Never overwrite a customized user name with default fallback
-          const resolvedUsername = !isDefaultName(freshData.name)
-            ? freshData.name
-            : (!isDefaultName(cachedUser.username) ? cachedUser.username : (freshData.name || cachedUser.username));
+          // Immediate local hydration so splash and routing immediately know user is logged in
+          const cachedIsOnboarded = storedOnboardedFlag === "true" || !!(
+            cachedUser.primaryGym &&
+            cachedUser.username &&
+            !isDefaultName(cachedUser.username)
+          );
+          set({
+            user: cachedUser,
+            token,
+            isSignedIn: true,
+            isOnboarded: cachedIsOnboarded,
+            isLoaded: true,
+          });
 
-          const resolvedPrimaryGym = freshData.primaryGymId || 
-            freshData.membership?.primaryGymId || 
-            freshData.membership?.gymId || 
+          try {
+            const freshData = await apiFetch("/api/users/me", { token });
+            
+            // Never overwrite a customized user name with default fallback
+            const resolvedUsername = !isDefaultName(freshData.name)
+              ? freshData.name
+              : (!isDefaultName(cachedUser.username) ? cachedUser.username : (freshData.name || cachedUser.username));
+
+            const resolvedPrimaryGym = freshData.primaryGymId || 
+              freshData.membership?.primaryGymId || 
+              freshData.membership?.gymId || 
             cachedUser.primaryGym;
 
           const freshUser: User = {
@@ -193,9 +211,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       } else {
         set({ user: null, token: null, isSignedIn: false, isOnboarded: false, isLoaded: true });
       }
-    } catch (err) {
-      set({ isLoaded: true });
-    }
+      } catch (err) {
+        set({ isLoaded: true });
+      }
+    })();
+    return initPromise;
   },
 
   checkUserExists: async (phone?: string, email?: string) => {
@@ -690,6 +710,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { useCreditsStore } = require("./useCreditsStore");
       useCreditsStore.getState().reset?.();
     } catch {}
+    initPromise = null;
     set({
       user: null,
       token: null,

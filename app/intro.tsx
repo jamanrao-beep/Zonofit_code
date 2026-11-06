@@ -1,5 +1,6 @@
 import { useRouter } from "expo-router";
 import React, { useRef, useState, useCallback, useEffect } from "react";
+import { useAuthStore } from "@/store/useAuthStore";
 import {
   Dimensions,
   Image,
@@ -572,6 +573,13 @@ export default function IntroScreen() {
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const { isSignedIn, isOnboarded, isLoaded } = useAuthStore();
+
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      router.replace(isOnboarded ? "/(tabs)" : "/(auth)/create-account");
+    }
+  }, [isLoaded, isSignedIn, isOnboarded, router]);
 
   const isLast = activeIndex === 3;
 
