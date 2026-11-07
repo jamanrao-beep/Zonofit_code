@@ -22,6 +22,7 @@ import { useUserStore } from "@/store/useUserStore";
 import { promptGuestAccount } from "@/lib/guestAccount";
 import { CartIconButton, OrdersIconButton, ShopBackButton, WishIconButton } from "@/components/shop/Chrome";
 import ProductCard from "@/components/shop/ProductCard";
+import FirstOrderWishlist from "@/components/shop/FirstOrderWishlist";
 import { shop, shopStyles } from "@/components/shop/theme";
 
 export default function ShopHomeScreen() {
@@ -77,8 +78,13 @@ export default function ShopHomeScreen() {
       <View style={shopStyles.top}>
         <ShopBackButton />
         <View style={{ flex: 1 }}>
-          <Text style={shopStyles.h1}>Shop</Text>
-          <Text style={shopStyles.sub}>Fitness essentials for your journey</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Text style={shopStyles.h1}>Shop</Text>
+            <View style={styles.comingSoonHeaderBadge}>
+              <Text style={styles.comingSoonHeaderBadgeText}>COMING SOON</Text>
+            </View>
+          </View>
+          <Text style={shopStyles.sub}>Marketplace preview & launch priority</Text>
         </View>
         <OrdersIconButton />
         <WishIconButton />
@@ -91,12 +97,30 @@ export default function ShopHomeScreen() {
         contentContainerStyle={{ paddingBottom: cartCount > 0 ? 130 + insets.bottom : 40 }}
       >
         <View style={shopStyles.pad}>
+          {/* Marketplace Announcement Banner */}
+          <View style={styles.launchBanner}>
+            <View style={styles.launchBannerIconWrap}>
+              <Ionicons name="sparkles" size={18} color="#1F7A3F" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                <Text style={styles.launchBannerTitle}>Marketplace Coming Soon</Text>
+                <View style={styles.miniPill}>
+                  <Text style={styles.miniPillText}>SNEAK PEEK</Text>
+                </View>
+              </View>
+              <Text style={styles.launchBannerSubtitle}>
+                We are curating 100% genuine supplements, apparel, and training gear. Preview categories and vote below on what you want us to stock first!
+              </Text>
+            </View>
+          </View>
+
           <View style={shopStyles.search}>
             <Ionicons name="search-outline" size={20} color={shop.muted} />
             <TextInput
               value={search}
               onChangeText={setSearch}
-              placeholder="Search protein, creatine, gear & more"
+              placeholder="Search upcoming supplements, gear & more"
               placeholderTextColor={shop.muted}
               style={shopStyles.searchInput}
               returnKeyType="search"
@@ -121,6 +145,9 @@ export default function ShopHomeScreen() {
               <Ionicons name="arrow-forward" size={16} color={shop.hero} />
             </Pressable>
           ) : null}
+
+          {/* Interactive Launch Wishlist */}
+          <FirstOrderWishlist />
 
           <View style={styles.rep}>
             <View style={styles.blob} />
@@ -199,6 +226,20 @@ export default function ShopHomeScreen() {
           </View>
         ) : (
           <>
+            <View style={shopStyles.pad}>
+              <View style={shopStyles.sectionRow}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Text style={shopStyles.sectionTitle}>Categories</Text>
+                  <View style={styles.catComingSoonBadge}>
+                    <Text style={styles.catComingSoonBadgeText}>COMING SOON</Text>
+                  </View>
+                </View>
+                <Pressable onPress={() => openList("/shop/category/all")}>
+                  <Text style={shopStyles.viewAll}>Explore All</Text>
+                </Pressable>
+              </View>
+            </View>
+
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cats}>
               {SHOP_CATEGORIES.map((cat) => (
                 <Pressable key={cat.id} style={styles.cat} onPress={() => openList(`/shop/category/${cat.id}`)}>
@@ -206,6 +247,9 @@ export default function ShopHomeScreen() {
                     <Ionicons name={cat.icon as never} size={24} color={shop.ink} />
                   </View>
                   <Text style={styles.catName}>{cat.name}</Text>
+                  <View style={styles.catTag}>
+                    <Text style={styles.catTagText}>Soon</Text>
+                  </View>
                 </Pressable>
               ))}
             </ScrollView>
@@ -214,7 +258,12 @@ export default function ShopHomeScreen() {
               {hasGoals ? (
                 <>
                   <View style={shopStyles.sectionRow}>
-                    <Text style={shopStyles.sectionTitle}>Shop by Goal</Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      <Text style={shopStyles.sectionTitle}>Shop by Goal</Text>
+                      <View style={styles.catComingSoonBadge}>
+                        <Text style={styles.catComingSoonBadgeText}>PREVIEW</Text>
+                      </View>
+                    </View>
                     <Pressable onPress={() => openList("/shop/category/all")}>
                       <Text style={shopStyles.viewAll}>View All</Text>
                     </Pressable>
@@ -233,7 +282,12 @@ export default function ShopHomeScreen() {
               ) : null}
 
               <View style={shopStyles.sectionRow}>
-                <Text style={shopStyles.sectionTitle}>Products</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Text style={shopStyles.sectionTitle}>Upcoming Drops</Text>
+                  <View style={styles.catComingSoonBadge}>
+                    <Text style={styles.catComingSoonBadgeText}>COMING SOON</Text>
+                  </View>
+                </View>
                 <Pressable onPress={() => openList("/shop/category/all")}>
                   <Text style={shopStyles.viewAll}>View All</Text>
                 </Pressable>
@@ -451,4 +505,83 @@ const styles = StyleSheet.create({
   cbarTotal: { color: "rgba(255,255,255,0.85)", fontSize: 12.5, marginTop: 2 },
   cbarRight: { flexDirection: "row", alignItems: "center", gap: 6 },
   cbarGo: { color: "#fff", fontWeight: "700" },
+  comingSoonHeaderBadge: {
+    backgroundColor: "#E8F4EA",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#C5DBCB",
+  },
+  comingSoonHeaderBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#1F7A3F",
+    letterSpacing: 0.5,
+  },
+  launchBanner: {
+    backgroundColor: "#F4FBF6",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#CCE4D2",
+    padding: 14,
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 14,
+  },
+  launchBannerIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#E8F4EA",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 2,
+  },
+  launchBannerTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#0F2417",
+  },
+  launchBannerSubtitle: {
+    fontSize: 12,
+    color: "#526357",
+    lineHeight: 17,
+  },
+  miniPill: {
+    backgroundColor: "#1F7A3F",
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  miniPillText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    letterSpacing: 0.4,
+  },
+  catComingSoonBadge: {
+    backgroundColor: "#E8F4EA",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  catComingSoonBadgeText: {
+    fontSize: 9.5,
+    fontWeight: "800",
+    color: "#1F7A3F",
+    letterSpacing: 0.4,
+  },
+  catTag: {
+    marginTop: 4,
+    backgroundColor: "#F0F5F1",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  catTagText: {
+    fontSize: 9.5,
+    fontWeight: "700",
+    color: "#526357",
+  },
 });

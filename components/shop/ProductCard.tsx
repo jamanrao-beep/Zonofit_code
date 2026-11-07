@@ -98,16 +98,9 @@ export default function ProductCard({
             <ProductVisual color={product.color} shape={product.shape} size={Math.min(96, width * 0.55)} />
           )}
         </Pressable>
-        {off > 0 ? (
-          <View style={styles.off} pointerEvents="none">
-            <Text style={styles.offText}>{off}% off</Text>
-          </View>
-        ) : null}
-        {!product.purchasable ? (
-          <View style={[styles.preview, off > 0 ? { top: 32 } : null]} pointerEvents="none">
-            <Text style={styles.previewText}>{product.inStock ? "Preview" : "Out of stock"}</Text>
-          </View>
-        ) : null}
+        <View style={styles.comingSoonBadge} pointerEvents="none">
+          <Text style={styles.comingSoonBadgeText}>COMING SOON</Text>
+        </View>
         <Pressable accessibilityLabel="Wishlist" onPress={onWish} style={styles.heart}>
           <Ionicons name={wished ? "heart" : "heart-outline"} size={18} color={wished ? shop.red : shop.muted} />
         </Pressable>
@@ -126,32 +119,16 @@ export default function ProductCard({
           {product.ratingCount ? <Text style={styles.ratingCount}>({product.ratingCount})</Text> : null}
         </View>
       ) : (
-        <Text style={styles.live}>Live item</Text>
+        <Text style={styles.live}>Marketplace Launch</Text>
       )}
       <Text style={styles.price}>
-        {product.price > 0 ? inr(product.price) : "Price not set"}
-        {off > 0 ? <Text style={styles.mrp}>  {inr(product.mrp)}</Text> : null}
+        {product.price > 0 ? inr(product.price) : "Price at Launch"}
       </Text>
 
-      {!product.inStock ? (
-        <View style={[styles.add, styles.addOff]}>
-          <Text style={styles.addOffText}>Out of stock</Text>
-        </View>
-      ) : qty > 0 ? (
-        <View style={styles.qty}>
-          <Pressable accessibilityLabel="Less" onPress={removeOne} style={styles.qtyBtn}>
-            <Text style={styles.qtyGlyph}>−</Text>
-          </Pressable>
-          <Text style={styles.qtyCount}>{qty}</Text>
-          <Pressable accessibilityLabel="More" onPress={addOne} style={styles.qtyBtn}>
-            <Text style={styles.qtyGlyph}>+</Text>
-          </Pressable>
-        </View>
-      ) : (
-        <Pressable onPress={addOne} style={styles.add}>
-          <Text style={styles.addText}>Add to Cart</Text>
-        </Pressable>
-      )}
+      <Pressable onPress={open} style={styles.add}>
+        <Text style={styles.addText}>Preview & Vote</Text>
+        <Ionicons name="arrow-forward" size={14} color={shop.hero} />
+      </Pressable>
     </View>
   );
 }
@@ -182,16 +159,21 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   image: { width: "100%", height: "100%" },
-  off: {
+  comingSoonBadge: {
     position: "absolute",
     left: 8,
     top: 8,
-    backgroundColor: shop.hero,
-    borderRadius: 99,
+    backgroundColor: "rgba(31, 122, 63, 0.95)",
+    borderRadius: 8,
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 4,
   },
-  offText: { color: "#fff", fontWeight: "700", fontSize: 11 },
+  comingSoonBadgeText: {
+    color: "#FFFFFF",
+    fontWeight: "800",
+    fontSize: 9.5,
+    letterSpacing: 0.5,
+  },
   preview: {
     position: "absolute",
     left: 8,
@@ -222,15 +204,17 @@ const styles = StyleSheet.create({
   price: { fontSize: 21, fontWeight: "700", color: shop.ink, marginTop: 6, marginBottom: 10, marginHorizontal: 2 },
   mrp: { fontSize: 12.5, fontWeight: "500", color: shop.muted, textDecorationLine: "line-through" },
   add: {
-    height: 42,
+    height: 40,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: shop.hero,
+    borderColor: "#1F7A3F",
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#fff",
+    backgroundColor: "#E8F4EA",
+    gap: 6,
   },
-  addText: { color: shop.hero, fontWeight: "700" },
+  addText: { color: "#1F7A3F", fontWeight: "700", fontSize: 13 },
   addOff: { borderColor: shop.line },
   addOffText: { color: shop.muted, fontWeight: "700" },
   qty: {

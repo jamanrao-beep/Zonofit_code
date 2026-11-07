@@ -7,6 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter, Stack } from "expo-router";
 import { apiFetch } from "@/lib/api";
 import CartModal from "@/components/CartModal";
+import FirstOrderWishlist from "@/components/shop/FirstOrderWishlist";
 
 export interface MarketplaceItem {
   id: string;
@@ -82,7 +83,12 @@ export default function MarketplaceScreen() {
     <SafeAreaView className="flex-1 bg-[#F5F7F4]">
       {/* Screen Header */}
       <View className="bg-white px-5 py-4 flex-row justify-between items-center border-b border-black/5">
-        <Text className="text-xl font-bold text-[#1F2520]">ZonoFit Store</Text>
+        <View className="flex-row items-center gap-2">
+          <Text className="text-xl font-bold text-[#1F2520]">ZonoFit Store</Text>
+          <View className="bg-[#E8F4EA] px-2 py-1 rounded-md border border-[#C5DBCB]">
+            <Text className="text-[10px] font-black text-[#1F7A3F] tracking-wide">COMING SOON</Text>
+          </View>
+        </View>
         <Pressable onPress={() => router.navigate("/")} className="bg-[#F5F7F4] p-2 rounded-full active:bg-gray-200">
           <Ionicons name="close" size={20} color="#1F2520" />
         </Pressable>
@@ -140,16 +146,34 @@ export default function MarketplaceScreen() {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 20 }}>
+        {/* First Order Wishlist interactive poll */}
+        <FirstOrderWishlist />
+
+        {/* Sneak peek heading */}
+        <View className="flex-row items-center justify-between mb-4 mt-2">
+          <View className="flex-row items-center gap-2">
+            <Text className="text-base font-extrabold text-[#1F2520]">Upcoming Store Items</Text>
+            <View className="bg-[#E8F4EA] px-2 py-0.5 rounded">
+              <Text className="text-[10px] font-bold text-[#1F7A3F]">PREVIEWS</Text>
+            </View>
+          </View>
+        </View>
+
         {isLoading ? (
           <ActivityIndicator size="large" color="#059669" />
         ) : filteredItems.length === 0 ? (
-          <View className="items-center justify-center mt-10">
-            <Text className="text-[#6B756E] text-center font-medium">No items found in this category.</Text>
+          <View className="items-center justify-center mt-6 py-8">
+            <Text className="text-[#6B756E] text-center font-medium">No items found in this preview category.</Text>
           </View>
         ) : (
           filteredItems.map((item) => (
-          <View key={item.id} className="bg-white rounded-3xl overflow-hidden border border-black/5 shadow-sm mb-5">
-            <Image source={{ uri: item.imageUrl }} className="w-full h-48" resizeMode="cover" />
+          <View key={item.id} className="bg-white rounded-3xl overflow-hidden border border-black/5 shadow-sm mb-5 relative">
+            <View className="relative">
+              <Image source={{ uri: item.imageUrl }} className="w-full h-48" resizeMode="cover" />
+              <View className="absolute top-3 left-3 bg-[#1F7A3F] px-2.5 py-1 rounded-md">
+                <Text className="text-white text-[10px] font-black tracking-wide">COMING SOON</Text>
+              </View>
+            </View>
             <View className="p-4">
               <Text className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1">
                 {item.storeCategory?.replace(/_/g, " ")}
@@ -207,10 +231,10 @@ export default function MarketplaceScreen() {
                 <Text className="text-xl font-black text-[#1F2520]">₹{item.pricePaise / 100}</Text>
                 <Pressable 
                   onPress={() => handleAddToCart(item)}
-                  className="bg-emerald-600 px-5 py-2.5 rounded-xl active:bg-emerald-700 flex-row items-center gap-x-2"
+                  className="bg-[#E8F4EA] border border-[#1F7A3F] px-4 py-2.5 rounded-xl flex-row items-center gap-x-1.5"
                 >
-                  <Ionicons name="add" size={16} color="white" />
-                  <Text className="text-white font-bold text-sm">Add</Text>
+                  <Ionicons name="sparkles" size={14} color="#1F7A3F" />
+                  <Text className="text-[#1F7A3F] font-bold text-xs">Request at Launch</Text>
                 </Pressable>
               </View>
             </View>

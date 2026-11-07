@@ -26,6 +26,7 @@ import { useShopCatalogStore } from "@/store/useShopCatalogStore";
 import { useWishlistStore } from "@/store/useWishlistStore";
 import { ShopBackButton, CartIconButton } from "@/components/shop/Chrome";
 import ProductCard from "@/components/shop/ProductCard";
+import FirstOrderWishlist from "@/components/shop/FirstOrderWishlist";
 import { shop, shopStyles } from "@/components/shop/theme";
 
 const SORTS: { id: ShopSort; label: string }[] = [
@@ -93,12 +94,35 @@ export default function ShopListScreen() {
       <StatusBar barStyle="dark-content" />
       <View style={[shopStyles.top, { paddingBottom: 4 }]}>
         <ShopBackButton fallback="/shop" />
-        <Text style={[shopStyles.h2, { flex: 1 }]} numberOfLines={1}>{title}</Text>
+        <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <Text style={[shopStyles.h2, { flexShrink: 1 }]} numberOfLines={1}>{title}</Text>
+          <View style={styles.comingSoonHeaderBadge}>
+            <Text style={styles.comingSoonHeaderBadgeText}>COMING SOON</Text>
+          </View>
+        </View>
         <CartIconButton />
       </View>
 
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 40 }}>
         <View style={shopStyles.pad}>
+          {/* Category Announcement Banner */}
+          <View style={styles.launchBanner}>
+            <View style={styles.launchBannerIconWrap}>
+              <Ionicons name="sparkles" size={18} color="#1F7A3F" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                <Text style={styles.launchBannerTitle}>{title} Store Coming Soon</Text>
+                <View style={styles.miniPill}>
+                  <Text style={styles.miniPillText}>SNEAK PEEK</Text>
+                </View>
+              </View>
+              <Text style={styles.launchBannerSubtitle}>
+                Genuine brand partnerships are finalizing. Vote below for what items and brands you want prioritized on launch!
+              </Text>
+            </View>
+          </View>
+
           <View style={shopStyles.search}>
             <Ionicons name="search-outline" size={20} color={shop.muted} />
             <TextInput
@@ -107,7 +131,7 @@ export default function ShopListScreen() {
                 setSearch(value);
                 setSub("All");
               }}
-              placeholder={`Search in ${title.toLowerCase()}`}
+              placeholder={`Search upcoming ${title.toLowerCase()}`}
               placeholderTextColor={shop.muted}
               style={shopStyles.searchInput}
               returnKeyType="search"
@@ -118,6 +142,9 @@ export default function ShopListScreen() {
               </Pressable>
             ) : null}
           </View>
+
+          {/* Interactive Wishlist / First Order Request */}
+          <FirstOrderWishlist categoryHint={title} />
         </View>
 
         {chipValues.length > 2 ? (
@@ -137,7 +164,7 @@ export default function ShopListScreen() {
         ) : null}
 
         <View style={styles.meta}>
-          <Text style={styles.count}>{shown.length} product{shown.length === 1 ? "" : "s"}</Text>
+          <Text style={styles.count}>{shown.length} preview{shown.length === 1 ? "" : "s"} · Coming Soon</Text>
           <Pressable onPress={openSort} style={styles.sort}>
             <Text style={styles.sortText}>{SORTS.find((entry) => entry.id === sort)?.label}</Text>
             <Ionicons name="chevron-down" size={16} color={shop.ink} />
@@ -233,4 +260,59 @@ const styles = StyleSheet.create({
   emptyCopy: { color: shop.muted, marginTop: 6, textAlign: "center" },
   emptyBtn: { marginTop: 16, backgroundColor: shop.hero, borderRadius: 16, paddingHorizontal: 18, paddingVertical: 12 },
   emptyBtnText: { color: "#fff", fontWeight: "700" },
+  comingSoonHeaderBadge: {
+    backgroundColor: "#E8F4EA",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#C5DBCB",
+  },
+  comingSoonHeaderBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#1F7A3F",
+    letterSpacing: 0.5,
+  },
+  launchBanner: {
+    backgroundColor: "#F4FBF6",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#CCE4D2",
+    padding: 14,
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 14,
+  },
+  launchBannerIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#E8F4EA",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 2,
+  },
+  launchBannerTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#0F2417",
+  },
+  launchBannerSubtitle: {
+    fontSize: 12,
+    color: "#526357",
+    lineHeight: 17,
+  },
+  miniPill: {
+    backgroundColor: "#1F7A3F",
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  miniPillText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    letterSpacing: 0.4,
+  },
 });

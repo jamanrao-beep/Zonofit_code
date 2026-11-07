@@ -33,6 +33,7 @@ import { useCreditsStore } from "@/store/useCreditsStore";
 import { useWishlistStore } from "@/store/useWishlistStore";
 import { useGuestStore } from "@/store/useGuestStore";
 import { useAddressStore } from "@/store/useAddressStore";
+import { useShopRequestsStore } from "@/store/useShopRequestsStore";
 import { promptGuestAccount } from "@/lib/guestAccount";
 import { CartIconButton, ShopBackButton } from "@/components/shop/Chrome";
 import ProductCard, { toCartItem } from "@/components/shop/ProductCard";
@@ -70,6 +71,9 @@ export default function ProductDetailScreen() {
   const isGuest = useGuestStore((state) => state.isGuest);
   const endGuestSession = useGuestStore((state) => state.endGuestSession);
   const address = useAddressStore((state) => state.getSelectedAddress());
+  const isRequested = useShopRequestsStore((state) => (product ? state.hasRequested(product.name) : false));
+  const addRequest = useShopRequestsStore((state) => state.addRequest);
+  const removeRequest = useShopRequestsStore((state) => state.removeRequest);
 
   useFocusEffect(useCallback(() => { void load(); }, [load]));
   useEffect(() => {
@@ -156,9 +160,14 @@ export default function ProductDetailScreen() {
       <StatusBar barStyle="dark-content" />
       <View style={shopStyles.top}>
         <ShopBackButton fallback="/shop" />
-        <Text style={[shopStyles.h2, { flex: 1 }]}>Product</Text>
+        <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <Text style={[shopStyles.h2, { flexShrink: 1 }]}>Product</Text>
+          <View style={styles.comingSoonHeaderBadge}>
+            <Text style={styles.comingSoonHeaderBadgeText}>COMING SOON</Text>
+          </View>
+        </View>
         <Pressable accessibilityLabel="Share" onPress={() => {
-          Share.share({ message: `Check out ${product.name} on ZonoFit Shop for ${inr(product.price)}.` }).catch(() => {});
+          Share.share({ message: `Check out ${product.name} coming soon on ZonoFit Shop.` }).catch(() => {});
         }} style={shopStyles.act}>
           <Ionicons name="share-outline" size={20} color={shop.ink} />
         </Pressable>
@@ -209,6 +218,12 @@ export default function ProductDetailScreen() {
         </View>
 
         <View style={shopStyles.pad}>
+          {/* Marketplace Announcement Banner */}
+          <View style={styles.launchBanner}>
+            <Ionicons name="sparkles" size={16} color="#1F7A3F" />
+            <Text style={styles.launchBannerText}>Marketplace Coming Soon · Official Sneak Peek</Text>
+          </View>
+
           {product.brand ? <Text style={styles.brand}>{product.brand}</Text> : null}
           <Text style={styles.name}>{product.name}</Text>
           {variantLabel || product.pack ? (
@@ -222,27 +237,17 @@ export default function ProductDetailScreen() {
             </View>
           ) : null}
           <View style={styles.priceRow}>
-            {product.price > 0 ? <Text style={styles.price}>{inr(product.price)}</Text> : <Text style={styles.price}>Price not set</Text>}
-            {off > 0 ? <Text style={styles.mrp}>{inr(product.mrp)}</Text> : null}
-            {off > 0 ? <View style={styles.tag}><Text style={styles.tagText}>{off}% off</Text></View> : null}
+            {product.price > 0 ? <Text style={styles.price}>{inr(product.price)}</Text> : <Text style={styles.price}>Estimated Price</Text>}
+            <View style={styles.comingSoonTag}>
+              <Text style={styles.comingSoonTagText}>LAUNCHING SOON</Text>
+            </View>
           </View>
-          {!product.purchasable ? (
-            <View style={styles.teaser}>
-              <Ionicons name="eye-outline" size={18} color={shop.hero} />
-              <Text style={styles.teaserText}>
-                {!product.inStock
-                  ? "This item is out of stock."
-                  : product.price <= 0
-                    ? "Add a price in the admin marketplace before this can be ordered."
-                    : "Catalogue preview. This can be ordered once it is added in the admin marketplace."}
-              </Text>
-            </View>
-          ) : creditsNeeded > 0 ? (
-            <View style={styles.teaser}>
-              <Ionicons name="pricetag-outline" size={18} color={shop.hero} />
-              <Text style={styles.teaserText}>This item is {creditsNeeded} credits. 1 credit = {inr(SHOP_CREDIT_INR)}. You have {credits}.</Text>
-            </View>
-          ) : null}
+          <View style={styles.teaser}>
+            <Ionicons name="shield-checkmark-outline" size={18} color={shop.hero} />
+            <Text style={styles.teaserText}>
+              100% genuine & lab-verified batch guarantee. Vote below to request this item for our opening day inventory!
+            </Text>
+          </View>
 
           {product.colorOptions && product.colorOptions.length > 0 ? (
             <ChoiceRow label="Colour" values={product.colorOptions} chosen={chosenColor} onPick={setColorChoice} />
@@ -357,40 +362,26 @@ export default function ProductDetailScreen() {
 
       <View style={[styles.foot, { paddingBottom: Math.max(insets.bottom, 12) }]}>
         <View style={styles.footRow}>
-          <View style={{ width: 140 }}>
-            {!product.inStock ? (
-              <View style={[styles.add, styles.addOff]}><Text style={styles.addOffText}>Out of stock</Text></View>
-            ) : qty > 0 ? (
-              <View style={styles.qty}>
-                <Pressable accessibilityLabel="Less" onPress={() => { updateQuantity(key, qty - 1); if (qty <= 1) shopToast("Removed from cart"); }} style={styles.qtyBtn}>
-                  <Text style={styles.qtyGlyph}>−</Text>
-                </Pressable>
-                <Text style={styles.qtyCount}>{qty}</Text>
-                <Pressable accessibilityLabel="More" onPress={addOne} style={styles.qtyBtn}>
-                  <Text style={styles.qtyGlyph}>+</Text>
-                </Pressable>
-              </View>
-            ) : (
-              <Pressable onPress={addOne} style={styles.add}>
-                <Text style={styles.addText}>Add to Cart</Text>
-              </Pressable>
-            )}
-          </View>
           <Pressable
-            style={[shopStyles.cta, { flex: 1, justifyContent: "center" }, !product.inStock && styles.ctaOff]}
+            style={[styles.requestActionBtn, isRequested && styles.requestActionBtnDone]}
             onPress={() => {
-              if (!product.inStock) {
-                shopToast("This item is out of stock");
-                return;
+              if (isRequested) {
+                removeRequest(product.name);
+                shopToast(`Removed "${product.name}" from your launch list`);
+              } else {
+                addRequest(product.name, product.category);
+                shopToast(`Requested "${product.name}"! Priority noted for launch.`);
               }
-              if (qty === 0) {
-                setLineQuantity(line, 1);
-                shopToast(product.purchasable ? "Added to cart" : "Added as a preview");
-              }
-              router.push("/shop/cart" as never);
             }}
           >
-            <Text style={shopStyles.ctaText}>{!product.inStock ? "Out of stock" : qty > 0 ? "Go to Cart" : "Buy Now"}</Text>
+            <Ionicons
+              name={isRequested ? "checkmark-circle" : "sparkles"}
+              size={18}
+              color={isRequested ? "#1F7A3F" : "#FFFFFF"}
+            />
+            <Text style={[styles.requestActionBtnText, isRequested && styles.requestActionBtnTextDone]}>
+              {isRequested ? "Requested for Launch Day ✓" : "Request This Item for Launch"}
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -516,4 +507,74 @@ const styles = StyleSheet.create({
   qtyBtn: { width: 38, height: 38, alignItems: "center", justifyContent: "center" },
   qtyGlyph: { color: "#fff", fontSize: 20, fontWeight: "700" },
   qtyCount: { color: "#fff", fontWeight: "700" },
+  comingSoonHeaderBadge: {
+    backgroundColor: "#E8F4EA",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#C5DBCB",
+  },
+  comingSoonHeaderBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#1F7A3F",
+    letterSpacing: 0.5,
+  },
+  launchBanner: {
+    backgroundColor: "#E8F4EA",
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 12,
+  },
+  launchBannerText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#1F7A3F",
+    letterSpacing: 0.3,
+  },
+  comingSoonTag: {
+    backgroundColor: "#E8F4EA",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  comingSoonTagText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#1F7A3F",
+    letterSpacing: 0.4,
+  },
+  requestActionBtn: {
+    flex: 1,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: "#1F7A3F",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    shadowColor: "#1F7A3F",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  requestActionBtnDone: {
+    backgroundColor: "#E8F4EA",
+    borderWidth: 1.5,
+    borderColor: "#1F7A3F",
+  },
+  requestActionBtnText: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#FFFFFF",
+  },
+  requestActionBtnTextDone: {
+    color: "#1F7A3F",
+  },
 });

@@ -30,7 +30,12 @@ export default function CartScreen() {
       <StatusBar barStyle="dark-content" />
       <View style={shopStyles.top}>
         <ShopBackButton fallback="/shop" />
-        <Text style={shopStyles.h2}>Cart {count > 0 ? <Text style={styles.count}>({count})</Text> : null}</Text>
+        <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <Text style={shopStyles.h2}>Cart {count > 0 ? <Text style={styles.count}>({count})</Text> : null}</Text>
+          <View style={styles.comingSoonHeaderBadge}>
+            <Text style={styles.comingSoonHeaderBadgeText}>COMING SOON</Text>
+          </View>
+        </View>
       </View>
 
       {count === 0 ? (
@@ -39,18 +44,29 @@ export default function CartScreen() {
             <View style={styles.emptyIcon}>
               <Ionicons name="cart-outline" size={36} color={shop.hero} />
             </View>
-            <Text style={styles.emptyTitle}>Your cart is empty</Text>
-            <Text style={styles.emptyCopy}>Add a product from the shop when you are ready.</Text>
+            <Text style={styles.emptyTitle}>Marketplace is Launching Soon</Text>
+            <Text style={styles.emptyCopy}>Explore upcoming categories and vote for items you want us to stock first!</Text>
           </View>
           <View style={[styles.foot, { paddingBottom: Math.max(insets.bottom, 14) }]}>
             <Pressable style={[shopStyles.cta, { justifyContent: "center" }]} onPress={() => router.push("/shop" as never)}>
-              <Text style={shopStyles.ctaText}>Browse shop</Text>
+              <Text style={shopStyles.ctaText}>Browse & Vote For Products</Text>
             </Pressable>
           </View>
         </View>
       ) : (
         <>
           <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 + insets.bottom }}>
+            {/* Launching Soon Notice Banner */}
+            <View style={styles.launchBanner}>
+              <Ionicons name="sparkles" size={18} color="#1F7A3F" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.launchBannerTitle}>Ordering Coming Soon</Text>
+                <Text style={styles.launchBannerSubtitle}>
+                  Direct checkout will open when the marketplace launches. We have noted your preview preferences!
+                </Text>
+              </View>
+            </View>
+
             <View style={[shopStyles.card, { paddingBottom: 4 }]}>
               {lines.map((line, index) => {
                 const key = cartLineKey(line.item);
@@ -125,10 +141,10 @@ export default function CartScreen() {
             </View>
           </ScrollView>
           <View style={[styles.foot, { paddingBottom: Math.max(insets.bottom, 14) }]}>
-            <Pressable style={shopStyles.cta} onPress={() => router.push("/shop/checkout" as never)}>
-              <Text style={shopStyles.ctaText}>{payableLines.length > 0 ? inr(payableTotal) : "Preview"}</Text>
+            <Pressable style={shopStyles.cta} onPress={() => router.push("/shop" as never)}>
+              <Text style={shopStyles.ctaText}>Ordering Coming Soon</Text>
               <View style={styles.ctaRight}>
-                <Text style={shopStyles.ctaText}>Checkout</Text>
+                <Text style={shopStyles.ctaText}>Browse & Vote More</Text>
                 <Ionicons name="arrow-forward" size={18} color="#fff" />
               </View>
             </Pressable>
@@ -177,4 +193,39 @@ const styles = StyleSheet.create({
   totalValue: { fontSize: 20, fontWeight: "700", color: shop.ink },
   foot: { position: "absolute", left: 0, right: 0, bottom: 0, backgroundColor: "#fff", borderTopWidth: 1, borderTopColor: shop.line, paddingHorizontal: 20, paddingTop: 12 },
   ctaRight: { flexDirection: "row", alignItems: "center", gap: 6 },
+  comingSoonHeaderBadge: {
+    backgroundColor: "#E8F4EA",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#C5DBCB",
+  },
+  comingSoonHeaderBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#1F7A3F",
+    letterSpacing: 0.5,
+  },
+  launchBanner: {
+    backgroundColor: "#F4FBF6",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#CCE4D2",
+    padding: 14,
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 14,
+    alignItems: "center",
+  },
+  launchBannerTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#0F2417",
+  },
+  launchBannerSubtitle: {
+    fontSize: 12,
+    color: "#526357",
+    lineHeight: 17,
+  },
 });
