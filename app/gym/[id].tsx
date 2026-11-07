@@ -213,7 +213,9 @@ export default function GymDetailScreen() {
         remainingCredits,
       });
       setShowBookingModal(false);
-      setShowConfirmedModal(true);
+      setTimeout(() => {
+        setShowConfirmedModal(true);
+      }, 150);
     } else {
       Alert.alert("Booking Error", "Unable to confirm booking. Please check your credit balance or connection.");
     }
@@ -551,7 +553,7 @@ export default function GymDetailScreen() {
           onViewPass={() => {
             setShowConfirmedModal(false);
             setConfirmedBookingData(null);
-            router.replace("/booking-pass" as any);
+            router.push("/booking-pass" as any);
           }}
           onDone={() => {
             setShowConfirmedModal(false);

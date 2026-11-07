@@ -16,14 +16,10 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   withDelay,
-  Easing,
-  FadeIn,
-  SlideInDown,
 } from "react-native-reanimated";
 import { InAppNoticeBanner } from "@/components/InAppNoticeBanner";
 import { showInAppNotice, useInAppNoticeStore } from "@/store/useInAppNoticeStore";
 import { VISIT_RULES } from "@/constants/bookingRules";
-import { afterPaint } from "@/lib/afterPaint";
 
 interface BookingConfirmedModalProps {
   visible: boolean;
@@ -60,11 +56,9 @@ export default function BookingConfirmedModal({
 }: BookingConfirmedModalProps) {
   const insets = useSafeAreaInsets();
   const checkScale = useSharedValue(0);
-  const [openingPass, setOpeningPass] = useState(false);
 
   useEffect(() => {
     if (visible) {
-      setOpeningPass(false);
       checkScale.value = withDelay(180, withSpring(1, { damping: 10, stiffness: 150 }));
     } else {
       checkScale.value = 0;
@@ -98,25 +92,21 @@ export default function BookingConfirmedModal({
     <Modal
       transparent
       visible={visible}
-      animationType="none"
+      animationType="slide"
       statusBarTranslucent
       onRequestClose={onDone}
     >
       <View style={styles.overlay}>
-        <Animated.View entering={FadeIn.duration(280)} style={StyleSheet.absoluteFill}>
-          <Pressable style={styles.backdrop} onPress={onDone} />
-        </Animated.View>
+        <Pressable style={styles.backdrop} onPress={onDone} />
 
-        <Animated.View
-          entering={SlideInDown.duration(420).easing(Easing.bezier(0.2, 0.8, 0.2, 1))}
-          style={styles.card}
-        >
+        <View style={[styles.card, { paddingBottom: Math.max(insets.bottom, 14) + 6 }]}>
           <View style={styles.grab} />
           <ScrollView
             bounces={false}
             showsVerticalScrollIndicator={false}
-            style={{ maxHeight: windowHeight * 0.86, width: "100%", flexGrow: 0 }}
-            contentContainerStyle={{ alignItems: "center", width: "100%", paddingBottom: Math.max(insets.bottom, 8) }}
+            keyboardShouldPersistTaps="handled"
+            style={{ maxHeight: windowHeight * 0.70, width: "100%" }}
+            contentContainerStyle={{ alignItems: "center", width: "100%", paddingBottom: 10 }}
           >
           {/* Confirmed Icon Header */}
           <View style={styles.header}>
@@ -238,30 +228,28 @@ export default function BookingConfirmedModal({
             </View>
           )}
 
-          {/* Action CTAs */}
+          </ScrollView>
+
+          {/* Action CTAs — Pinned at bottom of card, outside ScrollView for reliable tap handling */}
           <View style={styles.actions}>
             <Pressable
-              style={[styles.primaryBtn, openingPass && { opacity: 0.85 }]}
-              disabled={openingPass}
-              onPress={() => {
-                if (openingPass) return;
-                setOpeningPass(true);
-                afterPaint(onViewPass);
-              }}
+              style={styles.primaryBtn}
+              onPress={onViewPass}
+              hitSlop={4}
             >
               <Ionicons name="ticket-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-              <Text style={styles.primaryBtnText}>{openingPass ? "Opening..." : "View Pass"}</Text>
+              <Text style={styles.primaryBtnText}>View Pass</Text>
             </Pressable>
 
             <Pressable 
               style={styles.secondaryBtn}
               onPress={onDone}
+              hitSlop={8}
             >
               <Text style={styles.secondaryBtnText}>Back to Home</Text>
             </Pressable>
           </View>
-          </ScrollView>
-        </Animated.View>
+        </View>
         <InAppNoticeBanner overlay onOpen={onDone} />
       </View>
     </Modal>
@@ -272,10 +260,15 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: "flex-end",
+    backgroundColor: "transparent",
   },
   backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(8,16,11,0.5)",
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(8,16,11,0.55)",
   },
   card: {
     width: "100%",
@@ -283,7 +276,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: 22,
-    paddingTop: 10,
+    paddingTop: 12,
     alignItems: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -8 },

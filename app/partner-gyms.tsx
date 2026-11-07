@@ -272,7 +272,9 @@ export default function PartnerGymsScreen() {
       });
 
       setBookingModalVisible(false);
-      setConfirmedModalVisible(true);
+      setTimeout(() => {
+        setConfirmedModalVisible(true);
+      }, 150);
     } catch (err: any) {
       Alert.alert("Booking Failed", err.message || "Could not confirm booking.");
     }
