@@ -1,11 +1,14 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { 
   ScrollView, 
   Text, 
   View, 
   Pressable, 
-  Image,
   StyleSheet,
+  BackHandler,
+  ToastAndroid,
+  Platform,
+  Alert,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -15,93 +18,73 @@ import { useUserStore } from "@/store/useUserStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
 import { useGuestStore } from "@/store/useGuestStore";
 import { useBookingStore } from "@/store/useBookingStore";
-import { apiFetch } from "@/lib/api";
-import { afterPaint } from "@/lib/afterPaint";
 import { ZonoNoticeMark } from "@/components/ZonoNoticeMark";
 import BookingModal from "@/components/BookingModal";
 import BookingConfirmedModal from "@/components/BookingConfirmedModal";
 import CancelBookingSheet from "@/components/CancelBookingSheet";
-
 import { SwipeableTabScreen } from "@/components/SwipeableTabScreen";
-import { Alert, BackHandler, ToastAndroid, Platform } from "react-native";
-import { CREDIT_FITNESS_VALUE } from "@/constants/credits";
 import { promptGuestAccount } from "@/lib/guestAccount";
-
-function BlinkingRedDot() {
-  return (
-    <View
-      style={{
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: '#DC2626',
-      }}
-    />
-  );
-}
 
 function getGreeting(): string {
   const hour = new Date().getHours();
-  if (hour < 12) return "Good Morning,";
-  if (hour < 17) return "Good Afternoon,";
-  return "Good Evening,";
+  if (hour < 12) return "Good morning,";
+  if (hour < 17) return "Good afternoon,";
+  return "Good evening,";
 }
 
-
+function AccordionItem({ 
+  title, 
+  children, 
+  defaultOpen = false 
+}: { 
+  title: string; 
+  children: React.ReactNode; 
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <View style={homeStyles.accordionItem}>
+      <Pressable onPress={() => setOpen(!open)} style={homeStyles.accordionSummary}>
+        <Text style={homeStyles.accordionSummaryText}>{title}</Text>
+        <Text style={homeStyles.accordionToggle}>{open ? "–" : "+"}</Text>
+      </Pressable>
+      {open && <View style={homeStyles.accordionBody}>{children}</View>}
+    </View>
+  );
+}
 
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, token } = useAuthStore();
   const { 
-    avatarUrl, 
     visitsRemaining, 
     membershipStatus,
     planName, 
     primaryGymName: userPrimaryGymName,
     primaryGymId: userPrimaryGymId,
-    streak, 
     totalWorkouts, 
-    trainingHours, 
     currentMonth, 
-    totalMonths, 
     identityStage, 
-    progressPercentage, 
-    nextMilestone 
   } = useUserStore();
   const { credits, membershipInfo } = useCreditsStore();
   const { isGuest, checkExpiry, endGuestSession, selectedGymName, selectedGymId, getHoursRemaining } = useGuestStore();
-  const { bookingStatus, bookedGymName, bookedTime, bookedCost, isCancelling } = useBookingStore();
+  const { bookingStatus, bookedGymName, bookedTime, bookedCost } = useBookingStore();
 
-  const [isCancellingTodayBooking, setIsCancellingTodayBooking] = React.useState(false);
-  const [opening, setOpening] = React.useState<null | "pass" | "journey">(null);
-  const [cancelPrompt, setCancelPrompt] = React.useState<{
+  const [isCancellingTodayBooking, setIsCancellingTodayBooking] = useState(false);
+  const [cancelPrompt, setCancelPrompt] = useState<{
     isMandatory: boolean;
     refundAmount: number;
   } | null>(null);
-  const [showBookingModal, setShowBookingModal] = React.useState(false);
-  const [showConfirmedModal, setShowConfirmedModal] = React.useState(false);
-  const [confirmedBookingData, setConfirmedBookingData] = React.useState<{
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [showConfirmedModal, setShowConfirmedModal] = useState(false);
+  const [confirmedBookingData, setConfirmedBookingData] = useState<{
     timeSlot: string;
     isMandatoryVisit: boolean;
     mandatoryVisitsLeft: number;
     creditsDeducted: number;
     remainingCredits: number;
   } | null>(null);
-
-  const [motivationQuote, setMotivationQuote] = React.useState<string>(
-    "Consistency beats intensity. You've already outperformed the person who stayed home."
-  );
-
-  React.useEffect(() => {
-    apiFetch("/api/content/daily_motivation_quote", { silent: true })
-      .then((res: any) => {
-        if (res?.content?.value && typeof res.content.value === "string" && res.content.value.trim().length > 0) {
-          setMotivationQuote(res.content.value.trim());
-        }
-      })
-      .catch(() => {});
-  }, []);
 
   const resolvedGymName = (
     membershipInfo?.gymName && 
@@ -123,15 +106,10 @@ export default function HomeScreen() {
     ? Math.max(0, visitsRemaining)
     : Math.max(0, mandatoryVisits - completedVisits - (hasBookedMandatory ? 1 : 0));
 
-  const isExpired = membershipInfo ? membershipInfo.isExpired : false;
-  const isMembershipActive = membershipInfo ? (!membershipInfo.isExpired && membershipInfo.status === "ACTIVE") : false;
-  const isPrimaryMember = !isGuest && (isMembershipActive || membershipStatus === "ACTIVE" || membershipStatus === "Active" || visitsRemaining > 0);
   const effectiveCredits = credits;
-  const daysRemaining = membershipInfo?.daysRemaining ?? 0;
-  const isExpiringSoon = isMembershipActive && daysRemaining <= 3 && daysRemaining > 0;
-  const showRenewalAlert = isExpired || isExpiringSoon;
+  const guestHours = getHoursRemaining();
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (token) {
       useCreditsStore.getState().fetchWallet(token);
       useUserStore.getState().fetchProfile(token);
@@ -139,13 +117,11 @@ export default function HomeScreen() {
     }
   }, [token]);
 
-  const homeScrollRef = useRef<ScrollView>(null);
-  const guestScrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollView>(null);
   const lastBackPressTime = useRef<number>(0);
 
   useFocusEffect(
     React.useCallback(() => {
-      setOpening(null);
       const onBackPress = () => {
         const now = Date.now();
         if (now - lastBackPressTime.current < 2000) {
@@ -157,7 +133,7 @@ export default function HomeScreen() {
         if (Platform.OS === "android") {
           ToastAndroid.show("Press back again to exit", ToastAndroid.SHORT);
         }
-        return true; // Prevents popping back to payment / onboarding screens
+        return true;
       };
 
       const subscription = BackHandler.addEventListener("hardwareBackPress", onBackPress);
@@ -166,21 +142,13 @@ export default function HomeScreen() {
   );
 
   useEffect(() => {
-    // App restart / launch: Always reset Home scroll position to the top of the screen
-    homeScrollRef.current?.scrollTo({ y: 0, animated: false });
-    guestScrollRef.current?.scrollTo({ y: 0, animated: false });
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
   }, []);
-
-  const openScreen = (key: "pass" | "journey", path: string) => {
-    if (opening) return;
-    setOpening(key);
-    afterPaint(() => router.push(path as never));
-  };
 
   const askCancelToday = () => {
     if (isCancellingTodayBooking) return;
-    const bookedCost = useBookingStore.getState().bookedCost;
-    const isMandatory = bookedCost === 0 || bookedCost === undefined;
+    const currentCost = useBookingStore.getState().bookedCost;
+    const isMandatory = currentCost === 0 || currentCost === undefined;
     const currentCredits = useCreditsStore.getState().credits;
 
     if (isMandatory && currentCredits < 2) {
@@ -189,7 +157,7 @@ export default function HomeScreen() {
         `Cancelling a mandatory visit requires a flat 2 Credits fee, but your wallet balance is only ${currentCredits} Credits.\n\nPlease buy credits to cancel this booking.`,
         [
           { text: "OK", style: "cancel" },
-          { text: "Buy Credits", onPress: () => router.push("/credits") }
+          { text: "Buy Credits", onPress: () => router.push("/(tabs)/credits" as any) }
         ]
       );
       return;
@@ -197,7 +165,7 @@ export default function HomeScreen() {
 
     setCancelPrompt({
       isMandatory,
-      refundAmount: Math.max(0, (bookedCost || 8) - 2),
+      refundAmount: Math.max(0, (currentCost || 8) - 2),
     });
   };
 
@@ -222,6 +190,11 @@ export default function HomeScreen() {
   };
 
   const handleOpenPrimaryBooking = () => {
+    if (isGuest) {
+      promptGuestAccount(router, endGuestSession, "Activate your membership to book visits at partner gyms.");
+      return;
+    }
+
     if (bookingStatus !== "Not Booked") {
       Alert.alert(
         "Active Booking Exists",
@@ -236,7 +209,7 @@ export default function HomeScreen() {
         `This booking requires 8 credits, but you currently have ${credits} credits. Please buy credits to continue.`,
         [
           { text: "Cancel", style: "cancel" },
-          { text: "Buy Credits", onPress: () => router.push("/credits") }
+          { text: "Buy Credits", onPress: () => router.push("/(tabs)/credits" as any) }
         ]
       );
       return;
@@ -278,7 +251,7 @@ export default function HomeScreen() {
     }
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (isGuest && checkExpiry()) {
       router.replace("/guest-expired" as any);
     }
@@ -290,837 +263,850 @@ export default function HomeScreen() {
     else openLiveGyms();
   };
 
-  if (isGuest) {
-    const guestHours = getHoursRemaining();
-    return (
-      <SwipeableTabScreen currentTab="index">
-        <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB" }} edges={["top"]}>
-        {/* Guest Header */}
-        <View className="flex-row justify-between items-center px-5 pt-4 pb-3 bg-white border-b border-gray-100">
-          <View>
-            <View className="flex-row items-center">
-              <Text className="text-[24px] font-black text-[#111827] tracking-tight">ZonoFit</Text>
-              <View className="bg-[#E8F5E9] px-2.5 py-0.5 rounded-full ml-2">
-                <Text className="text-[10px] font-extrabold text-[#1F7A3E] uppercase tracking-wider">Guest Mode</Text>
-              </View>
-            </View>
-            <Text className="text-xs font-medium text-gray-500 mt-0.5">Explore gyms & find your fitness home</Text>
-          </View>
-          <Pressable 
-            onPress={async () => {
-              await endGuestSession();
-              router.replace("/(auth)/create-account");
-            }}
-            className="bg-[#1F7A3E] px-3.5 py-2 rounded-full active:opacity-90 shadow-sm"
-          >
-            <Text className="text-white font-bold text-xs">Create Account</Text>
-          </Pressable>
-        </View>
-
-        <ScrollView 
-          ref={guestScrollRef}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100, paddingTop: 16 }}
-        >
-          {/* Guest Expiry Countdown Banner */}
-          <View className="bg-amber-50 border border-amber-200 rounded-[20px] p-4 mb-5 flex-row items-center justify-between shadow-sm">
-            <View className="flex-row items-center flex-1 mr-3">
-              <Ionicons name="time-outline" size={20} color="#D97706" />
-              <View className="ml-2.5 flex-1">
-                <Text className="text-xs font-bold text-amber-900">Guest Access Active</Text>
-                <Text className="text-[11px] text-amber-700">Expires in {guestHours} hours</Text>
-              </View>
-            </View>
-            <Pressable 
-              onPress={async () => {
-                await endGuestSession();
-                router.replace("/(auth)/create-account");
-              }}
-              className="bg-white border border-amber-300 px-3 py-1.5 rounded-xl shadow-xs active:bg-amber-100"
-            >
-              <Text className="text-xs font-bold text-amber-900">Sign Up</Text>
-            </Pressable>
-          </View>
-
-          {/* PRD Section 8.2 & 8.3: Hero Action Card */}
-          <View className="bg-[#1F7A3E] rounded-[30px] p-6 mb-6 shadow-md relative overflow-hidden">
-            <View style={{ position: "absolute", top: -20, right: -20, width: 140, height: 140, borderRadius: 70, backgroundColor: "rgba(255,255,255,0.08)" }} />
-            
-            <View className="bg-white/15 px-3 py-1 rounded-full self-start mb-4">
-              <Text className="text-white text-[10px] font-bold tracking-widest uppercase">FITNESS ACCESS NETWORK</Text>
-            </View>
-
-            <Text className="text-white text-2xl font-black tracking-tight leading-8 mb-2">
-              Make Fitness Fit Into Your Real Life
-            </Text>
-
-            <Text className="text-white/85 text-xs font-medium leading-relaxed mb-6">
-              Choose a partner gym, activate your membership, and use flexible access based on your plan across our city network.
-            </Text>
-
-            {selectedGymName ? (
-              <Text className="text-white/90 text-xs font-semibold mb-3">Primary pick: {selectedGymName}</Text>
-            ) : null}
-
-            <Pressable 
-              onPress={openGymPick}
-              className="bg-white rounded-2xl py-4 px-5 flex-row items-center justify-center shadow-sm active:bg-gray-100"
-            >
-              <Ionicons name="compass" size={20} color="#1F7A3E" style={{ marginRight: 8 }} />
-              <Text className="text-[#1F7A3E] font-black text-sm tracking-wide" numberOfLines={1}>
-                {selectedGymName ? `Continue with ${selectedGymName}` : "Choose Your Primary Gym"}
-              </Text>
-            </Pressable>
-            {selectedGymName ? (
-              <Pressable onPress={openLiveGyms} className="mt-3 py-2 items-center">
-                <Text className="text-white font-bold text-xs">See other Udaipur gyms</Text>
-              </Pressable>
-            ) : null}
-          </View>
-
-          {/* PRD Section 8.4: Locked Member Sections (No fake 0 values!) */}
-          <View className="bg-white rounded-[26px] p-5 mb-6 border border-gray-200 shadow-sm">
-            <View className="flex-row items-center justify-between mb-3">
-              <View className="flex-row items-center">
-                <Ionicons name="lock-closed" size={16} color="#4B5563" />
-                <Text className="text-sm font-bold text-[#111827] ml-2">Member Dashboard</Text>
-              </View>
-              <View className="bg-gray-100 px-2 py-0.5 rounded-full">
-                <Text className="text-[10px] font-bold text-gray-500 uppercase">Members Only</Text>
-              </View>
-            </View>
-
-            <Text className="text-xs text-gray-500 leading-relaxed mb-4">
-              Your membership dashboard is waiting. Activate your membership to see your visits, credits and booking access.
-            </Text>
-
-            <View className="flex-row gap-x-2.5 mb-4">
-              <Pressable
-                onPress={() => router.push("/booking-history" as any)}
-                className="flex-1 bg-gray-50 rounded-2xl p-3 items-center border border-gray-100 active:bg-gray-100"
-              >
-                <Ionicons name="calendar-outline" size={20} color="#9CA3AF" />
-                <Text className="text-xs font-bold text-gray-700 mt-1">Visits</Text>
-                <Text className="text-[10px] text-gray-400 mt-0.5">Locked</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => router.push("/(tabs)/credits" as any)}
-                className="flex-1 bg-gray-50 rounded-2xl p-3 items-center border border-gray-100 active:bg-gray-100"
-              >
-                <Ionicons name="flash-outline" size={20} color="#9CA3AF" />
-                <Text className="text-xs font-bold text-gray-700 mt-1">Credits</Text>
-                <Text className="text-[10px] text-gray-400 mt-0.5">Locked</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => promptGuestAccount(router, endGuestSession, "The cash wallet unlocks with an account. Credits stay on the server, and a guest cannot spend or convert them.")}
-                className="flex-1 bg-gray-50 rounded-2xl p-3 items-center border border-gray-100 active:bg-gray-100"
-              >
-                <Ionicons name="wallet-outline" size={20} color="#9CA3AF" />
-                <Text className="text-xs font-bold text-gray-700 mt-1">Wallet</Text>
-                <Text className="text-[10px] text-gray-400 mt-0.5">Locked</Text>
-              </Pressable>
-            </View>
-
-            <Pressable 
-              onPress={() => promptGuestAccount(
-                router,
-                endGuestSession,
-                selectedGymName
-                  ? `Create an account to activate a membership at ${selectedGymName}. Browsing stays free until then.`
-                  : "Create an account, choose a primary gym, and activate a membership. You can keep browsing prices until you do."
-              )}
-              className="bg-[#1F7A3E] rounded-xl py-3 items-center justify-center active:bg-[#165a2d]"
-            >
-              <Text className="text-white font-bold text-xs">Activate Membership</Text>
-            </Pressable>
-          </View>
-
-          {/* PRD Section 8.1: How ZonoFit Works */}
-          <View className="bg-white rounded-[26px] p-5 mb-6 border border-gray-200 shadow-sm">
-            <Text className="text-base font-black text-[#111827] mb-4">How ZonoFit Works</Text>
-            
-            <View className="gap-y-4">
-              <Pressable onPress={openLiveGyms} className="flex-row items-start active:opacity-70">
-                <View className="w-8 h-8 rounded-full bg-[#E8F5E9] items-center justify-center mr-3 mt-0.5">
-                  <Text className="text-xs font-bold text-[#1F7A3E]">1</Text>
-                </View>
-                <View className="flex-1">
-                  <Text className="text-sm font-bold text-[#111827]">Choose Your Primary Gym</Text>
-                  <Text className="text-xs text-gray-500 mt-0.5 leading-relaxed">
-                    Open the Udaipur partner list and pick the gym you want as home.
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color="#9CA3AF" style={{ marginTop: 4 }} />
-              </Pressable>
-
-              <Pressable onPress={() => router.push("/(tabs)/credits" as any)} className="flex-row items-start active:opacity-70">
-                <View className="w-8 h-8 rounded-full bg-[#E8F5E9] items-center justify-center mr-3 mt-0.5">
-                  <Text className="text-xs font-bold text-[#1F7A3E]">2</Text>
-                </View>
-                <View className="flex-1">
-                  <Text className="text-sm font-bold text-[#111827]">30-Day Flexible Cycle</Text>
-                  <Text className="text-xs text-gray-500 mt-0.5 leading-relaxed">
-                    See how credits work. 1 credit is ₹10 of gym value, and the wallet unlocks with an account.
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color="#9CA3AF" style={{ marginTop: 4 }} />
-              </Pressable>
-
-              <Pressable onPress={() => router.push("/partner-cities" as any)} className="flex-row items-start active:opacity-70">
-                <View className="w-8 h-8 rounded-full bg-[#E8F5E9] items-center justify-center mr-3 mt-0.5">
-                  <Text className="text-xs font-bold text-[#1F7A3E]">3</Text>
-                </View>
-                <View className="flex-1">
-                  <Text className="text-sm font-bold text-[#111827]">Workout Across the Network</Text>
-                  <Text className="text-xs text-gray-500 mt-0.5 leading-relaxed">
-                    Look through cities. Udaipur is live. Other cities open their gym list when you tap them.
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color="#9CA3AF" style={{ marginTop: 4 }} />
-              </Pressable>
-            </View>
-          </View>
-
-          {/* Quick FAQ Section */}
-          <View className="bg-white rounded-[26px] p-5 mb-8 border border-gray-200 shadow-sm">
-            <Text className="text-base font-black text-[#111827] mb-3">Frequently Asked Questions</Text>
-            
-            <View className="py-2.5 border-b border-gray-100">
-              <Text className="text-xs font-bold text-gray-800">Can I explore without payment?</Text>
-              <Text className="text-[11px] text-gray-500 mt-1 leading-relaxed">
-                Yes! As a guest you can explore all partner gyms, facilities, and plan prices with zero commitment.
-              </Text>
-            </View>
-
-            <View className="py-2.5 border-b border-gray-100">
-              <Text className="text-xs font-bold text-gray-800">Can I try multiple gyms?</Text>
-              <Text className="text-[11px] text-gray-500 mt-1 leading-relaxed">
-                Yes. While you commit mandatory visits to your Primary Gym, your credits unlock visits at any partner gym in the network.
-              </Text>
-            </View>
-
-            <View className="pt-2.5">
-              <Text className="text-xs font-bold text-gray-800">What happens to unused credits?</Text>
-              <Text className="text-[11px] text-gray-500 mt-1 leading-relaxed">
-                Unused credits automatically convert into an INR wallet upon 30-day expiry, valid for 15 days.
-              </Text>
-            </View>
-          </View>
-        </ScrollView>
-      </SafeAreaView>
-      </SwipeableTabScreen>
-    );
-  }
-
   return (
     <SwipeableTabScreen currentTab="index">
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB" }} edges={["top"]}>
-      {/* Standard Header */}
-      <View className="flex-row justify-between items-center px-5 pt-4 pb-4">
-        <View>
-          <Text className="text-[28px] font-extrabold text-[#111827] tracking-tight">{user?.username || "ZonoFit Member"}</Text>
-          <Text className="text-sm font-medium text-[#6B7280] mt-1">{getGreeting()}</Text>
-        </View>
-        <View className="flex-row items-center gap-x-3">
-          <Pressable 
-            onPress={() => router.push("/notifications" as any)}
-            className="w-10 h-10 rounded-full border border-gray-200 items-center justify-center relative bg-white active:bg-gray-100"
-          >
-            <Ionicons name="notifications-outline" size={20} color="#111827" />
-            <View className="absolute top-2 right-2.5 w-2 h-2 rounded-full bg-orange-500 border border-white" />
-          </Pressable>
-          <Pressable onPress={() => router.push("/profile")}>
-            {avatarUrl ? (
-              <Image source={{ uri: avatarUrl }} className="w-10 h-10 rounded-full bg-gray-200" />
-            ) : (
-              <View className="w-10 h-10 rounded-full bg-[#1F7A3E]/10 border border-[#1F7A3E]/20 items-center justify-center">
-                <Text className="text-[#1F7A3E] font-extrabold text-sm">
-                  {(user?.username || user?.phone || "Z")[0].toUpperCase()}
-                </Text>
-              </View>
-            )}
-          </Pressable>
-        </View>
-      </View>
-
-      <ScrollView 
-        ref={homeScrollRef}
-        showsVerticalScrollIndicator={false}
-        bounces={true}
-        overScrollMode="never"
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 150 + insets.bottom, paddingTop: 8 }}
-      >
-        {/* Renewal / Expiry Alert Banner */}
-        {showRenewalAlert && (
-          <View className="mb-4 bg-red-50 border border-red-200 rounded-[24px] p-4 shadow-sm">
-            <View className="flex-row items-center justify-between mb-2">
-              <View className="flex-row items-center flex-1 mr-2">
-                <View className="mr-2.5">
-                  <BlinkingRedDot />
+      <SafeAreaView style={homeStyles.container} edges={["top"]}>
+        <ScrollView
+          ref={scrollRef}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[homeStyles.scrollContent, { paddingBottom: 160 + insets.bottom }]}
+        >
+          {/* HEADER */}
+          <View style={homeStyles.hd}>
+            <View>
+              <Text style={homeStyles.hdSmall}>{getGreeting()}</Text>
+              <Text style={homeStyles.hdTitle}>
+                Hi, {isGuest ? "Guest" : (user?.username?.split(" ")[0] || "Member")}
+              </Text>
+            </View>
+            <View style={homeStyles.hdRow}>
+              {isGuest ? (
+                <View style={homeStyles.pill}>
+                  <Ionicons name="time-outline" size={14} color="#8A5A00" />
+                  <Text style={homeStyles.pillText}>{guestHours}h left</Text>
                 </View>
-                <Text className="text-sm font-black text-red-700">
-                  {isExpired ? "Membership Expired" : `Plan About to Expire (${daysRemaining}d left)`}
-                </Text>
-              </View>
+              ) : (
+                <View style={[homeStyles.pill, { backgroundColor: "#E8F4EA", borderColor: "#C6E4CC" }]}>
+                  <Ionicons name="shield-checkmark" size={13} color="#1F7A3F" />
+                  <Text style={[homeStyles.pillText, { color: "#1F7A3F" }]}>
+                    {planName || "Member"}
+                  </Text>
+                </View>
+              )}
               <Pressable
-                onPress={() => router.push("/onboarding/order-summary?mode=repurchase" as any)}
-                className="bg-red-600 active:bg-red-700 rounded-xl px-3 py-1.5 flex-row items-center shadow-sm"
+                onPress={() => router.push("/(tabs)/profile" as any)}
+                style={homeStyles.ibAv}
+                accessibilityLabel="Profile"
               >
-                <Text className="text-white font-extrabold text-[11px] uppercase tracking-wider">Renew Now</Text>
+                <Text style={homeStyles.ibAvText}>
+                  {isGuest ? "G" : (user?.username?.[0]?.toUpperCase() || "M")}
+                </Text>
               </Pressable>
             </View>
-            <Text className="text-xs text-red-600 leading-relaxed">
-              {isExpired 
-                ? "Your membership cycle has ended. Renew now to continue booking gym visits."
-                : "Your plan is about to expire in 3 days. Renew now to avoid workout interruptions."}
+          </View>
+
+          {/* HERO CARD */}
+          <View style={homeStyles.hero}>
+            <View style={homeStyles.heroDecoCircle} pointerEvents="none" />
+
+            <View style={homeStyles.heroEyeRow}>
+              <Text style={homeStyles.eye}>
+                Primary gym{" "}
+                <Text style={homeStyles.sam}>
+                  {isGuest ? "SAMPLE" : (membershipStatus || "ACTIVE")}
+                </Text>
+              </Text>
+            </View>
+
+            <Pressable
+              onPress={isGuest ? openGymPick : () => router.push("/partner-gyms" as any)}
+              style={homeStyles.heroGymRow}
+            >
+              <View style={{ flex: 1, flexDirection: "row", alignItems: "center" }}>
+                <Text style={homeStyles.heroH2} numberOfLines={1}>
+                  {isGuest ? (selectedGymName || "Choose your gym") : resolvedGymName}
+                </Text>
+                <Text style={{ fontSize: 22, color: "#FFFFFF", marginLeft: 6 }}>›</Text>
+              </View>
+              <View style={homeStyles.heroLogo}>
+                <ZonoNoticeMark size={28} />
+              </View>
+            </Pressable>
+
+            <View style={homeStyles.heroStats}>
+              <View>
+                <Text style={homeStyles.heroStatSmall}>Completed Visits</Text>
+                <Text style={homeStyles.heroBig}>
+                  {completedVisits} <Text style={homeStyles.heroBigSpan}>/ {mandatoryVisits}</Text>
+                </Text>
+              </View>
+              <View style={{ alignItems: "flex-end" }}>
+                <Text style={homeStyles.heroStatSmall}>Visits Left</Text>
+                <Text style={homeStyles.heroBig}>{visitsLeft}</Text>
+              </View>
+            </View>
+
+            {/* Dash Line (10 dashes) */}
+            <View style={homeStyles.dash}>
+              {Array.from({ length: 10 }).map((_, i) => {
+                const isFilled = i < (completedVisits % 10 === 0 && completedVisits > 0 ? 10 : completedVisits % 10);
+                return (
+                  <View 
+                    key={i} 
+                    style={[homeStyles.dashItem, isFilled && homeStyles.dashItemFilled]} 
+                  />
+                );
+              })}
+            </View>
+
+            {/* Credits row */}
+            <View style={homeStyles.cr}>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <View style={homeStyles.coin}>
+                  <Text style={homeStyles.coinText}>₹</Text>
+                </View>
+                <Text style={homeStyles.crText}>Available Credits: {effectiveCredits}</Text>
+              </View>
+              <Pressable onPress={() => router.push("/(tabs)/credits" as any)}>
+                <Text style={homeStyles.crLink}>View Wallet</Text>
+              </Pressable>
+            </View>
+
+            {/* White Action Button */}
+            <Pressable
+              style={homeStyles.wbtn}
+              onPress={
+                isGuest 
+                  ? openGymPick 
+                  : (bookingStatus === "Booked" 
+                      ? () => router.push("/booking-pass" as any) 
+                      : handleOpenPrimaryBooking)
+              }
+            >
+              <Text style={homeStyles.wbtnText}>
+                {isGuest
+                  ? (selectedGymName ? `Continue with ${selectedGymName}` : "Choose your primary gym")
+                  : (bookingStatus === "Booked" ? "View Today's Pass" : "Book Today's Visit")}
+              </Text>
+            </Pressable>
+          </View>
+
+          {/* CARD 1: TODAY */}
+          <View style={homeStyles.card}>
+            <Text style={homeStyles.lab}>Today</Text>
+            {bookingStatus === "Not Booked" ? (
+              <View style={homeStyles.todayRow}>
+                <View style={homeStyles.todayIconWrap}>
+                  <Ionicons name="calendar-outline" size={22} color="#0F2417" />
+                </View>
+                <Text style={homeStyles.todayTitle}>No workout booked</Text>
+                <Pressable
+                  style={homeStyles.btn}
+                  onPress={
+                    isGuest
+                      ? () => promptGuestAccount(router, endGuestSession, "Activate your membership to book visits.")
+                      : handleOpenPrimaryBooking
+                  }
+                >
+                  <Text style={homeStyles.btnText}>Book Visit</Text>
+                </Pressable>
+              </View>
+            ) : bookingStatus === "Booked" ? (
+              <View style={homeStyles.todayRow}>
+                <View style={[homeStyles.todayIconWrap, { backgroundColor: "#E8F4EA" }]}>
+                  <Ionicons name="checkmark-circle" size={22} color="#1F7A3F" />
+                </View>
+                <View style={{ flex: 1, marginRight: 8 }}>
+                  <Text style={homeStyles.todayTitle}>Workout Booked</Text>
+                  <Text style={homeStyles.todaySub} numberOfLines={1}>
+                    {bookedGymName || resolvedGymName} • {bookedTime || "Today"}
+                  </Text>
+                </View>
+                <View style={{ flexDirection: "row", gap: 6 }}>
+                  <Pressable
+                    style={[homeStyles.btn, { backgroundColor: "#FDE9E7", paddingHorizontal: 12 }]}
+                    onPress={askCancelToday}
+                    disabled={isCancellingTodayBooking}
+                  >
+                    <Text style={[homeStyles.btnText, { color: "#B3261E" }]}>
+                      {isCancellingTodayBooking ? "..." : "Cancel"}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    style={homeStyles.btn}
+                    onPress={() => router.push("/booking-pass" as any)}
+                  >
+                    <Text style={homeStyles.btnText}>View Pass</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : (
+              <View style={homeStyles.todayRow}>
+                <View style={[homeStyles.todayIconWrap, { backgroundColor: "#E8F4EA" }]}>
+                  <Ionicons name="checkmark-circle" size={22} color="#1F7A3F" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={homeStyles.todayTitle}>Checked In Successfully</Text>
+                  <Text style={homeStyles.todaySub}>Great work today! Keep it up.</Text>
+                </View>
+              </View>
+            )}
+          </View>
+
+          {/* CARD 2: YOUR JOURNEY */}
+          <View style={homeStyles.card}>
+            <View style={homeStyles.cardHeaderRow}>
+              <Text style={homeStyles.cardH3}>Your Journey</Text>
+              <Pressable onPress={() => router.push("/journey" as any)}>
+                <Text style={homeStyles.lnkText}>View ›</Text>
+              </Pressable>
+            </View>
+
+            <View style={[homeStyles.cardHeaderRow, { marginTop: 12, alignItems: "flex-end" }]}>
+              <View>
+                <Text style={homeStyles.journeyLab}>12-Month Journey Progress</Text>
+                <Text style={homeStyles.journeyMonth}>
+                  Month {membershipInfo?.cycleNumber ?? currentMonth ?? 1}{" "}
+                  <Text style={homeStyles.journeyMonthSub}>/ 12</Text>
+                </Text>
+              </View>
+              <View style={homeStyles.tag}>
+                <Text style={homeStyles.tagText}>{identityStage || "Beginner"}</Text>
+              </View>
+            </View>
+
+            {/* 12 Segments */}
+            <View style={homeStyles.seg}>
+              {Array.from({ length: 12 }).map((_, i) => {
+                const active = i < (membershipInfo?.cycleNumber ?? currentMonth ?? 1);
+                return (
+                  <View 
+                    key={i} 
+                    style={[homeStyles.segItem, active && homeStyles.segItemOn]} 
+                  />
+                );
+              })}
+            </View>
+
+            <View style={homeStyles.two}>
+              <View>
+                <Text style={homeStyles.twoLab}>Completed Visits</Text>
+                <Text style={homeStyles.twoVal}>{completedVisits}</Text>
+              </View>
+              <View>
+                <Text style={homeStyles.twoLab}>Value Protected</Text>
+                <Text style={homeStyles.twoVal}>
+                  ₹{((completedVisits || 1) * 120).toLocaleString()}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* CARD 3: REFER & EARN */}
+          <View style={[homeStyles.card, homeStyles.refCard]}>
+            <View style={homeStyles.cardHeaderRow}>
+              <View style={{ flex: 1, marginRight: 10 }}>
+                <Text style={homeStyles.refH3}>Refer &amp; Earn</Text>
+                <Text style={homeStyles.refSub}>Invite a friend, you both earn credits.</Text>
+              </View>
+              <Pressable
+                style={homeStyles.btn}
+                onPress={() => router.push("/invite" as any)}
+              >
+                <Text style={homeStyles.btnText}>Invite now</Text>
+              </Pressable>
+            </View>
+          </View>
+
+          {/* CARD 4: HOW ZONOFIT WORKS */}
+          <View style={homeStyles.card}>
+            <Text style={homeStyles.cardH3}>How Zonofit works</Text>
+            <View style={homeStyles.step}>
+              <View style={homeStyles.stepNum}><Text style={homeStyles.stepNumText}>1</Text></View>
+              <View style={{ flex: 1 }}>
+                <Text style={homeStyles.stepTitle}>Choose your primary gym</Text>
+                <Text style={homeStyles.stepDesc}>Home gym from 100+ verified partners.</Text>
+              </View>
+            </View>
+
+            <View style={homeStyles.step}>
+              <View style={homeStyles.stepNum}><Text style={homeStyles.stepNumText}>2</Text></View>
+              <View style={{ flex: 1 }}>
+                <Text style={homeStyles.stepTitle}>30-day flexible cycle</Text>
+                <Text style={homeStyles.stepDesc}>Set visits at home gym, plus flexible credits.</Text>
+              </View>
+            </View>
+
+            <View style={homeStyles.step}>
+              <View style={homeStyles.stepNum}><Text style={homeStyles.stepNumText}>3</Text></View>
+              <View style={{ flex: 1 }}>
+                <Text style={homeStyles.stepTitle}>Work out across the network</Text>
+                <Text style={homeStyles.stepDesc}>Use credits at any partner gym, anytime.</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* CARD 5: QUESTIONS (FAQ ACCORDION) */}
+          <View style={homeStyles.card}>
+            <Text style={[homeStyles.cardH3, { marginBottom: 6 }]}>Questions</Text>
+            
+            <AccordionItem title="Can I explore without paying?" defaultOpen={true}>
+              <Text style={homeStyles.accordionBodyText}>
+                Yes. For 48 hours you can look at every partner gym, facility and plan price. No payment.
+              </Text>
+            </AccordionItem>
+
+            <AccordionItem title="Can I try multiple gyms?">
+              <Text style={homeStyles.accordionBodyText}>
+                Yes. You commit visits to your primary gym, and credits unlock any partner gym.
+              </Text>
+            </AccordionItem>
+
+            <AccordionItem title="What happens to unused credits?">
+              <Text style={homeStyles.accordionBodyText}>
+                They convert into an INR wallet at the end of the cycle, valid for 15 days.
+              </Text>
+            </AccordionItem>
+          </View>
+        </ScrollView>
+
+        {/* STICKY GUEST ACTIVATION BAR */}
+        {isGuest && (
+          <View style={[homeStyles.floatingBar, { bottom: Math.max(insets.bottom, 12) + 68 }]}>
+            <Text style={homeStyles.floatingBarText} numberOfLines={2}>
+              Like what you see? Activate to book visits and unlock credits.
             </Text>
+            <Pressable
+              style={homeStyles.floatingBarBtn}
+              onPress={() => promptGuestAccount(router, endGuestSession, "Activate your membership to unlock visits and credits.")}
+            >
+              <Text style={homeStyles.floatingBarBtnText}>Activate</Text>
+            </Pressable>
           </View>
         )}
 
-        {/* Primary Gym Card */}
-        <View style={{ backgroundColor: '#1F7A3E', borderRadius: 32, padding: 24, marginBottom: 24 }}>
-          <Pressable 
-            onPress={() => router.push("/partner-gyms" as any)}
-            className="flex-row justify-between items-start mb-6 active:opacity-80"
-          >
-            <View>
-              <Text className="text-white/70 text-[10px] font-bold tracking-[1.5px] uppercase mb-1">PRIMARY GYM</Text>
-              <View className="flex-row items-center">
-                <Text className="text-white text-[22px] font-bold tracking-tight">{resolvedGymName}</Text>
-                <Ionicons name="chevron-forward" size={18} color="white" className="ml-1 mt-0.5" />
-              </View>
-            </View>
-            <ZonoNoticeMark size={48} />
-          </Pressable>
-
-          <View className="flex-row justify-between items-end mb-2">
-            <View>
-              <Text className="text-white/70 text-xs mb-1">Completed Visits</Text>
-              <Text className="text-white text-[32px] font-bold leading-9">
-                {completedVisits} <Text className="text-white/70 text-lg font-normal">/ {mandatoryVisits}</Text>
-              </Text>
-            </View>
-            <View className="items-end">
-              <Text className="text-white/70 text-xs mb-1">Visits Left</Text>
-              <Text className="text-white text-[32px] font-bold leading-9">{visitsLeft}</Text>
-            </View>
-          </View>
-
-          {/* Dynamic Progress Bar */}
-          {(() => {
-            const totalVisits = mandatoryVisits;
-            const completed = completedVisits;
-            const segments = Math.max(totalVisits, 1);
-            return (
-              <View className="flex-row gap-x-1.5 mb-6 w-full">
-                {[...Array(segments)].map((_, i) => (
-                  <View 
-                    key={i} 
-                    className={`flex-1 h-1.5 rounded-full ${i < completed ? 'bg-[#28C76F]' : 'bg-white border border-white border-dashed bg-transparent opacity-60'}`} 
-                    style={i >= completed ? { backgroundColor: 'transparent', borderStyle: 'dashed' } : {}}
-                  />
-                ))}
-              </View>
-            );
-          })()}
-
-          <View className="flex-row justify-between items-center mb-6">
-            <Pressable 
-              onPress={() => router.push("/(tabs)/credits" as any)}
-              className="flex-row items-center active:opacity-80"
-              style={{ flex: 1, minWidth: 0, marginRight: 8 }}
-            >
-              <Text className="text-white text-sm font-medium" numberOfLines={1} style={{ flexShrink: 1 }}>
-                Available Credits: <Text className="font-extrabold">{effectiveCredits}</Text>
-                <Text className="text-white/70 text-xs"> (≈ ₹{effectiveCredits * 10})</Text>
-              </Text>
-            </Pressable>
-            <Pressable onPress={() => router.push("/(tabs)/credits" as any)} style={{ flexShrink: 0 }}>
-              <Text className="text-white/90 text-xs underline font-semibold tracking-wide">View Wallet</Text>
-            </Pressable>
-          </View>
-
-          <Pressable 
-            onPress={handleOpenPrimaryBooking}
-            className="bg-white rounded-2xl py-3.5 flex-row justify-center items-center shadow-sm active:opacity-90"
-          >
-            <Ionicons name="calendar-outline" size={18} color="#1F7A3E" style={{ marginRight: 8 }} />
-            <Text className="text-[#1F7A3E] font-bold text-sm tracking-wide">Book Visit</Text>
-          </Pressable>
-        </View>
-
-        {/* Today Section — Dynamic based on booking status */}
-        <View className="bg-white rounded-[24px] p-5 mb-6 border border-gray-100 shadow-sm" style={styles.cardShadow}>
-          <Text className="text-gray-400 text-[10px] font-bold tracking-wider uppercase mb-3">TODAY</Text>
-          {bookingStatus === "Not Booked" ? (
-            <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center">
-                <View className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center mr-3">
-                  <Ionicons name="calendar-outline" size={20} color="#9CA3AF" />
-                </View>
-                <Text className="text-sm text-gray-500 font-medium">No workout booked</Text>
-              </View>
-              <Pressable 
-                onPress={handleOpenPrimaryBooking}
-                className="bg-[#1F7A3E] px-4 py-2 rounded-xl active:opacity-90"
-              >
-                <Text className="text-white font-bold text-xs">Book Visit</Text>
-              </Pressable>
-            </View>
-          ) : bookingStatus === "Booked" ? (
-            <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center flex-1 mr-2">
-                <View className="w-10 h-10 rounded-full bg-[#E8F5E9] items-center justify-center mr-3">
-                  <Ionicons name="checkmark-circle" size={20} color="#1F7A3E" />
-                </View>
-                <View className="flex-1">
-                  <Text className="text-sm font-bold text-[#111827]">Workout Booked</Text>
-                  <Text className="text-xs text-gray-500" numberOfLines={1}>{bookedGymName} • {bookedTime || "Today"}</Text>
-                </View>
-              </View>
-
-              <View className="flex-row items-center gap-x-2">
-                <Pressable 
-                  disabled={isCancellingTodayBooking}
-                  onPress={askCancelToday}
-                  className={`bg-red-50 border border-red-200 px-2.5 py-2 rounded-xl active:opacity-80 ${isCancellingTodayBooking ? "opacity-60" : ""}`}
-                >
-                  <Text className="text-red-600 font-bold text-xs">
-                    {isCancellingTodayBooking ? "Cancelling..." : "Cancel"}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  disabled={opening === "pass"}
-                  onPress={() => openScreen("pass", "/booking-pass")}
-                  className={`bg-[#1F7A3E] px-3.5 py-2 rounded-xl active:opacity-90 ${opening === "pass" ? "opacity-80" : ""}`}
-                >
-                  <Text className="text-white font-bold text-xs">
-                    {opening === "pass" ? "Opening..." : "View Pass"}
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
-          ) : (
-            <View className="flex-row items-center">
-              <View className="w-10 h-10 rounded-full bg-[#FEF3C7] items-center justify-center mr-3">
-                <Ionicons name="checkmark-circle" size={22} color="#B45309" />
-              </View>
-              <View>
-                <Text className="text-sm font-bold text-[#111827]">Checked In Successfully</Text>
-                <Text className="text-xs text-gray-500">Great Work! Keep the momentum going.</Text>
-              </View>
-            </View>
-          )}
-        </View>
-
-        {/* Your Journey Card */}
-        <Pressable
-          onPress={() => openScreen("journey", "/journey")}
-          className="bg-white rounded-[32px] p-5 mb-6 border border-gray-100 shadow-sm active:opacity-95"
-          style={styles.cardShadow}
-        >
-          <View className="flex-row justify-between items-center mb-5">
-            <Text className="text-[17px] font-bold text-black">Your Journey</Text>
-            <View className="flex-row items-center">
-              <Text className="text-[#1F7A3E] font-bold text-xs tracking-wide mr-0.5">
-                {opening === "journey" ? "Opening..." : "View Journey"}
-              </Text>
-              <Ionicons name="chevron-forward" size={12} color="#1F7A3E" />
-            </View>
-          </View>
-
-          <View className="flex-row justify-between items-end mb-3">
-            <View>
-              <Text className="text-gray-400 text-[10px] font-bold tracking-wider mb-1">12-Month Journey Progress</Text>
-              <Text className="text-black font-bold text-[15px]">
-                Month {membershipInfo?.cycleNumber ?? currentMonth ?? 1} <Text className="text-gray-400 font-normal">/ 12</Text>
-              </Text>
-            </View>
-            <View className="items-end">
-              <Text className="text-gray-400 text-[10px] font-bold tracking-wider mb-1">Current Phase</Text>
-              <View className="bg-[#E8F5E9] px-3 py-1 rounded-full border border-green-500/10">
-                <Text className="text-[#1F7A3E] text-[10px] font-bold tracking-wide">{identityStage || "Beginner"}</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* 12-Segment Progress Bar */}
-          <View className="flex-row gap-x-1.5 mb-6 w-full">
-            {[...Array(12)].map((_, i) => (
-              <View 
-                key={i} 
-                className={`flex-1 h-1.5 rounded-full ${i < (membershipInfo?.cycleNumber ?? currentMonth ?? 1) ? 'bg-[#1F7A3E]' : 'bg-gray-200'}`} 
-              />
-            ))}
-          </View>
-
-          <View className="h-[1px] bg-gray-100 w-full mb-4" />
-
-          <View className="flex-row justify-between items-center">
-            <View className="flex-1">
-              <Text className="text-gray-400 text-[10px] tracking-wide mb-1">Completed Visits</Text>
-              <Text className="text-black text-xl font-bold">{completedVisits}</Text>
-            </View>
-
-            <View className="w-[1px] h-8 bg-gray-200 mx-2" />
-
-            <View className="flex-1 pl-2">
-              <Text className="text-gray-400 text-[10px] tracking-wide mb-1">Value Protected</Text>
-              <Text className="text-[#1F7A3E] text-xl font-bold">
-                ₹{(credits * CREDIT_FITNESS_VALUE).toLocaleString()}
-              </Text>
-            </View>
-
-            <Pressable 
-              onPress={() => {
-                const val = credits * CREDIT_FITNESS_VALUE;
-                Alert.alert(
-                  "Value protected from wastage",
-                  `In traditional gym memberships, unused days are 100% wasted.\n\nIn ZonoFit, your ₹${val.toLocaleString()} unused fitness value stays protected in your wallet and rolls over or converts to cash at month end!`
-                );
-              }}
-              className="w-10 h-10 rounded-full bg-[#E8F5E9] items-center justify-center active:bg-green-100"
-            >
-              <Ionicons name="information-circle-outline" size={22} color="#1F7A3E" />
-            </Pressable>
-          </View>
-        </Pressable>
-
-        {/* Refer & Earn Card */}
-        <View 
-          style={[{
-            backgroundColor: '#EDF7EC',
-            borderRadius: 24,
-            padding: 24,
-            marginBottom: 32,
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            overflow: 'hidden',
-            position: 'relative',
-            borderWidth: 1,
-            borderColor: 'rgba(0,0,0,0.05)',
-          }, styles.cardShadow]}
-        >
-          {/* Top Right Share Button */}
-          <Pressable 
-            onPress={() => router.push("/invite" as any)}
-            className="absolute top-4 right-4 w-9 h-9 bg-white rounded-xl items-center justify-center shadow-sm z-20 active:bg-gray-100 border border-black/5"
-          >
-            <Ionicons name="share-social-outline" size={18} color="#1F7A3E" />
-          </Pressable>
-
-          <View className="w-[55%] z-10 py-1">
-            <Text className="text-[#1F7A3E] text-[18px] font-bold mb-1">Refer & Earn</Text>
-            <Text className="text-[#1F2520] text-[13px] font-medium mb-1">Invite friends and earn</Text>
-            <Text className="text-[#1F7A3E] text-3xl font-black tracking-tight mb-1">5 Credits</Text>
-            <Text className="text-[#1F2520] text-xs mb-4">for every successful join!</Text>
-
-            <Pressable 
-              onPress={() => router.push("/invite" as any)}
-              className="bg-[#1F7A3E] self-start px-5 py-3 rounded-xl flex-row items-center active:opacity-90 shadow-sm"
-            >
-              <Text className="text-white font-bold text-xs tracking-wide mr-2">Invite Now</Text>
-              <Ionicons name="chevron-forward" size={14} color="white" />
-            </Pressable>
-          </View>
-
-          {/* Extracted Animated Characters Illustration */}
-          <View className="absolute right-1 bottom-0 w-[185px] h-[160px] justify-end items-end pointer-events-none z-10">
-            <Image 
-              source={require("../../assets/images/refer-characters.png")} 
-              style={{ width: "100%", height: "100%" }} 
-              resizeMode="contain" 
-            />
-          </View>
-        </View>
-
-        {/* Connect Section — Colors match internal screens */}
-        <View>
-          <Text className="text-black text-lg font-bold mb-4 ml-1">Connect</Text>
-
-          <View className="flex-row gap-x-3 mb-6">
-            {/* Workout Buddy Card — Soft Lavender theme with white circular icon */}
-            <Pressable 
-              onPress={() => router.push("/future/workout-buddy" as any)}
-              className="flex-1 rounded-[24px] p-5 active:opacity-90 flex-col justify-between overflow-hidden relative"
-              style={{ backgroundColor: '#F6F3FD', borderWidth: 1, borderColor: '#EDE9FE' }}
-            >
-              <View>
-                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', marginBottom: 12, borderWidth: 1, borderColor: '#EDE9FE', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 }}>
-                  <Ionicons name="people-outline" size={21} color="#7C3AED" />
-                </View>
-                <Text className="text-[#0F172A] font-bold text-[14.5px] mb-1.5">Find Workout Buddy</Text>
-                <Text style={{ color: '#64748B', fontSize: 10.5, lineHeight: 15, marginBottom: 14 }}>Find someone to stay motivated together</Text>
-              </View>
-              <View style={{ backgroundColor: '#FFFFFF', alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 4.5, borderRadius: 14, borderWidth: 1, borderColor: '#EDE9FE', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3, elevation: 1 }}>
-                <Text style={{ color: '#64748B', fontSize: 9.5, fontWeight: '700' }}>Coming Soon</Text>
-              </View>
-            </Pressable>
-
-            {/* Personal Trainer Card — Soft Peach/Cream theme with white circular icon */}
-            <Pressable 
-              onPress={() => router.push("/future/personal-trainer" as any)}
-              className="flex-1 rounded-[24px] p-5 active:opacity-90 flex-col justify-between overflow-hidden relative"
-              style={{ backgroundColor: '#FFF5EC', borderWidth: 1, borderColor: '#FED7AA' }}
-            >
-              <View>
-                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', marginBottom: 12, borderWidth: 1, borderColor: '#FED7AA', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 }}>
-                  <Ionicons name="person-outline" size={21} color="#D97706" />
-                </View>
-                <Text className="text-[#0F172A] font-bold text-[14.5px] mb-1.5">Find Personal Trainer</Text>
-                <Text style={{ color: '#64748B', fontSize: 10.5, lineHeight: 15, marginBottom: 14 }}>Connect with certified trainers near you</Text>
-              </View>
-              <View style={{ backgroundColor: '#FFFFFF', alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 4.5, borderRadius: 14, borderWidth: 1, borderColor: '#FED7AA', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3, elevation: 1 }}>
-                <Text style={{ color: '#64748B', fontSize: 9.5, fontWeight: '700' }}>Coming Soon</Text>
-              </View>
-            </Pressable>
-          </View>
-        </View>
-
-        {/* Motivation Quote Card (Display only - non-tappable) */}
-        <View 
-          className="bg-white rounded-[24px] p-5 mb-8 border border-black/5 shadow-sm" 
-          style={styles.cardShadow}
-        >
-          <Text className="text-[#0B6E4F] text-[11px] font-bold uppercase tracking-wider mb-2.5">Daily Motivation</Text>
-          <Text className="text-[#1F2520] text-[15px] font-bold italic leading-relaxed">
-            {motivationQuote.startsWith('"') ? motivationQuote : `"${motivationQuote}"`}
-          </Text>
-        </View>
-
-        {/* More Coming Your Way — Premium Glassmorphism Locked Features */}
-        <View className="mb-10">
-          <Text className="text-[#1F2520] text-[16px] font-bold mb-4 ml-1">More coming your way</Text>
-
-          {/* 2x2 Glassmorphism Locked Grid */}
-          <View className="gap-y-3">
-            <View className="flex-row gap-x-3">
-              {/* Nutrition — Warm Orange matching /future/nutrition */}
-              <Pressable 
-                onPress={() => router.push("/future/nutrition" as any)}
-                className="flex-1 rounded-[22px] overflow-hidden active:opacity-90"
-                style={styles.glassCard}
-              >
-                <View style={styles.glassCardInner}>
-                  <View style={[styles.glassIconWrap, { backgroundColor: '#FFEDD5' }]}>
-                    <Ionicons name="nutrition" size={22} color="#EA580C" />
-                  </View>
-                  <Text style={styles.glassCardTitle}>Nutrition</Text>
-                  <Text style={styles.glassCardSub}>Track meals & macros</Text>
-                </View>
-                {/* Premium Glassmorphism lock overlay */}
-                <View style={styles.glassOverlay}>
-                  <View style={styles.glassLockBadge}>
-                    <Ionicons name="lock-closed" size={11} color="#FFFFFF" />
-                    <Text style={styles.glassLockText}>Coming Soon</Text>
-                  </View>
-                </View>
-              </Pressable>
-
-              {/* AI Coaching — Purple matching /future/ai-coach */}
-              <Pressable 
-                onPress={() => router.push("/future/ai-coach" as any)}
-                className="flex-1 rounded-[22px] overflow-hidden active:opacity-90"
-                style={styles.glassCard}
-              >
-                <View style={styles.glassCardInner}>
-                  <View style={[styles.glassIconWrap, { backgroundColor: '#EDE9FE' }]}>
-                    <Ionicons name="hardware-chip" size={22} color="#7C3AED" />
-                  </View>
-                  <Text style={styles.glassCardTitle}>AI Coaching</Text>
-                  <Text style={styles.glassCardSub}>Smart fitness guidance</Text>
-                </View>
-                <View style={styles.glassOverlay}>
-                  <View style={styles.glassLockBadge}>
-                    <Ionicons name="lock-closed" size={11} color="#FFFFFF" />
-                    <Text style={styles.glassLockText}>Coming Soon</Text>
-                  </View>
-                </View>
-              </Pressable>
-            </View>
-
-            <View className="flex-row gap-x-3">
-              {/* Home Workout — Emerald matching /future/home-workout */}
-              <Pressable 
-                onPress={() => router.push("/future/home-workout" as any)}
-                className="flex-1 rounded-[22px] overflow-hidden active:opacity-90"
-                style={styles.glassCard}
-              >
-                <View style={styles.glassCardInner}>
-                  <View style={[styles.glassIconWrap, { backgroundColor: '#D1FAE5' }]}>
-                    <Ionicons name="home" size={22} color="#059669" />
-                  </View>
-                  <Text style={styles.glassCardTitle}>Home Workout</Text>
-                  <Text style={styles.glassCardSub}>Exercise at home</Text>
-                </View>
-                <View style={styles.glassOverlay}>
-                  <View style={styles.glassLockBadge}>
-                    <Ionicons name="lock-closed" size={11} color="#FFFFFF" />
-                    <Text style={styles.glassLockText}>Coming Soon</Text>
-                  </View>
-                </View>
-              </Pressable>
-
-              {/* Community — Blue matching /future/community */}
-              <Pressable 
-                onPress={() => router.push("/future/community" as any)}
-                className="flex-1 rounded-[22px] overflow-hidden active:opacity-90"
-                style={styles.glassCard}
-              >
-                <View style={styles.glassCardInner}>
-                  <View style={[styles.glassIconWrap, { backgroundColor: '#DBEAFE' }]}>
-                    <Ionicons name="people" size={22} color="#2563EB" />
-                  </View>
-                  <Text style={styles.glassCardTitle}>Community</Text>
-                  <Text style={styles.glassCardSub}>Connect & compete</Text>
-                </View>
-                <View style={styles.glassOverlay}>
-                  <View style={styles.glassLockBadge}>
-                    <Ionicons name="lock-closed" size={11} color="#FFFFFF" />
-                    <Text style={styles.glassLockText}>Coming Soon</Text>
-                  </View>
-                </View>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-
-      </ScrollView>
-
-      {/* Primary Gym Booking Modal */}
-      <BookingModal
-        visible={showBookingModal}
-        onClose={() => setShowBookingModal(false)}
-        onConfirm={handleConfirmPrimaryBooking}
-        gym={{
-          id: userPrimaryGymId || "primary_gym_default",
-          name: resolvedGymName,
-          address: "Primary Gym (Home Base)",
-          cost: 8,
-        }}
-        isPrimaryGym={true}
-        visitsRemaining={visitsLeft}
-        mandatoryVisitsTotal={mandatoryVisits}
-        availableCredits={credits}
-      />
-
-      {/* Booking Confirmed Modal */}
-      {confirmedBookingData && (
-        <BookingConfirmedModal
-          visible={showConfirmedModal}
-          gymName={resolvedGymName}
-          gymAddress="Primary Gym (Home Base)"
-          timeSlot={confirmedBookingData.timeSlot}
-          isMandatoryVisit={confirmedBookingData.isMandatoryVisit}
-          mandatoryVisitsLeft={confirmedBookingData.mandatoryVisitsLeft}
-          totalMandatoryVisits={mandatoryVisits}
-          creditsDeducted={confirmedBookingData.creditsDeducted}
-          remainingCredits={confirmedBookingData.remainingCredits}
-          onViewPass={() => {
-            setShowConfirmedModal(false);
-            setConfirmedBookingData(null);
-            router.push("/booking-pass" as any);
+        {/* MODALS */}
+        <BookingModal
+          visible={showBookingModal}
+          onClose={() => setShowBookingModal(false)}
+          onConfirm={handleConfirmPrimaryBooking}
+          gym={{
+            id: userPrimaryGymId || "primary_gym_default",
+            name: resolvedGymName,
+            address: "Primary Gym (Home Base)",
+            cost: 8,
           }}
-          onDone={() => {
-            setShowConfirmedModal(false);
-            setConfirmedBookingData(null);
-          }}
+          isPrimaryGym={true}
+          visitsRemaining={visitsLeft}
+          mandatoryVisitsTotal={mandatoryVisits}
+          availableCredits={credits}
         />
-      )}
 
-      <CancelBookingSheet
-        visible={cancelPrompt !== null}
-        loading={isCancellingTodayBooking}
-        isMandatory={cancelPrompt?.isMandatory ?? false}
-        refundCredits={cancelPrompt?.refundAmount ?? 0}
-        onKeep={() => setCancelPrompt(null)}
-        onConfirm={confirmCancelToday}
-      />
+        {confirmedBookingData && (
+          <BookingConfirmedModal
+            visible={showConfirmedModal}
+            gymName={resolvedGymName}
+            gymAddress="Primary Gym (Home Base)"
+            timeSlot={confirmedBookingData.timeSlot}
+            isMandatoryVisit={confirmedBookingData.isMandatoryVisit}
+            mandatoryVisitsLeft={confirmedBookingData.mandatoryVisitsLeft}
+            totalMandatoryVisits={mandatoryVisits}
+            creditsDeducted={confirmedBookingData.creditsDeducted}
+            remainingCredits={confirmedBookingData.remainingCredits}
+            onViewPass={() => {
+              setShowConfirmedModal(false);
+              setConfirmedBookingData(null);
+              router.push("/booking-pass" as any);
+            }}
+            onDone={() => {
+              setShowConfirmedModal(false);
+              setConfirmedBookingData(null);
+            }}
+          />
+        )}
+
+        <CancelBookingSheet
+          visible={cancelPrompt !== null}
+          loading={isCancellingTodayBooking}
+          isMandatory={cancelPrompt?.isMandatory ?? false}
+          refundCredits={cancelPrompt?.refundAmount ?? 0}
+          onKeep={() => setCancelPrompt(null)}
+          onConfirm={confirmCancelToday}
+        />
       </SafeAreaView>
     </SwipeableTabScreen>
   );
 }
 
-const styles = StyleSheet.create({
-
-  cardShadow: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
+const homeStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#F6F8F5",
   },
-  iconShadow: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 2,
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 18,
   },
-  glassCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.06)",
-    position: "relative",
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  glassCardInner: {
-    padding: 16,
-    alignItems: "flex-start",
-  },
-  glassIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 10,
-  },
-  glassCardTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 2,
-  },
-  glassCardSub: {
-    fontSize: 11,
-    color: "#6B7280",
-    fontWeight: "500",
-  },
-  glassOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(255, 255, 255, 0.52)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  glassLockBadge: {
+  hd: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(17, 24, 39, 0.78)",
-    paddingHorizontal: 10,
-    paddingVertical: 4.5,
-    borderRadius: 16,
-    gap: 4,
+    justifyContent: "space-between",
+    marginBottom: 18,
+  },
+  hdSmall: {
+    color: "#66756B",
+    fontSize: 14,
+    fontWeight: "400",
+  },
+  hdTitle: {
+    color: "#0F2417",
+    fontSize: 30,
+    fontWeight: "700",
+    letterSpacing: -0.6,
+    marginTop: 2,
+  },
+  hdRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  pill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 1.5,
+    borderColor: "#F0D58A",
+    backgroundColor: "#FFF4D9",
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 9999,
+  },
+  pillText: {
+    color: "#8A5A00",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  ibAv: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#E8F4EA",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ibAvText: {
+    color: "#1F7A3F",
+    fontWeight: "700",
+    fontSize: 16,
+  },
+
+  // HERO CARD
+  hero: {
+    position: "relative",
+    overflow: "hidden",
+    backgroundColor: "#1F7A3F",
+    borderRadius: 28,
+    padding: 22,
+    marginBottom: 14,
+    shadowColor: "#1F7A3F",
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  heroDecoCircle: {
+    position: "absolute",
+    right: -70,
+    top: -70,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  heroEyeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  eye: {
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    color: "rgba(255,255,255,0.8)",
+  },
+  sam: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.6,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+    borderRadius: 9999,
+    overflow: "hidden",
+    color: "#FFFFFF",
+  },
+  heroGymRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 4,
+  },
+  heroH2: {
+    color: "#FFFFFF",
+    fontSize: 24,
+    fontWeight: "700",
+    letterSpacing: -0.4,
+  },
+  heroLogo: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: "#2B8A4B",
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.4)",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  heroStats: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    marginTop: 18,
+  },
+  heroStatSmall: {
+    fontSize: 13,
+    color: "rgba(255,255,255,0.8)",
+    marginBottom: 4,
+  },
+  heroBig: {
+    fontSize: 42,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    lineHeight: 46,
+  },
+  heroBigSpan: {
+    fontSize: 20,
+    fontWeight: "500",
+    color: "rgba(255,255,255,0.7)",
+  },
+  dash: {
+    flexDirection: "row",
+    gap: 5,
+    marginVertical: 16,
+  },
+  dashItem: {
+    flex: 1,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: "rgba(255,255,255,0.3)",
+  },
+  dashItemFilled: {
+    backgroundColor: "#8DBE2A",
+  },
+  cr: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  coin: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "#F5C84B",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 8,
+  },
+  coinText: {
+    color: "#7A5600",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  crText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  crLink: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
+    textDecorationLine: "underline",
+  },
+  wbtn: {
+    width: "100%",
+    height: 52,
+    borderRadius: 9999,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 2,
   },
-  glassLockText: {
-    color: "#FFFFFF",
-    fontSize: 10.5,
+  wbtnText: {
+    color: "#1F7A3F",
     fontWeight: "700",
-    letterSpacing: 0.3,
+    fontSize: 16,
+  },
+
+  // CARDS GENERAL
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E3E9E0",
+    borderRadius: 24,
+    padding: 18,
+    marginBottom: 14,
+    shadowColor: "rgba(15,36,23,0.08)",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    elevation: 2,
+  },
+  lab: {
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 1.1,
+    textTransform: "uppercase",
+    color: "#66756B",
+  },
+  cardHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  cardH3: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#0F2417",
+    letterSpacing: -0.2,
+  },
+  btn: {
+    backgroundColor: "#1F7A3F",
+    borderRadius: 9999,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  btnText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+    fontSize: 14,
+  },
+  lnkText: {
+    color: "#1F7A3F",
+    fontWeight: "700",
+    fontSize: 14,
+  },
+
+  // TODAY CARD
+  todayRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 10,
+    gap: 10,
+  },
+  todayIconWrap: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: "#F6F8F5",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  todayTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#0F2417",
+    flex: 1,
+  },
+  todaySub: {
+    fontSize: 12,
+    color: "#66756B",
+    marginTop: 2,
+  },
+
+  // JOURNEY CARD
+  journeyLab: {
+    fontSize: 13,
+    color: "#66756B",
+  },
+  journeyMonth: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#0F2417",
+    marginTop: 2,
+  },
+  journeyMonthSub: {
+    fontSize: 16,
+    color: "#66756B",
+    fontWeight: "500",
+  },
+  tag: {
+    backgroundColor: "#E8F4EA",
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: 9999,
+  },
+  tagText: {
+    color: "#1F7A3F",
+    fontWeight: "700",
+    fontSize: 13,
+  },
+  seg: {
+    flexDirection: "row",
+    gap: 5,
+    marginVertical: 14,
+  },
+  segItem: {
+    flex: 1,
+    height: 5,
+    borderRadius: 5,
+    backgroundColor: "#E3E9E0",
+  },
+  segItemOn: {
+    backgroundColor: "#1F7A3F",
+  },
+  two: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    borderTopWidth: 1,
+    borderTopColor: "#E3E9E0",
+    paddingTop: 14,
+  },
+  twoLab: {
+    fontSize: 13,
+    color: "#66756B",
+    marginBottom: 4,
+  },
+  twoVal: {
+    fontSize: 26,
+    fontWeight: "700",
+    color: "#0F2417",
+  },
+
+  // REFER & EARN
+  refCard: {
+    backgroundColor: "#E8F4EA",
+    borderColor: "transparent",
+  },
+  refH3: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#1F7A3F",
+  },
+  refSub: {
+    fontSize: 13,
+    color: "#66756B",
+    marginTop: 3,
+  },
+
+  // HOW IT WORKS
+  step: {
+    flexDirection: "row",
+    gap: 12,
+    alignItems: "flex-start",
+    marginTop: 14,
+  },
+  stepNum: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#E8F4EA",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stepNumText: {
+    color: "#1F7A3F",
+    fontWeight: "700",
+    fontSize: 14,
+  },
+  stepTitle: {
+    fontSize: 14.5,
+    fontWeight: "700",
+    color: "#0F2417",
+  },
+  stepDesc: {
+    fontSize: 13,
+    color: "#66756B",
+    marginTop: 2,
+    lineHeight: 18,
+  },
+
+  // ACCORDIONS
+  accordionItem: {
+    borderTopWidth: 1,
+    borderTopColor: "#E3E9E0",
+    paddingVertical: 12,
+  },
+  accordionSummary: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  accordionSummaryText: {
+    fontSize: 14.5,
+    fontWeight: "600",
+    color: "#0F2417",
+    flex: 1,
+    paddingRight: 10,
+  },
+  accordionToggle: {
+    fontSize: 18,
+    color: "#66756B",
+    fontWeight: "500",
+  },
+  accordionBody: {
+    marginTop: 8,
+  },
+  accordionBodyText: {
+    fontSize: 13.5,
+    color: "#66756B",
+    lineHeight: 19,
+  },
+
+  // STICKY BOTTOM GUEST BAR
+  floatingBar: {
+    position: "absolute",
+    left: 16,
+    right: 16,
+    backgroundColor: "#0F2417",
+    borderRadius: 18,
+    paddingVertical: 10,
+    paddingLeft: 16,
+    paddingRight: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 18,
+    elevation: 10,
+  },
+  floatingBarText: {
+    flex: 1,
+    color: "#F6F8F5",
+    fontSize: 13,
+    fontWeight: "500",
+    lineHeight: 17,
+  },
+  floatingBarBtn: {
+    backgroundColor: "#8DBE2A",
+    borderRadius: 9999,
+    paddingVertical: 9,
+    paddingHorizontal: 16,
+  },
+  floatingBarBtnText: {
+    color: "#0F2417",
+    fontWeight: "700",
+    fontSize: 13,
   },
 });

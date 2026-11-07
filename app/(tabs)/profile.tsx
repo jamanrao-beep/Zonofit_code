@@ -1,400 +1,522 @@
-import { useAuthStore } from "@/store/useAuthStore";
-import { Image, Text, View, Pressable, ActivityIndicator, ScrollView, Alert, StyleSheet } from "react-native";
+import React, { useState } from "react";
+import { 
+  ScrollView, 
+  Text, 
+  View, 
+  Pressable, 
+  Image,
+  StyleSheet, 
+  ActivityIndicator, 
+  Alert 
+} from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { MaterialIcons, Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import * as ImagePicker from 'expo-image-picker';
-import { useState } from 'react';
+import * as ImagePicker from "expo-image-picker";
+import { useAuthStore } from "@/store/useAuthStore";
 import { useUserStore } from "@/store/useUserStore";
-import { useCreditsStore } from "@/store/useCreditsStore";
 import { useGuestStore } from "@/store/useGuestStore";
-import { colors } from "@/constants/colors";
 import SignOutConfirmModal from "@/components/SignOutConfirmModal";
 import { SwipeableTabScreen } from "@/components/SwipeableTabScreen";
 
-export default function ProfileScreen() {
-    const { user, isLoaded, signOut } = useAuthStore();
-    const router = useRouter();
-    const insets = useSafeAreaInsets();
-
-    const { planName, membershipStatus, streak, totalWorkouts, avatarUrl, uploadAvatar, memberSince, identityStage, currentMonth } = useUserStore();
-    const { credits } = useCreditsStore();
-    const { isGuest, getHoursRemaining, endGuestSession } = useGuestStore();
-    const [uploadingAvatar, setUploadingAvatar] = useState(false);
-    const [showSignOutModal, setShowSignOutModal] = useState(false);
-    const [isSigningOut, setIsSigningOut] = useState(false);
-
-    const pickImage = async () => {
-        if (isGuest) {
-            Alert.alert("Account Required", "Please create an account to customize your profile.");
-            return;
-        }
-        let result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ['images'],
-            allowsEditing: true,
-            aspect: [1, 1],
-            quality: 0.5,
-        });
-
-        if (!result.canceled && result.assets[0]) {
-            setUploadingAvatar(true);
-            const { success, message } = await uploadAvatar(result.assets[0].uri);
-            if (!success) {
-                Alert.alert("Upload Failed", message || "Failed to upload profile picture.");
-            }
-            setUploadingAvatar(false);
-        }
-    };
-
-    if (!isLoaded && !isGuest) {
-        return (
-            <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg, alignItems: "center", justifyContent: "center" }}>
-                <ActivityIndicator size="large" color={colors.green} />
-            </SafeAreaView>
-        );
-    }
-
-    const handleConfirmSignOut = async () => {
-        setIsSigningOut(true);
-        try {
-            if (isGuest) {
-                await endGuestSession();
-            } else {
-                await signOut();
-            }
-            setShowSignOutModal(false);
-            router.replace("/intro" as any);
-        } catch (err) {
-            console.warn("Sign out handler:", err);
-            setShowSignOutModal(false);
-            router.replace("/intro" as any);
-        } finally {
-            setIsSigningOut(false);
-        }
-    };
-
-    const handleInvite = () => {
-        router.push("/invite");
-    };
-
-    interface NavRowProps {
-        icon: keyof typeof MaterialIcons.glyphMap;
-        label: string;
-        value?: string;
-        onPress?: () => void;
-        color?: string;
-        showChevron?: boolean;
-    }
-
-    const NavRow = ({ icon, label, value, onPress, color = colors.muted, showChevron = true }: NavRowProps) => (
-        <Pressable
-            onPress={onPress}
-            className="flex-row items-center justify-between py-3.5 border-b"
-            style={{ borderBottomColor: colors.secondary }}
-        >
-            <View className="flex-row items-center gap-x-3 flex-1 min-w-0 mr-2">
-                <View className="w-8 h-8 rounded-xl items-center justify-center border flex-shrink-0" style={{ backgroundColor: colors.surface, borderColor: colors.secondary }}>
-                    <MaterialIcons name={icon} size={18} color={color} />
-                </View>
-                <Text className="text-sm font-semibold flex-1" numberOfLines={1} style={{ color: colors.text }}>{label}</Text>
-            </View>
-            <View className="flex-row items-center gap-x-1 flex-shrink-0 max-w-[50%]">
-                {value ? <Text className="text-xs mr-1" numberOfLines={1} style={{ color: colors.muted }}>{value}</Text> : null}
-                {showChevron && <MaterialIcons name="chevron-right" size={18} color={colors.muted} />}
-            </View>
-        </Pressable>
-    );
-
-    return (
-        <SwipeableTabScreen currentTab="profile">
-            <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={["top"]}>
-            {/* Standard Header */}
-            <View className="flex-row justify-between items-center px-5 pt-4 pb-4">
-                <View>
-                    <Text className="text-[28px] font-extrabold text-[#111827] tracking-tight">Profile</Text>
-                    <Text className="text-sm font-medium text-[#6B7280] mt-1">Manage your account & preferences</Text>
-                </View>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false} bounces={true} overScrollMode="never" contentContainerStyle={{ paddingBottom: 140 + insets.bottom }}>
-
-                {/* Guest Mode Callout */}
-                {isGuest && (
-                    <View className="mx-5 mb-4 bg-emerald-50 border border-emerald-200 rounded-2xl p-4">
-                        <View className="flex-row items-center justify-between mb-1.5">
-                            <View className="flex-row items-center">
-                                <Ionicons name="sparkles" size={16} color="#059669" />
-                                <Text className="text-xs font-bold text-emerald-900 ml-1.5">Guest Mode Active</Text>
-                            </View>
-                            <View className="bg-emerald-600 px-2 py-0.5 rounded-full">
-                                <Text className="text-[10px] font-bold text-white">{getHoursRemaining()}h Left</Text>
-                            </View>
-                        </View>
-                        <Text className="text-xs text-emerald-800 leading-relaxed mb-3">
-                            You are exploring ZonoFit with temporary guest access. Create a permanent account to unlock booking, check-ins, and credits.
-                        </Text>
-                        <Pressable 
-                            onPress={async () => {
-                                await endGuestSession();
-                                router.replace("/(auth)/create-account");
-                            }}
-                            className="bg-emerald-600 py-2.5 rounded-xl items-center"
-                        >
-                            <Text className="text-xs font-bold text-white">Create Full Account</Text>
-                        </Pressable>
-                    </View>
-                )}
-
-                {/* Profile Hero (Dark Container) */}
-                <View className="mx-5 mt-1 mb-5 rounded-[28px] p-5 border shadow-sm" style={[{ backgroundColor: colors.surfaceDark, borderColor: colors.secondaryDark }, styles.softShadowLg]}>
-                    <View className="flex-row items-center gap-x-4">
-                        <Pressable onPress={pickImage} className="relative" disabled={uploadingAvatar}>
-                            <View className="w-20 h-20 rounded-2xl items-center justify-center overflow-hidden border" style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderColor: colors.secondaryDark }}>
-                                {avatarUrl ? (
-                                    <Image source={{ uri: avatarUrl }} className="w-full h-full" resizeMode="cover" />
-                                ) : (
-                                    <MaterialIcons name="person" size={36} color={colors.textLight} />
-                                )}
-                                {uploadingAvatar && (
-                                    <View className="absolute inset-0 bg-black/60 items-center justify-center rounded-2xl">
-                                        <ActivityIndicator size="small" color="#fff" />
-                                    </View>
-                                )}
-                            </View>
-                            {!isGuest && (
-                                <View className="absolute -bottom-1 -right-1 p-0.5 rounded-full shadow-sm border" style={{ backgroundColor: colors.surfaceDark, borderColor: colors.secondaryDark }}>
-                                    <View className="w-6 h-6 rounded-full items-center justify-center" style={{ backgroundColor: colors.green }}>
-                                        <MaterialIcons name="edit" size={12} color="#fff" />
-                                    </View>
-                                </View>
-                            )}
-                        </Pressable>
-                        <View className="flex-1">
-                            <Text className="text-lg font-bold" numberOfLines={1} style={{ color: colors.textLight }}>
-                                {isGuest ? "Guest Explorer" : user?.username || "ZonoFit Member"}
-                            </Text>
-                            <Text className="text-xs mt-0.5" numberOfLines={1} style={{ color: colors.muted }}>
-                                {isGuest ? "48-Hour Exploration Session" : user?.phone || "Google Sign-In"}
-                            </Text>
-                            <View className="flex-row flex-wrap items-center mt-2" style={{ gap: 6 }}>
-                                <View className="px-2.5 py-0.5 rounded-full border" style={{ backgroundColor: 'rgba(217, 255, 92, 0.1)', borderColor: 'rgba(217, 255, 92, 0.2)' }}>
-                                    <Text className="text-[10px] font-bold" style={{ color: colors.lime }}>{isGuest ? "Guest Pass" : planName}</Text>
-                                </View>
-                                <View className="px-2.5 py-0.5 rounded-full border" style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderColor: colors.secondaryDark }}>
-                                    <Text className="text-[10px] font-semibold" style={{ color: colors.muted }}>
-                                        {isGuest ? "Temporary" : `Since ${memberSince ? memberSince.replace(/(\w{3})\w*\s+\d+,\s*(\d{4})/, "$1 $2") : "Recently"}`}
-                                    </Text>
-                                </View>
-                            </View>
-                        </View>
-                    </View>
-
-                    {/* Quick stats */}
-                    <View className="h-[1px] mt-4 mb-3" style={{ backgroundColor: colors.secondaryDark }} />
-                    <View className="flex-row justify-between">
-                        <View className="items-center flex-1">
-                            <Text className="text-base font-black" style={{ color: colors.textLight }}>{isGuest ? "-" : totalWorkouts}</Text>
-                            <Text className="text-[10px] mt-0.5" style={{ color: colors.muted }}>Total Visits</Text>
-                        </View>
-                        <View className="w-[1px]" style={{ backgroundColor: colors.secondaryDark }} />
-                        <View className="items-center flex-1">
-                            <Text className="text-base font-black" style={{ color: colors.textLight }}>{isGuest ? "-" : streak}</Text>
-                            <Text className="text-[10px] mt-0.5" style={{ color: colors.muted }}>Day Streak</Text>
-                        </View>
-                        <View className="w-[1px]" style={{ backgroundColor: colors.secondaryDark }} />
-                        <View className="items-center flex-1">
-                            <Text className="text-base font-black" style={{ color: colors.lime }}>{isGuest ? "-" : credits}</Text>
-                            <Text className="text-[10px] mt-0.5" style={{ color: colors.muted }}>Credits</Text>
-                        </View>
-                    </View>
-                </View>
-
-                {/* Fitness Section */}
-                <Text className="text-xs font-bold uppercase tracking-wider mb-2.5 ml-6" style={{ color: colors.muted }}>Fitness</Text>
-                <View className="mx-5 rounded-[24px] px-4 border shadow-sm mb-4" style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}>
-                    <NavRow
-                        icon="timeline"
-                        label="My Journey"
-                        value={isGuest ? "Locked" : (identityStage || "New Member")}
-                        onPress={() => router.push("/journey")}
-                    />
-                    <NavRow
-                        icon="calendar-today"
-                        label="Booking History"
-                        onPress={() => router.push("/booking-history")}
-                    />
-                    <NavRow
-                        icon="explore"
-                        label="Discover Gyms"
-                        onPress={() => router.push("/explore")}
-                    />
-                </View>
-
-                {/* Wallet & Orders Section */}
-                <Text className="text-xs font-bold uppercase tracking-wider mb-2.5 ml-6" style={{ color: colors.muted }}>Wallet & Orders</Text>
-                <View className="mx-5 rounded-[24px] px-4 border shadow-sm mb-4" style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}>
-                    <NavRow
-                        icon="account-balance-wallet"
-                        label="Credits & Wallet"
-                        value={isGuest ? "Locked" : `${credits} Credits`}
-                        onPress={() => router.push("/credits")}
-                    />
-                    <NavRow
-                        icon="receipt-long"
-                        label="My Orders"
-                        onPress={() => router.push("/shop/orders" as any)}
-                    />
-                </View>
-
-                {/* Growth Section */}
-                <Text className="text-xs font-bold uppercase tracking-wider mb-2.5 ml-6" style={{ color: colors.muted }}>Share & Earn</Text>
-                <View className="mx-5 rounded-[24px] px-4 border shadow-sm mb-4" style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}>
-                    <Pressable
-                        onPress={handleInvite}
-                        className="flex-row items-center justify-between py-3.5"
-                    >
-                        <View className="flex-row items-center gap-x-3">
-                            <View className="w-8 h-8 rounded-xl items-center justify-center border" style={{ backgroundColor: 'rgba(11, 110, 79, 0.1)', borderColor: 'rgba(11, 110, 79, 0.2)' }}>
-                                <Ionicons name="gift-outline" size={18} color={colors.green} />
-                            </View>
-                            <View>
-                                <Text className="text-sm font-semibold" style={{ color: colors.text }}>Invite a Friend</Text>
-                                <Text className="text-[10px] mt-0.5" style={{ color: colors.muted }}>Earn bonus credits for each referral</Text>
-                            </View>
-                        </View>
-                        <View className="px-2.5 py-1 rounded-full border" style={{ backgroundColor: 'rgba(11, 110, 79, 0.1)', borderColor: 'rgba(11, 110, 79, 0.2)' }}>
-                            <Text className="text-[10px] font-bold" style={{ color: colors.green }}>+5 Credits</Text>
-                        </View>
-                    </Pressable>
-                </View>
-
-                {/* Trainer & Buddy Section */}
-                <Text className="text-xs font-bold uppercase tracking-wider mb-2.5 ml-6" style={{ color: colors.muted }}>Opportunities</Text>
-                <View className="mx-5 rounded-[24px] px-4 border shadow-sm mb-4" style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}>
-                    <NavRow
-                        icon="accessibility-new"
-                        label="Become a Trainer"
-                        onPress={() => router.push("/trainers/register?type=TRAINER" as any)}
-                    />
-                    <NavRow
-                        icon="people-outline"
-                        label="Become a Gym Buddy"
-                        onPress={() => router.push("/trainers/register?type=BUDDY" as any)}
-                    />
-                </View>
-
-                {/* About & Support Section */}
-                <Text className="text-xs font-bold uppercase tracking-wider mb-2.5 ml-6" style={{ color: colors.muted }}>About & Support</Text>
-                <View className="mx-5 rounded-[24px] px-4 border shadow-sm mb-4" style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}>
-                    <NavRow
-                        icon="notifications-none"
-                        label="Notifications"
-                        onPress={() => router.push("/notifications" as any)}
-                    />
-                    <NavRow
-                        icon="campaign"
-                        label="Announcements"
-                        onPress={() => router.push({ pathname: "/content", params: { type: "app_announcement", title: "Announcements" } })}
-                    />
-                    <NavRow
-                        icon="help-outline"
-                        label="General FAQ"
-                        onPress={() => router.push({ pathname: "/content", params: { type: "faq_general", title: "General FAQ" } })}
-                    />
-                    <NavRow
-                        icon="description"
-                        label="Terms & Conditions"
-                        onPress={() => router.push({ pathname: "/content", params: { type: "terms_and_conditions", title: "Terms & Conditions" } })}
-                    />
-                    <NavRow
-                        icon="privacy-tip"
-                        label="Privacy Policy"
-                        onPress={() => router.push({ pathname: "/content", params: { type: "privacy_policy", title: "Privacy Policy" } })}
-                    />
-                    <NavRow
-                        icon="assignment-return"
-                        label="Refund & Cancellation"
-                        onPress={() => router.push({ pathname: "/content", params: { type: "refund_policy", title: "Refund & Cancellation" } })}
-                    />
-                    <NavRow
-                        icon="info-outline"
-                        label="Disclaimer"
-                        onPress={() => router.push({ pathname: "/content", params: { type: "disclaimer", title: "Disclaimer" } })}
-                    />
-                    <NavRow
-                        icon="handshake"
-                        label="Gym Partner Agreement"
-                        onPress={() => router.push({ pathname: "/content", params: { type: "gym_partner_agreement", title: "Gym Partner Agreement" } })}
-                    />
-                </View>
-
-                {/* Account Section */}
-                <Text className="text-xs font-bold uppercase tracking-wider mb-2.5 ml-6" style={{ color: colors.muted }}>Account</Text>
-                <View className="mx-5 rounded-[24px] px-4 border shadow-sm mb-5" style={[{ backgroundColor: colors.surface, borderColor: colors.secondary }, styles.softShadow]}>
-                    {user?.authMethod === "phone" ? (
-                        <NavRow
-                            icon="phone"
-                            label="Phone Number"
-                            value={user?.phone || "N/A"}
-                            showChevron={false}
-                        />
-                    ) : (
-                        <NavRow
-                            icon="mail-outline"
-                            label="Email"
-                            value={isGuest ? "Not Registered" : (user?.email || "Connected")}
-                            showChevron={false}
-                        />
-                    )}
-                    <NavRow
-                        icon="verified-user"
-                        label="Verification Status"
-                        value={isGuest ? "Guest Access" : "Verified"}
-                        showChevron={false}
-                        color={isGuest ? colors.muted : colors.green}
-                    />
-                </View>
-
-                {/* Sign Out / Exit Guest Mode */}
-                <View className="mx-5">
-                    <Pressable
-                        onPress={() => setShowSignOutModal(true)}
-                        className="h-12 border rounded-2xl flex-row items-center justify-center gap-x-2 active:opacity-80"
-                        style={{ backgroundColor: 'rgba(255, 107, 107, 0.1)', borderColor: 'rgba(255, 107, 107, 0.2)' }}
-                    >
-                        <MaterialIcons name="logout" size={18} color={colors.coral} />
-                        <Text className="font-bold text-base" style={{ color: colors.coral }}>
-                            {isGuest ? "Exit Guest Mode" : "Sign Out"}
-                        </Text>
-                    </Pressable>
-                </View>
-            </ScrollView>
-
-            <SignOutConfirmModal
-                visible={showSignOutModal}
-                isGuest={isGuest}
-                loading={isSigningOut}
-                onConfirm={handleConfirmSignOut}
-                onCancel={() => setShowSignOutModal(false)}
-            />
-            </SafeAreaView>
-        </SwipeableTabScreen>
-    );
+function AccordionItem({ 
+  title, 
+  children, 
+  defaultOpen = false 
+}: { 
+  title: string; 
+  children: React.ReactNode; 
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <View style={profileStyles.accordionItem}>
+      <Pressable onPress={() => setOpen(!open)} style={profileStyles.accordionSummary}>
+        <Text style={profileStyles.accordionSummaryText}>{title}</Text>
+        <Text style={profileStyles.accordionToggle}>{open ? "–" : "+"}</Text>
+      </Pressable>
+      {open && <View style={profileStyles.accordionBody}>{children}</View>}
+    </View>
+  );
 }
 
-const styles = StyleSheet.create({
-    softShadowLg: {
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.12,
-      shadowRadius: 24,
-      elevation: 8,
-    },
-    softShadow: {
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.08,
-      shadowRadius: 12,
-      elevation: 4,
+export default function ProfileScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { user, signOut } = useAuthStore();
+  const { 
+    planName, 
+    membershipStatus, 
+    avatarUrl, 
+    uploadAvatar, 
+    totalWorkouts, 
+    primaryGymName 
+  } = useUserStore();
+  const { isGuest, getHoursRemaining, endGuestSession } = useGuestStore();
+
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [showSignOutModal, setShowSignOutModal] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+
+  const guestHours = getHoursRemaining();
+
+  const pickImage = async () => {
+    if (isGuest) {
+      Alert.alert("Account Required", "Please create an account to customize your profile.");
+      return;
     }
-  });
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setUploadingAvatar(true);
+      const { success, message } = await uploadAvatar(result.assets[0].uri);
+      if (!success) {
+        Alert.alert("Upload Failed", message || "Failed to upload profile picture.");
+      }
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handleConfirmSignOut = async () => {
+    setIsSigningOut(true);
+    try {
+      if (isGuest) {
+        await endGuestSession();
+      } else {
+        await signOut();
+      }
+      setShowSignOutModal(false);
+      router.replace("/intro" as any);
+    } catch (err) {
+      console.warn("Sign out handler:", err);
+      setShowSignOutModal(false);
+      router.replace("/intro" as any);
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
+
+  return (
+    <SwipeableTabScreen currentTab="profile">
+      <SafeAreaView style={profileStyles.container} edges={["top"]}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[profileStyles.scrollContent, { paddingBottom: 160 + insets.bottom }]}
+        >
+          {/* HEADER */}
+          <View style={profileStyles.hd}>
+            <View>
+              <Text style={profileStyles.hdSmall}>
+                {isGuest ? "Guest account" : "My account"}
+              </Text>
+              <Text style={profileStyles.hdTitle}>Profile</Text>
+            </View>
+            <View style={profileStyles.hdRow}>
+              {isGuest ? (
+                <View style={profileStyles.pill}>
+                  <Ionicons name="time-outline" size={14} color="#8A5A00" />
+                  <Text style={profileStyles.pillText}>{guestHours}h left</Text>
+                </View>
+              ) : (
+                <View style={[profileStyles.pill, { backgroundColor: "#E8F4EA", borderColor: "#C6E4CC" }]}>
+                  <Ionicons name="shield-checkmark" size={13} color="#1F7A3F" />
+                  <Text style={[profileStyles.pillText, { color: "#1F7A3F" }]}>
+                    {planName || "Member"}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+
+          {/* CARD 1: USER INFO */}
+          <View style={[profileStyles.card, profileStyles.userCard]}>
+            <Pressable 
+              onPress={pickImage} 
+              style={profileStyles.avatarWrap}
+              disabled={uploadingAvatar}
+            >
+              {avatarUrl && !isGuest ? (
+                <Image 
+                  source={{ uri: avatarUrl }} 
+                  style={profileStyles.avatarImage} 
+                  resizeMode="cover" 
+                />
+              ) : (
+                <View style={profileStyles.avatarCircle}>
+                  <Text style={profileStyles.avatarInitial}>
+                    {isGuest ? "G" : (user?.username?.[0]?.toUpperCase() || "M")}
+                  </Text>
+                </View>
+              )}
+
+              {uploadingAvatar && (
+                <View style={profileStyles.avatarLoadingOverlay}>
+                  <ActivityIndicator size="small" color="#1F7A3F" />
+                </View>
+              )}
+
+              {!isGuest && (
+                <View style={profileStyles.avatarEditBadge}>
+                  <MaterialIcons name="edit" size={12} color="#FFFFFF" />
+                </View>
+              )}
+            </Pressable>
+
+            <Text style={profileStyles.userTitle}>
+              {isGuest ? "You're browsing as a guest" : (user?.username || "ZonoFit Member")}
+            </Text>
+            <Text style={profileStyles.userSubtitle}>
+              {isGuest
+                ? "Create your account to keep your plan, visits and credits."
+                : (user?.email || (planName ? `${planName} • Active Membership` : "Active Member"))}
+            </Text>
+
+            {isGuest ? (
+              <Pressable
+                style={profileStyles.btnFull}
+                onPress={async () => {
+                  await endGuestSession();
+                  router.replace("/(auth)/create-account");
+                }}
+              >
+                <Text style={profileStyles.btnFullText}>Create Account</Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                style={profileStyles.btnFull}
+                onPress={() => router.push("/invite" as any)}
+              >
+                <Text style={profileStyles.btnFullText}>Invite Friends &amp; Earn Credits</Text>
+              </Pressable>
+            )}
+          </View>
+
+          {/* CARD 2: POLICIES & SUPPORT ACCORDION */}
+          <View style={[profileStyles.card, { paddingHorizontal: 18, paddingVertical: 6 }]}>
+            <AccordionItem title="Refund policy" defaultOpen={true}>
+              <Text style={profileStyles.accordionBodyText}>
+                Honest details = full protection. If you were a prior member of your selected gym, refunds can be capped at 50%.
+              </Text>
+            </AccordionItem>
+
+            <AccordionItem title="Help & support">
+              <Text style={profileStyles.accordionBodyText}>
+                Talk to us anytime from the Help section after you activate, or reach out to support@zonofit.com.
+              </Text>
+            </AccordionItem>
+
+            {!isGuest && (
+              <>
+                <AccordionItem title="Membership details">
+                  <Text style={profileStyles.accordionBodyText}>
+                    Plan: {planName || "Standard Plan"}{"\n"}
+                    Status: {membershipStatus || "Active"}{"\n"}
+                    Primary Gym: {primaryGymName || "Partner Gym"}{"\n"}
+                    Completed Workouts: {totalWorkouts || 0}
+                  </Text>
+                </AccordionItem>
+
+                <AccordionItem title="Booking & credit rules">
+                  <Text style={profileStyles.accordionBodyText}>
+                    1 Credit = ₹10 fitness value. Visits must be booked before entry. Credits remain active with your membership and unspent credits convert to an INR wallet at expiration.
+                  </Text>
+                </AccordionItem>
+              </>
+            )}
+          </View>
+
+          {/* CARD 3: ACCOUNT & SESSION ACTIONS */}
+          <View style={profileStyles.card}>
+            <Text style={[profileStyles.lab, { marginBottom: 12 }]}>Account</Text>
+
+            {!isGuest && (
+              <>
+                <Pressable
+                  onPress={() => router.push("/booking-history")}
+                  style={profileStyles.menuRow}
+                >
+                  <View style={profileStyles.menuIconWrap}>
+                    <Ionicons name="calendar-outline" size={18} color="#0F2417" />
+                  </View>
+                  <Text style={profileStyles.menuText}>Booking History</Text>
+                  <MaterialIcons name="chevron-right" size={20} color="#66756B" />
+                </Pressable>
+
+                <Pressable
+                  onPress={() => router.push("/(tabs)/credits" as any)}
+                  style={profileStyles.menuRow}
+                >
+                  <View style={profileStyles.menuIconWrap}>
+                    <Ionicons name="wallet-outline" size={18} color="#0F2417" />
+                  </View>
+                  <Text style={profileStyles.menuText}>Credits &amp; Wallet</Text>
+                  <MaterialIcons name="chevron-right" size={20} color="#66756B" />
+                </Pressable>
+
+                <Pressable
+                  onPress={() => router.push("/invite" as any)}
+                  style={profileStyles.menuRow}
+                >
+                  <View style={profileStyles.menuIconWrap}>
+                    <Ionicons name="gift-outline" size={18} color="#1F7A3F" />
+                  </View>
+                  <Text style={profileStyles.menuText}>Refer &amp; Earn</Text>
+                  <MaterialIcons name="chevron-right" size={20} color="#66756B" />
+                </Pressable>
+              </>
+            )}
+
+            {isGuest && (
+              <Pressable
+                onPress={async () => {
+                  await endGuestSession();
+                  router.replace("/(auth)/create-account");
+                }}
+                style={profileStyles.menuRow}
+              >
+                <View style={profileStyles.menuIconWrap}>
+                  <Ionicons name="log-in-outline" size={18} color="#0F2417" />
+                </View>
+                <Text style={profileStyles.menuText}>Sign In to Existing Account</Text>
+                <MaterialIcons name="chevron-right" size={20} color="#66756B" />
+              </Pressable>
+            )}
+
+            <Pressable
+              onPress={() => setShowSignOutModal(true)}
+              style={[profileStyles.menuRow, { borderBottomWidth: 0, marginTop: 4 }]}
+            >
+              <View style={[profileStyles.menuIconWrap, { backgroundColor: "#FDE9E7" }]}>
+                <Ionicons name="log-out-outline" size={18} color="#B3261E" />
+              </View>
+              <Text style={[profileStyles.menuText, { color: "#B3261E" }]}>
+                {isGuest ? "Exit Guest Mode" : "Sign Out"}
+              </Text>
+              <MaterialIcons name="chevron-right" size={20} color="#B3261E" />
+            </Pressable>
+          </View>
+        </ScrollView>
+
+        <SignOutConfirmModal
+          visible={showSignOutModal}
+          isGuest={isGuest}
+          loading={isSigningOut}
+          onConfirm={handleConfirmSignOut}
+          onCancel={() => setShowSignOutModal(false)}
+        />
+      </SafeAreaView>
+    </SwipeableTabScreen>
+  );
+}
+
+const profileStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#F6F8F5",
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 18,
+  },
+  hd: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 18,
+  },
+  hdSmall: {
+    color: "#66756B",
+    fontSize: 14,
+    fontWeight: "400",
+  },
+  hdTitle: {
+    color: "#0F2417",
+    fontSize: 30,
+    fontWeight: "700",
+    letterSpacing: -0.6,
+    marginTop: 2,
+  },
+  hdRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  pill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 1.5,
+    borderColor: "#F0D58A",
+    backgroundColor: "#FFF4D9",
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 9999,
+  },
+  pillText: {
+    color: "#8A5A00",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+
+  // CARDS
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E3E9E0",
+    borderRadius: 24,
+    padding: 18,
+    marginBottom: 14,
+    shadowColor: "rgba(15,36,23,0.08)",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    elevation: 2,
+  },
+  userCard: {
+    alignItems: "center",
+    paddingVertical: 26,
+    paddingHorizontal: 18,
+  },
+  avatarWrap: {
+    position: "relative",
+    marginBottom: 14,
+  },
+  avatarCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "#E8F4EA",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarInitial: {
+    color: "#1F7A3F",
+    fontSize: 28,
+    fontWeight: "700",
+  },
+  avatarImage: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+  },
+  avatarLoadingOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(255,255,255,0.7)",
+    borderRadius: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarEditBadge: {
+    position: "absolute",
+    bottom: -2,
+    right: -2,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#1F7A3F",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+  },
+  userTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#0F2417",
+    letterSpacing: -0.3,
+    textAlign: "center",
+  },
+  userSubtitle: {
+    fontSize: 14,
+    color: "#66756B",
+    textAlign: "center",
+    marginTop: 6,
+    marginBottom: 16,
+    lineHeight: 19,
+    paddingHorizontal: 8,
+  },
+  btnFull: {
+    width: "100%",
+    height: 52,
+    borderRadius: 9999,
+    backgroundColor: "#1F7A3F",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  btnFullText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+    fontSize: 15,
+  },
+
+  // ACCORDIONS
+  accordionItem: {
+    borderTopWidth: 1,
+    borderTopColor: "#E3E9E0",
+    paddingVertical: 12,
+  },
+  accordionSummary: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  accordionSummaryText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#0F2417",
+    flex: 1,
+  },
+  accordionToggle: {
+    fontSize: 18,
+    color: "#66756B",
+    fontWeight: "500",
+  },
+  accordionBody: {
+    marginTop: 8,
+  },
+  accordionBodyText: {
+    fontSize: 13.5,
+    color: "#66756B",
+    lineHeight: 19,
+  },
+
+  // MENU
+  lab: {
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 1.1,
+    textTransform: "uppercase",
+    color: "#66756B",
+  },
+  menuRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E3E9E0",
+  },
+  menuIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#F6F8F5",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  menuText: {
+    flex: 1,
+    fontSize: 14.5,
+    fontWeight: "600",
+    color: "#0F2417",
+  },
+});
