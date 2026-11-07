@@ -21,15 +21,7 @@ import { ZonoNoticeMark } from "@/components/ZonoNoticeMark";
 import BookingModal from "@/components/BookingModal";
 import BookingConfirmedModal from "@/components/BookingConfirmedModal";
 import CancelBookingSheet from "@/components/CancelBookingSheet";
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withRepeat,
-  withSequence,
-  withTiming,
-} from "react-native-reanimated";
+
 import { SwipeableTabScreen } from "@/components/SwipeableTabScreen";
 import { Alert, BackHandler, ToastAndroid, Platform } from "react-native";
 import { CREDIT_FITNESS_VALUE } from "@/constants/credits";
@@ -55,32 +47,7 @@ function getGreeting(): string {
   return "Good Evening,";
 }
 
-function BookVisitShine() {
-  const travel = useSharedValue(-100);
 
-  useEffect(() => {
-    travel.value = -100;
-    travel.value = withRepeat(
-      withTiming(450, { duration: 2400, easing: Easing.linear }),
-      -1,
-      false
-    );
-  }, [travel]);
-
-  const bandStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: travel.value }, { skewX: "-20deg" }],
-  }));
-
-  return (
-    <Animated.View pointerEvents="none" style={[styles.shineBand, bandStyle]}>
-      <View style={styles.shineEdge} />
-      <View style={styles.shineSoft} />
-      <View style={styles.shineCore} />
-      <View style={styles.shineSoft} />
-      <View style={styles.shineEdge} />
-    </Animated.View>
-  );
-}
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -674,9 +641,7 @@ export default function HomeScreen() {
           <Pressable 
             onPress={handleOpenPrimaryBooking}
             className="bg-white rounded-2xl py-3.5 flex-row justify-center items-center shadow-sm active:opacity-90"
-            style={styles.bookVisitBtn}
           >
-            <BookVisitShine />
             <Ionicons name="calendar-outline" size={18} color="#1F7A3E" style={{ marginRight: 8 }} />
             <Text className="text-[#1F7A3E] font-bold text-sm tracking-wide">Book Visit</Text>
           </Pressable>
@@ -1075,29 +1040,7 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  bookVisitBtn: {
-    overflow: "hidden",
-    position: "relative",
-  },
-  shineBand: {
-    position: "absolute",
-    top: -12,
-    bottom: -12,
-    width: 64,
-    flexDirection: "row",
-  },
-  shineEdge: {
-    flex: 1,
-    backgroundColor: "rgba(31,122,63,0)",
-  },
-  shineSoft: {
-    flex: 1,
-    backgroundColor: "rgba(31,122,63,0.08)",
-  },
-  shineCore: {
-    width: 16,
-    backgroundColor: "rgba(31,122,63,0.18)",
-  },
+
   cardShadow: {
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
