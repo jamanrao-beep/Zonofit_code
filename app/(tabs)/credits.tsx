@@ -791,14 +791,6 @@ export default function CreditsScreen() {
                 disabled={buyPhase === "loading"}
                 style={[styles.buyBtn, buyPhase === "ok" && styles.buyBtnOk, !isMembershipActive && styles.buyBtnOff]}
               >
-                <ShineSweep
-                  width={56}
-                  holdMs={4200}
-                  sweepMs={900}
-                  delayMs={700}
-                  core="rgba(255,255,255,0.35)"
-                  soft="rgba(255,255,255,0.12)"
-                />
                 {buyPhase === "loading" ? (
                   <>
                     <ActivityIndicator color="#FFFFFF" />
