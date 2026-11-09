@@ -69,55 +69,6 @@ export default function LandingPage() {
               
               {/* Left Column: Hero Copy */}
               <div className="lg:col-span-6 flex flex-col items-start">
-                {/* Hero Launch Announcement Banners */}
-                <div className="mb-6 flex w-full max-w-lg flex-col gap-2.5">
-                  {/* 1. Launch Offer Card */}
-                  <Link
-                    href="/udaipur/launch-offer"
-                    className="group flex w-full items-center gap-3.5 rounded-2xl bg-gradient-to-r from-[#14532d] via-[#165b32] to-[#1a6639] px-4 py-3.5 text-white shadow-[0_8px_20px_rgba(20,83,45,0.20)] hover:shadow-[0_12px_28px_rgba(20,83,45,0.30)] transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 border border-emerald-400/20"
-                  >
-                    <span className="relative flex h-2.5 w-2.5 shrink-0">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#b6e86a] opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#b6e86a]" />
-                    </span>
-                    <span className="min-w-0 flex-1 text-left">
-                      <span className="block text-[10.5px] font-black uppercase tracking-[0.14em] text-[#b6e86a]">
-                        Udaipur · Free Launch Offer
-                      </span>
-                      <span className="mt-0.5 block text-[16px] font-extrabold leading-tight text-white">
-                        Launch offer is open
-                      </span>
-                      <span className="mt-0.5 block text-xs font-medium text-white/80">
-                        Claim a free gym membership →
-                      </span>
-                    </span>
-                    <ArrowRight className="h-4.5 w-4.5 shrink-0 text-white/70 group-hover:text-white group-hover:translate-x-1 transition-all" />
-                  </Link>
-
-                  {/* 2. Play the Challenge Card (Below the Launch Offer) */}
-                  <Link
-                    href="/launch-game"
-                    className="group flex w-full items-center gap-3.5 rounded-2xl bg-gradient-to-r from-[#2c1f06] via-[#3a2a08] to-[#45320c] px-4 py-3.5 text-white shadow-[0_8px_20px_rgba(58,42,8,0.22)] hover:shadow-[0_12px_28px_rgba(58,42,8,0.32)] transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 border border-[#f0c14a]/30"
-                  >
-                    <span className="relative flex h-2.5 w-2.5 shrink-0">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#f0c14a] opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#f0c14a]" />
-                    </span>
-                    <span className="min-w-0 flex-1 text-left">
-                      <span className="block text-[10.5px] font-black uppercase tracking-[0.14em] text-[#f0c14a]">
-                        One try · Free Mini Game
-                      </span>
-                      <span className="mt-0.5 block text-[16px] font-extrabold leading-tight text-[#fef3c7]">
-                        Play the Challenge
-                      </span>
-                      <span className="mt-0.5 block text-xs font-medium text-white/80">
-                        One game against ZonoFit · Win free credits →
-                      </span>
-                    </span>
-                    <ArrowRight className="h-4.5 w-4.5 shrink-0 text-[#f0c14a] group-hover:translate-x-1 transition-all" />
-                  </Link>
-                </div>
-
                 {/* Tag Pill */}
                 <div className="inline-flex items-center px-4 py-1.5 rounded-full bg-[#cde8af] text-[#204712] text-xs sm:text-sm font-bold tracking-tight mb-6">
                   Fitness that fits real life
@@ -160,7 +111,30 @@ export default function LandingPage() {
               </div>
 
               {/* Right Column: Hero Card */}
-              <div className="lg:col-span-6">
+              <div className="lg:col-span-6 flex flex-col gap-4">
+                {/* Play the Challenge Card (Attached on Right Side) */}
+                <Link
+                  href="/launch-game"
+                  className="group flex w-full items-center gap-3.5 rounded-2xl bg-gradient-to-r from-[#2c1f06] via-[#3a2a08] to-[#45320c] px-4 py-3.5 text-white shadow-[0_8px_20px_rgba(58,42,8,0.22)] hover:shadow-[0_12px_28px_rgba(58,42,8,0.32)] transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 border border-[#f0c14a]/30"
+                >
+                  <span className="relative flex h-2.5 w-2.5 shrink-0">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#f0c14a] opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#f0c14a]" />
+                  </span>
+                  <span className="min-w-0 flex-1 text-left">
+                    <span className="block text-[10.5px] font-black uppercase tracking-[0.14em] text-[#f0c14a]">
+                      One try · Free Mini Game
+                    </span>
+                    <span className="mt-0.5 block text-[16px] font-extrabold leading-tight text-[#fef3c7]">
+                      Play the Challenge
+                    </span>
+                    <span className="mt-0.5 block text-xs font-medium text-white/80">
+                      One game against ZonoFit · Win free credits →
+                    </span>
+                  </span>
+                  <ArrowRight className="h-4.5 w-4.5 shrink-0 text-[#f0c14a] group-hover:translate-x-1 transition-all" />
+                </Link>
+
                 <div className="bg-white rounded-[32px] p-6 sm:p-7 shadow-[0_12px_40px_rgba(0,0,0,0.06)] border border-gray-100/90 relative">
                   
                   {/* Top Bar of the Card */}
