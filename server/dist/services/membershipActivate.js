@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.activatePaidMembership = activatePaidMembership;
 exports.quotePaidMembership = quotePaidMembership;
 const prisma_1 = __importDefault(require("../lib/prisma"));
+const taxDocuments_1 = require("../lib/taxDocuments");
 const errorHandler_1 = require("../middleware/errorHandler");
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 async function resolveGym(tx, primaryGymId, gymName) {
@@ -141,7 +142,20 @@ async function activatePaidMembership(tx, userId, input) {
             description: `Membership ${nextCycleNumber} of 12 activated — ${initialVisits} visits at ${gym.name}, ${remainingCreditsToAdd} credits added.`,
         },
     });
-    return { membership, wallet: updatedWallet, remainingCreditsToAdd, initialVisits, gym, nextCycleNumber, inrWalletDeductedPaise, pricePaise };
+    return {
+        membership,
+        wallet: updatedWallet,
+        remainingCreditsToAdd,
+        initialVisits,
+        gym,
+        nextCycleNumber,
+        inrWalletDeductedPaise,
+        pricePaise,
+        tax: (0, taxDocuments_1.membershipTaxBranches)({
+            grossPaise: pricePaise,
+            gymGstRegistered: gym.isGstRegistered === true,
+        }),
+    };
 }
 /** Price and gym for a membership checkout. Does not grant access. */
 async function quotePaidMembership(userId, input) {
@@ -196,7 +210,16 @@ async function quotePaidMembership(userId, input) {
         if (pricePaise < 100) {
             throw (0, errorHandler_1.createError)("This gym does not have a payable membership price yet.", 400, "PriceNotConfigured");
         }
-        return { pricePaise, gym, planId, gymPlanId };
+        return {
+            pricePaise,
+            gym,
+            planId,
+            gymPlanId,
+            tax: (0, taxDocuments_1.membershipTaxBranches)({
+                grossPaise: pricePaise,
+                gymGstRegistered: gym.isGstRegistered === true,
+            }),
+        };
     });
 }
 //# sourceMappingURL=membershipActivate.js.map

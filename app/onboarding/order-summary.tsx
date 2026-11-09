@@ -7,7 +7,6 @@ import {
   ScrollView, 
   StatusBar, 
   Alert, 
-  Switch, 
   Image,
   ActivityIndicator 
 } from "react-native";
@@ -21,7 +20,7 @@ import { useCreditsStore } from "@/store/useCreditsStore";
 import { useUserStore } from "@/store/useUserStore";
 import DeliveryAddressModal from "@/components/DeliveryAddressModal";
 import { FALLBACK_NETWORK_GYMS } from "@/constants/fallbackGyms";
-import { calculateMembershipBreakdown, CREDIT_CASH_VALUE, CREDIT_FITNESS_VALUE } from "@/constants/credits";
+import { calculateMembershipBreakdown } from "@/constants/credits";
 
 export default function OrderSummaryScreen() {
   const router = useRouter();
@@ -39,7 +38,7 @@ export default function OrderSummaryScreen() {
   const { completeOnboarding, loading, token, user, isOnboarded } = useAuthStore();
   const { selectedGymName, selectedGymId } = useGuestStore();
   const { primaryGymName, primaryGymId } = useUserStore();
-  const { credits, inrWallet, membershipInfo, fetchWallet } = useCreditsStore();
+  const { membershipInfo, fetchWallet } = useCreditsStore();
   const selectedAddress = useAddressStore((state) => {
     if (state.selectedAddressId) {
       const found = state.addresses.find((a) => a.id === state.selectedAddressId);
@@ -49,7 +48,6 @@ export default function OrderSummaryScreen() {
   });
 
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
-  const [useCredits, setUseCredits] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
@@ -88,18 +86,7 @@ export default function OrderSummaryScreen() {
   const walletCreditsValue = Math.max(0, membershipTotal - mandatoryVisitsCost);
   const walletCreditsCount = Math.round(walletCreditsValue / 10);
 
-  // Previous credits calculation
-  // First-time users have 0 previous credits
-  // Repurchase users can apply their available credits with 20% conversion cut (₹8/credit)
-  const availableCredits = isFirstTime 
-    ? 0 
-    : (credits > 0 ? credits : (inrWallet ? Math.round(inrWallet.balanceINR / CREDIT_CASH_VALUE) : 0));
-  
-  // 1 credit = ₹10, after 20% cut = ₹8 per credit
-  // e.g. 120 credits * ₹8 = ₹960 discount
-  const creditDiscountINR = availableCredits * CREDIT_CASH_VALUE;
-  const effectiveCreditDeduction = (!isFirstTime && useCredits && availableCredits > 0) ? creditDiscountINR : 0;
-  const finalPayableAmount = Math.max(0, membershipTotal - effectiveCreditDeduction);
+  const finalPayableAmount = membershipTotal;
 
   const handleProceed = async () => {
     if (!selectedAddress) {
@@ -128,7 +115,7 @@ export default function OrderSummaryScreen() {
         cycleNumber: currentCycle,
       });
       if (token) {
-        await fetchWallet(token);
+        await fetchWallet(token, { force: true });
       }
       
       // Navigate to Payment Success / Welcome Screen with dynamic parameters
@@ -295,70 +282,12 @@ export default function OrderSummaryScreen() {
           </View>
         </View>
 
-        {/* 
-          ========================================================================
-          "USE YOUR PREVIOUS CREDITS" SECTION:
-          Only visible when repurchasing and the user actually has unused credits!
-          Hidden for first-time registration because a new user has 0 previous credits.
-          ========================================================================
-        */}
-        {!isFirstTime && availableCredits > 0 && (
-          <View style={styles.previousCreditsCard}>
-            <View style={styles.previousCreditsHeaderRow}>
-              <View style={styles.creditsIconBox}>
-                <Ionicons name="wallet-outline" size={20} color="#166534" />
-              </View>
-              <View style={styles.previousCreditsTextCol}>
-                <Text style={styles.previousCreditsTitle}>Use your previous credits</Text>
-                <Text style={styles.previousCreditsSub}>
-                  Apply your existing wallet credits to reduce the amount you need to pay.
-                </Text>
-              </View>
-              <Switch
-                value={useCredits}
-                onValueChange={setUseCredits}
-                trackColor={{ false: "#E5E7EB", true: "#1F7A3E" }}
-                thumbColor="#FFFFFF"
-                ios_backgroundColor="#E5E7EB"
-              />
-            </View>
-
-            {useCredits && (
-              <View style={styles.creditsSubCard}>
-                <View style={styles.creditsSubCol}>
-                  <Text style={styles.creditsSubLabel}>Available Credits</Text>
-                  <Text style={styles.creditsSubValue}>{availableCredits} credits</Text>
-                </View>
-
-                <View style={styles.creditsVerticalDivider} />
-
-                <View style={styles.creditsSubCol}>
-                  <Text style={styles.creditsSubLabel}>Credit Value (after 20% cut)</Text>
-                  <Text style={styles.creditsSubValue}>₹{creditDiscountINR}</Text>
-                  <Text style={styles.creditsFormulaText}>
-                    ({availableCredits} × ₹10 × 80%)
-                  </Text>
-                </View>
-              </View>
-            )}
-          </View>
-        )}
-
         {/* Pricing Summary Calculation */}
         <View style={styles.pricingSummaryCard}>
           <View style={styles.priceRow}>
             <Text style={styles.priceRowLabel}>Membership Total</Text>
             <Text style={styles.priceRowValue}>₹{membershipTotal.toLocaleString("en-IN")}</Text>
           </View>
-
-          {!isFirstTime && effectiveCreditDeduction > 0 && (
-            <View style={styles.priceRow}>
-              <Text style={styles.creditDeductionLabel}>Less: Credit Amount</Text>
-              <Text style={styles.creditDeductionValue}>
-                - ₹{effectiveCreditDeduction.toLocaleString("en-IN")}
-              </Text>
-            </View>
-          )}
 
           <View style={styles.divider} />
 
@@ -380,8 +309,8 @@ export default function OrderSummaryScreen() {
           />
           <Text style={styles.infoCalloutText}>
             {isFirstTime
-              ? `Mandatory visits and wallet credits are separate benefits. ${mandatoryVisitsCount} mandatory visits and ${walletCreditsCount} wallet credits will be credited to your account upon purchase.`
-              : `Mandatory visits and wallet credits are separate benefits. Using credits only reduces your payable amount. Your ${mandatoryVisitsCount} mandatory visits will still be added to your account.`}
+              ? `Mandatory visits and wallet credits are separate benefits. ${mandatoryVisitsCount} mandatory visits and ${walletCreditsCount} wallet credits will be credited to your account upon purchase. The price is final.`
+              : `This price is final. Previous credits stay in your wallet and are not taken off this payment. Your ${mandatoryVisitsCount} mandatory visits are added when the membership starts.`}
           </Text>
         </View>
 

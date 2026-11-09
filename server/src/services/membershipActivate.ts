@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import prisma from "../lib/prisma";
+import { membershipTaxBranches } from "../lib/taxDocuments";
 import { createError } from "../middleware/errorHandler";
 
 type Tx = Prisma.TransactionClient;
@@ -154,7 +155,20 @@ export async function activatePaidMembership(tx: Tx, userId: string, input: Memb
     },
   });
 
-  return { membership, wallet: updatedWallet, remainingCreditsToAdd, initialVisits, gym, nextCycleNumber, inrWalletDeductedPaise, pricePaise };
+  return {
+    membership,
+    wallet: updatedWallet,
+    remainingCreditsToAdd,
+    initialVisits,
+    gym,
+    nextCycleNumber,
+    inrWalletDeductedPaise,
+    pricePaise,
+    tax: membershipTaxBranches({
+      grossPaise: pricePaise,
+      gymGstRegistered: gym.isGstRegistered === true,
+    }),
+  };
 }
 
 /** Price and gym for a membership checkout. Does not grant access. */
@@ -209,6 +223,15 @@ export async function quotePaidMembership(userId: string, input: MembershipActiv
       throw createError("This gym does not have a payable membership price yet.", 400, "PriceNotConfigured");
     }
 
-    return { pricePaise, gym, planId, gymPlanId };
+    return {
+      pricePaise,
+      gym,
+      planId,
+      gymPlanId,
+      tax: membershipTaxBranches({
+        grossPaise: pricePaise,
+        gymGstRegistered: gym.isGstRegistered === true,
+      }),
+    };
   });
 }

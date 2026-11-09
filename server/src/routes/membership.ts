@@ -8,6 +8,13 @@ import { sendPushNotification } from "../services/notifications";
 
 const router = Router();
 
+/** Member responses keep the gym name. The GSTIN stays off the customer payload. */
+function hideSupplierGstin<T extends { primaryGym?: { gstNumber?: string | null } | null }>(membership: T): T {
+  if (!membership.primaryGym) return membership;
+  const { gstNumber: _gstNumber, ...primaryGym } = membership.primaryGym;
+  return { ...membership, primaryGym };
+}
+
 // ─── GET /api/membership/plans ────────────────────────────────────────────────
 /**
  * Returns all active membership plans (public — no auth required).
@@ -156,7 +163,7 @@ router.post(
           directAccepted: true,
           success: true,
           message: "Membership activated directly for testing (card payments not configured).",
-          membership: {
+          membership: hideSupplierGstin({
             ...activationResult.membership,
             gymName: activationResult.gym.name,
             plan: activationResult.membership.plan
@@ -167,12 +174,13 @@ router.post(
               : null,
             cycleNumber: activationResult.nextCycleNumber,
             maxCycles: 12,
-          },
+          }),
           newCreditBalance: activationResult.wallet.balance,
           gymId: activationResult.gym.id,
           gymName: activationResult.gym.name,
           amount: quote.pricePaise,
           currency: "INR",
+          tax: quote.tax,
         });
         return;
       }
@@ -198,6 +206,7 @@ router.post(
             gymPlanId: quote.gymPlanId,
             primaryGymId,
             gymName: gymName || quote.gym.name,
+            tax: quote.tax,
           }),
           status: "CREATED",
         },
@@ -210,6 +219,7 @@ router.post(
         currency: "INR",
         gymId: quote.gym.id,
         gymName: quote.gym.name,
+        tax: quote.tax,
       });
     } catch (err: any) {
       const status = err.statusCode || err.status || 500;
@@ -267,7 +277,7 @@ router.post(
         });
 
         res.status(201).json({
-          membership: {
+          membership: hideSupplierGstin({
             ...result.membership,
             gymName: result.gym.name,
             plan: result.membership.plan
@@ -275,8 +285,10 @@ router.post(
               : null,
             cycleNumber: result.nextCycleNumber,
             maxCycles: 12,
-          },
+          }),
           newCreditBalance: result.wallet.balance,
+          amount: result.pricePaise,
+          tax: result.tax,
           message: "Membership activated (test mode direct accept).",
         });
         return;
@@ -301,14 +313,14 @@ router.post(
 
       res.status(201).json({
         membership: membership
-          ? {
+          ? hideSupplierGstin({
               ...membership,
               plan: membership.plan
                 ? { ...membership.plan, priceINR: membership.plan.priceInPaise / 100 }
                 : null,
               cycleNumber: membership.cycleNumber,
               maxCycles: 12,
-            }
+            })
           : null,
         newCreditBalance: wallet?.balance ?? 0,
         message: "Membership activated.",

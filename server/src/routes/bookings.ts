@@ -9,6 +9,7 @@ import { requireAuth } from "../middleware/auth";
 import { sendPushNotification } from "../services/notifications";
 import { isBookingSlotPast } from "../lib/bookingTime";
 import { createError } from "../middleware/errorHandler";
+import { cancellationChargePreview } from "../lib/taxDocuments";
 
 const router = Router();
 
@@ -736,6 +737,7 @@ const cancelBookingHandler = async (req: Request, res: Response): Promise<void> 
     message: "Booking cancelled successfully with a 2 Credits fee applied.",
     refundedCredits: result.refundedCredits,
     newCreditBalance: result.newBalance,
+    tax: cancellationChargePreview(2),
   });
 };
 

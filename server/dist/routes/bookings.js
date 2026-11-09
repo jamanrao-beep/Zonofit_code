@@ -15,6 +15,7 @@ const auth_1 = require("../middleware/auth");
 const notifications_1 = require("../services/notifications");
 const bookingTime_1 = require("../lib/bookingTime");
 const errorHandler_1 = require("../middleware/errorHandler");
+const taxDocuments_1 = require("../lib/taxDocuments");
 const router = (0, express_1.Router)();
 // ─── POST /api/bookings ───────────────────────────────────────────────────────
 /**
@@ -641,6 +642,7 @@ const cancelBookingHandler = async (req, res) => {
         message: "Booking cancelled successfully with a 2 Credits fee applied.",
         refundedCredits: result.refundedCredits,
         newCreditBalance: result.newBalance,
+        tax: (0, taxDocuments_1.cancellationChargePreview)(2),
     });
 };
 router.delete("/:id", auth_1.requireAuth, cancelBookingHandler);

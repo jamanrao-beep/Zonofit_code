@@ -3,7 +3,7 @@ import { Expo } from "expo-server-sdk";
 import { purgeStaleOtps } from "../lib/otpStore";
 import { purgeExpiredRateLimits } from "../lib/rateLimit";
 import prisma from "../lib/prisma";
-import { getSystemSettings } from "./settings";
+import { membershipExpiryCreditPolicy } from "../lib/taxDocuments";
 
 const expo = new Expo();
 
@@ -90,7 +90,7 @@ async function processMembershipExpiries() {
     await createNotification(
       membership.userId,
       "Membership Expiring Soon",
-      "Your gym membership expires in 3 days! Any unused credits will be automatically converted to cash.",
+      "Your gym membership expires in 3 days. Unused credits stay in your wallet.",
       "WARNING"
     );
   }
@@ -105,64 +105,16 @@ async function processMembershipExpiries() {
     }
   });
 
-  const settings = await getSystemSettings();
+  const creditPolicy = membershipExpiryCreditPolicy();
 
   for (const membership of expiredMemberships) {
-    let converted = false;
-    let creditsToConvert = 0;
-    let cashToAddPaise = 0;
-
-    await prisma.$transaction(async (tx) => {
-      // Mark membership as expired
-      await tx.membership.update({
-        where: { id: membership.id },
-        data: { status: "EXPIRED" }
-      });
-
-      // Find wallet
-      const wallet = await tx.creditWallet.findUnique({
-        where: { userId: membership.userId }
-      });
-
-      if (wallet && wallet.balance > 0) {
-        converted = true;
-        creditsToConvert = wallet.balance;
-        cashToAddPaise = creditsToConvert * settings.creditConversionValue * 100;
-        
-        const cashExpiry = new Date();
-        cashExpiry.setDate(cashExpiry.getDate() + settings.cashExpiryDays);
-
-        // Update wallet: clear credits, add cash, set expiry
-        await (tx as any).creditWallet.update({
-          where: { id: wallet.id },
-          data: {
-            balance: 0,
-            convertibleCashBalanceInPaise: { increment: cashToAddPaise },
-            cashExpiryDate: cashExpiry
-          }
-        });
-
-        // Create transaction record
-        await tx.creditTransaction.create({
-          data: {
-            userId: membership.userId,
-            walletId: wallet.id,
-            type: "CONVERSION",
-            amount: -creditsToConvert,
-            balanceAfter: 0,
-            description: `Auto-converted ${creditsToConvert} credits to ₹${cashToAddPaise/100} cash on membership expiry.`
-          }
-        });
-      }
+    await prisma.membership.update({
+      where: { id: membership.id },
+      data: { status: "EXPIRED" },
     });
 
-    if (converted) {
-      await createNotification(
-        membership.userId,
-        "Credits Converted",
-        `Your membership expired. ${creditsToConvert} credits were converted to ₹${cashToAddPaise/100} cash. This cash will expire in ${settings.cashExpiryDays} days.`,
-        "INFO"
-      );
+    if (creditPolicy.convertToCash || creditPolicy.postHaircut) {
+      throw new Error(creditPolicy.reason);
     }
   }
 }

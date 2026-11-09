@@ -209,6 +209,18 @@ export declare function activatePaidMembership(tx: Tx, userId: string, input: Me
     nextCycleNumber: number;
     inrWalletDeductedPaise: number;
     pricePaise: number;
+    tax: {
+        supplierMode: "UNCONFIRMED";
+        issuable: false;
+        liveInvoicesEnabled: boolean;
+        customerPaysPaise: number;
+        sac: string;
+        ratePercent: number;
+        gymGstRegistered: boolean;
+        registeredGymSupplies: import("../lib/taxDocuments").TaxPreview;
+        unregisteredGymSupplies: import("../lib/taxDocuments").TaxPreview;
+        zonoFitSupplies: import("../lib/taxDocuments").TaxPreview;
+    };
 }>;
 /** Price and gym for a membership checkout. Does not grant access. */
 export declare function quotePaidMembership(userId: string, input: MembershipActivationInput): Promise<{
@@ -281,6 +293,18 @@ export declare function quotePaidMembership(userId: string, input: MembershipAct
     };
     planId: string | null;
     gymPlanId: string | null;
+    tax: {
+        supplierMode: "UNCONFIRMED";
+        issuable: false;
+        liveInvoicesEnabled: boolean;
+        customerPaysPaise: number;
+        sac: string;
+        ratePercent: number;
+        gymGstRegistered: boolean;
+        registeredGymSupplies: import("../lib/taxDocuments").TaxPreview;
+        unregisteredGymSupplies: import("../lib/taxDocuments").TaxPreview;
+        zonoFitSupplies: import("../lib/taxDocuments").TaxPreview;
+    };
 }>;
 export {};
 //# sourceMappingURL=membershipActivate.d.ts.map
