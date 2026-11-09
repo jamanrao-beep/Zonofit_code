@@ -30,6 +30,23 @@ const secureStorage = {
   },
 };
 
+let walletEpoch = 0;
+let walletFlight: Promise<void> | null = null;
+let walletFetchedAt = 0;
+const WALLET_FRESH_MS = 8000;
+
+function transactionsMatch(current: Transaction[], incoming: Transaction[]) {
+  if (current.length !== incoming.length) return false;
+  for (let i = 0; i < current.length; i += 1) {
+    const left = current[i];
+    const right = incoming[i];
+    if (left.id !== right.id || left.amount !== right.amount || left.type !== right.type || left.description !== right.description) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export interface Transaction {
   id: string;
   type: "debit" | "credit";
@@ -75,7 +92,9 @@ interface CreditsState {
   loading: boolean;
   
   // Actions
-  fetchWallet: (token: string) => Promise<void>;
+  fetchWallet: (token: string, options?: { force?: boolean }) => Promise<void>;
+  noteLocalWalletChange: () => void;
+  releaseWalletCache: () => void;
   fetchTransactions: (token: string, page?: number) => Promise<void>;
   buyGymSubscription: (gymName: string, inrPaid: number, initialCreditDeduction: number) => Promise<{ success: boolean; message?: string }>;
   buyMarketplaceItem: (itemId: string, costInInr: number) => Promise<{ success: boolean; message?: string }>;
@@ -108,7 +127,7 @@ interface CreditsState {
 async function confirmRazorpayOrder(orderData: any, description: string) {
   if (orderData?.directAccepted) {
     const token = useAuthStore.getState().token;
-    if (token) await useCreditsStore.getState().fetchWallet(token);
+    if (token) await useCreditsStore.getState().fetchWallet(token, { force: true });
     return;
   }
   if (!orderData?.keyId || !orderData?.razorpayOrderId) {
@@ -137,7 +156,7 @@ async function confirmRazorpayOrder(orderData: any, description: string) {
       razorpaySignature: payment.razorpay_signature,
     }),
   });
-  if (token) await useCreditsStore.getState().fetchWallet(token);
+  if (token) await useCreditsStore.getState().fetchWallet(token, { force: true });
 }
 
 export const useCreditsStore = create<CreditsState>()(
@@ -150,17 +169,39 @@ export const useCreditsStore = create<CreditsState>()(
   transactions: [],
   loading: false,
 
-  reset: () => set({
-    credits: 0,
-    cashBalance: 0,
-    inrWallet: null,
-    membershipInfo: null,
-    transactions: [],
-    loading: false,
-  }),
+  reset: () => {
+    walletEpoch += 1;
+    walletFetchedAt = 0;
+    set({
+      credits: 0,
+      cashBalance: 0,
+      inrWallet: null,
+      membershipInfo: null,
+      transactions: [],
+      loading: false,
+    });
+  },
 
-  fetchWallet: async (token) => {
-    set({ loading: true });
+  noteLocalWalletChange: () => {
+    walletEpoch += 1;
+    walletFetchedAt = Date.now();
+  },
+
+  releaseWalletCache: () => {
+    walletEpoch += 1;
+    walletFetchedAt = 0;
+  },
+
+  fetchWallet: async (token, options) => {
+    if (!token) return;
+    const force = options?.force === true;
+    if (force) walletEpoch += 1;
+    if (!force && walletFlight) return walletFlight;
+    if (!force && walletFetchedAt && Date.now() - walletFetchedAt < WALLET_FRESH_MS) return;
+
+    const epoch = walletEpoch;
+    const run = (async () => {
+    let succeeded = false;
     try {
       const data = await apiFetch("/api/credits/balance", { token });
       const currentMembership = get().membershipInfo;
@@ -192,21 +233,41 @@ export const useCreditsStore = create<CreditsState>()(
         canBuyAdditionalCredits: true,
       } : currentMembership);
 
+      if (epoch !== walletEpoch) return;
       const resolvedCredits = typeof data.balance === "number" ? data.balance : get().credits;
-
-      set({
-        credits: resolvedCredits,
-        cashBalance: (data.convertibleCashBalanceINR || 0) + (data.nonConvertibleCashBalanceINR || 0),
-        inrWallet: data.inrWallet || null,
-        membershipInfo: resolvedMembership,
-        loading: false,
-      });
-      // Optionally fetch the first page of transactions automatically
-      get().fetchTransactions(token, 1);
+      const nextCash = (data.convertibleCashBalanceINR || 0) + (data.nonConvertibleCashBalanceINR || 0);
+      const current = get();
+      const membershipSame = JSON.stringify(current.membershipInfo) === JSON.stringify(resolvedMembership);
+      if (
+        current.credits !== resolvedCredits ||
+        current.cashBalance !== nextCash ||
+        JSON.stringify(current.inrWallet) !== JSON.stringify(data.inrWallet || null) ||
+        !membershipSame ||
+        current.loading
+      ) {
+        set({
+          credits: resolvedCredits,
+          cashBalance: nextCash,
+          inrWallet: data.inrWallet || null,
+          membershipInfo: resolvedMembership,
+          loading: false,
+        });
+      }
+      if (epoch !== walletEpoch) return;
+      await get().fetchTransactions(token, 1);
+      succeeded = true;
     } catch (err) {
       console.error("Failed to fetch wallet:", err);
-      set({ loading: false });
+    } finally {
+      if (succeeded && epoch === walletEpoch) walletFetchedAt = Date.now();
     }
+    })();
+
+    walletFlight = run;
+    run.finally(() => {
+      if (walletFlight === run) walletFlight = null;
+    });
+    return run;
   },
 
   fetchTransactions: async (token, page = 1) => {
@@ -249,7 +310,7 @@ export const useCreditsStore = create<CreditsState>()(
         const merged = page === 1
           ? newTxs
           : [...state.transactions, ...newTxs];
-        
+        if (page === 1 && transactionsMatch(state.transactions, merged)) return state;
         return { transactions: merged };
       });
     } catch (err) {
@@ -287,6 +348,7 @@ export const useCreditsStore = create<CreditsState>()(
         });
       } catch (err: any) {
         if (err?.message?.includes("Card payments") || err?.message?.includes("not configured")) {
+          get().noteLocalWalletChange();
           set((s) => ({ credits: s.credits + creditsAmount }));
           return { success: true, message: `Test mode: ${creditsAmount} credits added directly.` };
         }
@@ -297,6 +359,7 @@ export const useCreditsStore = create<CreditsState>()(
         const newTotal = typeof orderData.newCreditBalance === "number"
           ? orderData.newCreditBalance
           : get().credits + creditsAmount;
+        get().noteLocalWalletChange();
         set({ credits: newTotal });
         return { success: true, message: orderData.message || `Successfully purchased ${creditsAmount} credits.` };
       }
@@ -386,9 +449,11 @@ export const useCreditsStore = create<CreditsState>()(
       });
 
       if (typeof data.breakdown?.newCreditBalance === "number") {
+        get().noteLocalWalletChange();
         set({ credits: data.breakdown.newCreditBalance });
       } else if (data.breakdown) {
         const creditsUsed = data.breakdown.creditsUsed || 0;
+        get().noteLocalWalletChange();
         set((state) => ({ credits: Math.max(0, state.credits - creditsUsed) }));
       }
       return { success: true, breakdown: data.breakdown, orders: data.orders };
@@ -409,6 +474,7 @@ export const useCreditsStore = create<CreditsState>()(
         token,
         body: JSON.stringify({ credits: creditsAmount })
       });
+      get().noteLocalWalletChange();
       set({
         credits: data.newCreditBalance,
         cashBalance: data.newConvertibleCashBalanceINR
@@ -428,6 +494,7 @@ export const useCreditsStore = create<CreditsState>()(
         token,
         body: JSON.stringify({ creditsToBuy })
       });
+      get().noteLocalWalletChange();
       set({
         credits: data.newCreditBalance,
         cashBalance: data.newConvertibleCashBalanceINR

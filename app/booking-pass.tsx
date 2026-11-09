@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -8,8 +8,8 @@ import {
   Alert,
   StyleSheet,
   StatusBar,
-  ActivityIndicator,
   Animated,
+  InteractionManager,
   Platform,
   Linking,
 } from "react-native";
@@ -98,23 +98,26 @@ export default function BookingPassScreen() {
   const [copied, setCopied] = useState(false);
   const [isProcessingCancel, setIsProcessingCancel] = useState(false);
   const [opening, setOpening] = useState<null | "history" | "book">(null);
+  const openingLock = useRef<null | "history" | "book">(null);
   const [cancelPrompt, setCancelPrompt] = useState<{
     isMandatory: boolean;
     refundAmount: number;
   } | null>(null);
 
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const [pulseAnim] = useState(() => new Animated.Value(1));
 
   useFocusEffect(
     React.useCallback(() => {
+      openingLock.current = null;
       setOpening(null);
       const token = useAuthStore.getState().token;
-      if (token) useBookingStore.getState().fetchBookings(token);
+      if (token) useBookingStore.getState().fetchBookings(token, { force: true });
     }, [])
   );
 
   const openScreen = (key: "history" | "book", path: string, replace = false) => {
-    if (opening) return;
+    if (openingLock.current) return;
+    openingLock.current = key;
     setOpening(key);
     afterPaint(() => {
       if (replace) router.replace(path as never);
@@ -123,22 +126,28 @@ export default function BookingPassScreen() {
   };
 
   useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 0.35,
-          duration: 900,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 900,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
+    let loop: Animated.CompositeAnimation | null = null;
+    const task = InteractionManager.runAfterInteractions(() => {
+      loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 0.35,
+            duration: 900,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 900,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      loop.start();
+    });
+    return () => {
+      task.cancel();
+      loop?.stop();
+    };
   }, [pulseAnim]);
 
   // Fallback gym resolution
@@ -310,7 +319,7 @@ export default function BookingPassScreen() {
             </View>
             <Text style={styles.emptyTitle}>No Active Booking</Text>
             <Text style={styles.emptySubtitle}>
-              You don't have an active workout booking right now. Book a slot at
+              You do not have an active workout booking right now. Book a slot at
               your primary gym or any network partner gym to generate your
               pass.
             </Text>

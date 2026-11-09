@@ -408,7 +408,7 @@ export default function CreditsScreen() {
       setBuyPhase("ok");
       setBurst((n) => n + 1);
       showToast(`${qty} credits added. New balance ${formatINR(balanceAtBuy.current + qty)}`);
-      if (token) fetchWallet(token);
+      if (token) fetchWallet(token, { force: true });
       if (resetTimer.current) clearTimeout(resetTimer.current);
       resetTimer.current = setTimeout(() => {
         setBuyPhase("idle");
@@ -794,7 +794,7 @@ export default function CreditsScreen() {
                 {buyPhase === "loading" ? (
                   <>
                     <ActivityIndicator color="#FFFFFF" />
-                    <Text style={styles.buyText}>Processing</Text>
+                    <Text style={styles.buyText}>Processing...</Text>
                   </>
                 ) : buyPhase === "ok" ? (
                   <>

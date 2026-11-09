@@ -11,7 +11,8 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
+import { afterPaint } from "@/lib/afterPaint";
 import { SwipeableTabScreen } from "@/components/SwipeableTabScreen";
 import { PARTNER_CITIES } from "@/constants/fallbackGyms";
 
@@ -19,24 +20,40 @@ export default function ExploreScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState("");
+  const [opening, setOpening] = useState<null | "gyms" | "shop" | "invite" | "search">(null);
+  const openingLock = React.useRef<string | null>(null);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      openingLock.current = null;
+      setOpening(null);
+    }, [])
+  );
+
+  const openPath = (key: "gyms" | "shop" | "invite" | "search", path: string) => {
+    if (openingLock.current) return;
+    openingLock.current = key;
+    setOpening(key);
+    afterPaint(() => router.push(path as any));
+  };
 
   const handleSearchSubmit = () => {
     const q = searchQuery.trim();
     if (!q) {
-      router.push("/partner-cities" as any);
+      openPath("search", "/partner-cities");
       return;
     }
     const cityHit = PARTNER_CITIES.find((city) => city.name.toLowerCase().includes(q.toLowerCase()));
     if (cityHit) {
-      router.push(`/partner-gyms?city=${encodeURIComponent(cityHit.name)}` as any);
+      openPath("search", `/partner-gyms?city=${encodeURIComponent(cityHit.name)}`);
       return;
     }
     const productHints = ["protein", "whey", "creatine", "gear", "shop", "supplement", "apparel"];
     if (productHints.some((hint) => q.toLowerCase().includes(hint))) {
-      router.push(`/shop?q=${encodeURIComponent(q)}` as any);
+      openPath("search", `/shop?q=${encodeURIComponent(q)}`);
       return;
     }
-    router.push(`/partner-gyms?city=${encodeURIComponent("Udaipur")}&q=${encodeURIComponent(q)}` as any);
+    openPath("search", `/partner-gyms?city=${encodeURIComponent("Udaipur")}&q=${encodeURIComponent(q)}`);
   };
 
   return (
@@ -102,10 +119,11 @@ export default function ExploreScreen() {
 
           {/* Refer Now CTA */}
           <Pressable 
-            onPress={() => router.push("/invite" as any)}
+            onPress={() => openPath("invite", "/invite")}
+            disabled={opening === "invite"}
             style={styles.referBtn}
           >
-            <Text style={styles.referBtnText}>Refer Now</Text>
+            <Text style={styles.referBtnText}>{opening === "invite" ? "Opening..." : "Refer Now"}</Text>
           </Pressable>
         </View>
 
@@ -115,7 +133,8 @@ export default function ExploreScreen() {
         <View style={styles.availableRow}>
           {/* Partner Gyms Card */}
           <Pressable 
-            onPress={() => router.push("/partner-cities" as any)}
+            onPress={() => openPath("gyms", "/partner-cities")}
+            disabled={opening === "gyms"}
             style={styles.featureCard}
           >
             <View style={styles.partnerGymIconWrap}>
@@ -128,13 +147,14 @@ export default function ExploreScreen() {
             </Text>
 
             <View style={styles.linkRow}>
-              <Text style={styles.linkText}>Explore →</Text>
+              <Text style={styles.linkText}>{opening === "gyms" ? "Opening..." : "Explore →"}</Text>
             </View>
           </Pressable>
 
           {/* Shop Products Card */}
           <Pressable 
-            onPress={() => router.push("/shop" as any)}
+            onPress={() => openPath("shop", "/shop")}
+            disabled={opening === "shop"}
             style={styles.featureCard}
           >
             <View style={styles.shopIconWrap}>
@@ -147,7 +167,7 @@ export default function ExploreScreen() {
             </Text>
 
             <View style={styles.linkRow}>
-              <Text style={styles.linkText}>Explore →</Text>
+              <Text style={styles.linkText}>{opening === "shop" ? "Opening..." : "Explore →"}</Text>
             </View>
           </Pressable>
         </View>

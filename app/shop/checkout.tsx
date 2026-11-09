@@ -137,7 +137,7 @@ export default function CheckoutScreen() {
       return;
     }
     try {
-      await fetchWallet(token);
+      await fetchWallet(token, { force: true });
     } catch {
       // The order is already placed. The wallet figure on the receipt uses the last known balance.
     }
@@ -158,7 +158,7 @@ export default function CheckoutScreen() {
 
   const needsAccount = isGuest || !token;
   const footerLabel = placing
-    ? "Placing"
+    ? "Placing..."
     : needsAccount
       ? "Create account"
       : ready.length === 0

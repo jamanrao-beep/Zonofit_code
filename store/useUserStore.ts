@@ -30,6 +30,16 @@ const secureStorage = {
   },
 };
 
+let profileEpoch = 0;
+let profileFlight: Promise<void> | null = null;
+let profileFetchedAt = 0;
+const PROFILE_FRESH_MS = 8000;
+
+function noteProfileMutation() {
+  profileEpoch += 1;
+  profileFetchedAt = Date.now();
+}
+
 interface UserState {
   name: string;
   email: string;
@@ -56,6 +66,7 @@ interface UserState {
   fetchProfile: (token: string) => Promise<void>;
   setPrimaryGym: (gymId: string, gymName: string) => void;
   decrementVisits: () => void;
+  holdProfileSnapshot: () => void;
   incrementStreak: () => void;
   recordWorkout: (hours: number) => void;
   updatePlan: (planId: string, amountPaidPaise: number, primaryGymId?: string) => Promise<{ success: boolean; message?: string }>;
@@ -93,6 +104,7 @@ export const useUserStore = create<UserState>()(
     if (current.primaryGymId === gymId && current.primaryGymName === gymName) {
       return;
     }
+    noteProfileMutation();
     set({ primaryGymId: gymId, primaryGymName: gymName });
     try {
       const { useCreditsStore } = require("./useCreditsStore");
@@ -129,9 +141,16 @@ export const useUserStore = create<UserState>()(
   }),
 
   fetchProfile: async (token) => {
-    set({ loading: true });
+    if (!token) return;
+    if (profileFlight) return profileFlight;
+    if (profileFetchedAt && Date.now() - profileFetchedAt < PROFILE_FRESH_MS) return;
+
+    const epoch = profileEpoch;
+    const run = (async () => {
+    let succeeded = false;
     try {
       const data = await apiFetch("/api/users/me", { token });
+      if (epoch !== profileEpoch) return;
       
       const membership = data.membership;
       const plan = membership?.plan;
@@ -145,6 +164,7 @@ export const useUserStore = create<UserState>()(
       const fetchedGymId = membership?.primaryGymId || membership?.primaryGym?.id || data.primaryGymId;
 
       set((state) => {
+        if (epoch !== profileEpoch) return state;
         const resolvedName = (fetchedGymName && fetchedGymName !== "FitZone Pro") 
           ? fetchedGymName 
           : (state.primaryGymName && state.primaryGymName !== "FitZone Pro" ? state.primaryGymName : "Being Fitness");
@@ -160,7 +180,7 @@ export const useUserStore = create<UserState>()(
         const calculatedCycle = Math.min(12, Math.max(1, Math.floor(daysSinceJoin / 30) + 1));
         const activeCycle = Math.max(membership?.cycleNumber || 1, calculatedCycle);
 
-        return {
+        const next = {
           name: data.name || "Member",
           email: data.email || "",
           phone: data.phone || null,
@@ -171,7 +191,6 @@ export const useUserStore = create<UserState>()(
           primaryGymId: resolvedId,
           primaryGymName: resolvedName,
           membershipExpiry: membership ? new Date(membership.endDate).toLocaleDateString() : "N/A",
-          // Calculate actual month of journey based on join timestamp
           currentMonth: activeCycle,
           totalMonths: membership?.maxCycles ?? 12,
           streak: Math.max(state.streak, data.progress?.streak ?? 0),
@@ -183,16 +202,55 @@ export const useUserStore = create<UserState>()(
             : (data.createdAt ? new Date(data.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : "Recently"),
           loading: false,
         };
+        if (
+          state.name === next.name &&
+          state.email === next.email &&
+          state.phone === next.phone &&
+          state.avatarUrl === next.avatarUrl &&
+          state.visitsRemaining === next.visitsRemaining &&
+          state.membershipStatus === next.membershipStatus &&
+          state.planName === next.planName &&
+          state.primaryGymId === next.primaryGymId &&
+          state.primaryGymName === next.primaryGymName &&
+          state.membershipExpiry === next.membershipExpiry &&
+          state.currentMonth === next.currentMonth &&
+          state.totalMonths === next.totalMonths &&
+          state.streak === next.streak &&
+          state.totalWorkouts === next.totalWorkouts &&
+          state.trainingHours === next.trainingHours &&
+          state.identityStage === next.identityStage &&
+          state.memberSince === next.memberSince &&
+          state.loading === next.loading
+        ) {
+          return state;
+        }
+        return next;
       });
+      succeeded = true;
     } catch (err: any) {
       console.warn("Failed to fetch user profile:", err?.message || err);
-      set({ loading: false });
+    } finally {
+      if (succeeded && epoch === profileEpoch) profileFetchedAt = Date.now();
     }
+    })();
+
+    profileFlight = run;
+    run.finally(() => {
+      if (profileFlight === run) profileFlight = null;
+    });
+    return run;
   },
 
-  decrementVisits: () => set((state) => ({
-    visitsRemaining: Math.max(0, state.visitsRemaining - 1),
-  })),
+  decrementVisits: () => {
+    noteProfileMutation();
+    set((state) => ({
+      visitsRemaining: Math.max(0, state.visitsRemaining - 1),
+    }));
+  },
+
+  holdProfileSnapshot: () => {
+    noteProfileMutation();
+  },
 
   incrementStreak: () => set((state) => ({
     streak: state.streak + 1,
@@ -246,6 +304,7 @@ export const useUserStore = create<UserState>()(
 
       const gymName = data.membership?.primaryGym?.name || data.membership?.gymName || "FitZone Pro";
 
+      noteProfileMutation();
       set({
         planName: finalPlanName,
         visitsRemaining: finalVisits,
@@ -257,11 +316,12 @@ export const useUserStore = create<UserState>()(
 
       // Update credits store
       if (typeof data.newCreditBalance === "number") {
+        useCreditsStore.getState().noteLocalWalletChange();
         useCreditsStore.setState({ credits: data.newCreditBalance });
       }
 
       if (token) {
-        useCreditsStore.getState().fetchWallet(token);
+        useCreditsStore.getState().fetchWallet(token, { force: true });
       }
 
       return { success: true, message: data.message || `Upgraded to ${finalPlanName} plan!` };
@@ -284,6 +344,7 @@ export const useUserStore = create<UserState>()(
         }),
       });
 
+      noteProfileMutation();
       set({
         planName: data.membership?.gymPlan?.name || data.membership?.plan?.name || "Plan",
         visitsRemaining: data.membership?.primaryGymVisits || 10,
@@ -293,6 +354,7 @@ export const useUserStore = create<UserState>()(
 
       const walletData = await apiFetch("/api/credits/balance", { token });
       if (walletData && walletData.balance !== undefined) {
+        useCreditsStore.getState().noteLocalWalletChange();
         useCreditsStore.setState({ credits: walletData.balance });
       }
       return { success: true, message: "Gym plan purchased successfully." };
@@ -307,6 +369,7 @@ export const useUserStore = create<UserState>()(
       if (!token) throw new Error("Not authenticated");
       
       const data = await uploadProfilePicture(uri, token);
+      noteProfileMutation();
       set({ avatarUrl: data.avatarUrl });
       return { success: true };
     } catch (err: any) {

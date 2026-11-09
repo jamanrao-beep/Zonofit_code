@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, Image, Pressable, Dimensions, StatusBar, StyleSheet, Alert, Linking, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { afterPaint } from '@/lib/afterPaint';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useGuestStore } from '@/store/useGuestStore';
 import { useBookingStore } from '@/store/useBookingStore';
@@ -91,6 +92,15 @@ export default function GymDetailScreen() {
   const [loaded, setLoaded] = useState(false);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [showConfirmedModal, setShowConfirmedModal] = useState(false);
+  const [openingNext, setOpeningNext] = useState(false);
+  const openingNextLock = useRef(false);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      openingNextLock.current = false;
+      setOpeningNext(false);
+    }, [])
+  );
   const [confirmedBookingData, setConfirmedBookingData] = useState<{
     timeSlot: string;
     isMandatoryVisit: boolean;
@@ -120,7 +130,9 @@ export default function GymDetailScreen() {
     };
   }, [id]);
 
-  const photos = live ? gymPhotoUrls(live) : [];
+  const paramImage = typeof params.image === "string" ? params.image : "";
+  const livePhotos = live ? gymPhotoUrls(live) : [];
+  const photos = livePhotos.length > 0 ? livePhotos : (paramImage ? [paramImage] : []);
   const facilities = stringList(live?.facilities);
   const about = live?.description?.trim() || "";
   const place = live ? placeLine(live) : (typeof params.address === "string" ? params.address : "");
@@ -144,7 +156,7 @@ export default function GymDetailScreen() {
   const isMandatoryVisit = isPrimaryGym && visitsRemaining > 0;
 
   const handleOpenBooking = () => {
-    if (!live) {
+    if (!loaded || !live) {
       Alert.alert("Gym unavailable", loaded ? "This gym could not be loaded." : "Gym details are still loading.");
       return;
     }
@@ -475,9 +487,12 @@ export default function GymDetailScreen() {
               Alert.alert("Gym unavailable", loaded ? "This gym could not be loaded." : "Gym details are still loading.");
               return;
             }
+            if (openingNextLock.current) return;
             selectGym(live.id, live.name);
             useAuthStore.getState().setIsViewingOnboardingGym(false);
-            router.push({
+            openingNextLock.current = true;
+            setOpeningNext(true);
+            afterPaint(() => router.push({
               pathname: '/onboarding/eligibility',
               params: {
                 gymId: live.id,
@@ -486,19 +501,20 @@ export default function GymDetailScreen() {
                 address: place || live.city || '',
                 price: String(live.monthlyPrice || params.price || ''),
               },
-            } as any);
+            } as any));
           }}
         >
-          <Text style={styles.bottomLabel}>Next</Text>
+          <Text style={styles.bottomLabel}>{openingNext ? "Opening..." : "Next"}</Text>
           <Ionicons name="arrow-forward" size={18} color="white" />
         </Pressable>
       ) : (
         <Pressable 
           onPress={handleOpenBooking}
+          disabled={!loaded || !live}
           style={({ pressed }) => [styles.bookBar, {
             bottom: Math.max(insets.bottom, 16),
             backgroundColor: isMandatoryVisit ? '#1F7A3E' : '#4C9A2A',
-            opacity: pressed ? 0.9 : 1,
+            opacity: !loaded || !live ? 0.7 : pressed ? 0.9 : 1,
           }]}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
@@ -508,13 +524,13 @@ export default function GymDetailScreen() {
                 {isMandatoryVisit ? `${visitsRemaining} Mandatory Visits Left` : 'Credit Visit'}
               </Text>
               <Text style={{ color: 'white', fontSize: 12, opacity: 0.9 }}>
-                {isMandatoryVisit ? 'Included (0 Credits)' : `${visitCredits} Credits`}
+                {!loaded ? "Checking price..." : !live ? "Could not load this gym" : isMandatoryVisit ? "Included (0 Credits)" : `${visitCredits} Credits`}
               </Text>
             </View>
           </View>
           <View style={{ width: 1, height: 32, backgroundColor: 'rgba(255,255,255,0.3)', marginHorizontal: 12 }} />
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={{ color: 'white', fontSize: 14, fontWeight: '700', marginRight: 6 }}>BOOK VISIT</Text>
+            <Text style={{ color: 'white', fontSize: 14, fontWeight: '700', marginRight: 6 }}>{!loaded ? "Loading..." : !live ? "Unavailable" : "BOOK VISIT"}</Text>
             <Ionicons name="arrow-forward" size={16} color="white" />
           </View>
         </Pressable>

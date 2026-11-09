@@ -13,7 +13,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useFocusEffect, useRouter, useLocalSearchParams } from "expo-router";
+import { afterPaint } from "@/lib/afterPaint";
 import { useBookingStore } from "@/store/useBookingStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
 import { apiFetch } from "@/lib/api";
@@ -84,6 +85,32 @@ export default function PartnerGymsScreen() {
 
   const [gyms, setGyms] = useState<Gym[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [openingGymId, setOpeningGymId] = useState<string | null>(null);
+  const openingLock = useRef<string | null>(null);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      openingLock.current = null;
+      setOpeningGymId(null);
+    }, [])
+  );
+
+  const openGym = (gym: { id: string; name: string; image?: string; address?: string; membershipPrice?: number }) => {
+    if (openingLock.current) return;
+    openingLock.current = gym.id;
+    setOpeningGymId(gym.id);
+    afterPaint(() => {
+      router.push({
+        pathname: `/gym/${gym.id}`,
+        params: {
+          name: gym.name,
+          address: gym.address || "",
+          image: gym.image || "",
+          price: gym.membershipPrice ? String(gym.membershipPrice) : "",
+        },
+      } as any);
+    });
+  };
   const [searchQuery, setSearchQuery] = useState(params.q || "");
   const [searchOpen, setSearchOpen] = useState(!!params.q);
   const [currentPage, setCurrentPage] = useState(0);
@@ -614,7 +641,7 @@ export default function PartnerGymsScreen() {
           </View>
         )}
 
-        {isLoading ? (
+        {isLoading && gyms.length === 0 ? (
           <View style={styles.centerWrap}>
             <ActivityIndicator size="large" color="#1F7A3E" />
             <Text style={styles.loadingText}>Loading fitness centres in {selectedCity}...</Text>
@@ -650,13 +677,13 @@ export default function PartnerGymsScreen() {
                           "Udaipur Restriction",
                           `You cannot visit ${gym.name} in Udaipur. As per policy, local visits are restricted to your Primary Gym. Network credits can be used in other cities (e.g. Delhi NCR, Mumbai, Jaipur) when traveling.`,
                           [
-                            { text: "View Details", onPress: () => router.push(`/gym/${gym.id}` as any) },
+                            { text: "View Details", onPress: () => openGym(gym) },
                             { text: "Select Another City", onPress: () => router.push("/partner-cities" as any) },
                             { text: "Close", style: "cancel" }
                           ]
                         );
                       } else {
-                        router.push(`/gym/${gym.id}` as any);
+                        openGym(gym);
                       }
                     }}
                     style={styles.gymCard}
@@ -709,7 +736,7 @@ export default function PartnerGymsScreen() {
                       {/* Name & Details */}
                       <View style={styles.gymTextDetails}>
                         <Text style={styles.gymNameText} numberOfLines={1}>
-                          {gym.name}
+                          {openingGymId === gym.id ? "Opening..." : gym.name}
                         </Text>
                         <Text style={styles.gymLocationText} numberOfLines={1}>
                           {gym.address}{gym.distance > 0 ? ` • ${gym.distance.toFixed(2)} km` : ""}
@@ -738,7 +765,7 @@ export default function PartnerGymsScreen() {
                           <Pressable
                             onPress={() => {
                               selectGym(gym.id, gym.name);
-                              router.push(`/gym/${gym.id}` as any);
+                              openGym(gym);
                             }}
                             style={styles.bookPillBtn}
                             hitSlop={6}

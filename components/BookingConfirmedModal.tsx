@@ -20,6 +20,7 @@ import Animated, {
 import { InAppNoticeBanner } from "@/components/InAppNoticeBanner";
 import { showInAppNotice, useInAppNoticeStore } from "@/store/useInAppNoticeStore";
 import { VISIT_RULES } from "@/constants/bookingRules";
+import { afterPaint } from "@/lib/afterPaint";
 
 interface BookingConfirmedModalProps {
   visible: boolean;
@@ -56,6 +57,12 @@ export default function BookingConfirmedModal({
 }: BookingConfirmedModalProps) {
   const insets = useSafeAreaInsets();
   const checkScale = useSharedValue(0);
+  const [openingPass, setOpeningPass] = useState(false);
+  const [wasVisible, setWasVisible] = useState(visible);
+  if (visible !== wasVisible) {
+    setWasVisible(visible);
+    if (visible) setOpeningPass(false);
+  }
 
   useEffect(() => {
     if (visible) {
@@ -233,12 +240,17 @@ export default function BookingConfirmedModal({
           {/* Action CTAs — Pinned at bottom of card, outside ScrollView for reliable tap handling */}
           <View style={styles.actions}>
             <Pressable
-              style={styles.primaryBtn}
-              onPress={onViewPass}
+              style={[styles.primaryBtn, openingPass && { opacity: 0.85 }]}
+              disabled={openingPass}
+              onPress={() => {
+                if (openingPass) return;
+                setOpeningPass(true);
+                afterPaint(onViewPass);
+              }}
               hitSlop={4}
             >
               <Ionicons name="ticket-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-              <Text style={styles.primaryBtnText}>View Pass</Text>
+              <Text style={styles.primaryBtnText}>{openingPass ? "Opening..." : "View Pass"}</Text>
             </Pressable>
 
             <Pressable 

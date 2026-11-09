@@ -303,7 +303,7 @@ export default function ScanModal() {
               disabled={isCancellingBooking}
               className="mt-3 px-4 py-2 bg-red-600/80 rounded-xl border border-white/20 active:opacity-80"
             >
-              <Text className="text-white font-bold text-xs">Cancel This Booking</Text>
+              <Text className="text-white font-bold text-xs">{isCancellingBooking ? "Cancelling..." : "Cancel This Booking"}</Text>
             </Pressable>
           )}
 

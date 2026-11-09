@@ -11,7 +11,8 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
+import { afterPaint } from "@/lib/afterPaint";
 import * as ImagePicker from "expo-image-picker";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useUserStore } from "@/store/useUserStore";
@@ -57,6 +58,22 @@ export default function ProfileScreen() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [openingRow, setOpeningRow] = useState<string | null>(null);
+  const openingLock = React.useRef<string | null>(null);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      openingLock.current = null;
+      setOpeningRow(null);
+    }, [])
+  );
+
+  const openRow = (key: string, action: () => void) => {
+    if (openingLock.current) return;
+    openingLock.current = key;
+    setOpeningRow(key);
+    afterPaint(action);
+  };
 
   const guestHours = getHoursRemaining();
 
@@ -179,19 +196,21 @@ export default function ProfileScreen() {
             {isGuest ? (
               <Pressable
                 style={profileStyles.btnFull}
-                onPress={async () => {
+                disabled={openingRow === "create"}
+                onPress={() => openRow("create", async () => {
                   await endGuestSession();
                   router.replace("/(auth)/create-account");
-                }}
+                })}
               >
-                <Text style={profileStyles.btnFullText}>Create Account</Text>
+                <Text style={profileStyles.btnFullText}>{openingRow === "create" ? "Opening..." : "Create Account"}</Text>
               </Pressable>
             ) : (
               <Pressable
                 style={profileStyles.btnFull}
-                onPress={() => router.push("/invite" as any)}
+                disabled={openingRow === "invite"}
+                onPress={() => openRow("invite", () => router.push("/invite" as any))}
               >
-                <Text style={profileStyles.btnFullText}>Invite Friends &amp; Earn Credits</Text>
+                <Text style={profileStyles.btnFullText}>{openingRow === "invite" ? "Opening..." : "Invite Friends & Earn Credits"}</Text>
               </Pressable>
             )}
           </View>
@@ -237,35 +256,38 @@ export default function ProfileScreen() {
             {!isGuest && (
               <>
                 <Pressable
-                  onPress={() => router.push("/booking-history")}
+                  onPress={() => openRow("history", () => router.push("/booking-history"))}
+                  disabled={openingRow === "history"}
                   style={profileStyles.menuRow}
                 >
                   <View style={profileStyles.menuIconWrap}>
                     <Ionicons name="calendar-outline" size={18} color="#0F2417" />
                   </View>
-                  <Text style={profileStyles.menuText}>Booking History</Text>
+                  <Text style={profileStyles.menuText}>{openingRow === "history" ? "Opening..." : "Booking History"}</Text>
                   <MaterialIcons name="chevron-right" size={20} color="#66756B" />
                 </Pressable>
 
                 <Pressable
-                  onPress={() => router.push("/(tabs)/credits" as any)}
+                  onPress={() => openRow("credits", () => router.push("/(tabs)/credits" as any))}
+                  disabled={openingRow === "credits"}
                   style={profileStyles.menuRow}
                 >
                   <View style={profileStyles.menuIconWrap}>
                     <Ionicons name="wallet-outline" size={18} color="#0F2417" />
                   </View>
-                  <Text style={profileStyles.menuText}>Credits &amp; Wallet</Text>
+                  <Text style={profileStyles.menuText}>{openingRow === "credits" ? "Opening..." : "Credits & Wallet"}</Text>
                   <MaterialIcons name="chevron-right" size={20} color="#66756B" />
                 </Pressable>
 
                 <Pressable
-                  onPress={() => router.push("/invite" as any)}
+                  onPress={() => openRow("refer", () => router.push("/invite" as any))}
+                  disabled={openingRow === "refer"}
                   style={profileStyles.menuRow}
                 >
                   <View style={profileStyles.menuIconWrap}>
                     <Ionicons name="gift-outline" size={18} color="#1F7A3F" />
                   </View>
-                  <Text style={profileStyles.menuText}>Refer &amp; Earn</Text>
+                  <Text style={profileStyles.menuText}>{openingRow === "refer" ? "Opening..." : "Refer & Earn"}</Text>
                   <MaterialIcons name="chevron-right" size={20} color="#66756B" />
                 </Pressable>
               </>
@@ -273,16 +295,17 @@ export default function ProfileScreen() {
 
             {isGuest && (
               <Pressable
-                onPress={async () => {
+                disabled={openingRow === "signin"}
+                onPress={() => openRow("signin", async () => {
                   await endGuestSession();
                   router.replace("/(auth)/create-account");
-                }}
+                })}
                 style={profileStyles.menuRow}
               >
                 <View style={profileStyles.menuIconWrap}>
                   <Ionicons name="log-in-outline" size={18} color="#0F2417" />
                 </View>
-                <Text style={profileStyles.menuText}>Sign In to Existing Account</Text>
+                <Text style={profileStyles.menuText}>{openingRow === "signin" ? "Opening..." : "Sign In to Existing Account"}</Text>
                 <MaterialIcons name="chevron-right" size={20} color="#66756B" />
               </Pressable>
             )}

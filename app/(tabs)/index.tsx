@@ -24,6 +24,7 @@ import BookingConfirmedModal from "@/components/BookingConfirmedModal";
 import CancelBookingSheet from "@/components/CancelBookingSheet";
 import { SwipeableTabScreen } from "@/components/SwipeableTabScreen";
 import { promptGuestAccount } from "@/lib/guestAccount";
+import { afterPaint } from "@/lib/afterPaint";
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -72,6 +73,8 @@ export default function HomeScreen() {
   const { bookingStatus, bookedGymName, bookedTime, bookedCost } = useBookingStore();
 
   const [isCancellingTodayBooking, setIsCancellingTodayBooking] = useState(false);
+  const [opening, setOpening] = useState<null | "pass" | "journey" | "wallet" | "invite" | "gym">(null);
+  const openingLock = useRef<string | null>(null);
   const [cancelPrompt, setCancelPrompt] = useState<{
     isMandatory: boolean;
     refundAmount: number;
@@ -122,6 +125,8 @@ export default function HomeScreen() {
 
   useFocusEffect(
     React.useCallback(() => {
+      openingLock.current = null;
+      setOpening(null);
       const onBackPress = () => {
         const now = Date.now();
         if (now - lastBackPressTime.current < 2000) {
@@ -257,10 +262,53 @@ export default function HomeScreen() {
     }
   }, [isGuest]);
 
-  const openLiveGyms = () => router.push("/partner-gyms?city=Udaipur" as any);
+  const clearOpening = () => {
+    openingLock.current = null;
+    setOpening(null);
+  };
+
+  const openScreen = (key: "pass" | "journey" | "wallet" | "invite", path: string) => {
+    if (openingLock.current) return;
+    openingLock.current = key;
+    setOpening(key);
+    afterPaint(() => {
+      try {
+        router.push(path as any);
+      } catch {
+        clearOpening();
+      }
+    });
+  };
+
   const openGymPick = () => {
-    if (selectedGymId) router.push(`/gym/${selectedGymId}` as any);
-    else openLiveGyms();
+    if (openingLock.current) return;
+    openingLock.current = "gym";
+    setOpening("gym");
+    afterPaint(() => {
+      try {
+        if (isGuest && selectedGymId) {
+          router.push({
+            pathname: `/gym/${selectedGymId}`,
+            params: { name: selectedGymName || "" },
+          } as any);
+          return;
+        }
+        if (isGuest) {
+          router.push("/partner-gyms?city=Udaipur" as any);
+          return;
+        }
+        if (userPrimaryGymId) {
+          router.push({
+            pathname: `/gym/${userPrimaryGymId}`,
+            params: { name: resolvedGymName },
+          } as any);
+          return;
+        }
+        router.push("/partner-gyms" as any);
+      } catch {
+        clearOpening();
+      }
+    });
   };
 
   return (
@@ -319,12 +367,17 @@ export default function HomeScreen() {
             </View>
 
             <Pressable
-              onPress={isGuest ? openGymPick : () => router.push("/partner-gyms" as any)}
+              onPress={openGymPick}
+              disabled={opening === "gym"}
               style={homeStyles.heroGymRow}
             >
               <View style={{ flex: 1, flexDirection: "row", alignItems: "center" }}>
                 <Text style={homeStyles.heroH2} numberOfLines={1}>
-                  {isGuest ? (selectedGymName || "Choose your gym") : resolvedGymName}
+                  {opening === "gym"
+                    ? "Opening..."
+                    : isGuest
+                      ? (selectedGymName || "Choose your gym")
+                      : resolvedGymName}
                 </Text>
                 <Text style={{ fontSize: 22, color: "#FFFFFF", marginLeft: 6 }}>›</Text>
               </View>
@@ -367,26 +420,33 @@ export default function HomeScreen() {
                 </View>
                 <Text style={homeStyles.crText}>Available Credits: {effectiveCredits}</Text>
               </View>
-              <Pressable onPress={() => router.push("/(tabs)/credits" as any)}>
-                <Text style={homeStyles.crLink}>View Wallet</Text>
+              <Pressable onPress={() => openScreen("wallet", "/(tabs)/credits")} disabled={opening === "wallet"}>
+                <Text style={homeStyles.crLink}>{opening === "wallet" ? "Opening..." : "View Wallet"}</Text>
               </Pressable>
             </View>
 
             {/* White Action Button */}
             <Pressable
               style={homeStyles.wbtn}
+              disabled={opening === "gym" || (!isGuest && bookingStatus === "Booked" && opening === "pass")}
               onPress={
                 isGuest 
                   ? openGymPick 
                   : (bookingStatus === "Booked" 
-                      ? () => router.push("/booking-pass" as any) 
+                      ? () => openScreen("pass", "/booking-pass") 
                       : handleOpenPrimaryBooking)
               }
             >
               <Text style={homeStyles.wbtnText}>
                 {isGuest
-                  ? (selectedGymName ? `Continue with ${selectedGymName}` : "Choose your primary gym")
-                  : (bookingStatus === "Booked" ? "View Today's Pass" : "Book Today's Visit")}
+                  ? (opening === "gym"
+                      ? "Opening..."
+                      : selectedGymName
+                        ? `Continue with ${selectedGymName}`
+                        : "Choose your primary gym")
+                  : (bookingStatus === "Booked"
+                      ? (opening === "pass" ? "Opening..." : "View Today's Pass")
+                      : "Book Today's Visit")}
               </Text>
             </Pressable>
           </View>
@@ -429,14 +489,15 @@ export default function HomeScreen() {
                     disabled={isCancellingTodayBooking}
                   >
                     <Text style={[homeStyles.btnText, { color: "#B3261E" }]}>
-                      {isCancellingTodayBooking ? "..." : "Cancel"}
+                      {isCancellingTodayBooking ? "Cancelling..." : "Cancel"}
                     </Text>
                   </Pressable>
                   <Pressable
                     style={homeStyles.btn}
-                    onPress={() => router.push("/booking-pass" as any)}
+                    disabled={opening === "pass"}
+                    onPress={() => openScreen("pass", "/booking-pass")}
                   >
-                    <Text style={homeStyles.btnText}>View Pass</Text>
+                    <Text style={homeStyles.btnText}>{opening === "pass" ? "Opening..." : "View Pass"}</Text>
                   </Pressable>
                 </View>
               </View>
@@ -457,8 +518,8 @@ export default function HomeScreen() {
           <View style={homeStyles.card}>
             <View style={homeStyles.cardHeaderRow}>
               <Text style={homeStyles.cardH3}>Your Journey</Text>
-              <Pressable onPress={() => router.push("/journey" as any)}>
-                <Text style={homeStyles.lnkText}>View ›</Text>
+              <Pressable onPress={() => openScreen("journey", "/journey")} disabled={opening === "journey"}>
+                <Text style={homeStyles.lnkText}>{opening === "journey" ? "Opening..." : "View ›"}</Text>
               </Pressable>
             </View>
 
@@ -511,9 +572,10 @@ export default function HomeScreen() {
               </View>
               <Pressable
                 style={homeStyles.btn}
-                onPress={() => router.push("/invite" as any)}
+                disabled={opening === "invite"}
+                onPress={() => openScreen("invite", "/invite")}
               >
-                <Text style={homeStyles.btnText}>Invite now</Text>
+                <Text style={homeStyles.btnText}>{opening === "invite" ? "Opening..." : "Invite now"}</Text>
               </Pressable>
             </View>
           </View>

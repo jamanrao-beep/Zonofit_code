@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { ScrollView, Text, View, Pressable, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -43,6 +43,8 @@ export default function BookingHistoryScreen() {
   const { pastBookings, bookingStatus, bookedGymName, bookedTime, cancelBooking } = useBookingStore();
   const [isProcessingCancel, setIsProcessingCancel] = useState(false);
   const [openingPass, setOpeningPass] = useState(false);
+  const [openingDiscover, setOpeningDiscover] = useState(false);
+  const openingLock = useRef(false);
   const [cancelPrompt, setCancelPrompt] = useState<{
     isMandatory: boolean;
     refundAmount: number;
@@ -50,15 +52,21 @@ export default function BookingHistoryScreen() {
 
   useFocusEffect(
     React.useCallback(() => {
+      openingLock.current = false;
       setOpeningPass(false);
+      setOpeningDiscover(false);
     }, [])
   );
 
-  const openPass = () => {
-    if (openingPass) return;
-    setOpeningPass(true);
-    afterPaint(() => router.push("/booking-pass" as never));
+  const openLocked = (kind: "pass" | "discover", path: string) => {
+    if (openingLock.current) return;
+    openingLock.current = true;
+    if (kind === "pass") setOpeningPass(true);
+    else setOpeningDiscover(true);
+    afterPaint(() => router.push(path as never));
   };
+
+  const openPass = () => openLocked("pass", "/booking-pass");
 
   const handleCancel = () => {
     if (isProcessingCancel) return;
@@ -148,10 +156,11 @@ export default function BookingHistoryScreen() {
             Bookings are saved to an account. You can still open a gym, read the price, and see photos.
           </Text>
           <Pressable
-            onPress={() => router.push("/partner-gyms?city=Udaipur" as any)}
+            disabled={openingDiscover}
+            onPress={() => openLocked("discover", "/partner-gyms?city=Udaipur")}
             className="mt-5 w-full py-3.5 bg-[#1F7A3E] rounded-2xl items-center"
           >
-            <Text className="text-white font-bold text-sm">Browse Udaipur gyms</Text>
+            <Text className="text-white font-bold text-sm">{openingDiscover ? "Opening..." : "Browse Udaipur gyms"}</Text>
           </Pressable>
           <Pressable
             onPress={() => promptGuestAccount(router, endGuestSession, "Create an account to book a visit. Guest mode cannot check in or hold a pass.")}
@@ -251,10 +260,11 @@ export default function BookingHistoryScreen() {
             <Text className="text-[#1F2520] font-bold text-base mt-3">No bookings yet</Text>
             <Text className="text-xs text-[#6B756E] mt-1 text-center">Your visit history will appear here after your first booking.</Text>
             <Pressable
-              onPress={() => router.push("/explore")}
+              disabled={openingDiscover}
+              onPress={() => openLocked("discover", "/explore")}
               className="mt-4 px-6 py-3 bg-[#6BCB77] rounded-2xl"
             >
-              <Text className="text-white font-bold text-sm">Discover Gyms</Text>
+              <Text className="text-white font-bold text-sm">{openingDiscover ? "Opening..." : "Discover Gyms"}</Text>
             </Pressable>
           </View>
         ) : (

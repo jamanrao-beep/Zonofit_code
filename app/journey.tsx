@@ -25,10 +25,16 @@ export default function JourneyScreen() {
   const { membershipInfo } = useCreditsStore();
   const { bookingStatus, bookedGymName, bookedTime, pastBookings } = useBookingStore();
   const [openingNext, setOpeningNext] = useState(false);
+  const [openingHistory, setOpeningHistory] = useState(false);
+  const [openingBrowse, setOpeningBrowse] = useState(false);
+  const openingLock = useRef(false);
 
   useFocusEffect(
     React.useCallback(() => {
+      openingLock.current = false;
       setOpeningNext(false);
+      setOpeningHistory(false);
+      setOpeningBrowse(false);
     }, [])
   );
 
@@ -90,10 +96,16 @@ export default function JourneyScreen() {
             </Text>
           </View>
           <Pressable
-            onPress={() => router.push("/partner-gyms?city=Udaipur" as any)}
-            style={{ backgroundColor: '#1F7A3E', borderRadius: 16, paddingVertical: 14, alignItems: 'center', marginBottom: 10 }}
+            disabled={openingBrowse}
+            onPress={() => {
+              if (openingLock.current) return;
+              openingLock.current = true;
+              setOpeningBrowse(true);
+              afterPaint(() => router.push("/partner-gyms?city=Udaipur" as any));
+            }}
+            style={{ backgroundColor: '#1F7A3E', borderRadius: 16, paddingVertical: 14, alignItems: 'center', marginBottom: 10, opacity: openingBrowse ? 0.8 : 1 }}
           >
-            <Text style={{ color: 'white', fontWeight: '700' }}>Browse Udaipur gyms</Text>
+            <Text style={{ color: 'white', fontWeight: '700' }}>{openingBrowse ? "Opening..." : "Browse Udaipur gyms"}</Text>
           </Pressable>
           <Pressable
             onPress={() => promptGuestAccount(router, endGuestSession, "Create an account to start your fitness journey and track visits.")}
@@ -193,7 +205,8 @@ export default function JourneyScreen() {
             <Pressable
               disabled={openingNext}
               onPress={() => {
-                if (openingNext) return;
+                if (openingLock.current) return;
+                openingLock.current = true;
                 setOpeningNext(true);
                 const path = bookingStatus === "Booked" ? "/booking-pass" : "/partner-gyms";
                 afterPaint(() => router.push(path as never));
@@ -466,8 +479,16 @@ export default function JourneyScreen() {
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>Recent Activity</Text>
               {pastBookings && pastBookings.length > 0 && (
-                <Pressable onPress={() => router.push("/booking-history" as any)}>
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: '#4C9A2A' }}>View all</Text>
+                <Pressable
+                  disabled={openingHistory}
+                  onPress={() => {
+                    if (openingLock.current) return;
+                    openingLock.current = true;
+                    setOpeningHistory(true);
+                    afterPaint(() => router.push("/booking-history" as any));
+                  }}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: '#4C9A2A' }}>{openingHistory ? "Opening..." : "View all"}</Text>
                 </Pressable>
               )}
             </View>

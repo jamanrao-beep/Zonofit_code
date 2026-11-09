@@ -7,6 +7,81 @@ import { useUserStore } from "./useUserStore";
 import { useAuthStore } from "./useAuthStore";
 import { isBookingSlotPast, isBookingSlotStarted } from "@/lib/bookingTime";
 
+let bookingsEpoch = 0;
+let bookingsFlight: Promise<void> | null = null;
+let bookingsFetchedAt = 0;
+const BOOKINGS_FRESH_MS = 2500;
+
+/** A book or cancel owns the snapshot. Drop in-flight list responses and skip a repeat fetch for a moment. */
+function noteBookingsMutation() {
+  bookingsEpoch += 1;
+  bookingsFetchedAt = Date.now();
+}
+
+function sameBookingSnapshot(
+  current: {
+    bookingStatus: BookingStatus;
+    bookingId: string | null;
+    bookedGymId: string | null;
+    bookedGymName: string | null;
+    bookedDate: string | null;
+    bookedVisitDateIso: string | null;
+    bookedCreatedAt: string | null;
+    bookedTime: string | null;
+    bookedCost: number;
+    bookedTokenNumber: number | null;
+    bookedGymPrefix: string | null;
+    pastBookings: PastBooking[];
+  },
+  next: {
+    bookingStatus: BookingStatus;
+    bookingId: string | null;
+    bookedGymId: string | null;
+    bookedGymName: string | null;
+    bookedDate: string | null;
+    bookedVisitDateIso: string | null;
+    bookedCreatedAt: string | null;
+    bookedTime: string | null;
+    bookedCost: number;
+    bookedTokenNumber: number | null;
+    bookedGymPrefix: string | null;
+    pastBookings: PastBooking[];
+  }
+) {
+  if (
+    current.bookingStatus !== next.bookingStatus ||
+    current.bookingId !== next.bookingId ||
+    current.bookedGymId !== next.bookedGymId ||
+    current.bookedGymName !== next.bookedGymName ||
+    current.bookedDate !== next.bookedDate ||
+    current.bookedVisitDateIso !== next.bookedVisitDateIso ||
+    current.bookedCreatedAt !== next.bookedCreatedAt ||
+    current.bookedTime !== next.bookedTime ||
+    current.bookedCost !== next.bookedCost ||
+    current.bookedTokenNumber !== next.bookedTokenNumber ||
+    current.bookedGymPrefix !== next.bookedGymPrefix
+  ) {
+    return false;
+  }
+  const past = current.pastBookings || [];
+  const incoming = next.pastBookings || [];
+  if (past.length !== incoming.length) return false;
+  for (let i = 0; i < past.length; i += 1) {
+    const left = past[i];
+    const right = incoming[i];
+    if (
+      left.id !== right.id ||
+      left.status !== right.status ||
+      left.credits !== right.credits ||
+      left.time !== right.time ||
+      left.gymName !== right.gymName
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
 const secureStorage = {
   getItem: async (name: string): Promise<string | null> => {
     try {
@@ -63,7 +138,7 @@ interface BookingState {
   // Actions
   applyCoupon: (coupon: any) => void;
   clearCoupon: () => void;
-  fetchBookings: (token: string) => Promise<void>;
+  fetchBookings: (token: string, options?: { force?: boolean }) => Promise<void>;
   bookVisit: (gymId: string, gymName: string, date: string, time: string, creditCost: number, couponCode?: string) => Promise<boolean>;
   checkIn: () => Promise<boolean>;
   cancelBooking: () => Promise<{ success: boolean; message?: string }>;
@@ -117,13 +192,20 @@ export const useBookingStore = create<BookingState>()(
     };
   },
 
-  fetchBookings: async (token) => {
-    set({ loading: true });
+  fetchBookings: async (token, options) => {
+    if (!token) return;
+    const force = options?.force === true;
+    if (bookingsFlight) return bookingsFlight;
+    if (!force && bookingsFetchedAt && Date.now() - bookingsFetchedAt < BOOKINGS_FRESH_MS) return;
+
+    const epoch = bookingsEpoch;
+    const run = (async () => {
+    let succeeded = false;
     try {
       const data = await apiFetch("/api/bookings", { token });
+      if (epoch !== bookingsEpoch) return;
       const bookings = data.bookings || [];
-      
-      const now = new Date();
+
       const past = bookings
         .filter((b: any) => {
           if (["COMPLETED", "CANCELLED"].includes(b.status)) return true;
@@ -178,24 +260,25 @@ export const useBookingStore = create<BookingState>()(
           ? "Checked In"
           : "Booked";
 
-        set({
-          bookingStatus: effectiveBookingStatus,
-          bookingId: upcoming.id,
-          bookedGymId: upcoming.gymId,
-          bookedGymName: upcoming.gym?.name || "Gym",
+        const next = {
+          bookingStatus: effectiveBookingStatus as BookingStatus,
+          bookingId: upcoming.id as string,
+          bookedGymId: upcoming.gymId as string,
+          bookedGymName: (upcoming.gym?.name || "Gym") as string,
           bookedDate: new Date(upcoming.visitDate).toLocaleDateString(),
-          bookedVisitDateIso: upcoming.visitDate,
-          bookedCreatedAt: upcoming.createdAt,
-          bookedTime: upcoming.timeSlot,
-          bookedCost: upcoming.creditsDeducted,
+          bookedVisitDateIso: upcoming.visitDate as string,
+          bookedCreatedAt: (upcoming.createdAt as string) || null,
+          bookedTime: upcoming.timeSlot as string,
+          bookedCost: Number(upcoming.creditsDeducted) || 0,
           bookedTokenNumber: upcoming.tokenNumber || null,
           bookedGymPrefix: upcoming.gymPrefix || null,
-          pastBookings: past,
-          loading: false
-        });
+          pastBookings: past as PastBooking[],
+        };
+        if (epoch !== bookingsEpoch) return;
+        if (!sameBookingSnapshot(get(), next)) set(next);
       } else {
-        set({
-          bookingStatus: "Not Booked",
+        const next = {
+          bookingStatus: "Not Booked" as BookingStatus,
           bookingId: null,
           bookedGymId: null,
           bookedGymName: null,
@@ -206,14 +289,24 @@ export const useBookingStore = create<BookingState>()(
           bookedCost: 0,
           bookedTokenNumber: null,
           bookedGymPrefix: null,
-          pastBookings: past.length > 0 ? past : get().pastBookings,
-          loading: false,
-        });
+          pastBookings: past.length > 0 ? (past as PastBooking[]) : get().pastBookings,
+        };
+        if (epoch !== bookingsEpoch) return;
+        if (!sameBookingSnapshot(get(), next)) set(next);
       }
+      succeeded = true;
     } catch (err: any) {
       console.warn("Failed to fetch bookings:", err?.message || err);
-      set({ loading: false });
+    } finally {
+      if (succeeded && epoch === bookingsEpoch) bookingsFetchedAt = Date.now();
     }
+    })();
+
+    bookingsFlight = run;
+    run.finally(() => {
+      if (bookingsFlight === run) bookingsFlight = null;
+    });
+    return run;
   },
 
   bookVisit: async (gymId, gymName, date, time, creditCost, couponCode) => {
@@ -252,9 +345,13 @@ export const useBookingStore = create<BookingState>()(
       });
       if (!data?.booking?.id) return false;
 
+      noteBookingsMutation();
       const bookingId = data.booking.id;
       visitDateIso = data.booking.visitDate || visitDateIso;
       const deductedCost = data.booking.creditsDeducted ?? creditCost;
+      if (typeof data.newCreditBalance === "number" || deductedCost === 0) {
+        useCreditsStore.getState().noteLocalWalletChange();
+      }
       if (typeof data.newCreditBalance === "number") {
         useCreditsStore.setState({ credits: data.newCreditBalance });
       }
@@ -289,12 +386,14 @@ export const useBookingStore = create<BookingState>()(
       return true;
     } catch (err: any) {
       console.warn("API booking failed, direct accepting booking for test mode:", err?.message || err);
+      noteBookingsMutation();
       const fallbackBookingId = "bk_test_" + Date.now();
       const deductedCost = creditCost;
       if (deductedCost === 0) {
         useUserStore.getState().decrementVisits();
         const currentMembership = useCreditsStore.getState().membershipInfo;
         if (currentMembership) {
+          useCreditsStore.getState().noteLocalWalletChange();
           useCreditsStore.setState({
             membershipInfo: {
               ...currentMembership,
@@ -303,6 +402,7 @@ export const useBookingStore = create<BookingState>()(
           });
         }
       } else {
+        useCreditsStore.getState().releaseWalletCache();
         useCreditsStore.setState((s) => ({ credits: Math.max(0, s.credits - deductedCost) }));
       }
 
@@ -351,6 +451,7 @@ export const useBookingStore = create<BookingState>()(
     }
 
     set({ isCancelling: true });
+    noteBookingsMutation();
 
     try {
       const token = useAuthStore.getState().token;
@@ -371,8 +472,10 @@ export const useBookingStore = create<BookingState>()(
       }
 
       if (apiSucceeded && typeof apiResult?.newCreditBalance === "number") {
+        useCreditsStore.getState().noteLocalWalletChange();
         useCreditsStore.setState({ credits: apiResult.newCreditBalance });
       } else {
+        useCreditsStore.getState().releaseWalletCache();
         // Fallback wallet credit update: mandatory visit charges 2 credits fee; credit visit refunds (cost - 2)
         if (bookedCost === 0 || bookedCost === undefined) {
           useCreditsStore.setState((s) => ({ credits: Math.max(0, s.credits - 2) }));
@@ -383,6 +486,7 @@ export const useBookingStore = create<BookingState>()(
       }
 
       if (bookedCost === 0 || bookedCost === undefined) {
+        useUserStore.getState().holdProfileSnapshot();
         useUserStore.setState((s) => ({ visitsRemaining: Math.min(10, s.visitsRemaining + 1) }));
         const mem = useCreditsStore.getState().membershipInfo;
         if (mem) {

@@ -271,7 +271,10 @@ export default function SignOutConfirmModal({
               ]}
             >
               {loading ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <>
+                  <ActivityIndicator size="small" color="#FFFFFF" style={{ marginRight: 8 }} />
+                  <Text style={styles.confirmText}>Signing out...</Text>
+                </>
               ) : (
                 <>
                   <Ionicons
