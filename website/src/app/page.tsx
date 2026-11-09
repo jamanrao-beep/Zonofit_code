@@ -69,24 +69,44 @@ export default function LandingPage() {
               
               {/* Left Column: Hero Copy */}
               <div className="lg:col-span-6 flex flex-col items-start">
-                <Link
-                  href="/udaipur/launch-offer"
-                  className="sm:hidden mb-6 flex w-full items-center gap-3 rounded-2xl bg-[#14532d] px-4 py-3.5 text-white shadow-[0_10px_28px_rgba(20,83,45,0.28)]"
-                >
-                  <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#b6e86a] shadow-[0_0_0_6px_rgba(182,232,106,0.18)]" />
-                  <span className="min-w-0 flex-1 text-left">
-                    <span className="block text-[11px] font-black uppercase tracking-[0.14em] text-[#b6e86a]">
-                      Udaipur · Free
+                <div className="sm:hidden mb-6 flex w-full flex-col gap-2.5">
+                  <Link
+                    href="/udaipur/launch-offer"
+                    className="flex w-full items-center gap-3 rounded-2xl bg-[#14532d] px-4 py-3.5 text-white shadow-[0_10px_28px_rgba(20,83,45,0.28)]"
+                  >
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#b6e86a] shadow-[0_0_0_6px_rgba(182,232,106,0.18)]" />
+                    <span className="min-w-0 flex-1 text-left">
+                      <span className="block text-[11px] font-black uppercase tracking-[0.14em] text-[#b6e86a]">
+                        Udaipur · Free
+                      </span>
+                      <span className="mt-0.5 block text-[17px] font-extrabold leading-tight">
+                        Launch offer is open
+                      </span>
+                      <span className="mt-0.5 block text-xs font-medium text-white/75">
+                        Claim a free gym membership
+                      </span>
                     </span>
-                    <span className="mt-0.5 block text-[17px] font-extrabold leading-tight">
-                      Launch offer is open
+                    <ArrowRight className="h-5 w-5 shrink-0" />
+                  </Link>
+                  <Link
+                    href="/launch-game"
+                    className="flex w-full items-center gap-3 rounded-2xl bg-[#3a2a08] px-4 py-3.5 text-white shadow-[0_10px_28px_rgba(58,42,8,0.28)]"
+                  >
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#f0c14a] shadow-[0_0_0_6px_rgba(240,193,74,0.18)]" />
+                    <span className="min-w-0 flex-1 text-left">
+                      <span className="block text-[11px] font-black uppercase tracking-[0.14em] text-[#f0c14a]">
+                        One try · Free
+                      </span>
+                      <span className="mt-0.5 block text-[17px] font-extrabold leading-tight">
+                        Play the Challenge
+                      </span>
+                      <span className="mt-0.5 block text-xs font-medium text-white/75">
+                        One game against ZonoFit
+                      </span>
                     </span>
-                    <span className="mt-0.5 block text-xs font-medium text-white/75">
-                      Claim a free gym membership
-                    </span>
-                  </span>
-                  <ArrowRight className="h-5 w-5 shrink-0" />
-                </Link>
+                    <ArrowRight className="h-5 w-5 shrink-0" />
+                  </Link>
+                </div>
 
                 {/* Tag Pill */}
                 <div className="inline-flex items-center px-4 py-1.5 rounded-full bg-[#cde8af] text-[#204712] text-xs sm:text-sm font-bold tracking-tight mb-6">
@@ -627,6 +647,13 @@ export default function LandingPage() {
                     className="w-full sm:w-auto px-7 py-4 rounded-2xl bg-[#a1d942] hover:bg-[#b2e850] text-[#122409] font-extrabold text-base transition-all duration-200 shadow-lg hover:shadow-[#a1d942]/20 hover:scale-[1.02] flex items-center justify-center gap-2.5"
                   >
                     <span>Claim Free Launch Offer</span>
+                    <ArrowRight className="w-4 h-4 stroke-[2.5]" />
+                  </Link>
+                  <Link
+                    href="/launch-game"
+                    className="w-full sm:w-auto px-7 py-4 rounded-2xl bg-[#e0a100] hover:bg-[#f0c14a] text-[#1c1400] font-extrabold text-base transition-all duration-200 shadow-lg hover:scale-[1.02] flex items-center justify-center gap-2.5"
+                  >
+                    <span>Play the Challenge</span>
                     <ArrowRight className="w-4 h-4 stroke-[2.5]" />
                   </Link>
                   <a

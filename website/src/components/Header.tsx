@@ -63,10 +63,38 @@ export default function Header() {
           >
             FAQ
           </Link>
+          <Link
+            href="/launch-game"
+            className="xl:hidden text-[#8a6408] hover:text-[#1c1400] transition-colors"
+          >
+            Play the Challenge
+          </Link>
         </nav>
 
-        {/* Right CTA Button: Launch Offer */}
-        <div className="hidden sm:flex items-center shrink-0">
+        {/* Right CTAs: Lucky Challenge and Launch Offer */}
+        <div className="hidden sm:flex items-center gap-2 shrink-0">
+          <Link
+            href="/launch-game"
+            className="md:hidden inline-flex items-center rounded-xl bg-gradient-to-r from-[#c4920a] to-[#e0a100] px-3 py-2 text-[12px] font-extrabold uppercase tracking-wide text-[#1c1400] shadow-[0_4px_14px_rgba(224,161,0,0.35)]"
+          >
+            Play the Challenge
+          </Link>
+          <Link
+            href="/launch-game"
+            className="hidden xl:flex group relative overflow-hidden rounded-xl bg-gradient-to-r from-[#c4920a] via-[#e0a100] to-[#f2c14b] hover:from-[#b8860b] hover:via-[#d49600] hover:to-[#e8b423] px-3.5 py-2 text-left shadow-[0_4px_14px_rgba(224,161,0,0.35)] hover:shadow-[0_6px_20px_rgba(224,161,0,0.45)] transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0 border border-[#f6d56a]/50 flex-col justify-center"
+          >
+            <div className="flex items-center gap-1.5 leading-tight">
+              <span className="text-[14px] font-extrabold uppercase tracking-wide text-[#1c1400] drop-shadow-sm">
+                Play the Challenge
+              </span>
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-black bg-black/15 text-[#1c1400] tracking-wider">
+                FREE
+              </span>
+            </div>
+            <span className="text-[11px] font-medium text-[#3d2e08]/80 leading-tight mt-0.5 group-hover:text-[#1c1400] transition-colors">
+              One game against ZonoFit →
+            </span>
+          </Link>
           <Link
             href="/udaipur/launch-offer"
             className="group relative overflow-hidden rounded-xl bg-gradient-to-r from-emerald-600 via-[#38a129] to-emerald-500 hover:from-emerald-700 hover:via-[#2f8822] hover:to-emerald-600 px-4 py-2 text-left shadow-[0_4px_14px_rgba(22,163,74,0.32)] hover:shadow-[0_6px_20px_rgba(22,163,74,0.45)] transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0 border border-emerald-400/30 flex flex-col justify-center"
