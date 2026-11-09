@@ -69,42 +69,52 @@ export default function LandingPage() {
               
               {/* Left Column: Hero Copy */}
               <div className="lg:col-span-6 flex flex-col items-start">
-                <div className="sm:hidden mb-6 flex w-full flex-col gap-2.5">
+                {/* Hero Launch Announcement Banners */}
+                <div className="mb-6 flex w-full max-w-lg flex-col gap-2.5">
+                  {/* 1. Launch Offer Card */}
                   <Link
                     href="/udaipur/launch-offer"
-                    className="flex w-full items-center gap-3 rounded-2xl bg-[#14532d] px-4 py-3.5 text-white shadow-[0_10px_28px_rgba(20,83,45,0.28)]"
+                    className="group flex w-full items-center gap-3.5 rounded-2xl bg-gradient-to-r from-[#14532d] via-[#165b32] to-[#1a6639] px-4 py-3.5 text-white shadow-[0_8px_20px_rgba(20,83,45,0.20)] hover:shadow-[0_12px_28px_rgba(20,83,45,0.30)] transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 border border-emerald-400/20"
                   >
-                    <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#b6e86a] shadow-[0_0_0_6px_rgba(182,232,106,0.18)]" />
+                    <span className="relative flex h-2.5 w-2.5 shrink-0">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#b6e86a] opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#b6e86a]" />
+                    </span>
                     <span className="min-w-0 flex-1 text-left">
-                      <span className="block text-[11px] font-black uppercase tracking-[0.14em] text-[#b6e86a]">
-                        Udaipur · Free
+                      <span className="block text-[10.5px] font-black uppercase tracking-[0.14em] text-[#b6e86a]">
+                        Udaipur · Free Launch Offer
                       </span>
-                      <span className="mt-0.5 block text-[17px] font-extrabold leading-tight">
+                      <span className="mt-0.5 block text-[16px] font-extrabold leading-tight text-white">
                         Launch offer is open
                       </span>
-                      <span className="mt-0.5 block text-xs font-medium text-white/75">
-                        Claim a free gym membership
+                      <span className="mt-0.5 block text-xs font-medium text-white/80">
+                        Claim a free gym membership →
                       </span>
                     </span>
-                    <ArrowRight className="h-5 w-5 shrink-0" />
+                    <ArrowRight className="h-4.5 w-4.5 shrink-0 text-white/70 group-hover:text-white group-hover:translate-x-1 transition-all" />
                   </Link>
+
+                  {/* 2. Play the Challenge Card (Below the Launch Offer) */}
                   <Link
                     href="/launch-game"
-                    className="flex w-full items-center gap-3 rounded-2xl bg-[#3a2a08] px-4 py-3.5 text-white shadow-[0_10px_28px_rgba(58,42,8,0.28)]"
+                    className="group flex w-full items-center gap-3.5 rounded-2xl bg-gradient-to-r from-[#2c1f06] via-[#3a2a08] to-[#45320c] px-4 py-3.5 text-white shadow-[0_8px_20px_rgba(58,42,8,0.22)] hover:shadow-[0_12px_28px_rgba(58,42,8,0.32)] transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 border border-[#f0c14a]/30"
                   >
-                    <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#f0c14a] shadow-[0_0_0_6px_rgba(240,193,74,0.18)]" />
+                    <span className="relative flex h-2.5 w-2.5 shrink-0">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#f0c14a] opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#f0c14a]" />
+                    </span>
                     <span className="min-w-0 flex-1 text-left">
-                      <span className="block text-[11px] font-black uppercase tracking-[0.14em] text-[#f0c14a]">
-                        One try · Free
+                      <span className="block text-[10.5px] font-black uppercase tracking-[0.14em] text-[#f0c14a]">
+                        One try · Free Mini Game
                       </span>
-                      <span className="mt-0.5 block text-[17px] font-extrabold leading-tight">
+                      <span className="mt-0.5 block text-[16px] font-extrabold leading-tight text-[#fef3c7]">
                         Play the Challenge
                       </span>
-                      <span className="mt-0.5 block text-xs font-medium text-white/75">
-                        One game against ZonoFit
+                      <span className="mt-0.5 block text-xs font-medium text-white/80">
+                        One game against ZonoFit · Win free credits →
                       </span>
                     </span>
-                    <ArrowRight className="h-5 w-5 shrink-0" />
+                    <ArrowRight className="h-4.5 w-4.5 shrink-0 text-[#f0c14a] group-hover:translate-x-1 transition-all" />
                   </Link>
                 </div>
 
