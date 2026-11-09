@@ -1,6 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.parseApplication = parseApplication;
 const express_1 = require("express");
+const launchSheet_1 = require("../lib/launchSheet");
 const mail_1 = require("../lib/mail");
 const rateLimit_1 = require("../lib/rateLimit");
 const router = (0, express_1.Router)();
@@ -113,15 +115,11 @@ function clientKey(req) {
     const raw = (first || req.ip || "unknown").trim();
     return raw.replace(/[^\w.:-]/g, "").slice(0, 64) || "unknown";
 }
-const DEFAULT_SHEET_URL = "https://docs.google.com/spreadsheets/d/1HmMrKW35BYsgGBHdcF4XVxUtKn-ikQ4GRJHittKNh30/edit?usp=sharing";
-const DEFAULT_SHEET_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbyALASJmd9MZ8HNqvvMTzleZkOEX6p4ZW588B2d5u8Nrujsx8uCpuZWzMcDTyJDawtl/exec";
 function applicationMessage(application) {
     const gymLine = application.gym || "(not listed)";
     const requested = application.customGym || "—";
     const instagram = application.instagram ? `@${application.instagram}` : "—";
-    const sheetUrl = (process.env.LAUNCH_OFFER_SHEET_URL ||
-        process.env.GOOGLE_SHEET_URL ||
-        DEFAULT_SHEET_URL).trim();
+    const sheetUrl = (0, launchSheet_1.launchSheetPageUrl)();
     const lines = [
         "Udaipur launch offer",
         "zonofit.com/udaipur/launch-offer",
@@ -141,44 +139,11 @@ function applicationMessage(application) {
     }
     return lines.join("\n");
 }
-/**
- * Appends the new submission to a connected Google Sheet via Google Apps Script Web App.
- * Non-blocking and never throws to the client.
- */
+/** Appends the new submission to the existing Google Sheet. No database row. */
 async function appendToGoogleSheet(application) {
-    const webhookUrl = (process.env.LAUNCH_OFFER_SHEET_WEBHOOK_URL ||
-        process.env.GOOGLE_SHEET_WEBHOOK_URL ||
-        DEFAULT_SHEET_WEBHOOK_URL).trim();
-    if (!webhookUrl)
-        return;
-    try {
-        const payload = {
-            timestamp: new Date().toISOString(),
-            name: application.name,
-            phone: `+91${application.phone}`,
-            age: application.age,
-            sex: application.sex,
-            gym: application.gym || "(not listed)",
-            customGym: application.customGym || "—",
-            instagram: application.instagram ? `@${application.instagram}` : "—",
-            source: "launch-udaipur",
-        };
-        const res = await fetch(webhookUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-            redirect: "follow",
-        });
-        if (!res.ok) {
-            console.warn(`[Launch] Google Sheet webhook returned HTTP ${res.status}`);
-        }
-        else {
-            console.log(`[Launch] Form response synced to Google Sheet for ${application.name}`);
-        }
-    }
-    catch (err) {
-        console.error("[Launch] Failed to sync to Google Sheet:", err instanceof Error ? err.message : "error");
-    }
+    const saved = await (0, launchSheet_1.appendLaunchRow)(application, { source: "launch-udaipur" });
+    if (saved)
+        console.log("[Launch] Form response synced to Google Sheet");
 }
 /** Public application for the Udaipur launch page. Email + Google Sheet. No database row. */
 router.post("/", async (req, res) => {

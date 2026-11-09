@@ -78,6 +78,29 @@ const SEX = ["Male", "Female", "Other"] as const;
 type Errors = Partial<Record<"name" | "phone" | "age" | "sex" | "gym", string>>;
 type Sent = { firstName: string; gym: string };
 
+export type LaunchOfferSubmission = {
+  firstName: string;
+  name: string;
+  phone: string;
+  age: number;
+  sex: string;
+  gym: string;
+  customGym: string;
+  instagram: string;
+  pid?: string;
+  skipSave?: boolean;
+};
+
+type LaunchOfferFormProps = {
+  embed?: boolean;
+  endpointPath?: string;
+  source?: string;
+  submitLabel?: string;
+  panelTitle?: string;
+  panelNote?: string;
+  onSuccess?: (sent: LaunchOfferSubmission) => void;
+};
+
 function Confetti() {
   const ref = useRef<HTMLCanvasElement>(null);
 
@@ -283,7 +306,15 @@ function SuccessPage({ sent, onClose }: { sent: Sent; onClose: () => void }) {
   );
 }
 
-export default function LaunchOfferForm() {
+export default function LaunchOfferForm({
+  embed = false,
+  endpointPath = "/api/launch-offer",
+  source = "launch-udaipur",
+  submitLabel = "Apply for free membership",
+  panelTitle = "Claim your spot",
+  panelNote = "Free. Udaipur only. Limited seats.",
+  onSuccess,
+}: LaunchOfferFormProps = {}) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [age, setAge] = useState("");
@@ -334,7 +365,22 @@ export default function LaunchOfferForm() {
   async function submit() {
     if (sending || done) return;
     setFail("");
+    const submission = (): LaunchOfferSubmission => ({
+      firstName: name.trim().split(/\s+/)[0] || "there",
+      name: name.trim(),
+      phone: phone.trim(),
+      age: Number(age) || 0,
+      sex,
+      gym: custom ? "" : gym,
+      customGym: custom ? customGym.trim() : "",
+      instagram: instagram.trim().replace(/^@+/, ""),
+    });
+
     if (website.trim()) {
+      if (onSuccess) {
+        onSuccess({ ...submission(), skipSave: true });
+        return;
+      }
       setDone({ firstName: name.trim().split(/\s+/)[0] || "there", gym: custom ? customGym.trim() : gym });
       return;
     }
@@ -348,11 +394,11 @@ export default function LaunchOfferForm() {
 
     setSending(true);
     try {
-      const response = await fetch(`${API}/api/launch-offer`, {
+      const response = await fetch(`${API}${endpointPath}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          source: "launch-udaipur",
+          source,
           name: name.trim(),
           phone: phone.trim(),
           age: Number(age),
@@ -363,10 +409,14 @@ export default function LaunchOfferForm() {
           website,
         }),
       });
-      const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+      const payload = (await response.json().catch(() => null)) as { message?: string; pid?: string } | null;
       if (!response.ok) {
         setFail(payload?.message || "Could not send. Check your network and try again.");
         setSending(false);
+        return;
+      }
+      if (onSuccess) {
+        onSuccess({ ...submission(), pid: payload?.pid });
         return;
       }
       setDone({ firstName: name.trim().split(/\s+/)[0] || "there", gym: custom ? customGym.trim() : gym });
@@ -387,7 +437,7 @@ export default function LaunchOfferForm() {
   return (
     <>
     {done && mounted ? createPortal(<SuccessPage sent={done} onClose={() => { window.location.href = "/"; }} />, document.body) : null}
-    <section className="lu" aria-labelledby="lu-h">
+    <section className={embed ? "lu lu-embed" : "lu"} aria-labelledby={embed ? undefined : "lu-h"}>
       {/* Top Navigation Bar with Back to zonofit.com button */}
       <div className="lu-topbar">
         <a href="https://zonofit.com" className="lu-top-brand" title="ZonoFit Home">
@@ -424,7 +474,7 @@ export default function LaunchOfferForm() {
       </div>
 
       <div className="lu-wrap">
-        <div>
+        <div className="lu-intro">
           <span className="lu-eyebrow"><span className="lu-dot" />Launch offer · Udaipur</span>
           <h2 id="lu-h">Train free.<br /><em>Tell us what worked.</em></h2>
           <p className="lu-sub">
@@ -445,8 +495,8 @@ export default function LaunchOfferForm() {
 
         <div className="lu-panel">
           <div id="lu-form" onKeyDown={onKeyDown}>
-            <h3>Claim your spot</h3>
-            <p className="lu-p">Free. Udaipur only. Limited seats.</p>
+            <h3>{panelTitle}</h3>
+            <p className="lu-p">{panelNote}</p>
 
             <div className="lu-f">
               <label htmlFor="lu-name">Name</label>
@@ -679,7 +729,7 @@ export default function LaunchOfferForm() {
             />
             <div className="lu-err lu-fail">{fail}</div>
             <button className="lu-btn lu-pri" type="button" disabled={sending} onClick={() => void submit()}>
-              {sending ? "Sending…" : "Apply for free membership"}
+              {sending ? "Sending…" : submitLabel}
             </button>
             <p className="lu-fine">No payment. Your details are used only for this offer.</p>
           </div>

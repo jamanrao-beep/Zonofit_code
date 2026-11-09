@@ -24,6 +24,7 @@ import rolesRouter from "./routes/roles";
 import userRoutes from "./routes/users";
 import feedbackRoutes from "./routes/feedback";
 import launchOfferRoutes from "./routes/launchOffer";
+import launchGameRoutes from "./routes/launchGame";
 import challengesRoutes from "./routes/challenges";
 import adminRoutes from "./routes/admin";
 import trialGymsRouter from "./routes/trial-gyms";
@@ -178,6 +179,7 @@ app.use("/api/content", contentRouter);
 
 app.use("/api/feedback", feedbackRoutes);
 app.use("/api/launch-offer", launchOfferRoutes);
+app.use("/api/launch-game", launchGameRoutes);
 app.use("/api/admin", adminRoutes);
 
 // ─── 404 & Error Handling ──────────────────────────────────────────────────────

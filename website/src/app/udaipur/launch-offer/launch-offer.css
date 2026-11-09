@@ -222,6 +222,25 @@
   border: 1px solid rgba(74, 222, 128, 0.22);
 }
 
+.lu.lu-embed {
+  min-height: 0;
+  background: transparent;
+  padding: 0;
+  overflow: visible;
+  color: inherit;
+}
+
+.lu.lu-embed .lu-topbar,
+.lu.lu-embed .lu-intro {
+  display: none;
+}
+
+.lu.lu-embed .lu-wrap {
+  display: block;
+  max-width: none;
+  margin: 0;
+}
+
 .lu-panel {
   background: #fff;
   color: var(--ink);

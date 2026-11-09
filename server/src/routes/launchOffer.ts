@@ -1,4 +1,5 @@
 import { Request, Response, Router } from "express";
+import { appendLaunchRow, launchSheetPageUrl } from "../lib/launchSheet";
 import { sendInboxNotice } from "../lib/mail";
 import { rateLimit } from "../lib/rateLimit";
 
@@ -53,7 +54,7 @@ const GYM_NAMES = [
 
 const SEX = ["Male", "Female", "Other"] as const;
 
-type Application = {
+export type Application = {
   name: string;
   phone: string;
   age: number;
@@ -82,7 +83,7 @@ function indianMobile(value: unknown): string | null {
   return /^[6-9]\d{9}$/.test(local) ? local : null;
 }
 
-function parseApplication(body: unknown): { ok: true; application: Application } | { ok: false; message: string } {
+export function parseApplication(body: unknown): { ok: true; application: Application } | { ok: false; message: string } {
   const input = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
   const name = oneLine(input.name, 80);
   if (name.length < 2) return { ok: false, message: "Enter your name" };
@@ -136,21 +137,11 @@ function clientKey(req: Request): string {
   return raw.replace(/[^\w.:-]/g, "").slice(0, 64) || "unknown";
 }
 
-const DEFAULT_SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/1HmMrKW35BYsgGBHdcF4XVxUtKn-ikQ4GRJHittKNh30/edit?usp=sharing";
-
-const DEFAULT_SHEET_WEBHOOK_URL =
-  "https://script.google.com/macros/s/AKfycbyALASJmd9MZ8HNqvvMTzleZkOEX6p4ZW588B2d5u8Nrujsx8uCpuZWzMcDTyJDawtl/exec";
-
 function applicationMessage(application: Application): string {
   const gymLine = application.gym || "(not listed)";
   const requested = application.customGym || "—";
   const instagram = application.instagram ? `@${application.instagram}` : "—";
-  const sheetUrl = (
-    process.env.LAUNCH_OFFER_SHEET_URL ||
-    process.env.GOOGLE_SHEET_URL ||
-    DEFAULT_SHEET_URL
-  ).trim();
+  const sheetUrl = launchSheetPageUrl();
 
   const lines = [
     "Udaipur launch offer",
@@ -174,46 +165,10 @@ function applicationMessage(application: Application): string {
   return lines.join("\n");
 }
 
-/**
- * Appends the new submission to a connected Google Sheet via Google Apps Script Web App.
- * Non-blocking and never throws to the client.
- */
+/** Appends the new submission to the existing Google Sheet. No database row. */
 async function appendToGoogleSheet(application: Application): Promise<void> {
-  const webhookUrl = (
-    process.env.LAUNCH_OFFER_SHEET_WEBHOOK_URL ||
-    process.env.GOOGLE_SHEET_WEBHOOK_URL ||
-    DEFAULT_SHEET_WEBHOOK_URL
-  ).trim();
-  if (!webhookUrl) return;
-
-  try {
-    const payload = {
-      timestamp: new Date().toISOString(),
-      name: application.name,
-      phone: `+91${application.phone}`,
-      age: application.age,
-      sex: application.sex,
-      gym: application.gym || "(not listed)",
-      customGym: application.customGym || "—",
-      instagram: application.instagram ? `@${application.instagram}` : "—",
-      source: "launch-udaipur",
-    };
-
-    const res = await fetch(webhookUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      redirect: "follow",
-    });
-
-    if (!res.ok) {
-      console.warn(`[Launch] Google Sheet webhook returned HTTP ${res.status}`);
-    } else {
-      console.log(`[Launch] Form response synced to Google Sheet for ${application.name}`);
-    }
-  } catch (err: unknown) {
-    console.error("[Launch] Failed to sync to Google Sheet:", err instanceof Error ? err.message : "error");
-  }
+  const saved = await appendLaunchRow(application, { source: "launch-udaipur" });
+  if (saved) console.log("[Launch] Form response synced to Google Sheet");
 }
 
 /** Public application for the Udaipur launch page. Email + Google Sheet. No database row. */
