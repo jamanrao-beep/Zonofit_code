@@ -93,48 +93,17 @@ export default function Header() {
 
       {/* Mobile Menu Dropdown */}
       {mobileMenuOpen && (
-        <div className="md:hidden bg-white/95 backdrop-blur-xl border-b border-gray-200 px-6 py-5 flex flex-col gap-3 shadow-xl">
-          <div className="flex flex-col gap-1 py-1">
-            {navLinks.map((link) => (
-              <Link
-                key={link.label}
-                href={link.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className="text-base font-semibold text-gray-800 hover:text-emerald-700 hover:bg-emerald-50/60 px-3 py-2.5 rounded-xl transition-all"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </div>
-          
-          <div className="pt-2 border-t border-gray-100">
+        <div className="md:hidden bg-white/95 backdrop-blur-xl border-b border-gray-200 px-6 py-5 flex flex-col gap-1 shadow-xl">
+          {navLinks.map((link) => (
             <Link
-              href="/udaipur/launch-offer"
+              key={link.label}
+              href={link.href}
               onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center justify-between rounded-xl bg-gradient-to-r from-emerald-600 to-[#27984d] p-3.5 text-white shadow-md active:scale-[0.99] transition-transform"
+              className="text-base font-semibold text-gray-800 hover:text-emerald-700 hover:bg-emerald-50/60 px-3 py-2.5 rounded-xl transition-all"
             >
-              <div className="flex items-center gap-2.5">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
-                </span>
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-extrabold uppercase tracking-wide">
-                      Launch Offer
-                    </span>
-                    <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-white/20 text-white border border-white/20">
-                      FREE
-                    </span>
-                  </div>
-                  <span className="text-xs text-emerald-100 font-medium">
-                    Claim your free membership offer
-                  </span>
-                </div>
-              </div>
-              <ArrowRight className="h-4 w-4 text-white" />
+              {link.label}
             </Link>
-          </div>
+          ))}
         </div>
       )}
     </header>
