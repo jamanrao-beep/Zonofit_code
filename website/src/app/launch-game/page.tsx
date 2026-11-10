@@ -3,7 +3,7 @@ import LaunchGame from "./LaunchGame";
 
 export const metadata: Metadata = {
   title: "ZonoFit Lucky Challenge",
-  description: "Play one Lines and Dots game, then send your level and result to ZonoFit on WhatsApp.",
+  description: "Flip the tiles, dodge the bomb, and climb the ZonoFit Lucky Challenge.",
 };
 
 export default function LaunchGamePage() {
