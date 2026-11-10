@@ -4,6 +4,7 @@ const crypto_1 = require("crypto");
 const express_1 = require("express");
 const launchGameEntries_1 = require("../lib/launchGameEntries");
 const launchGameResult_1 = require("../lib/launchGameResult");
+const launchReferral_1 = require("../lib/launchReferral");
 const launchSheet_1 = require("../lib/launchSheet");
 const mail_1 = require("../lib/mail");
 const otpStore_1 = require("../lib/otpStore");
@@ -214,6 +215,7 @@ router.post("/result", async (req, res) => {
         const level = typeof req.body?.level === "number" ? req.body.level : Number(oneLine(req.body?.level, 2));
         const stage = typeof req.body?.stage === "number" ? req.body.stage : Number(oneLine(req.body?.stage, 2));
         let summary = "";
+        let prizeCode = "";
         let settledOutcome = outcome;
         let settledYou = null;
         let settledZonofit = null;
@@ -226,6 +228,7 @@ router.post("/result", async (req, res) => {
                 return;
             }
             const code = tileCode(req.body?.code, settled.outcome);
+            prizeCode = code;
             summary = (0, launchGameResult_1.tileResultLine)(settled.stage, settled.outcome, settled.reward, code);
             settledOutcome = settled.outcome;
             settledReward = settled.reward;
@@ -271,6 +274,25 @@ router.post("/result", async (req, res) => {
                 savedResults.add(application.phone);
                 res.status(409).json({ error: "AlreadySaved", message: "This result is already saved." });
                 return;
+            }
+            const tenths = (0, launchReferral_1.rewardPercentTenths)(settledReward);
+            if (prizeCode && tenths !== null) {
+                try {
+                    await (0, launchReferral_1.noteLaunchReferralCode)({
+                        code: prizeCode,
+                        phone: application.phone,
+                        percentTenths: tenths,
+                        reward: settledReward,
+                    });
+                }
+                catch (noteErr) {
+                    console.error("[LaunchGame] Could not note the referral code.", safeError(noteErr));
+                    res.status(503).json({
+                        error: "SheetUnavailable",
+                        message: "We could not save the result. Try again in a minute.",
+                    });
+                    return;
+                }
             }
             const row = { ...application, customGym: summary };
             const saved = await (0, launchSheet_1.appendLaunchRow)(row, {

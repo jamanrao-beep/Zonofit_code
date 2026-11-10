@@ -6,6 +6,7 @@ import path from "path";
 import prisma from "../lib/prisma";
 import { normalizePhone } from "../lib/phone";
 import { requireAuth } from "../middleware/auth";
+import { launchReferralForUser, noteLaunchReferralUse, resolveReferral } from "../lib/launchReferral";
 import { generateUniqueReferralCode } from "../lib/referral";
 import { verifyOTP } from "../lib/otpStore";
 
@@ -142,6 +143,7 @@ router.get(
         ]);
 
         const creditsEarned = completedReferrals * 5;
+        const launchReferral = await launchReferralForUser(user.id);
 
         // Keep user model stats in sync with real verified visits
         if (user.totalWorkouts !== totalWorkouts) {
@@ -160,7 +162,9 @@ router.get(
             name: user.name,
             phone: user.phone,
             dob: formatDob(user.dob),
-            referralApplied: !!user.referredByUserId,
+            referralApplied: !!user.referredByUserId || !!launchReferral,
+            referralPercent: launchReferral?.percent ?? null,
+            referralCodeUsed: launchReferral?.code ?? null,
             avatarUrl: user.avatarUrl,
             referralCode: userReferralCode,
             createdAt: user.createdAt,
@@ -265,26 +269,14 @@ router.get(
 );
 
 // ─── POST /api/users/referral/apply ───────────────────────────────────────────
-// Stores who invited this member. It does not add credits.
+// Stores a friend referral, or a challenge code and its percent. It does not add credits.
 router.post(
     "/referral/apply",
     requireAuth,
     async (req: Request, res: Response): Promise<void> => {
-        const code = typeof req.body?.code === "string" ? req.body.code.trim().toUpperCase() : "";
-        if (!code || code.length > 32) {
+        const code = typeof req.body?.code === "string" ? req.body.code : "";
+        if (!code.trim()) {
             res.status(400).json({ error: "InvalidCode", message: "Enter a referral code." });
-            return;
-        }
-        const referrer = await prisma.user.findUnique({
-            where: { referralCode: code },
-            select: { id: true },
-        });
-        if (!referrer) {
-            res.status(404).json({ error: "InvalidCode", message: "That referral code isn't valid." });
-            return;
-        }
-        if (referrer.id === req.dbUserId) {
-            res.status(400).json({ error: "InvalidCode", message: "You can't use your own referral code." });
             return;
         }
         const me = await prisma.user.findUnique({
@@ -295,15 +287,30 @@ router.post(
             res.status(404).json({ error: "UserNotFound", message: "Account not found." });
             return;
         }
-        if (me.referredByUserId) {
-            res.json({ applied: true, already: true });
+        const alreadyNoted = await launchReferralForUser(req.dbUserId!);
+        if (me.referredByUserId || alreadyNoted) {
+            res.json({ applied: true, already: true, percent: alreadyNoted?.percent ?? null });
             return;
         }
-        await prisma.user.update({
-            where: { id: req.dbUserId! },
-            data: { referredByUserId: referrer.id },
-        });
-        res.json({ applied: true });
+        const resolved = await resolveReferral(code);
+        if (resolved.kind === "none") {
+            res.status(404).json({ error: "InvalidCode", message: "That referral code isn't valid." });
+            return;
+        }
+        if (resolved.kind === "friend") {
+            if (resolved.userId === req.dbUserId) {
+                res.status(400).json({ error: "InvalidCode", message: "You can't use your own referral code." });
+                return;
+            }
+            await prisma.user.update({
+                where: { id: req.dbUserId! },
+                data: { referredByUserId: resolved.userId },
+            });
+            res.json({ applied: true });
+            return;
+        }
+        await noteLaunchReferralUse(req.dbUserId!, resolved.code, resolved.percentTenths);
+        res.json({ applied: true, percent: resolved.percent });
     }
 );
 

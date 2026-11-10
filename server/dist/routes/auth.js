@@ -12,6 +12,7 @@ const phone_1 = require("../lib/phone");
 const sms_1 = require("../lib/sms");
 const mail_1 = require("../lib/mail");
 const otpStore_1 = require("../lib/otpStore");
+const launchReferral_1 = require("../lib/launchReferral");
 const referral_1 = require("../lib/referral");
 const rateLimit_1 = require("../lib/rateLimit");
 const auth_1 = require("../middleware/auth");
@@ -246,12 +247,13 @@ router.post("/verify", auth_1.optionalAuth, [
             where: { name: "Premium" },
         });
         let referredByUserId = undefined;
+        let launchReferral = null;
         if (inputRefCode && typeof inputRefCode === "string") {
-            const referrer = await prisma_1.default.user.findUnique({
-                where: { referralCode: inputRefCode.trim().toUpperCase() },
-            });
-            if (referrer) {
-                referredByUserId = referrer.id;
+            const resolved = await (0, launchReferral_1.resolveReferral)(inputRefCode);
+            if (resolved.kind === "friend")
+                referredByUserId = resolved.userId;
+            if (resolved.kind === "launch") {
+                launchReferral = { code: resolved.code, percentTenths: resolved.percentTenths };
             }
         }
         const uniqueReferralCode = await (0, referral_1.generateUniqueReferralCode)();
@@ -283,6 +285,14 @@ router.post("/verify", auth_1.optionalAuth, [
                 return;
             }
             throw err;
+        }
+        if (launchReferral && user) {
+            try {
+                await (0, launchReferral_1.noteLaunchReferralUse)(user.id, launchReferral.code, launchReferral.percentTenths);
+            }
+            catch {
+                console.error("[Auth] Could not store the launch referral.");
+            }
         }
     }
     // Generate custom JWT token
@@ -346,12 +356,13 @@ router.post("/google", async (req, res) => {
             }
         }
         let referredByUserId = undefined;
-        if (inputRefCode && typeof inputRefCode === "string") {
-            const referrer = await prisma_1.default.user.findUnique({
-                where: { referralCode: inputRefCode.trim().toUpperCase() },
-            });
-            if (referrer) {
-                referredByUserId = referrer.id;
+        let launchReferral = null;
+        if (!existingUser && inputRefCode && typeof inputRefCode === "string") {
+            const resolved = await (0, launchReferral_1.resolveReferral)(inputRefCode);
+            if (resolved.kind === "friend")
+                referredByUserId = resolved.userId;
+            if (resolved.kind === "launch") {
+                launchReferral = { code: resolved.code, percentTenths: resolved.percentTenths };
             }
         }
         const uniqueReferralCode = await (0, referral_1.generateUniqueReferralCode)();
@@ -375,6 +386,14 @@ router.post("/google", async (req, res) => {
             },
             include: { wallet: true, membership: true },
         });
+        if (launchReferral) {
+            try {
+                await (0, launchReferral_1.noteLaunchReferralUse)(user.id, launchReferral.code, launchReferral.percentTenths);
+            }
+            catch {
+                console.error("[Auth] Could not store the launch referral.");
+            }
+        }
         const token = (0, jwt_1.signToken)({ dbUserId: user.id });
         const hasMembership = !!user.membership;
         const hasPrimaryGym = !!(user.membership && user.membership.primaryGymId);

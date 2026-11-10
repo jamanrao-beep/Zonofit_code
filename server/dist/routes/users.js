@@ -10,6 +10,7 @@ const fs_1 = __importDefault(require("fs"));
 const prisma_1 = __importDefault(require("../lib/prisma"));
 const phone_1 = require("../lib/phone");
 const auth_1 = require("../middleware/auth");
+const launchReferral_1 = require("../lib/launchReferral");
 const referral_1 = require("../lib/referral");
 const otpStore_1 = require("../lib/otpStore");
 function parseDob(value) {
@@ -136,6 +137,7 @@ router.get("/me", auth_1.requireAuth, async (req, res) => {
         }),
     ]);
     const creditsEarned = completedReferrals * 5;
+    const launchReferral = await (0, launchReferral_1.launchReferralForUser)(user.id);
     // Keep user model stats in sync with real verified visits
     if (user.totalWorkouts !== totalWorkouts) {
         await prisma_1.default.user.update({
@@ -152,7 +154,9 @@ router.get("/me", auth_1.requireAuth, async (req, res) => {
         name: user.name,
         phone: user.phone,
         dob: formatDob(user.dob),
-        referralApplied: !!user.referredByUserId,
+        referralApplied: !!user.referredByUserId || !!launchReferral,
+        referralPercent: launchReferral?.percent ?? null,
+        referralCodeUsed: launchReferral?.code ?? null,
         avatarUrl: user.avatarUrl,
         referralCode: userReferralCode,
         createdAt: user.createdAt,
@@ -249,21 +253,9 @@ router.get("/referral", auth_1.requireAuth, async (req, res) => {
 // ─── POST /api/users/referral/apply ───────────────────────────────────────────
 // Stores who invited this member. It does not add credits.
 router.post("/referral/apply", auth_1.requireAuth, async (req, res) => {
-    const code = typeof req.body?.code === "string" ? req.body.code.trim().toUpperCase() : "";
-    if (!code || code.length > 32) {
+    const code = typeof req.body?.code === "string" ? req.body.code : "";
+    if (!code.trim()) {
         res.status(400).json({ error: "InvalidCode", message: "Enter a referral code." });
-        return;
-    }
-    const referrer = await prisma_1.default.user.findUnique({
-        where: { referralCode: code },
-        select: { id: true },
-    });
-    if (!referrer) {
-        res.status(404).json({ error: "InvalidCode", message: "That referral code isn't valid." });
-        return;
-    }
-    if (referrer.id === req.dbUserId) {
-        res.status(400).json({ error: "InvalidCode", message: "You can't use your own referral code." });
         return;
     }
     const me = await prisma_1.default.user.findUnique({
@@ -274,15 +266,30 @@ router.post("/referral/apply", auth_1.requireAuth, async (req, res) => {
         res.status(404).json({ error: "UserNotFound", message: "Account not found." });
         return;
     }
-    if (me.referredByUserId) {
-        res.json({ applied: true, already: true });
+    const alreadyNoted = await (0, launchReferral_1.launchReferralForUser)(req.dbUserId);
+    if (me.referredByUserId || alreadyNoted) {
+        res.json({ applied: true, already: true, percent: alreadyNoted?.percent ?? null });
         return;
     }
-    await prisma_1.default.user.update({
-        where: { id: req.dbUserId },
-        data: { referredByUserId: referrer.id },
-    });
-    res.json({ applied: true });
+    const resolved = await (0, launchReferral_1.resolveReferral)(code);
+    if (resolved.kind === "none") {
+        res.status(404).json({ error: "InvalidCode", message: "That referral code isn't valid." });
+        return;
+    }
+    if (resolved.kind === "friend") {
+        if (resolved.userId === req.dbUserId) {
+            res.status(400).json({ error: "InvalidCode", message: "You can't use your own referral code." });
+            return;
+        }
+        await prisma_1.default.user.update({
+            where: { id: req.dbUserId },
+            data: { referredByUserId: resolved.userId },
+        });
+        res.json({ applied: true });
+        return;
+    }
+    await (0, launchReferral_1.noteLaunchReferralUse)(req.dbUserId, resolved.code, resolved.percentTenths);
+    res.json({ applied: true, percent: resolved.percent });
 });
 // ─── PATCH /api/users/me ──────────────────────────────────────────────────────
 /**

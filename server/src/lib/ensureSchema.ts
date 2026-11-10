@@ -107,6 +107,22 @@ const STATEMENTS = [
     \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     PRIMARY KEY (\`phone\`)
   ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
+  `CREATE TABLE IF NOT EXISTS \`launch_referral_codes\` (
+    \`code\` VARCHAR(16) NOT NULL,
+    \`phone\` VARCHAR(10) NOT NULL,
+    \`percentTenths\` INTEGER NOT NULL,
+    \`reward\` VARCHAR(32) NOT NULL,
+    \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    PRIMARY KEY (\`code\`, \`phone\`),
+    KEY \`launch_referral_codes_code\` (\`code\`)
+  ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
+  `CREATE TABLE IF NOT EXISTS \`launch_referral_uses\` (
+    \`userId\` VARCHAR(191) NOT NULL,
+    \`code\` VARCHAR(16) NOT NULL,
+    \`percentTenths\` INTEGER NOT NULL,
+    \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    PRIMARY KEY (\`userId\`)
+  ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
 ];
 
 function safeDbMessage(err: unknown): string {

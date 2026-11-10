@@ -7,6 +7,7 @@ import { normalizePhone } from "../lib/phone";
 import { sendOTP } from "../lib/sms";
 import { createEmailCode, emailOtpKey, sendEmailOTP } from "../lib/mail";
 import { EMAIL_OTP_TTL_MINUTES, deleteOTP, emailResendWaitSeconds, setOTP, verifyOTP } from "../lib/otpStore";
+import { noteLaunchReferralUse, resolveReferral } from "../lib/launchReferral";
 import { generateUniqueReferralCode } from "../lib/referral";
 import { rateLimit } from "../lib/rateLimit";
 import { optionalAuth, requireAuth } from "../middleware/auth";
@@ -286,12 +287,12 @@ router.post(
       });
 
       let referredByUserId: string | undefined = undefined;
+      let launchReferral: { code: string; percentTenths: number } | null = null;
       if (inputRefCode && typeof inputRefCode === "string") {
-        const referrer = await prisma.user.findUnique({
-          where: { referralCode: inputRefCode.trim().toUpperCase() },
-        });
-        if (referrer) {
-          referredByUserId = referrer.id;
+        const resolved = await resolveReferral(inputRefCode);
+        if (resolved.kind === "friend") referredByUserId = resolved.userId;
+        if (resolved.kind === "launch") {
+          launchReferral = { code: resolved.code, percentTenths: resolved.percentTenths };
         }
       }
 
@@ -324,6 +325,13 @@ router.post(
           return;
         }
         throw err;
+      }
+      if (launchReferral && user) {
+        try {
+          await noteLaunchReferralUse(user.id, launchReferral.code, launchReferral.percentTenths);
+        } catch {
+          console.error("[Auth] Could not store the launch referral.");
+        }
       }
     }
 
@@ -399,12 +407,12 @@ router.post("/google", async (req: Request, res: Response): Promise<void> => {
     }
 
     let referredByUserId: string | undefined = undefined;
-    if (inputRefCode && typeof inputRefCode === "string") {
-      const referrer = await prisma.user.findUnique({
-        where: { referralCode: inputRefCode.trim().toUpperCase() },
-      });
-      if (referrer) {
-        referredByUserId = referrer.id;
+    let launchReferral: { code: string; percentTenths: number } | null = null;
+    if (!existingUser && inputRefCode && typeof inputRefCode === "string") {
+      const resolved = await resolveReferral(inputRefCode);
+      if (resolved.kind === "friend") referredByUserId = resolved.userId;
+      if (resolved.kind === "launch") {
+        launchReferral = { code: resolved.code, percentTenths: resolved.percentTenths };
       }
     }
 
@@ -430,6 +438,14 @@ router.post("/google", async (req: Request, res: Response): Promise<void> => {
       },
       include: { wallet: true, membership: true },
     });
+
+    if (launchReferral) {
+      try {
+        await noteLaunchReferralUse(user.id, launchReferral.code, launchReferral.percentTenths);
+      } catch {
+        console.error("[Auth] Could not store the launch referral.");
+      }
+    }
 
     const token = signToken({ dbUserId: user.id });
 

@@ -8,6 +8,7 @@ import {
   saveLaunchGameResult,
 } from "../lib/launchGameEntries";
 import { boxesOnLevel, challengeResultLine, knownLevel, settleChallenge, settleTileRun, tileResultLine } from "../lib/launchGameResult";
+import { noteLaunchReferralCode, rewardPercentTenths } from "../lib/launchReferral";
 import {
   appendLaunchRow,
   rememberPhone,
@@ -235,6 +236,7 @@ router.post("/result", async (req: Request, res: Response): Promise<void> => {
     const level = typeof req.body?.level === "number" ? req.body.level : Number(oneLine(req.body?.level, 2));
     const stage = typeof req.body?.stage === "number" ? req.body.stage : Number(oneLine(req.body?.stage, 2));
     let summary = "";
+    let prizeCode = "";
     let settledOutcome: (typeof OUTCOMES)[number] = outcome;
     let settledYou: number | null = null;
     let settledZonofit: number | null = null;
@@ -247,6 +249,7 @@ router.post("/result", async (req: Request, res: Response): Promise<void> => {
         return;
       }
       const code = tileCode(req.body?.code, settled.outcome);
+      prizeCode = code;
       summary = tileResultLine(settled.stage, settled.outcome, settled.reward, code);
       settledOutcome = settled.outcome;
       settledReward = settled.reward;
@@ -292,6 +295,25 @@ router.post("/result", async (req: Request, res: Response): Promise<void> => {
         savedResults.add(application.phone);
         res.status(409).json({ error: "AlreadySaved", message: "This result is already saved." });
         return;
+      }
+
+      const tenths = rewardPercentTenths(settledReward);
+      if (prizeCode && tenths !== null) {
+        try {
+          await noteLaunchReferralCode({
+            code: prizeCode,
+            phone: application.phone,
+            percentTenths: tenths,
+            reward: settledReward,
+          });
+        } catch (noteErr: unknown) {
+          console.error("[LaunchGame] Could not note the referral code.", safeError(noteErr));
+          res.status(503).json({
+            error: "SheetUnavailable",
+            message: "We could not save the result. Try again in a minute.",
+          });
+          return;
+        }
       }
 
       const row: Application = { ...application, customGym: summary };
