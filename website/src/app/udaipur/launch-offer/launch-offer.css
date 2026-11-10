@@ -718,31 +718,183 @@
   cursor: wait;
 }
 
-.lu-otp {
+.lu-ph-row {
   display: flex;
   gap: 8px;
   align-items: stretch;
-  margin-top: 10px;
 }
 
-.lu-otp .lu-in {
+.lu-ph-row .lu-ph {
   flex: 1;
   min-width: 0;
 }
 
-.lu-btn.lu-send {
+.lu-send-btn {
   width: auto;
   flex: 0 0 auto;
   margin-top: 0;
-  padding: 14px 16px;
+  padding: 12px 18px;
+  border-radius: 14px;
+  border: 0;
   background: #111413;
   color: #fff;
+  font-weight: 700;
+  font-size: 14px;
   white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 
-.lu-btn.lu-send:disabled {
+.lu-send-btn:hover:not(:disabled) {
+  background: #232b27;
+  transform: translateY(-1px);
+}
+
+.lu-send-btn:disabled {
   opacity: 0.6;
   cursor: wait;
+}
+
+.lu-otp-box {
+  margin-top: 10px;
+  padding: 14px;
+  background: #f4f8f5;
+  border: 1.5px solid #d9e6dc;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: luFadeIn 0.25s ease;
+}
+
+@keyframes luFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.lu-otp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12.5px;
+  color: #1f7a3f;
+  font-weight: 600;
+}
+
+.lu-otp-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.lu-otp-row .lu-in {
+  flex: 1;
+  min-width: 0;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 4px;
+  text-align: center;
+}
+
+.lu-verify-btn {
+  width: auto;
+  flex: 0 0 auto;
+  padding: 12px 20px;
+  border-radius: 14px;
+  border: 0;
+  background: #16a34a;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 14px;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25);
+  transition: all 0.15s ease;
+}
+
+.lu-verify-btn:hover:not(:disabled) {
+  background: #15803d;
+  transform: translateY(-1px);
+}
+
+.lu-verify-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.lu-otp-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--mut);
+}
+
+.lu-resend-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: #16a34a;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.lu-resend-link:hover {
+  color: #15803d;
+}
+
+.lu-resend-link:disabled {
+  color: var(--mut);
+  text-decoration: none;
+  cursor: not-allowed;
+}
+
+.lu-verified-badge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 15px;
+  background: #e8f7ed;
+  border: 1.5px solid #a7f3d0;
+  border-radius: 14px;
+  margin-top: 8px;
+  animation: luFadeIn 0.25s ease;
+}
+
+.lu-verified-text {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #15803d;
+}
+
+.lu-verified-change {
+  background: none;
+  border: 0;
+  padding: 4px 8px;
+  color: #15803d;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.lu-verified-change:hover {
+  color: #0d5e2a;
 }
 
 .lu-fine {

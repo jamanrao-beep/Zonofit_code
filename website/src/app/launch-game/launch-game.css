@@ -230,6 +230,20 @@
 .zg-in:focus { border-color: var(--g); box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.18); }
 .zg-err { color: var(--bad); font-size: 13px; font-weight: 700; min-height: 18px; margin-top: 8px; }
 .zg-glass.lockd { opacity: 0.4; pointer-events: none; filter: saturate(0.5); }
+.zg-stack { display: grid; gap: 10px; }
+.zg-save { color: #b45309; font-size: 13px; font-weight: 700; margin-top: 10px; }
+.zg-glass .zg-label { margin-top: 16px; }
+.zg-shot {
+  margin-top: 16px; border-radius: 26px; padding: 18px 16px 16px; text-align: center;
+  background: #fff; color: #064e3b; border: 1px solid var(--line);
+  box-shadow: 0 20px 50px -26px rgba(5, 150, 105, 0.55);
+}
+.zg-shot-top { display: flex; justify-content: space-between; font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #059669; }
+.zg-shot b { display: block; margin: 14px 0 4px; font-size: 40px; letter-spacing: -0.05em; line-height: 1; }
+.zg-shot .who { font-weight: 800; margin-top: 12px; }
+.zg-shot .gym { color: var(--mute); font-weight: 700; font-size: 14px; margin-top: 2px; }
+.zg-shot .zg-code { background: #ecfdf5; border-color: #6ee7b7; color: #064e3b; margin-top: 8px; font-size: 20px; }
+.zg-shot .zg-note { color: #065f46; }
 
 .zg-scr { position: relative; height: 150px; border-radius: 26px; overflow: hidden; box-shadow: 0 24px 50px -24px #059669; }
 .zg-scr .u { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; background: linear-gradient(135deg, #064e3b, #059669 60%, #84cc16); color: #fff; }

@@ -81,3 +81,25 @@ export async function verifyOTP(phone: string, code: string): Promise<boolean> {
   await prisma.$executeRaw`UPDATE otp_codes SET attempts = attempts + 1 WHERE phone = ${phone}`;
   return false;
 }
+
+/** Validates a code without deleting it so subsequent registration can still verify it. */
+export async function checkOTP(phone: string, code: string): Promise<boolean> {
+  await purgeStaleOtps();
+  const rows = await prisma.$queryRaw<Array<{ codeHash: string; expiresAt: Date; attempts: number | bigint }>>`
+    SELECT codeHash, expiresAt, attempts FROM otp_codes WHERE phone = ${phone} LIMIT 1
+  `;
+  const record = rows[0];
+  if (!record) return false;
+
+  const expired = new Date(record.expiresAt).getTime() <= Date.now();
+  if (expired || Number(record.attempts) >= 5) {
+    return false;
+  }
+
+  if (hashesMatch(hashCode(code), record.codeHash)) {
+    return true;
+  }
+
+  await prisma.$executeRaw`UPDATE otp_codes SET attempts = attempts + 1 WHERE phone = ${phone}`;
+  return false;
+}

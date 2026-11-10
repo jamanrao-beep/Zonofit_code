@@ -82,6 +82,35 @@ router.post("/otp", async (req, res) => {
         res.status(503).json({ error: "SMSFailed", message: "We could not send the code. Try again in a minute." });
     }
 });
+/** Verifies a 4-digit code for the challenge form without consuming it immediately. */
+router.post("/verify-otp", async (req, res) => {
+    try {
+        if (honeypot(req)) {
+            res.json({ ok: true, verified: true });
+            return;
+        }
+        const phone = gamePhone(req.body?.phone);
+        if (!phone) {
+            res.status(400).json({ error: "InvalidPhone", message: "Enter a valid 10-digit mobile number." });
+            return;
+        }
+        const otp = String(req.body?.otp ?? "").replace(/\D/g, "").slice(0, 8);
+        if (!/^\d{4}$/.test(otp)) {
+            res.status(400).json({ error: "InvalidCode", message: "Enter the 4-digit code." });
+            return;
+        }
+        const verified = await (0, otpStore_1.checkOTP)(otpKey(phone), otp);
+        if (!verified) {
+            res.status(400).json({ error: "InvalidCode", message: "That code is wrong or expired. Request a new one." });
+            return;
+        }
+        res.json({ ok: true, verified: true });
+    }
+    catch (err) {
+        console.error("[LaunchGame] Could not verify the code.", safeError(err));
+        res.status(500).json({ error: "ServerError", message: "Could not verify the code. Try again." });
+    }
+});
 /** Public registration. The phone is stored once in MySQL, then the sheet row is appended. */
 router.post("/", async (req, res) => {
     try {

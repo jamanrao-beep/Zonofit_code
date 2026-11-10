@@ -11,7 +11,10 @@ export declare function settleChallenge(level: number, outcome: ChallengeOutcome
 /** Ladder labels. Stage 0 is 1%. The last two stages are free time, not a percent. */
 export declare const TILE_LADDER: readonly ["1%", "2%", "4%", "8%", "16%", "32%", "64%", "1 month free", "3 months free"];
 export declare function tileRewardLabel(stage: number): string | null;
-/** Records the tile the screen showed. The campaign rule for who can reach a stage comes later. */
+/**
+ * 1%, 2%, 4%, and 8% are kept as wins.
+ * 16% can be kept. A miss there, and every stage from 32% up, is the 12.5% gift.
+ */
 export declare function settleTileRun(stage: number, outcome: ChallengeOutcome): {
     outcome: ChallengeOutcome;
     stage: number;

@@ -9,6 +9,7 @@ exports.deleteOTP = deleteOTP;
 exports.purgeStaleOtps = purgeStaleOtps;
 exports.setOTP = setOTP;
 exports.verifyOTP = verifyOTP;
+exports.checkOTP = checkOTP;
 const crypto_1 = require("crypto");
 const prisma_1 = __importDefault(require("./prisma"));
 function hashCode(code) {
@@ -80,6 +81,25 @@ async function verifyOTP(phone, code) {
     }
     if (hashesMatch(hashCode(code), record.codeHash)) {
         await prisma_1.default.$executeRaw `DELETE FROM otp_codes WHERE phone = ${phone}`;
+        return true;
+    }
+    await prisma_1.default.$executeRaw `UPDATE otp_codes SET attempts = attempts + 1 WHERE phone = ${phone}`;
+    return false;
+}
+/** Validates a code without deleting it so subsequent registration can still verify it. */
+async function checkOTP(phone, code) {
+    await purgeStaleOtps();
+    const rows = await prisma_1.default.$queryRaw `
+    SELECT codeHash, expiresAt, attempts FROM otp_codes WHERE phone = ${phone} LIMIT 1
+  `;
+    const record = rows[0];
+    if (!record)
+        return false;
+    const expired = new Date(record.expiresAt).getTime() <= Date.now();
+    if (expired || Number(record.attempts) >= 5) {
+        return false;
+    }
+    if (hashesMatch(hashCode(code), record.codeHash)) {
         return true;
     }
     await prisma_1.default.$executeRaw `UPDATE otp_codes SET attempts = attempts + 1 WHERE phone = ${phone}`;

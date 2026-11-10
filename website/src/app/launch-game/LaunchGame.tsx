@@ -6,6 +6,8 @@ import "./launch-game.css";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "https://api.zonofit.com";
 const INSTA = "https://www.instagram.com/zonofit.app/";
+const INSTA_DM = "https://ig.me/m/zonofit.app";
+const WHATSAPP = "919694979694";
 const KEY = "zonofit_launch_game_v1";
 
 /** Keep this list in sync with TILE_LADDER in server/src/lib/launchGameResult.ts */
@@ -26,9 +28,33 @@ type Saved = LaunchOfferSubmission & { realStarted?: boolean; result?: TileResul
 
 const hiddenTiles = (): Tile[] => [0, 1, 2, 3].map(() => ({ flip: false, face: "hidden", ghost: false, locked: false }));
 
-function rewardLabel(stage: number): string {
-  const label = LADDER[stage] ?? "";
-  return stage < 7 ? `${label} off next plan` : label;
+function keptReward(stage: number, outcome: "win" | "loss"): string {
+  if (outcome === "loss" || stage >= 5) return "12.5% OFF";
+  return `${LADDER[stage]} OFF`;
+}
+
+function gymLabel(entry: Saved): string {
+  return entry.customGym.trim() || entry.gym || "ZonoFit";
+}
+
+function shotMessage(entry: Saved, result: TileResult): string {
+  return [
+    "Hi ZonoFit, I played the Lucky Challenge.",
+    `Name: ${entry.name}`,
+    `Gym: ${gymLabel(entry)}`,
+    `Prize: ${result.reward}`,
+    `Code: ${result.code}`,
+    "The screenshot of my card is in this chat.",
+  ].join("\n");
+}
+
+type Fate = "safe" | "bomb" | "random";
+
+/** 1% through 8% clear. 16% clears one time in four. 32% and after does not clear. */
+function fateFor(stage: number): Fate {
+  if (stage <= 3) return "safe";
+  if (stage === 4) return Math.random() < 0.25 ? "safe" : "bomb";
+  return "bomb";
 }
 
 function makeCode(): string {
@@ -206,7 +232,7 @@ function TileFace({ tile, onClick }: { tile: Tile; onClick?: () => void }) {
   );
 }
 
-function ScratchCard({ code, onClear }: { code: string; onClear: () => void }) {
+function ScratchCard({ prize, code, onClear }: { prize: string; code: string; onClear: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const onClearRef = useRef(onClear);
@@ -293,7 +319,7 @@ function ScratchCard({ code, onClear }: { code: string; onClear: () => void }) {
 
   return (
     <div className="zg-scr" ref={wrapRef}>
-      <div className="u"><div><span>ZONOFIT GIFT</span><b>12.5% OFF</b><span>{code}</span></div></div>
+      <div className="u"><div><span>ZONOFIT GIFT</span><b>{prize}</b><span>{code}</span></div></div>
       <canvas ref={canvasRef} />
     </div>
   );
@@ -314,12 +340,15 @@ export default function LaunchGame() {
   const [toast, setToast] = useState("");
   const [handle, setHandle] = useState("");
   const [handleError, setHandleError] = useState("");
-  const [scratchOpen, setScratchOpen] = useState(false);
-  const [restoredLoss, setRestoredLoss] = useState(false);
+  const [revealed, setRevealed] = useState(false);
+  const [saveTry, setSaveTry] = useState(0);
+  const [saveNote, setSaveNote] = useState("");
   const savedRef = useRef<Saved | null>(null);
+  const toastTimer = useRef(0);
   const stageRef = useRef(0);
   const practiceRef = useRef(false);
   const bombRef = useRef(0);
+  const fateRef = useRef<Fate>("random");
   const busyRef = useRef(false);
   const roundRef = useRef(0);
   const ladderRef = useRef<HTMLDivElement>(null);
@@ -331,9 +360,10 @@ export default function LaunchGame() {
     if (nextPhase) setPhase(nextPhase);
   }
 
-  function showToast(message: string) {
+  function showToast(message: string, duration = 1800) {
     setToast(message);
-    window.setTimeout(() => setToast(""), 1800);
+    window.clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => setToast(""), duration);
   }
 
   function finish(outcome: "win" | "loss") {
@@ -346,27 +376,26 @@ export default function LaunchGame() {
       return;
     }
     const stageNow = stageRef.current;
+    const settled: "win" | "loss" = stageNow <= 3 ? "win" : stageNow >= 5 ? "loss" : outcome;
     const next: Saved = {
       ...current,
       result: {
-        outcome,
+        outcome: settled,
         stage: stageNow,
-        reward: outcome === "loss" ? "12.5% OFF" : rewardLabel(stageNow),
-        code: outcome === "loss" ? "ZONO125" : makeCode(),
+        reward: keptReward(stageNow, settled),
+        code: settled === "loss" ? "ZONO125" : makeCode(),
         posted: false,
       },
     };
-    commit(next, outcome === "win" ? "win" : "lose");
-    if (outcome === "win") {
-      confetti();
-      sWin();
-    }
+    setRevealed(false);
+    commit(next, settled === "win" ? "win" : "lose");
   }
 
   function deal() {
     roundRef.current += 1;
     busyRef.current = false;
     setShake(false);
+    fateRef.current = practiceRef.current ? "random" : fateFor(stageRef.current);
     bombRef.current = Math.floor(Math.random() * 4);
     setTiles(hiddenTiles());
     setPop(false);
@@ -403,26 +432,32 @@ export default function LaunchGame() {
       }
       return;
     }
-    if (stageNow === LADDER.length - 1) {
-      confetti();
-      sWin();
-      setSheet({
-        title: "Jackpot cleared",
-        big: LADDER[stageNow],
-        body: "You beat all 9 stages. Take it.",
-        actions: [{ label: `Claim ${LADDER[stageNow]}`, primary: true, run: () => finish("win") }],
-      });
+    if (stageNow >= 5) {
+      finish("loss");
       return;
     }
+    const nextLabel = LADDER[stageNow + 1];
     setSheet({
       title: `Stage ${stageNow + 1} cleared`,
       big: LADDER[stageNow],
-      body: `Next stage: ${LADDER[stageNow + 1]}. 1 in 4 tiles is a bomb. A bomb ends the run and opens a scratch card.`,
+      body: nextLabel
+        ? `Take ${LADDER[stageNow]} home, or risk it for ${nextLabel}.`
+        : `Take ${LADDER[stageNow]} home.`,
       actions: [
         { label: `Claim ${LADDER[stageNow]}`, primary: false, run: () => finish("win") },
-        { label: `Double or nothing · ${LADDER[stageNow + 1]}`, primary: true, run: openNext },
+        ...(nextLabel ? [{ label: `Double or nothing · ${nextLabel}`, primary: true, run: openNext }] : []),
       ],
     });
+  }
+
+  function hitAt(index: number): { bomb: boolean; bombAt: number } {
+    const fate = fateRef.current;
+    if (fate === "bomb") return { bomb: true, bombAt: index };
+    if (fate === "safe") {
+      const others = [0, 1, 2, 3].filter((spot) => spot !== index);
+      return { bomb: false, bombAt: others[Math.floor(Math.random() * others.length)] };
+    }
+    return { bomb: index === bombRef.current, bombAt: bombRef.current };
   }
 
   function pick(index: number) {
@@ -430,8 +465,7 @@ export default function LaunchGame() {
     busyRef.current = true;
     snd.init();
     sFlip();
-    const bomb = bombRef.current;
-    const isBomb = index === bomb;
+    const { bomb: isBomb, bombAt } = hitAt(index);
     const round = roundRef.current;
     setTiles((current) => current.map((tile, tileIndex) => {
       if (tileIndex === index) return { flip: true, face: isBomb ? "bomb" : "safe", ghost: false, locked: true };
@@ -441,7 +475,7 @@ export default function LaunchGame() {
       if (round !== roundRef.current) return;
       setTiles((current) => current.map((tile, tileIndex) => {
         if (tileIndex === index) return tile;
-        return { flip: true, face: tileIndex === bomb ? "bomb" : "safe", ghost: true, locked: true };
+        return { flip: true, face: tileIndex === bombAt ? "bomb" : "safe", ghost: true, locked: true };
       }));
       if (isBomb) {
         sBoom();
@@ -502,7 +536,7 @@ export default function LaunchGame() {
       }, "closed");
     } else {
       commit(stored, phaseFor(stored));
-      if (stored?.result?.outcome === "loss") setRestoredLoss(true);
+      if (stored?.result?.outcome === "win" || stored?.result?.outcome === "loss") setRevealed(true);
     }
     setReady(true);
   }, []);
@@ -574,10 +608,15 @@ export default function LaunchGame() {
       if (response.ok || response.status === 409) {
         const latest = savedRef.current;
         if (latest?.result && !latest.result.posted) commit({ ...latest, result: { ...latest.result, posted: true } });
+        setSaveNote("");
+        return;
       }
-    }).catch(() => undefined);
+      setSaveNote("Not saved yet. Message ZonoFit and we will try again.");
+    }).catch(() => {
+      if (!cancel) setSaveNote("Not saved yet. Message ZonoFit and we will try again.");
+    });
     return () => { cancel = true; };
-  }, [ready, saved]);
+  }, [ready, saved, saveTry]);
 
   function follow(event: ReactMouseEvent<HTMLAnchorElement>) {
     const value = handle.trim().replace(/^@+/, "");
@@ -608,6 +647,65 @@ export default function LaunchGame() {
       return;
     }
     window.open(`https://wa.me/?text=${encodeURIComponent(`${data.text} ${data.url}`)}`, "_blank", "noopener,noreferrer");
+  }
+
+  async function shareCard() {
+    const entry = savedRef.current;
+    const card = entry?.result;
+    if (!entry || !card) {
+      share();
+      return;
+    }
+    snd.init();
+    tap();
+    const canvas = document.createElement("canvas");
+    canvas.width = 1080;
+    canvas.height = 1350;
+    const context = canvas.getContext("2d");
+    if (!context) {
+      showToast("Screenshot the card and send it in the chat.", 3200);
+      return;
+    }
+    const paint = context.createLinearGradient(0, 0, 1080, 1350);
+    paint.addColorStop(0, "#064e3b");
+    paint.addColorStop(0.62, "#059669");
+    paint.addColorStop(1, "#84cc16");
+    context.fillStyle = paint;
+    context.fillRect(0, 0, 1080, 1350);
+    context.fillStyle = "rgba(255,255,255,0.92)";
+    context.font = "800 42px sans-serif";
+    context.fillText("ZONOFIT", 80, 150);
+    context.font = "700 32px sans-serif";
+    context.fillText("LUCKY CHALLENGE", 80, 210);
+    context.fillStyle = "#ffffff";
+    context.font = "800 108px sans-serif";
+    context.fillText(card.reward, 80, 520);
+    context.font = "800 64px ui-monospace, monospace";
+    context.fillText(card.code, 80, 680);
+    context.font = "800 48px sans-serif";
+    const name = entry.name.length > 28 ? `${entry.name.slice(0, 26)}…` : entry.name;
+    const gym = gymLabel(entry);
+    context.fillText(name, 80, 880);
+    context.font = "700 36px sans-serif";
+    context.fillText(gym.length > 36 ? `${gym.slice(0, 34)}…` : gym, 80, 950);
+    context.font = "600 30px sans-serif";
+    context.fillText("Show this card when the app launches", 80, 1180);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+    const text = shotMessage(entry, card);
+    if (!blob) {
+      showToast("Screenshot the card and send it in the chat.", 3200);
+      return;
+    }
+    const file = new File([blob], "zonofit-lucky-challenge.png", { type: "image/png" });
+    if (navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: "ZonoFit Lucky Challenge", text });
+      } catch {
+        /* the player closed the share sheet */
+      }
+      return;
+    }
+    showToast("Screenshot the card above and send it in the ZonoFit chat.", 3600);
   }
 
   if (!ready) return <div className="zg" />;
@@ -698,7 +796,7 @@ export default function LaunchGame() {
                 <small>{practice ? "Practice round" : "Playing for"}</small>
                 <div className={`zg-pf zg-gt${pop ? " pop" : ""}`}>{playingFor}</div>
               </div>
-              <div className="zg-risk">{practice ? `Practice · ${Math.min(stage + 1, 2)} of 2` : `Stage ${stage + 1} · 1 in 4 is a bomb`}</div>
+              <div className="zg-risk">{practice ? `Practice · ${Math.min(stage + 1, 2)} of 2` : `Stage ${stage + 1}`}</div>
             </div>
             <div className="zg-ladder" ref={ladderRef}>
               {LADDER.map((label, index) => {
@@ -720,57 +818,94 @@ export default function LaunchGame() {
           </section>
         ) : null}
 
-        {phase === "win" && result ? (
+        {(phase === "win" || phase === "lose") && result && saved ? (
           <section className="zg-screen">
-            <div className="zg-pill"><i />You won</div>
-            <h2 className="zg-h2">Congrats <span className="zg-gt">{saved?.name}</span></h2>
-            <div className="zg-tkt">
-              <small>YOUR REWARD</small>
-              <div className="zg-big">{result.reward}</div>
-              <div className="zg-code">{result.code}</div>
-              <div className="zg-note">Works when the ZonoFit app launches</div>
-            </div>
-            <div className="zg-glass">
-              <label className="zg-label" htmlFor="zg-ig">Instagram username</label>
-              <input id="zg-ig" className="zg-in" placeholder="@yourhandle" value={handle} onChange={(event) => setHandle(event.target.value)} />
-              <div className="zg-err">{handleError}</div>
-              <a className="zg-btn" href={INSTA} target="_blank" rel="noopener noreferrer" onClick={follow}>Follow @zonofit.app &amp; lock reward</a>
-              <div className="zg-row">
-                <a className="zg-btn alt" href="https://zonofit.com" target="_blank" rel="noopener noreferrer">Visit website</a>
-                <button className="zg-btn alt" type="button" onClick={share}>Share</button>
-              </div>
-              <div className="zg-row"><button className="zg-btn alt" type="button" onClick={() => copyCode(result.code)}>Copy code</button></div>
-            </div>
-          </section>
-        ) : null}
-
-        {phase === "lose" && result ? (
-          <section className="zg-screen">
-            <div className="zg-pill"><i />Plot twist</div>
-            <h2 className="zg-h2">Boom. But you&apos;re <span className="zg-gt">not leaving empty</span>.</h2>
-            <p className="zg-lead">Scratch your card to reveal a gift.</p>
-            {restoredLoss || scratchOpen ? (
-              <div className="zg-scr"><div className="u"><div><span>ZONOFIT GIFT</span><b>12.5% OFF</b><span>{result.code || "ZONO125"}</span></div></div></div>
+            <div className="zg-pill"><i />{result.outcome === "win" ? "You held on" : "Plot twist"}</div>
+            <h2 className="zg-h2">
+              {result.outcome === "win" ? (
+                <>Nice one, <span className="zg-gt">{saved.name}</span></>
+              ) : (
+                <>Boom. But you&apos;re <span className="zg-gt">not leaving empty</span>.</>
+              )}
+            </h2>
+            <p className="zg-lead">
+              {revealed
+                ? "Screenshot the card, then send it to ZonoFit on WhatsApp and Instagram."
+                : "Scratch your card to reveal the prize you kept."}
+            </p>
+            {revealed ? (
+              <div className="zg-scr"><div className="u"><div><span>ZONOFIT GIFT</span><b>{result.reward}</b><span>{result.code}</span></div></div></div>
             ) : (
               <ScratchCard
-                code={result.code || "ZONO125"}
+                prize={result.reward}
+                code={result.code}
                 onClear={() => {
-                  setScratchOpen(true);
+                  setRevealed(true);
                   sWin();
                   confetti();
                 }}
               />
             )}
-            <div className="zg-hint">{restoredLoss || scratchOpen ? "Unlocked. Claim below." : "Scratch with your finger"}</div>
-            <div className={`zg-glass${restoredLoss || scratchOpen ? "" : " lockd"}`}>
-              <label className="zg-label" htmlFor="zg-ig2">Instagram handle to claim</label>
-              <input id="zg-ig2" className="zg-in" placeholder="@yourhandle" value={handle} onChange={(event) => setHandle(event.target.value)} />
+            <div className="zg-hint">{revealed ? "Card open. Send the screenshot below." : "Scratch with your finger"}</div>
+            {revealed ? (
+              <div className="zg-shot">
+                <div className="zg-shot-top"><span>ZonoFit</span><span>Lucky Challenge</span></div>
+                <b>{result.reward}</b>
+                <div className="zg-code">{result.code}</div>
+                <div className="who">{saved.name}</div>
+                <div className="gym">{gymLabel(saved)}</div>
+                <div className="zg-note">Show this card when the ZonoFit app launches</div>
+              </div>
+            ) : null}
+            <div className={`zg-glass${revealed ? "" : " lockd"}`}>
+              <div className="zg-stack">
+                <a
+                  className="zg-btn"
+                  href={`https://wa.me/${WHATSAPP}?text=${encodeURIComponent(shotMessage(saved, result))}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(event) => {
+                    if (!revealed) {
+                      event.preventDefault();
+                      return;
+                    }
+                    snd.init();
+                    tap();
+                    if (!saved.skipSave && !result.posted) setSaveTry((count) => count + 1);
+                    showToast("WhatsApp is open. Screenshot the card and send it in the chat. The link cannot attach the picture.", 4200);
+                  }}
+                >
+                  DM ZonoFit on WhatsApp
+                </a>
+                <a
+                  className="zg-btn alt"
+                  href={INSTA_DM}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(event) => {
+                    if (!revealed) {
+                      event.preventDefault();
+                      return;
+                    }
+                    snd.init();
+                    tap();
+                    void navigator.clipboard?.writeText(shotMessage(saved, result)).catch(() => undefined);
+                    showToast("Instagram is open. Screenshot the card and send it in the ZonoFit DM. The message is copied so you can paste it.", 4200);
+                  }}
+                >
+                  DM ZonoFit on Instagram
+                </a>
+              </div>
+              {saveNote ? <div className="zg-save">{saveNote}</div> : null}
+              <label className="zg-label" htmlFor="zg-ig">Instagram username</label>
+              <input id="zg-ig" className="zg-in" placeholder="@yourhandle" value={handle} onChange={(event) => setHandle(event.target.value)} />
               <div className="zg-err">{handleError}</div>
-              <a className="zg-btn" href={INSTA} target="_blank" rel="noopener noreferrer" onClick={follow}>Follow @zonofit.app &amp; claim</a>
+              <a className="zg-btn alt" href={INSTA} target="_blank" rel="noopener noreferrer" onClick={follow}>Follow @zonofit.app</a>
               <div className="zg-row">
                 <a className="zg-btn alt" href="https://zonofit.com" target="_blank" rel="noopener noreferrer">Visit website</a>
-                <button className="zg-btn alt" type="button" onClick={share}>Share</button>
+                <button className="zg-btn alt" type="button" onClick={() => { void shareCard(); }}>Share card</button>
               </div>
+              <div className="zg-row"><button className="zg-btn alt" type="button" onClick={() => copyCode(result.code)}>Copy code</button></div>
             </div>
           </section>
         ) : null}

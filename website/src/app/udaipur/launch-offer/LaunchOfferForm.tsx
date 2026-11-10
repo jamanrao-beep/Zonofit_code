@@ -322,6 +322,10 @@ export default function LaunchOfferForm({
   const [code, setCode] = useState("");
   const [codePhone, setCodePhone] = useState("");
   const [sendingCode, setSendingCode] = useState(false);
+  const [verifyingCode, setVerifyingCode] = useState(false);
+  const [isVerified, setIsVerified] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [resendCountdown, setResendCountdown] = useState(0);
   const [age, setAge] = useState("");
   const [sex, setSex] = useState("");
   const [query, setQuery] = useState("");
@@ -340,6 +344,14 @@ export default function LaunchOfferForm({
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (resendCountdown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCountdown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCountdown]);
 
   const filteredLive = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -364,8 +376,11 @@ export default function LaunchOfferForm({
     if (!sex) next.sex = "Pick one";
     if (custom ? customGym.trim().length < 3 : !gym) next.gym = "Pick a gym or tell us yours";
     if (verifyPhone) {
-      if (codePhone !== phone.trim()) next.otp = "Send a code to this number";
-      else if (!/^\d{4}$/.test(code.trim())) next.otp = "Enter the 4-digit code";
+      if (!isVerified) {
+        next.otp = otpSent ? "Please click 'Verify OTP' to verify your code" : "Please enter your number and click 'Send OTP'";
+      } else if (!/^\d{4}$/.test(code.trim())) {
+        next.otp = "Enter the 4-digit code";
+      }
     }
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -388,6 +403,8 @@ export default function LaunchOfferForm({
       const payload = (await response.json().catch(() => null)) as { message?: string } | null;
       if (website.trim()) {
         setCodePhone(phone.trim());
+        setOtpSent(true);
+        setResendCountdown(30);
         return;
       }
       if (!response.ok) {
@@ -396,11 +413,53 @@ export default function LaunchOfferForm({
       }
       setCodePhone(phone.trim());
       setCode("");
+      setOtpSent(true);
+      setIsVerified(false);
+      setResendCountdown(30);
       setErrors((prev) => ({ ...prev, phone: undefined, otp: undefined }));
     } catch {
       setFail("Could not send the code. Check your network and try again.");
     } finally {
       setSendingCode(false);
+    }
+  }
+
+  async function verifyCode() {
+    if (verifyingCode || isVerified) return;
+    setFail("");
+    if (!/^\d{4}$/.test(code.trim())) {
+      setErrors((prev) => ({ ...prev, otp: "Enter the 4-digit code" }));
+      return;
+    }
+    setVerifyingCode(true);
+    try {
+      if (website.trim()) {
+        setIsVerified(true);
+        setErrors((prev) => ({ ...prev, otp: undefined }));
+        return;
+      }
+      const response = await fetch(`${API}${endpointPath}/verify-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: phone.trim(), otp: code.trim(), website }),
+      });
+      const payload = (await response.json().catch(() => null)) as { message?: string; verified?: boolean } | null;
+      if (response.ok && payload?.verified !== false) {
+        setIsVerified(true);
+        setErrors((prev) => ({ ...prev, otp: undefined }));
+        return;
+      }
+      if (response.status === 404) {
+        // Fallback for live server before reload; real OTP verified upon form submit
+        setIsVerified(true);
+        setErrors((prev) => ({ ...prev, otp: undefined }));
+        return;
+      }
+      setErrors((prev) => ({ ...prev, otp: payload?.message || "Invalid or expired code. Please try again." }));
+    } catch {
+      setErrors((prev) => ({ ...prev, otp: "Could not verify code. Check connection and try again." }));
+    } finally {
+      setVerifyingCode(false);
     }
   }
 
@@ -473,9 +532,18 @@ export default function LaunchOfferForm({
     const target = event.target as HTMLElement;
     if (event.key === "Enter" && target.tagName === "INPUT" && target.id !== "lu-q") {
       event.preventDefault();
-      if (verifyPhone && target.id === "lu-phone") {
-        void sendCode();
-        return;
+      if (verifyPhone) {
+        if (target.id === "lu-phone" && !otpSent && !isVerified) {
+          void sendCode();
+          return;
+        }
+        if (target.id === "lu-otp" && !isVerified) {
+          void verifyCode();
+          return;
+        }
+        if (!isVerified) {
+          return;
+        }
       }
       void submit();
     }
@@ -560,28 +628,87 @@ export default function LaunchOfferForm({
 
             <div className="lu-f">
               <label htmlFor="lu-phone">Mobile number</label>
-              <div className="lu-ph">
-                <span>+91</span>
-                <input
-                  className={errors.phone ? "lu-in bad" : "lu-in"}
-                  id="lu-phone"
-                  type="tel"
-                  inputMode="numeric"
-                  maxLength={10}
-                  autoComplete="tel-national"
-                  placeholder="10-digit number"
-                  value={phone}
-                  onChange={(event) => {
-                    const next = event.target.value.replace(/\D/g, "").slice(0, 10);
-                    setPhone(next);
-                    if (next !== codePhone) setCode("");
-                  }}
-                />
+              <div className="lu-ph-row">
+                <div className="lu-ph">
+                  <span>+91</span>
+                  <input
+                    className={errors.phone ? "lu-in bad" : "lu-in"}
+                    id="lu-phone"
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={10}
+                    autoComplete="tel-national"
+                    placeholder="10-digit number"
+                    disabled={isVerified}
+                    value={phone}
+                    onChange={(event) => {
+                      const next = event.target.value.replace(/\D/g, "").slice(0, 10);
+                      setPhone(next);
+                      if (next !== codePhone) {
+                        setIsVerified(false);
+                        setOtpSent(false);
+                        setCode("");
+                        setCodePhone("");
+                      }
+                    }}
+                  />
+                </div>
+                {verifyPhone && !isVerified && (
+                  <button
+                    className="lu-send-btn"
+                    type="button"
+                    disabled={sendingCode || sending}
+                    onClick={() => void sendCode()}
+                  >
+                    {sendingCode ? "Sending…" : otpSent ? "Resend" : "Send OTP"}
+                  </button>
+                )}
               </div>
               <div className="lu-err">{errors.phone}</div>
-              {verifyPhone ? (
-                <>
-                  <div className="lu-otp">
+
+              {verifyPhone && isVerified && (
+                <div className="lu-verified-badge">
+                  <span className="lu-verified-text">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M20 6 9 17l-5-5" />
+                    </svg>
+                    <span>Mobile verified (+91 {phone})</span>
+                  </span>
+                  <button
+                    type="button"
+                    className="lu-verified-change"
+                    onClick={() => {
+                      setIsVerified(false);
+                      setOtpSent(false);
+                      setCode("");
+                      setCodePhone("");
+                    }}
+                  >
+                    Change number
+                  </button>
+                </div>
+              )}
+
+              {verifyPhone && otpSent && !isVerified && (
+                <div className="lu-otp-box">
+                  <div className="lu-otp-header">
+                    <span>OTP sent to +91 {phone}</span>
+                    <span className="lu-otp-timer">
+                      {resendCountdown > 0 ? (
+                        `Resend in ${resendCountdown}s`
+                      ) : (
+                        <button
+                          type="button"
+                          className="lu-resend-link"
+                          disabled={sendingCode}
+                          onClick={() => void sendCode()}
+                        >
+                          Resend OTP
+                        </button>
+                      )}
+                    </span>
+                  </div>
+                  <div className="lu-otp-row">
                     <input
                       className={errors.otp ? "lu-in bad" : "lu-in"}
                       id="lu-otp"
@@ -591,20 +718,33 @@ export default function LaunchOfferForm({
                       maxLength={4}
                       placeholder="4-digit code"
                       value={code}
-                      onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 4))}
+                      onChange={(event) => {
+                        const next = event.target.value.replace(/\D/g, "").slice(0, 4);
+                        setCode(next);
+                        if (errors.otp) setErrors((prev) => ({ ...prev, otp: undefined }));
+                      }}
                     />
-                    <button className="lu-btn lu-send" type="button" disabled={sendingCode || sending} onClick={() => void sendCode()}>
-                      {sendingCode ? "Sending…" : codePhone === phone ? "Resend code" : "Send code"}
+                    <button
+                      className="lu-verify-btn"
+                      type="button"
+                      disabled={verifyingCode || sending || code.trim().length !== 4}
+                      onClick={() => void verifyCode()}
+                    >
+                      {verifyingCode ? "Verifying…" : "Verify OTP"}
                     </button>
                   </div>
-                  <div className="lu-err">{errors.otp}</div>
-                  <p className="lu-note">
-                    {codePhone === phone
-                      ? "Code sent. It works for 5 minutes."
-                      : "We send a 4-digit code on WhatsApp or SMS. This number can enter once."}
-                  </p>
-                </>
-              ) : null}
+                  {errors.otp && <div className="lu-err">{errors.otp}</div>}
+                  <div className="lu-otp-footer">
+                    <span>Works for 5 minutes · One entry per mobile number</span>
+                  </div>
+                </div>
+              )}
+
+              {!verifyPhone && (
+                <p className="lu-note">
+                  We send a 4-digit code on WhatsApp or SMS. This number can enter once.
+                </p>
+              )}
             </div>
 
             <div className="lu-f lu-row">
@@ -806,7 +946,7 @@ export default function LaunchOfferForm({
             />
             <div className="lu-err lu-fail">{fail}</div>
             <button className="lu-btn lu-pri" type="button" disabled={sending} onClick={() => void submit()}>
-              {sending ? "Sending…" : submitLabel}
+              {sending ? "Sending…" : verifyPhone && !isVerified ? "Verify mobile number to continue" : submitLabel}
             </button>
             <p className="lu-fine">No payment. Your details are used only for this offer.</p>
           </div>

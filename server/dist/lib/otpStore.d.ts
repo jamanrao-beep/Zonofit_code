@@ -14,4 +14,6 @@ export declare function purgeStaleOtps(): Promise<void>;
 export declare function setOTP(phone: string, code: string, ttlMinutes?: number): Promise<void>;
 /** Checks a code, locks it after 5 misses, and deletes it when it matches. */
 export declare function verifyOTP(phone: string, code: string): Promise<boolean>;
+/** Validates a code without deleting it so subsequent registration can still verify it. */
+export declare function checkOTP(phone: string, code: string): Promise<boolean>;
 //# sourceMappingURL=otpStore.d.ts.map

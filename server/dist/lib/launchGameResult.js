@@ -54,24 +54,33 @@ function settleChallenge(level, outcome, you, zonofit) {
 }
 /** Ladder labels. Stage 0 is 1%. The last two stages are free time, not a percent. */
 exports.TILE_LADDER = ["1%", "2%", "4%", "8%", "16%", "32%", "64%", "1 month free", "3 months free"];
+const SCRATCH_GIFT = "12.5% OFF";
 function tileRewardLabel(stage) {
     const label = exports.TILE_LADDER[stage];
     if (!label)
         return null;
-    return stage < 7 ? `${label} off next plan` : label;
+    if (stage <= 4)
+        return `${label} OFF`;
+    return label;
 }
-/** Records the tile the screen showed. The campaign rule for who can reach a stage comes later. */
+/**
+ * 1%, 2%, 4%, and 8% are kept as wins.
+ * 16% can be kept. A miss there, and every stage from 32% up, is the 12.5% gift.
+ */
 function settleTileRun(stage, outcome) {
     if (outcome === "abandoned")
         return { outcome, stage: 0, reward: "" };
+    if (outcome === "draw")
+        return null;
     if (!Number.isInteger(stage) || stage < 0 || stage >= exports.TILE_LADDER.length)
         return null;
-    if (outcome === "loss")
-        return { outcome, stage, reward: "12.5% OFF" };
-    if (outcome !== "win")
-        return null;
-    const reward = tileRewardLabel(stage);
-    return reward ? { outcome: "win", stage, reward } : null;
+    if (stage <= 3) {
+        const reward = tileRewardLabel(stage);
+        return reward ? { outcome: "win", stage, reward } : null;
+    }
+    if (stage === 4 && outcome === "win")
+        return { outcome: "win", stage, reward: "16% OFF" };
+    return { outcome: "loss", stage, reward: SCRATCH_GIFT };
 }
 function tileResultLine(stage, outcome, reward, code) {
     const mark = code ? ` ${code}` : "";
