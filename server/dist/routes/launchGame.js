@@ -175,23 +175,52 @@ router.post("/result", async (req, res) => {
             res.status(400).json({ error: "ValidationError", message: parsed.message });
             return;
         }
-        const level = typeof req.body?.level === "number" ? req.body.level : Number(oneLine(req.body?.level, 2));
-        if (!(0, launchGameResult_1.knownLevel)(level)) {
-            res.status(400).json({ error: "ValidationError", message: "Pick a level from 1 to 6" });
-            return;
-        }
         const outcomeText = oneLine(req.body?.outcome, 12);
         const outcome = OUTCOMES.find((item) => item === outcomeText);
         if (!outcome) {
             res.status(400).json({ error: "ValidationError", message: "Result is missing" });
             return;
         }
-        const you = score(req.body?.you);
-        const zonofit = score(req.body?.zonofit);
-        const boxes = (0, launchGameResult_1.boxesOnLevel)(level);
-        if (outcome !== "abandoned" && (you === null || zonofit === null || boxes === null || you + zonofit !== boxes)) {
-            res.status(400).json({ error: "ValidationError", message: "Score does not match this level." });
-            return;
+        const tiles = oneLine(req.body?.game, 12) === "tiles";
+        const level = typeof req.body?.level === "number" ? req.body.level : Number(oneLine(req.body?.level, 2));
+        const stage = typeof req.body?.stage === "number" ? req.body.stage : Number(oneLine(req.body?.stage, 2));
+        let summary = "";
+        let settledOutcome = outcome;
+        let settledYou = null;
+        let settledZonofit = null;
+        let settledReward = "";
+        let storedLevel = 0;
+        if (tiles) {
+            const settled = (0, launchGameResult_1.settleTileRun)(outcome === "abandoned" ? 0 : stage, outcome);
+            if (!settled) {
+                res.status(400).json({ error: "ValidationError", message: "That stage is not on the ladder." });
+                return;
+            }
+            const code = tileCode(req.body?.code, settled.outcome);
+            summary = (0, launchGameResult_1.tileResultLine)(settled.stage, settled.outcome, settled.reward, code);
+            settledOutcome = settled.outcome;
+            settledReward = settled.reward;
+            storedLevel = settled.outcome === "abandoned" ? 0 : settled.stage + 1;
+        }
+        else {
+            if (!(0, launchGameResult_1.knownLevel)(level)) {
+                res.status(400).json({ error: "ValidationError", message: "Pick a level from 1 to 6" });
+                return;
+            }
+            const you = score(req.body?.you);
+            const zonofit = score(req.body?.zonofit);
+            const boxes = (0, launchGameResult_1.boxesOnLevel)(level);
+            if (outcome !== "abandoned" && (you === null || zonofit === null || boxes === null || you + zonofit !== boxes)) {
+                res.status(400).json({ error: "ValidationError", message: "Score does not match this level." });
+                return;
+            }
+            const settled = (0, launchGameResult_1.settleChallenge)(level, outcome, you, zonofit);
+            summary = (0, launchGameResult_1.challengeResultLine)(level, settled.outcome, settled.you, settled.zonofit, settled.reward);
+            settledOutcome = settled.outcome;
+            settledYou = settled.you;
+            settledZonofit = settled.zonofit;
+            settledReward = settled.reward;
+            storedLevel = level;
         }
         const { application } = parsed;
         const state = await (0, launchGameEntries_1.launchGameEntryState)(application.phone);
@@ -214,17 +243,15 @@ router.post("/result", async (req, res) => {
                 res.status(409).json({ error: "AlreadySaved", message: "This result is already saved." });
                 return;
             }
-            const settled = (0, launchGameResult_1.settleChallenge)(level, outcome, you, zonofit);
-            const summary = (0, launchGameResult_1.challengeResultLine)(level, settled.outcome, settled.you, settled.zonofit, settled.reward);
             const row = { ...application, customGym: summary };
             const saved = await (0, launchSheet_1.appendLaunchRow)(row, {
                 source: `launch-game-result ${summary}`.slice(0, 140),
                 extra: {
-                    level,
-                    outcome: settled.outcome,
-                    you: settled.you ?? "",
-                    zonofit: settled.zonofit ?? "",
-                    reward: settled.reward,
+                    level: storedLevel,
+                    outcome: settledOutcome,
+                    you: settledYou ?? "",
+                    zonofit: settledZonofit ?? "",
+                    reward: settledReward,
                 },
             });
             if (!saved) {
@@ -237,16 +264,16 @@ router.post("/result", async (req, res) => {
             savedResults.add(application.phone);
             try {
                 await (0, launchGameEntries_1.saveLaunchGameResult)(application.phone, {
-                    level,
-                    outcome: settled.outcome,
-                    you: settled.you,
-                    zonofit: settled.zonofit,
+                    level: storedLevel,
+                    outcome: settledOutcome,
+                    you: settledYou,
+                    zonofit: settledZonofit,
                 });
             }
             catch (storeErr) {
                 console.error("[LaunchGame] Could not store the result.", safeError(storeErr));
             }
-            void (0, mail_1.sendInboxNotice)(`Lucky Challenge result - ${application.name} - Level ${level} ${settled.outcome}`, [
+            void (0, mail_1.sendInboxNotice)(`Lucky Challenge result - ${application.name} - ${settledOutcome}`, [
                 "ZonoFit Lucky Challenge result",
                 "zonofit.com/launch-game",
                 "",
@@ -255,7 +282,7 @@ router.post("/result", async (req, res) => {
                 `Gym: ${application.gym || application.customGym || "—"}`,
                 summary,
             ].join("\n"));
-            res.json({ ok: true, ...settled });
+            res.json({ ok: true, outcome: settledOutcome, you: settledYou, zonofit: settledZonofit, reward: settledReward, level: storedLevel });
         }
         finally {
             resultFlight.delete(application.phone);
@@ -269,6 +296,14 @@ router.post("/result", async (req, res) => {
         });
     }
 });
+function tileCode(value, outcome) {
+    if (outcome === "abandoned")
+        return "";
+    const code = oneLine(value, 16).toUpperCase();
+    if (outcome === "loss")
+        return "ZONO125";
+    return /^ZONO-[A-Z0-9]{6}$/.test(code) ? code : "";
+}
 function score(value) {
     if (value === null || value === undefined || value === "")
         return null;

@@ -1,9 +1,13 @@
 "use strict";
 /** Sheet-side result for the lucky challenge. Scores are stored as played. */
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.TILE_LADDER = void 0;
 exports.knownLevel = knownLevel;
 exports.boxesOnLevel = boxesOnLevel;
 exports.settleChallenge = settleChallenge;
+exports.tileRewardLabel = tileRewardLabel;
+exports.settleTileRun = settleTileRun;
+exports.tileResultLine = tileResultLine;
 exports.challengeResultLine = challengeResultLine;
 const LEVELS = [
     { n: 1, name: "Beginner", reward: "5% OFF" },
@@ -47,6 +51,35 @@ function settleChallenge(level, outcome, you, zonofit) {
     }
     const reward = nextOutcome === "win" && level === 2 ? "12.5% OFF" : "";
     return { outcome: nextOutcome, you: nextYou, zonofit: nextZonofit, reward };
+}
+/** Ladder labels. Stage 0 is 1%. The last two stages are free time, not a percent. */
+exports.TILE_LADDER = ["1%", "2%", "4%", "8%", "16%", "32%", "64%", "1 month free", "3 months free"];
+function tileRewardLabel(stage) {
+    const label = exports.TILE_LADDER[stage];
+    if (!label)
+        return null;
+    return stage < 7 ? `${label} off next plan` : label;
+}
+/** Records the tile the screen showed. The campaign rule for who can reach a stage comes later. */
+function settleTileRun(stage, outcome) {
+    if (outcome === "abandoned")
+        return { outcome, stage: 0, reward: "" };
+    if (!Number.isInteger(stage) || stage < 0 || stage >= exports.TILE_LADDER.length)
+        return null;
+    if (outcome === "loss")
+        return { outcome, stage, reward: "12.5% OFF" };
+    if (outcome !== "win")
+        return null;
+    const reward = tileRewardLabel(stage);
+    return reward ? { outcome: "win", stage, reward } : null;
+}
+function tileResultLine(stage, outcome, reward, code) {
+    const mark = code ? ` ${code}` : "";
+    if (outcome === "abandoned")
+        return "RESULT Tiles abandoned";
+    if (outcome === "loss")
+        return `RESULT Tiles bomb stage ${stage + 1} ${reward}${mark}`;
+    return `RESULT Tiles stage ${stage + 1} claim ${reward}${mark}`;
 }
 function challengeResultLine(level, outcome, you, zonofit, reward) {
     const name = levelName(level);

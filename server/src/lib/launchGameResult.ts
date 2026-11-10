@@ -52,6 +52,35 @@ export function settleChallenge(
   return { outcome: nextOutcome, you: nextYou, zonofit: nextZonofit, reward };
 }
 
+/** Ladder labels. Stage 0 is 1%. The last two stages are free time, not a percent. */
+export const TILE_LADDER = ["1%", "2%", "4%", "8%", "16%", "32%", "64%", "1 month free", "3 months free"] as const;
+
+export function tileRewardLabel(stage: number): string | null {
+  const label = TILE_LADDER[stage];
+  if (!label) return null;
+  return stage < 7 ? `${label} off next plan` : label;
+}
+
+/** Records the tile the screen showed. The campaign rule for who can reach a stage comes later. */
+export function settleTileRun(
+  stage: number,
+  outcome: ChallengeOutcome,
+): { outcome: ChallengeOutcome; stage: number; reward: string } | null {
+  if (outcome === "abandoned") return { outcome, stage: 0, reward: "" };
+  if (!Number.isInteger(stage) || stage < 0 || stage >= TILE_LADDER.length) return null;
+  if (outcome === "loss") return { outcome, stage, reward: "12.5% OFF" };
+  if (outcome !== "win") return null;
+  const reward = tileRewardLabel(stage);
+  return reward ? { outcome: "win", stage, reward } : null;
+}
+
+export function tileResultLine(stage: number, outcome: ChallengeOutcome, reward: string, code: string): string {
+  const mark = code ? ` ${code}` : "";
+  if (outcome === "abandoned") return "RESULT Tiles abandoned";
+  if (outcome === "loss") return `RESULT Tiles bomb stage ${stage + 1} ${reward}${mark}`;
+  return `RESULT Tiles stage ${stage + 1} claim ${reward}${mark}`;
+}
+
 export function challengeResultLine(
   level: number,
   outcome: ChallengeOutcome,
