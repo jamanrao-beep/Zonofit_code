@@ -718,6 +718,33 @@
   cursor: wait;
 }
 
+.lu-otp {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  margin-top: 10px;
+}
+
+.lu-otp .lu-in {
+  flex: 1;
+  min-width: 0;
+}
+
+.lu-btn.lu-send {
+  width: auto;
+  flex: 0 0 auto;
+  margin-top: 0;
+  padding: 14px 16px;
+  background: #111413;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.lu-btn.lu-send:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
 .lu-fine {
   font-size: 12px;
   color: var(--mut);

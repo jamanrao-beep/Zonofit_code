@@ -75,7 +75,7 @@ const GYMS = [
 
 const SEX = ["Male", "Female", "Other"] as const;
 
-type Errors = Partial<Record<"name" | "phone" | "age" | "sex" | "gym", string>>;
+type Errors = Partial<Record<"name" | "phone" | "age" | "sex" | "gym" | "otp", string>>;
 type Sent = { firstName: string; gym: string };
 
 export type LaunchOfferSubmission = {
@@ -98,6 +98,7 @@ type LaunchOfferFormProps = {
   submitLabel?: string;
   panelTitle?: string;
   panelNote?: string;
+  verifyPhone?: boolean;
   onSuccess?: (sent: LaunchOfferSubmission) => void;
 };
 
@@ -313,10 +314,14 @@ export default function LaunchOfferForm({
   submitLabel = "Apply for free membership",
   panelTitle = "Claim your spot",
   panelNote = "Free. Udaipur only. Limited seats.",
+  verifyPhone = false,
   onSuccess,
 }: LaunchOfferFormProps = {}) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [code, setCode] = useState("");
+  const [codePhone, setCodePhone] = useState("");
+  const [sendingCode, setSendingCode] = useState(false);
   const [age, setAge] = useState("");
   const [sex, setSex] = useState("");
   const [query, setQuery] = useState("");
@@ -358,8 +363,45 @@ export default function LaunchOfferForm({
     if (!Number.isInteger(ageNumber) || ageNumber < 16 || ageNumber > 70) next.age = "16 to 70";
     if (!sex) next.sex = "Pick one";
     if (custom ? customGym.trim().length < 3 : !gym) next.gym = "Pick a gym or tell us yours";
+    if (verifyPhone) {
+      if (codePhone !== phone.trim()) next.otp = "Send a code to this number";
+      else if (!/^\d{4}$/.test(code.trim())) next.otp = "Enter the 4-digit code";
+    }
     setErrors(next);
     return Object.keys(next).length === 0;
+  }
+
+  async function sendCode() {
+    if (sendingCode || sending || done) return;
+    setFail("");
+    if (!/^[6-9]\d{9}$/.test(phone.trim())) {
+      setErrors((prev) => ({ ...prev, phone: "Enter a valid 10-digit mobile number" }));
+      return;
+    }
+    setSendingCode(true);
+    try {
+      const response = await fetch(`${API}${endpointPath}/otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: phone.trim(), website }),
+      });
+      const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+      if (website.trim()) {
+        setCodePhone(phone.trim());
+        return;
+      }
+      if (!response.ok) {
+        setFail(payload?.message || "Could not send the code. Try again.");
+        return;
+      }
+      setCodePhone(phone.trim());
+      setCode("");
+      setErrors((prev) => ({ ...prev, phone: undefined, otp: undefined }));
+    } catch {
+      setFail("Could not send the code. Check your network and try again.");
+    } finally {
+      setSendingCode(false);
+    }
   }
 
   async function submit() {
@@ -407,6 +449,7 @@ export default function LaunchOfferForm({
           customGym: custom ? customGym.trim() : "",
           instagram: instagram.trim().replace(/^@+/, ""),
           website,
+          ...(verifyPhone ? { otp: code.trim() } : {}),
         }),
       });
       const payload = (await response.json().catch(() => null)) as { message?: string; pid?: string } | null;
@@ -430,6 +473,10 @@ export default function LaunchOfferForm({
     const target = event.target as HTMLElement;
     if (event.key === "Enter" && target.tagName === "INPUT" && target.id !== "lu-q") {
       event.preventDefault();
+      if (verifyPhone && target.id === "lu-phone") {
+        void sendCode();
+        return;
+      }
       void submit();
     }
   }
@@ -524,10 +571,40 @@ export default function LaunchOfferForm({
                   autoComplete="tel-national"
                   placeholder="10-digit number"
                   value={phone}
-                  onChange={(event) => setPhone(event.target.value.replace(/\D/g, "").slice(0, 10))}
+                  onChange={(event) => {
+                    const next = event.target.value.replace(/\D/g, "").slice(0, 10);
+                    setPhone(next);
+                    if (next !== codePhone) setCode("");
+                  }}
                 />
               </div>
               <div className="lu-err">{errors.phone}</div>
+              {verifyPhone ? (
+                <>
+                  <div className="lu-otp">
+                    <input
+                      className={errors.otp ? "lu-in bad" : "lu-in"}
+                      id="lu-otp"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={4}
+                      placeholder="4-digit code"
+                      value={code}
+                      onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 4))}
+                    />
+                    <button className="lu-btn lu-send" type="button" disabled={sendingCode || sending} onClick={() => void sendCode()}>
+                      {sendingCode ? "Sending…" : codePhone === phone ? "Resend code" : "Send code"}
+                    </button>
+                  </div>
+                  <div className="lu-err">{errors.otp}</div>
+                  <p className="lu-note">
+                    {codePhone === phone
+                      ? "Code sent. It works for 5 minutes."
+                      : "We send a 4-digit code on WhatsApp or SMS. This number can enter once."}
+                  </p>
+                </>
+              ) : null}
             </div>
 
             <div className="lu-f lu-row">
