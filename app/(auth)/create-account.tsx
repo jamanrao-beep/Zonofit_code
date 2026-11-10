@@ -157,7 +157,10 @@ export default function CreateAccountScreen() {
         if (me.referralApplied) {
           setReferralOpen(true);
           setReferralApplied(true);
-          setReferral("Applied");
+          setReferral(typeof me.referralCodeUsed === "string" && me.referralCodeUsed ? me.referralCodeUsed : "Applied");
+          if (typeof me.referralPercent === "number") {
+            setReferralHint(`${me.referralPercent}% off is saved on your account.`);
+          }
         }
       })
       .catch(() => {});
@@ -326,14 +329,14 @@ export default function CreateAccountScreen() {
     setReferralBusy(true);
     setReferralBad(false);
     try {
-      await apiFetch("/api/users/referral/apply", {
+      const result = await apiFetch("/api/users/referral/apply", {
         method: "POST",
         token: sessionToken,
         body: JSON.stringify({ code }),
       });
       setReferral(code);
       setReferralApplied(true);
-      setReferralHint("");
+      setReferralHint(typeof result?.percent === "number" ? `${result.percent}% off is saved on your account.` : "");
     } catch (error: any) {
       setReferralBad(true);
       setReferralHint(error?.message || "That referral code isn't valid.");

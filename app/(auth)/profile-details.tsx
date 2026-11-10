@@ -109,17 +109,26 @@ export default function ProfileDetailsScreen() {
   }, [showEmailOtpModal, otpCountdown]);
 
   // Referral code logic
-  const handleApplyReferral = () => {
-    if (!referral.trim()) {
-      Alert.alert("Referral Code", "Please enter a referral code to apply.");
+  const handleApplyReferral = async () => {
+    const code = referral.trim().toUpperCase();
+    if (!code || referralApplied) return;
+    if (!token) {
+      Alert.alert("Referral Code", "Sign in again, then apply the code.");
       return;
     }
-    if (referral.trim().length < 4) {
-      Alert.alert("Invalid Code", "Please enter a valid referral code.");
-      return;
+    try {
+      const result = await apiFetch("/api/users/referral/apply", {
+        method: "POST",
+        token,
+        body: JSON.stringify({ code }),
+      });
+      setReferral(code);
+      setReferralApplied(true);
+      const percent = typeof result?.percent === "number" ? `${result.percent}% off is saved on your account.` : "Your referral code is saved.";
+      Alert.alert("Code applied", percent);
+    } catch (error: any) {
+      Alert.alert("Referral Code", error?.message || "That referral code isn't valid.");
     }
-    setReferralApplied(true);
-    Alert.alert("Code applied", "Your referral code has been validated. You will receive bonus credits upon activation.");
   };
 
   // Open calendar
@@ -425,7 +434,7 @@ export default function ProfileDetailsScreen() {
                 onChangeText={setReferral}
                 autoCapitalize="characters"
               />
-              <Pressable onPress={handleApplyReferral}>
+              <Pressable onPress={() => { void handleApplyReferral(); }} disabled={referralApplied}>
                 <Text style={[styles.applyText, referralApplied && { color: "#1F7A3E", fontWeight: "bold" }]}>
                   {referralApplied ? "Applied ✓" : "Apply"}
                 </Text>
