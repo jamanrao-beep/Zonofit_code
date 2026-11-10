@@ -13,20 +13,23 @@ test("level 1 can win with no reward and level 2 win keeps 12.5% OFF", () => {
   assert.equal(reward.reward, "12.5% OFF");
 });
 
-test("levels above 2 cannot finish ahead and a tie stays a draw", () => {
-  const lead = settleChallenge(6, "win", 20, 5);
+test("levels above 2 cannot be stored as a win or a draw", () => {
+  const { boxesOnLevel } = require("../dist/lib/launchGameResult.js");
+  const lead = settleChallenge(6, "win", 320, 305);
   assert.equal(lead.outcome, "loss");
-  assert.equal(lead.you, 2);
-  assert.equal(lead.zonofit, 3);
+  assert.equal(lead.you + lead.zonofit, 625);
+  assert.ok(lead.zonofit > lead.you);
   assert.equal(lead.reward, "");
-  const tie = settleChallenge(5, "win", 12, 12);
-  assert.equal(tie.outcome, "draw");
-  assert.equal(tie.you, 12);
-  assert.equal(tie.zonofit, 12);
-  const behind = settleChallenge(3, "win", 8, 17);
+  assert.equal(boxesOnLevel(6), 625);
+  assert.equal(boxesOnLevel(1), 25);
+  const tie = settleChallenge(5, "draw", 162, 162);
+  assert.equal(tie.outcome, "loss");
+  assert.equal(tie.you + tie.zonofit, 324);
+  assert.ok(tie.zonofit > tie.you);
+  const behind = settleChallenge(3, "win", 40, 60);
   assert.equal(behind.outcome, "loss");
-  assert.equal(behind.you, 8);
-  assert.equal(behind.zonofit, 17);
+  assert.equal(behind.you, 40);
+  assert.equal(behind.zonofit, 60);
 });
 
 test("an abandoned attempt stays abandoned", () => {

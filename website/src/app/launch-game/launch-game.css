@@ -238,20 +238,28 @@
 .zg .think i:nth-child(3) { animation-delay: 0.3s; }
 @keyframes zg-b { 50% { transform: translateY(-4px); opacity: 0.4; } }
 
-.zg .board {
+.zg .board-scroll {
   width: 100%;
+  max-height: min(72vh, 720px);
+  overflow: auto;
+  border-radius: 20px;
+  background: var(--bg2);
+  touch-action: pan-x pan-y;
+}
+.zg .board {
+  display: block;
+  height: auto;
   aspect-ratio: 1;
   touch-action: manipulation;
   user-select: none;
   background: var(--bg2);
-  border-radius: 20px;
 }
 
 .zg .edge { cursor: pointer; }
-.zg .edge line { stroke: var(--bd); stroke-width: 0.09; stroke-linecap: round; }
+.zg .edge line { stroke: var(--bd); stroke-width: 0.13; stroke-linecap: round; }
 .zg .edge rect { fill: transparent; }
-.zg .edge.p line { stroke: #e0a100; stroke-width: 0.09; }
-.zg .edge.a line { stroke: #35782b; stroke-width: 0.09; }
+.zg .edge.p line { stroke: #e0a100; stroke-width: 0.13; }
+.zg .edge.a line { stroke: #35782b; stroke-width: 0.13; }
 
 .zg .tm {
   height: 6px;

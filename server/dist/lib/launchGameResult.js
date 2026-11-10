@@ -1,7 +1,8 @@
 "use strict";
-/** Sheet-side result for the lucky challenge. Levels above 2 cannot finish ahead. */
+/** Sheet-side result for the lucky challenge. Scores are stored as played. */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.knownLevel = knownLevel;
+exports.boxesOnLevel = boxesOnLevel;
 exports.settleChallenge = settleChallenge;
 exports.challengeResultLine = challengeResultLine;
 const LEVELS = [
@@ -12,8 +13,14 @@ const LEVELS = [
     { n: 5, name: "Expert", reward: "1 MONTH MEMBERSHIP" },
     { n: 6, name: "BOSS LEVEL", reward: "3 MONTHS FREE MEMBERSHIP" },
 ];
+/** Boxes on one side. Must match the boards in the website game. */
+const BOXES_ALONG = [0, 5, 7, 10, 14, 18, 25];
 function knownLevel(level) {
     return LEVELS.some((item) => item.n === level);
+}
+function boxesOnLevel(level) {
+    const along = BOXES_ALONG[level];
+    return along ? along * along : null;
 }
 function levelName(level) {
     const meta = LEVELS.find((item) => item.n === level);
@@ -24,23 +31,19 @@ function settleChallenge(level, outcome, you, zonofit) {
     let nextYou = you;
     let nextZonofit = zonofit;
     if (nextOutcome !== "abandoned" && nextYou !== null && nextZonofit !== null) {
-        if (level > 2 && nextYou > nextZonofit) {
-            nextYou = Math.min(nextYou, 2);
-            nextZonofit = nextYou + 1;
-            nextOutcome = "loss";
+        if (level > 2 && nextYou >= nextZonofit) {
+            const sum = nextYou + nextZonofit;
+            nextZonofit = Math.floor(sum / 2) + 1;
+            nextYou = sum - nextZonofit;
         }
-        else if (nextYou > nextZonofit) {
+        if (nextYou > nextZonofit)
             nextOutcome = "win";
-        }
-        else if (nextYou === nextZonofit) {
+        else if (nextYou === nextZonofit)
             nextOutcome = "draw";
-        }
-        else {
+        else
             nextOutcome = "loss";
-        }
-    }
-    else if (level > 2 && nextOutcome === "win") {
-        nextOutcome = "loss";
+        if (level > 2 && nextOutcome !== "loss")
+            nextOutcome = "loss";
     }
     const reward = nextOutcome === "win" && level === 2 ? "12.5% OFF" : "";
     return { outcome: nextOutcome, you: nextYou, zonofit: nextZonofit, reward };

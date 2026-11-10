@@ -94,6 +94,22 @@ const STATEMENTS = [
     "ALTER TABLE `credit_transactions` MODIFY COLUMN `type` ENUM('MEMBERSHIP_GRANT','VISIT_SPEND','PURCHASE','BONUS','CONVERSION','RECONVERSION','EXPIRY','REFUND','MARKETPLACE_SPEND') NOT NULL",
     "ALTER TABLE `gyms` ADD COLUMN `requiresVerification` BOOLEAN NOT NULL DEFAULT false",
     "ALTER TABLE `bookings` ADD COLUMN `tokenNumber` INTEGER NULL",
+    `CREATE TABLE IF NOT EXISTS \`launch_game_entries\` (
+    \`phone\` VARCHAR(10) NOT NULL,
+    \`name\` VARCHAR(80) NOT NULL,
+    \`age\` INTEGER NOT NULL,
+    \`sex\` VARCHAR(16) NOT NULL,
+    \`gym\` VARCHAR(120) NOT NULL,
+    \`customGym\` VARCHAR(120) NOT NULL,
+    \`instagram\` VARCHAR(40) NOT NULL,
+    \`pid\` VARCHAR(32) NOT NULL,
+    \`level\` INTEGER NULL,
+    \`outcome\` VARCHAR(16) NULL,
+    \`youScore\` INTEGER NULL,
+    \`zonofitScore\` INTEGER NULL,
+    \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    PRIMARY KEY (\`phone\`)
+  ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
 ];
 function safeDbMessage(err) {
     const message = String(err?.message ?? "");

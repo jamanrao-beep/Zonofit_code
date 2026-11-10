@@ -11,12 +11,12 @@ const INSTA = "https://www.instagram.com/zonofit.app/";
 const KEY = "zonofit_launch_game_v1";
 
 const LEVELS = [
-  { n: 1, name: "Beginner", reward: "5% OFF", skill: 0, c: "#CFE4A9", win: false },
-  { n: 2, name: "Easy", reward: "12.5% OFF", skill: 1, c: "#A8CD6E", win: true },
-  { n: 3, name: "Medium", reward: "25% OFF", skill: 2, c: "#90BA2A", win: false },
-  { n: 4, name: "Hard", reward: "50% OFF", skill: 3, c: "#669C2C", win: false },
-  { n: 5, name: "Expert", reward: "1 MONTH MEMBERSHIP", skill: 3, c: "#35782B", win: false },
-  { n: 6, name: "BOSS LEVEL", reward: "3 MONTHS FREE MEMBERSHIP", skill: 3, c: "#1f4a1a", win: false },
+  { n: 1, name: "Beginner", reward: "5% OFF", skill: 1, boxes: 5, c: "#CFE4A9", win: false },
+  { n: 2, name: "Easy", reward: "12.5% OFF", skill: 2, boxes: 7, c: "#A8CD6E", win: true },
+  { n: 3, name: "Medium", reward: "25% OFF", skill: 3, boxes: 10, c: "#90BA2A", win: false },
+  { n: 4, name: "Hard", reward: "50% OFF", skill: 3, boxes: 14, c: "#669C2C", win: false },
+  { n: 5, name: "Expert", reward: "1 MONTH MEMBERSHIP", skill: 3, boxes: 18, c: "#35782B", win: false },
+  { n: 6, name: "BOSS LEVEL", reward: "3 MONTHS FREE MEMBERSHIP", skill: 3, boxes: 25, c: "#1f4a1a", win: false },
 ] as const;
 
 type Outcome = "win" | "draw" | "loss" | "abandoned";
@@ -175,8 +175,9 @@ export default function LaunchGame() {
     const stop = mountDots({
       board: boardRef.current,
       hud: hudRef.current,
-      level: level.n,
+      boxes: level.boxes,
       skill: level.skill,
+      cannotWin: level.n > 2,
       playerName: saved.name,
       onFinish: (finish) => {
         const current = savedRef.current;
@@ -187,7 +188,7 @@ export default function LaunchGame() {
             outcome: finish.outcome,
             you: finish.you,
             zonofit: finish.zonofit,
-            reward: finish.reward,
+            reward: finish.outcome === "win" && level.win ? level.reward : null,
             posted: false,
           },
         };
@@ -262,13 +263,13 @@ export default function LaunchGame() {
             <div className="card" style={{ marginTop: 18 }}>
               <b style={{ fontSize: 13 }}>Campaign information</b>
               <p style={{ fontSize: 13, margin: "8px 0 0" }}>
-                One verified registration and one game. Level 2 is the winning tier. Results are confirmed after you send the screenshot on WhatsApp.
+                One verified mobile number and one game. Level 2 is the winning tier. Results are confirmed after you send the screenshot on WhatsApp.
               </p>
             </div>
             <details open={howOpen} onToggle={(event) => setHowOpen((event.target as HTMLDetailsElement).open)}>
               <summary>How it works and terms</summary>
               <p style={{ marginTop: 8 }}>
-                Register with the same details as the Udaipur launch form. Pick one difficulty. Play one Lines and Dots game against ZonoFit. Your mobile number can be used once.
+                Register with the same details as the Udaipur launch form. We confirm the mobile number with a code. That number can be used once, even in a new browser. Pick one difficulty. Play one Lines and Dots game against ZonoFit.
                 A draw is not a win. Refreshing or leaving ends the attempt. Rewards depend on campaign conditions. Registration does not guarantee selection.
               </p>
             </details>
@@ -279,14 +280,15 @@ export default function LaunchGame() {
           <>
             <button className="back" type="button" onClick={() => setPhase("landing")}>Back</button>
             <h2>First, let&apos;s get to know you.</h2>
-            <p>Same form as the launch offer. One mobile number can register once.</p>
+            <p>Same form as the launch offer. We confirm your mobile number with a code. That number can register once.</p>
             <LaunchOfferForm
               embed
+              verifyPhone
               endpointPath="/api/launch-game"
               source="launch-game"
               submitLabel="Continue to the game"
               panelTitle="Register to play"
-              panelNote="Udaipur. One number. One game."
+              panelNote="Udaipur. One verified number. One game."
               onSuccess={(entry) => commit(entry, "levels")}
             />
           </>
@@ -297,7 +299,7 @@ export default function LaunchGame() {
             <h2>Choose your challenge.</h2>
             <p>Six levels. Different rewards. One shot.</p>
             <div className="card" style={{ marginBottom: 14, background: "var(--gl)" }}>
-              Level 2 is the winning tier. The other levels are challenge only. Your choice is final.
+              Levels 1 and 2 can be won. Only a level 2 win is 12.5% OFF. Levels 3 to 6 cannot be won. Your choice is final.
             </div>
             <div className="prog">
               <span>BEGINNER</span><span>EASY</span><span>MEDIUM</span><span>HARD</span><span>EXPERT</span><span>BOSS</span>
@@ -315,7 +317,7 @@ export default function LaunchGame() {
                 <div className="n" style={{ background: item.c }}>{item.n}</div>
                 <div>
                   <b>{item.name}</b>
-                  <small>{item.reward}</small>
+                  <small>{item.boxes}×{item.boxes} board · {item.reward}</small>
                 </div>
                 <span className="tag">{item.win ? "WINNING TIER" : "CHALLENGE ONLY"}</span>
               </button>
@@ -342,13 +344,21 @@ export default function LaunchGame() {
         {phase === "ready" && saved ? (
           <>
             <h2>Level {level.n} · {level.name}</h2>
-            <p>Here is exactly how to win.</p>
+            <p>{level.n > 2 ? "Here is how this level works." : "Here is exactly how to win."}</p>
             <div className="card">
               <ol className="rules">
-                <li><b>Goal:</b> claim more boxes than ZonoFit.</li>
+                <li><b>Goal:</b> claim more boxes than ZonoFit on a {level.boxes}×{level.boxes} board.</li>
                 <li>Take turns drawing a line between two dots. Close the 4th side of a box to claim it and move again. Your boxes are gold. ZonoFit boxes carry the logo.</li>
                 <li><b>You get 10 seconds per move.</b> If time runs out, a line is drawn for you.</li>
-                <li>{level.win ? <>Beat ZonoFit to unlock <b>{level.reward}</b>. A draw is not a win.</> : <>Level {level.n} is challenge only. Your result is still recorded.</>}</li>
+                <li>
+                  {level.n > 2 ? (
+                    <>Level {level.n} cannot be won. ZonoFit plays at full strength, and your result is still recorded.</>
+                  ) : level.win ? (
+                    <>Beat ZonoFit to unlock <b>{level.reward}</b>. A draw is not a win.</>
+                  ) : (
+                    <>You can beat ZonoFit here. Level 1 has no reward. A draw is not a win.</>
+                  )}
+                </li>
                 <li>One attempt only. Refreshing or leaving ends the game.</li>
               </ol>
             </div>
@@ -367,7 +377,7 @@ export default function LaunchGame() {
             <div ref={hudRef}>
               <div className="ai">
                 <Logo size={26} />
-                <span>Playing against ZonoFit · Level {level.n} {level.name}</span>
+                <span>Playing against ZonoFit · Level {level.n} {level.name} · {level.boxes}×{level.boxes}</span>
                 <span className="think" data-think hidden><i /><i /><i /></span>
               </div>
               <div className="hud">
@@ -376,8 +386,15 @@ export default function LaunchGame() {
               </div>
               <div className="tm" data-bar><i data-fill /></div>
             </div>
-            <svg ref={boardRef} className="board" viewBox="-0.3 -0.3 5.6 5.6" />
-            <p className="mut">Tap between two dots to draw a line. Complete a box to claim it and go again.</p>
+            <div className="board-scroll">
+              <svg
+                ref={boardRef}
+                className="board"
+                viewBox={`-0.5 -0.5 ${level.boxes + 1} ${level.boxes + 1}`}
+                style={{ width: `max(100%, ${level.boxes * 36}px)` }}
+              />
+            </div>
+            <p className="mut">Tap between two dots to draw a line. A box you close stays yours. Scroll when the board is larger than the screen.</p>
           </>
         ) : null}
 

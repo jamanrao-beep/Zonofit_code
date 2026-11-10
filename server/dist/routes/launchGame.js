@@ -1,9 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+const crypto_1 = require("crypto");
 const express_1 = require("express");
+const launchGameEntries_1 = require("../lib/launchGameEntries");
 const launchGameResult_1 = require("../lib/launchGameResult");
 const launchSheet_1 = require("../lib/launchSheet");
 const mail_1 = require("../lib/mail");
+const otpStore_1 = require("../lib/otpStore");
+const rateLimit_1 = require("../lib/rateLimit");
+const sms_1 = require("../lib/sms");
 const launchOffer_1 = require("./launchOffer");
 const router = (0, express_1.Router)();
 const OUTCOMES = ["win", "draw", "loss", "abandoned"];
@@ -20,7 +25,64 @@ function oneLine(value, max) {
 function honeypot(req) {
     return oneLine(req.body?.website, 200).length > 0;
 }
-/** Public registration for the lucky challenge. Sheet only. No database row. */
+function gamePhone(value) {
+    const digits = String(value ?? "").replace(/\D/g, "");
+    const local = digits.length > 10 ? digits.slice(-10) : digits;
+    return /^[6-9]\d{9}$/.test(local) ? local : null;
+}
+function clientKey(req) {
+    const header = req.headers["x-forwarded-for"];
+    const first = Array.isArray(header) ? header[0] : header?.split(",")[0];
+    const raw = (first || req.ip || "unknown").trim();
+    return raw.replace(/[^\w.:-]/g, "").slice(0, 64) || "unknown";
+}
+function safeError(err) {
+    return String(err instanceof Error ? err.message : "error").replace(/\d{8,}/g, "[redacted]").slice(0, 240);
+}
+function otpKey(phone) {
+    return `game:${phone}`;
+}
+const ALREADY = { error: "AlreadyRegistered", message: "This mobile number is already registered." };
+/** Sends a 4-digit code for the challenge form. The code is never returned. */
+router.post("/otp", async (req, res) => {
+    try {
+        if (honeypot(req)) {
+            res.json({ ok: true });
+            return;
+        }
+        const phone = gamePhone(req.body?.phone);
+        if (!phone) {
+            res.status(400).json({ error: "InvalidPhone", message: "Enter a valid 10-digit mobile number." });
+            return;
+        }
+        if (!(await (0, rateLimit_1.rateLimit)(`game-otp:${phone}`, 5, 15 * 60 * 1000))) {
+            res.status(429).json({ error: "TooManyRequests", message: "Too many code requests. Wait a few minutes and try again." });
+            return;
+        }
+        if (!(await (0, rateLimit_1.rateLimit)(`game-otp-ip:${clientKey(req)}`, 20, 60 * 60 * 1000))) {
+            res.status(429).json({ error: "TooManyRequests", message: "Too many code requests. Wait a few minutes and try again." });
+            return;
+        }
+        if ((await (0, launchGameEntries_1.launchGamePhoneTaken)(phone)) || (await (0, launchSheet_1.sheetHasMobile)(phone))) {
+            res.status(409).json(ALREADY);
+            return;
+        }
+        const code = (0, crypto_1.randomInt)(1000, 10000).toString();
+        await (0, otpStore_1.setOTP)(otpKey(phone), code);
+        const sent = await (0, sms_1.sendOTP)(phone, code);
+        if (!sent.success) {
+            await (0, otpStore_1.deleteOTP)(otpKey(phone));
+            res.status(503).json({ error: "SMSFailed", message: "We could not send the code. Try again in a minute." });
+            return;
+        }
+        res.json({ ok: true });
+    }
+    catch (err) {
+        console.error("[LaunchGame] Could not send the code.", safeError(err));
+        res.status(503).json({ error: "SMSFailed", message: "We could not send the code. Try again in a minute." });
+    }
+});
+/** Public registration. The phone is stored once in MySQL, then the sheet row is appended. */
 router.post("/", async (req, res) => {
     try {
         if (honeypot(req)) {
@@ -32,24 +94,44 @@ router.post("/", async (req, res) => {
             res.status(400).json({ error: "ValidationError", message: parsed.message });
             return;
         }
+        const otp = String(req.body?.otp ?? "").replace(/\D/g, "").slice(0, 8);
+        if (!/^\d{4}$/.test(otp)) {
+            res.status(400).json({ error: "InvalidCode", message: "Enter the 4-digit code we sent." });
+            return;
+        }
         const { application } = parsed;
         if (inflight.has(application.phone)) {
-            res.status(409).json({ error: "AlreadyRegistered", message: "This mobile number is already registered." });
+            res.status(409).json(ALREADY);
             return;
         }
         inflight.add(application.phone);
         try {
-            const used = await (0, launchSheet_1.sheetHasMobile)(application.phone);
-            if (used) {
-                res.status(409).json({ error: "AlreadyRegistered", message: "This mobile number is already registered." });
+            if ((await (0, launchGameEntries_1.launchGamePhoneTaken)(application.phone)) || (await (0, launchSheet_1.sheetHasMobile)(application.phone))) {
+                res.status(409).json(ALREADY);
+                return;
+            }
+            const verified = await (0, otpStore_1.verifyOTP)(otpKey(application.phone), otp);
+            if (!verified) {
+                res.status(400).json({ error: "InvalidCode", message: "That code is wrong or expired. Request a new one." });
                 return;
             }
             const pid = `ZF-${Date.now().toString(36).toUpperCase()}`;
+            const inserted = await (0, launchGameEntries_1.insertLaunchGameEntry)(application, pid);
+            if (inserted === "duplicate") {
+                res.status(409).json(ALREADY);
+                return;
+            }
             const saved = await (0, launchSheet_1.appendLaunchRow)(application, { source: `launch-game ${pid}` });
             if (!saved) {
+                try {
+                    await (0, launchGameEntries_1.deleteOpenLaunchGameEntry)(application.phone);
+                }
+                catch (releaseErr) {
+                    console.error("[LaunchGame] Could not release the registration.", safeError(releaseErr));
+                }
                 res.status(503).json({
                     error: "SheetUnavailable",
-                    message: "We could not save this right now. Try again in a minute.",
+                    message: "We could not save this right now. Request a new code and try again.",
                 });
                 return;
             }
@@ -75,7 +157,7 @@ router.post("/", async (req, res) => {
         }
     }
     catch (err) {
-        console.error("[LaunchGame] Could not save the registration.", err instanceof Error ? err.message : "error");
+        console.error("[LaunchGame] Could not save the registration.", safeError(err));
         res.status(503).json({
             error: "SheetUnavailable",
             message: "We could not check this number right now. Try again in a minute.",
@@ -106,17 +188,18 @@ router.post("/result", async (req, res) => {
         }
         const you = score(req.body?.you);
         const zonofit = score(req.body?.zonofit);
-        if (outcome !== "abandoned" && (you === null || zonofit === null)) {
-            res.status(400).json({ error: "ValidationError", message: "Score is missing" });
+        const boxes = (0, launchGameResult_1.boxesOnLevel)(level);
+        if (outcome !== "abandoned" && (you === null || zonofit === null || boxes === null || you + zonofit !== boxes)) {
+            res.status(400).json({ error: "ValidationError", message: "Score does not match this level." });
             return;
         }
         const { application } = parsed;
-        const known = await (0, launchSheet_1.sheetHasMobile)(application.phone);
-        if (!known) {
+        const state = await (0, launchGameEntries_1.launchGameEntryState)(application.phone);
+        if (state === "missing" && !(await (0, launchSheet_1.sheetHasMobile)(application.phone))) {
             res.status(400).json({ error: "NotRegistered", message: "Register before saving a result." });
             return;
         }
-        if (savedResults.has(application.phone)) {
+        if (state === "finished" || savedResults.has(application.phone)) {
             res.status(409).json({ error: "AlreadySaved", message: "This result is already saved." });
             return;
         }
@@ -152,6 +235,17 @@ router.post("/result", async (req, res) => {
                 return;
             }
             savedResults.add(application.phone);
+            try {
+                await (0, launchGameEntries_1.saveLaunchGameResult)(application.phone, {
+                    level,
+                    outcome: settled.outcome,
+                    you: settled.you,
+                    zonofit: settled.zonofit,
+                });
+            }
+            catch (storeErr) {
+                console.error("[LaunchGame] Could not store the result.", safeError(storeErr));
+            }
             void (0, mail_1.sendInboxNotice)(`Lucky Challenge result - ${application.name} - Level ${level} ${settled.outcome}`, [
                 "ZonoFit Lucky Challenge result",
                 "zonofit.com/launch-game",
@@ -168,7 +262,7 @@ router.post("/result", async (req, res) => {
         }
     }
     catch (err) {
-        console.error("[LaunchGame] Could not save the result.", err instanceof Error ? err.message : "error");
+        console.error("[LaunchGame] Could not save the result.", safeError(err));
         res.status(503).json({
             error: "SheetUnavailable",
             message: "We could not save the result. Try again in a minute.",
@@ -178,8 +272,8 @@ router.post("/result", async (req, res) => {
 function score(value) {
     if (value === null || value === undefined || value === "")
         return null;
-    const number = typeof value === "number" ? value : Number(oneLine(value, 3));
-    if (!Number.isInteger(number) || number < 0 || number > 25)
+    const number = typeof value === "number" ? value : Number(oneLine(value, 4));
+    if (!Number.isInteger(number) || number < 0 || number > 625)
         return null;
     return number;
 }
