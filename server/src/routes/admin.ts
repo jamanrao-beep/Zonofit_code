@@ -7,6 +7,7 @@ import { requireAuth } from "../middleware/auth";
 import { createError } from "../middleware/errorHandler";
 import { getSystemSettings } from "../services/settings";
 import { roleCanAccess } from "../lib/adminAccess";
+import { featureLabel, parseVote } from "../lib/earlyAccess";
 import { slotsPayloadToJson } from "../lib/gymCommercial";
 import { cleanOwnerEmail, cleanOwnerPassword, createGymOwner, updateGymOwnerLogin } from "../lib/gymOwner";
 import { presentMarketplaceItem, readMarketplaceWrite } from "../lib/marketplaceItem";
@@ -893,6 +894,41 @@ router.get("/finance", requireAuth, requireAdmin, async (req: Request, res: Resp
     });
   } catch (err: any) {
     res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
+// ─── GET /api/admin/feature-feedback ───────────────────────────────────────
+router.get("/feature-feedback", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const rows = await (prisma as any).featureFeedback.findMany({
+      orderBy: { createdAt: "desc" },
+      include: {
+        user: { select: { id: true, name: true, email: true, phone: true } },
+      },
+    });
+    const reviews = (rows as any[]).map((row) => {
+      const vote = parseVote(row.comment);
+      return {
+        id: row.id,
+        featureName: row.featureName,
+        featureLabel: featureLabel(row.featureName),
+        choices: vote.choices,
+        idea: vote.idea,
+        createdAt: row.createdAt,
+        user: row.user
+          ? {
+              id: row.user.id,
+              name: row.user.name,
+              email: row.user.email,
+              phone: row.user.phone,
+            }
+          : null,
+      };
+    });
+    res.json({ reviews });
+  } catch {
+    console.error("Failed to load early access reviews");
+    res.status(500).json({ error: "ServerError", message: "Could not load early access reviews." });
   }
 });
 

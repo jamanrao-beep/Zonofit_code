@@ -11,6 +11,7 @@ const auth_1 = require("../middleware/auth");
 const errorHandler_1 = require("../middleware/errorHandler");
 const settings_1 = require("../services/settings");
 const adminAccess_1 = require("../lib/adminAccess");
+const earlyAccess_1 = require("../lib/earlyAccess");
 const gymCommercial_1 = require("../lib/gymCommercial");
 const gymOwner_1 = require("../lib/gymOwner");
 const marketplaceItem_1 = require("../lib/marketplaceItem");
@@ -772,6 +773,41 @@ router.get("/finance", auth_1.requireAuth, requireAdmin, async (req, res) => {
     }
     catch (err) {
         res.status(500).json({ error: "ServerError", message: err.message });
+    }
+});
+// ─── GET /api/admin/feature-feedback ───────────────────────────────────────
+router.get("/feature-feedback", auth_1.requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const rows = await prisma_1.default.featureFeedback.findMany({
+            orderBy: { createdAt: "desc" },
+            include: {
+                user: { select: { id: true, name: true, email: true, phone: true } },
+            },
+        });
+        const reviews = rows.map((row) => {
+            const vote = (0, earlyAccess_1.parseVote)(row.comment);
+            return {
+                id: row.id,
+                featureName: row.featureName,
+                featureLabel: (0, earlyAccess_1.featureLabel)(row.featureName),
+                choices: vote.choices,
+                idea: vote.idea,
+                createdAt: row.createdAt,
+                user: row.user
+                    ? {
+                        id: row.user.id,
+                        name: row.user.name,
+                        email: row.user.email,
+                        phone: row.user.phone,
+                    }
+                    : null,
+            };
+        });
+        res.json({ reviews });
+    }
+    catch {
+        console.error("Failed to load early access reviews");
+        res.status(500).json({ error: "ServerError", message: "Could not load early access reviews." });
     }
 });
 // ─── GET /api/admin/support ────────────────────────────────────────────────

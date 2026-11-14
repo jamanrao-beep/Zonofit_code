@@ -23,6 +23,7 @@ import {
   Store,
   MapPin,
   CheckSquare,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -61,6 +62,7 @@ const NAV: { group: string; items: NavItem[] }[] = [
       { label: "Content Manager", path: "/dashboard/content", icon: ScrollText },
       { label: "Notifications", path: "/dashboard/notifications", icon: BellRing },
       { label: "Support", path: "/dashboard/support", icon: LifeBuoy, badge: "support" },
+      { label: "Early access", path: "/dashboard/early-access", icon: Sparkles },
       { label: "Audit Logs", path: "/dashboard/audit", icon: FileText },
       { label: "Fraud & Risk", path: "/dashboard/risk", icon: ShieldAlert },
       { label: "Settings", path: "/dashboard/settings", icon: Settings },

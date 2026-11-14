@@ -24,11 +24,12 @@ const ACCESS: Record<AdminRole, Set<string> | "*"> = {
     "trial",
     "applications",
     "support",
+    "early-access",
   ]),
   SALES_REP: new Set(["dashboard", "gyms", "trial", "applications", "marketing"]),
-  SUPPORT_AGENT: new Set(["dashboard", "users", "support", "memberships"]),
+  SUPPORT_AGENT: new Set(["dashboard", "users", "support", "memberships", "early-access"]),
   FINANCE_ADMIN: new Set(["dashboard", "finance", "payouts", "economy", "memberships", "memberships-write", "plans"]),
-  MARKETING_MANAGER: new Set(["dashboard", "marketing", "content", "notifications", "marketplace"]),
+  MARKETING_MANAGER: new Set(["dashboard", "marketing", "content", "notifications", "marketplace", "early-access"]),
 };
 
 /** Maps an admin URL to a permission area. Unknown paths stay founder-only. */
@@ -39,6 +40,7 @@ export function adminArea(path: string, method = "GET"): string {
   if (value.includes("/economy")) return "economy";
   if (value.includes("/audit-logs") || value.includes("/settings") || value.includes("/admins")) return "founder-only";
   if (value.includes("/users/") && value.endsWith("/action")) return "users-write";
+  if (value.includes("/feature-feedback")) return "early-access";
   if (value.includes("/support")) return "support";
   if (value.includes("/marketing")) return "marketing";
   if (value.includes("/notifications")) return "notifications";
