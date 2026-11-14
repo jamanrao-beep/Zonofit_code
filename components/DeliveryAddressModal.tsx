@@ -336,9 +336,9 @@ export default function DeliveryAddressModal({
               disabled={isDetectingLocation}
             >
               {isDetectingLocation ? (
-                <ActivityIndicator size="small" color="#D97706" style={{ marginRight: 8 }} />
+                <ActivityIndicator size="small" color="#1F7A3E" style={{ marginRight: 8 }} />
               ) : (
-                <Ionicons name="location-sharp" size={20} color="#D97706" style={{ marginRight: 8 }} />
+                <Ionicons name="location-sharp" size={20} color="#1F7A3E" style={{ marginRight: 8 }} />
               )}
               <Text style={styles.mapActionText}>
                 {isDetectingLocation ? "Detecting location..." : "Add location on map"}
@@ -673,7 +673,7 @@ const styles = StyleSheet.create({
   mapActionText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#2563EB",
+    color: "#1F7A3E",
   },
   rowFields: {
     flexDirection: "row",
@@ -740,24 +740,24 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   useAddressButton: {
-    backgroundColor: "#FFD814",
-    borderColor: "#FCD200",
+    backgroundColor: "#1F7A3E",
+    borderColor: "#186332",
     borderWidth: 1,
     borderRadius: 100,
     height: 48,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowColor: "rgba(31, 122, 62, 0.3)",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
     elevation: 2,
   },
   useAddressText: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#0F1111",
+    color: "#FFFFFF",
   },
   pickerOverlay: {
     flex: 1,

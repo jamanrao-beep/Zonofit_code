@@ -7,7 +7,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter, Stack } from "expo-router";
 import { apiFetch } from "@/lib/api";
 import CartModal from "@/components/CartModal";
-import FirstOrderWishlist from "@/components/shop/FirstOrderWishlist";
 
 export interface MarketplaceItem {
   id: string;
@@ -146,8 +145,6 @@ export default function MarketplaceScreen() {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 20 }}>
-        {/* First Order Wishlist interactive poll */}
-        <FirstOrderWishlist />
 
         {/* Sneak peek heading */}
         <View className="flex-row items-center justify-between mb-4 mt-2">

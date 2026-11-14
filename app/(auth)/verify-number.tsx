@@ -358,7 +358,14 @@ export default function VerifyNumberScreen() {
               </View>
               <Text style={styles.doneTitle}>{doneTitle}</Text>
               <Text style={styles.doneSub}>{doneSub}</Text>
-              <Pressable style={({ pressed }) => [styles.primary, pressed && styles.pressed]} onPress={finish}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.primary,
+                  styles.doneButton,
+                  pressed && styles.pressed,
+                ]}
+                onPress={finish}
+              >
                 <Text style={styles.primaryText}>Continue</Text>
               </Pressable>
             </View>
@@ -444,7 +451,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#2F7D1F",
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: 24,
     marginTop: 12,
+  },
+  doneButton: {
+    paddingHorizontal: 48,
+    minWidth: 180,
+    marginTop: 24,
   },
   primaryDisabled: { opacity: 0.35 },
   primaryText: { color: "#FFFFFF", fontSize: 17, fontWeight: "600" },

@@ -22,7 +22,6 @@ import { useUserStore } from "@/store/useUserStore";
 import { promptGuestAccount } from "@/lib/guestAccount";
 import { CartIconButton, OrdersIconButton, ShopBackButton, WishIconButton } from "@/components/shop/Chrome";
 import ProductCard from "@/components/shop/ProductCard";
-import FirstOrderWishlist from "@/components/shop/FirstOrderWishlist";
 import { shop, shopStyles } from "@/components/shop/theme";
 
 export default function ShopHomeScreen() {
@@ -110,7 +109,7 @@ export default function ShopHomeScreen() {
                 </View>
               </View>
               <Text style={styles.launchBannerSubtitle}>
-                We are curating 100% genuine supplements, apparel, and training gear. Preview categories and vote below on what you want us to stock first!
+                We are curating 100% genuine supplements, apparel, and training gear. Preview upcoming categories below!
               </Text>
             </View>
           </View>
@@ -146,8 +145,6 @@ export default function ShopHomeScreen() {
             </Pressable>
           ) : null}
 
-          {/* Interactive Launch Wishlist */}
-          <FirstOrderWishlist />
 
           <View style={styles.rep}>
             <View style={styles.blob} />
