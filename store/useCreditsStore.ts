@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import * as SecureStore from "expo-secure-store";
 import { Alert } from "react-native";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, invalidateApiCache } from "@/lib/api";
 import { shopCreditsForRupees } from "@/data/shopCatalog";
 import { useAuthStore } from "./useAuthStore";
 
@@ -185,11 +185,13 @@ export const useCreditsStore = create<CreditsState>()(
   noteLocalWalletChange: () => {
     walletEpoch += 1;
     walletFetchedAt = Date.now();
+    invalidateApiCache("/api/wallet");
   },
 
   releaseWalletCache: () => {
     walletEpoch += 1;
     walletFetchedAt = 0;
+    invalidateApiCache("/api/wallet");
   },
 
   fetchWallet: async (token, options) => {

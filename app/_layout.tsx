@@ -10,7 +10,11 @@ import { isRunningInExpoGo } from "expo";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import { LogBox, View } from "react-native";
+import { warmUpApiConnection } from "@/lib/api";
 import "../global.css";
+
+// Pre-warm TCP and TLS socket to backend so first user actions execute with zero cold-start delay
+warmUpApiConnection();
 
 // Expo Go prints this the moment expo-notifications is imported, and Android
 // Expo Go throws if a remote token is requested. The hook never loads that

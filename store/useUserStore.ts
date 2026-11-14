@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import * as SecureStore from "expo-secure-store";
-import { apiFetch, uploadProfilePicture } from "@/lib/api";
+import { apiFetch, uploadProfilePicture, invalidateApiCache } from "@/lib/api";
 import { useCreditsStore } from "./useCreditsStore";
 import { useAuthStore } from "./useAuthStore";
 import { calculateMembershipBreakdown } from "@/constants/credits";
@@ -38,6 +38,7 @@ const PROFILE_FRESH_MS = 8000;
 function noteProfileMutation() {
   profileEpoch += 1;
   profileFetchedAt = Date.now();
+  invalidateApiCache("/api/users");
 }
 
 interface UserState {
