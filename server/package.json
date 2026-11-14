@@ -18,7 +18,7 @@
         "db:reset": "prisma migrate reset",
         "db:seed": "ts-node prisma/seed.ts",
         "rotate-admin": "ts-node src/scripts/rotateAdminPassword.ts",
-        "test": "node --test test/security.test.cjs test/gst.test.cjs test/launchSheet.test.cjs test/launchGameResult.test.cjs"
+        "test": "node --test test/security.test.cjs test/gst.test.cjs test/launchSheet.test.cjs test/launchGameResult.test.cjs test/launchReferral.test.cjs test/referralRewards.test.cjs test/earlyAccess.test.cjs"
     },
     "dependencies": {
         "@prisma/client": "^6.9.0",
