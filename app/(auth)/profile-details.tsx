@@ -880,11 +880,13 @@ const styles = StyleSheet.create({
     color: "#1F7A3E",
   },
   primaryButton: {
+    width: "100%",
     height: 54,
     backgroundColor: "#1F7A3E",
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: 24,
     shadowColor: "#1F7A3E",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,

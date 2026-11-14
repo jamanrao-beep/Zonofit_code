@@ -489,11 +489,13 @@ const styles = StyleSheet.create({
   bar: { flex: 1, height: 4, borderRadius: 4, backgroundColor: "#DFE6DB" },
   barOn: { backgroundColor: "#2F7D1F" },
   cta: {
+    width: "100%",
     height: 56,
     borderRadius: 16,
     backgroundColor: "#2F7D1F",
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: 24,
   },
   ctaOff: { opacity: 0.35 },
   ctaText: { color: "#FFFFFF", fontSize: 17, fontWeight: "600" },

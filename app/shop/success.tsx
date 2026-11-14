@@ -94,6 +94,6 @@ const styles = StyleSheet.create({
   leftSub: { color: shop.muted, marginTop: 2 },
   foot: { position: "absolute", left: 0, right: 0, bottom: 0, backgroundColor: "#fff", borderTopWidth: 1, borderTopColor: shop.line, paddingHorizontal: 20, paddingTop: 12 },
   actions: { flexDirection: "row", gap: 10 },
-  ghost: { height: 56, borderRadius: 18, borderWidth: 1.5, borderColor: shop.hero, alignItems: "center", justifyContent: "center" },
+  ghost: { height: 56, borderRadius: 18, borderWidth: 1.5, borderColor: shop.hero, alignItems: "center", justifyContent: "center", paddingHorizontal: 20 },
   ghostText: { color: shop.hero, fontWeight: "700", fontSize: 16 },
 });

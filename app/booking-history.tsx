@@ -192,14 +192,14 @@ export default function BookingHistoryScreen() {
             <View className="flex-row items-center gap-x-2.5 mt-3 pt-3 border-t border-gray-100">
               <Pressable
                 onPress={handleCancel}
-                className="flex-1 bg-red-50 border border-red-200 py-2 rounded-xl items-center active:opacity-80"
+                className="flex-1 bg-red-50 border border-red-200 py-2.5 px-3 rounded-xl items-center active:opacity-80"
               >
                 <Text className="text-red-600 font-bold text-xs">Cancel Booking</Text>
               </Pressable>
               <Pressable
                 disabled={openingPass}
                 onPress={openPass}
-                className={`flex-1 bg-[#1F7A3E] py-2 rounded-xl items-center active:opacity-90 ${openingPass ? "opacity-80" : ""}`}
+                className={`flex-1 bg-[#1F7A3E] py-2.5 px-3 rounded-xl items-center active:opacity-90 ${openingPass ? "opacity-80" : ""}`}
               >
                 <Text className="text-white font-bold text-xs">
                   {openingPass ? "Opening..." : "View Pass"}

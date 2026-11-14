@@ -629,11 +629,13 @@ const styles = StyleSheet.create({
     backgroundColor: SHEET,
   },
   go: {
+    width: "100%",
     height: 58,
     borderRadius: 18,
     backgroundColor: BRAND,
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: 24,
     shadowColor: BRAND,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.35,

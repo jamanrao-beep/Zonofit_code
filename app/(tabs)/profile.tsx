@@ -841,6 +841,7 @@ const profileStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: 20,
   },
   btnFullText: {
     color: "#FFFFFF",
@@ -922,6 +923,7 @@ const profileStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: 20,
     gap: 8,
   },
   signOutBtnText: {

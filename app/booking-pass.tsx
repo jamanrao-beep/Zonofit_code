@@ -1033,6 +1033,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#16A34A",
     borderRadius: 16,
     paddingVertical: 15,
+    paddingHorizontal: 20,
+    width: "100%",
     alignItems: "center",
     shadowColor: "#16A34A",
     shadowOffset: { width: 0, height: 6 },
@@ -1051,6 +1053,8 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: "rgba(217, 45, 32, 0.3)",
     paddingVertical: 12,
+    paddingHorizontal: 20,
+    width: "100%",
     alignItems: "center",
   },
   dngBtnText: {
@@ -1067,6 +1071,7 @@ const styles = StyleSheet.create({
   },
   ghBtn: {
     paddingVertical: 12,
+    paddingHorizontal: 16,
     alignItems: "center",
   },
   ghBtnText: {

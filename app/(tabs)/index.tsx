@@ -463,7 +463,7 @@ export default function HomeScreen() {
                 </View>
                 <View style={{ flexDirection: "row", gap: 6 }}>
                   <Pressable
-                    style={[homeStyles.btn, { backgroundColor: "#FDE9E7", paddingHorizontal: 12 }]}
+                    style={[homeStyles.btn, { backgroundColor: "#FDE9E7", paddingHorizontal: 16 }]}
                     onPress={askCancelToday}
                   >
                     <Text style={[homeStyles.btnText, { color: "#B3261E" }]}>Cancel</Text>

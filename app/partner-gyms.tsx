@@ -1148,10 +1148,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#DCFCE7",
-    paddingHorizontal: 10,
+    paddingHorizontal: 13,
     paddingVertical: 6,
     borderRadius: 14,
-    gap: 3,
+    gap: 4,
   },
   bookPillText: {
     fontSize: 11,

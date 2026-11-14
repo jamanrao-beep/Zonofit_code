@@ -270,6 +270,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: 20,
     marginTop: 10,
   },
   redBtn: {

@@ -206,11 +206,13 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   primaryButton: {
+    width: "100%",
     height: 56,
     backgroundColor: "#1F7A3E",
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: 24,
   },
   primaryButtonText: {
     fontSize: 16,
@@ -218,9 +220,11 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
   secondaryButton: {
+    width: "100%",
     height: 48,
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: 24,
   },
   secondaryButtonText: {
     fontSize: 16,

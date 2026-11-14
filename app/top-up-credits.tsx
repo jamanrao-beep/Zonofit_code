@@ -291,11 +291,13 @@ export default function TopUpCreditsScreen() {
           disabled={loading}
           style={({ pressed }) => [
             {
+              width: "100%",
               height: 56,
               borderRadius: 16,
               alignItems: "center",
               justifyContent: "center",
               flexDirection: "row",
+              paddingHorizontal: 24,
               backgroundColor: !isMembershipActive
                 ? "#D1D5DB"
                 : loading

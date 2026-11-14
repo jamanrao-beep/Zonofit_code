@@ -539,11 +539,13 @@ const styles = StyleSheet.create({
     backgroundColor: BG,
   },
   go: {
+    width: "100%",
     height: 56,
     borderRadius: 18,
     backgroundColor: BRAND,
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: 24,
     shadowColor: "#1f7a3a",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
