@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Modal,
   View,
@@ -6,13 +6,11 @@ import {
   Pressable,
   StyleSheet,
   ScrollView,
-  Image,
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { apiFetch } from "@/lib/api";
-import { VISIT_RULES } from "@/constants/bookingRules";
 
 export interface BookingModalGym {
   id: string;
@@ -38,14 +36,59 @@ interface BookingModalProps {
   loading?: boolean;
 }
 
-const TIME_SLOTS = [
-  "6:00 AM",
-  "7:30 AM",
-  "9:00 AM",
-  "5:00 PM",
-  "6:30 PM",
-  "8:00 PM",
+const TIME_SLOTS = ["6:00 AM", "7:30 AM", "9:00 AM", "5:00 PM", "6:30 PM", "8:00 PM"];
+
+const INK = "#101c14";
+const MUTE = "#7a8a7f";
+const LINE = "#e3e9e4";
+const GREEN = "#6bcb77";
+const BRAND = "#1f7a3a";
+const TINT = "#e9f6ec";
+const SHEET = "#ffffff";
+const AMBER = "#b7791f";
+const ATINT = "#fff6e5";
+
+const KNOW = [
+  { icon: "time-outline" as const, title: "Only in your slot", body: "Visit is valid during the slot you book." },
+  { icon: "close-outline" as const, title: "Be on time", body: "If your slot ends before check-in, the visit expires." },
+  { icon: "card-outline" as const, title: "Show your pass", body: "Share your pass and desk code at the front desk." },
+  { icon: "calendar-outline" as const, title: "One per day", body: "One active booking per gym each day." },
+  { icon: "refresh-outline" as const, title: "Easy cancel", body: "Cancel more than 2 hours before. A flat 2 credit fee." },
+  { icon: "shirt-outline" as const, title: "Gym etiquette", body: "Clean footwear and gym attire." },
 ];
+
+interface DayChip {
+  id: string;
+  day: string;
+  dateNum: number;
+  month: string;
+  iso: string;
+}
+
+interface SlotView {
+  label: string;
+  clock: string;
+  period: string;
+  endLabel: string;
+  minutes: number;
+}
+
+function buildDates(): DayChip[] {
+  const list: DayChip[] = [];
+  const now = new Date();
+  for (let i = 0; i < 7; i += 1) {
+    const d = new Date(now);
+    d.setDate(now.getDate() + i);
+    list.push({
+      id: d.toISOString().split("T")[0],
+      day: d.toLocaleDateString("en-US", { weekday: "short" }),
+      dateNum: d.getDate(),
+      month: d.toLocaleDateString("en-US", { month: "short" }),
+      iso: d.toISOString(),
+    });
+  }
+  return list;
+}
 
 function slotChoiceLabel(slot: { startTime?: string; endTime?: string }): string {
   const start = typeof slot.startTime === "string" ? slot.startTime.trim() : "";
@@ -53,6 +96,56 @@ function slotChoiceLabel(slot: { startTime?: string; endTime?: string }): string
   if (!start) return "";
   if (!end || end.toLowerCase() === start.toLowerCase()) return start;
   return `${start} - ${end}`;
+}
+
+function clockMinutes(label: string): number | null {
+  const match = label.trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)/i);
+  if (!match) return null;
+  let hours = Number(match[1]);
+  const minutes = Number(match[2] || 0);
+  const period = match[3].toUpperCase();
+  if (period === "PM" && hours !== 12) hours += 12;
+  if (period === "AM" && hours === 12) hours = 0;
+  return hours * 60 + minutes;
+}
+
+function formatClock(totalMinutes: number): string {
+  const normalized = ((totalMinutes % (24 * 60)) + 24 * 60) % (24 * 60);
+  const hours24 = Math.floor(normalized / 60);
+  const minutes = normalized % 60;
+  const period = hours24 >= 12 ? "PM" : "AM";
+  const hour = hours24 % 12 || 12;
+  if (minutes === 0) return `${hour} ${period}`;
+  return `${hour}:${String(minutes).padStart(2, "0")} ${period}`;
+}
+
+function viewSlot(label: string): SlotView {
+  const parts = label.split(/\s[-–—]\s/);
+  const start = (parts[0] || label).trim();
+  const end = parts[1]?.trim() || "";
+  const match = start.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)/i);
+  const minutes = clockMinutes(start) ?? 12 * 60;
+  return {
+    label,
+    clock: match ? `${Number(match[1])}:${match[2] || "00"}` : start,
+    period: match ? match[3].toUpperCase() : "",
+    endLabel: end,
+    minutes,
+  };
+}
+
+function cancelCutoff(slot: SlotView): string | null {
+  const start = clockMinutes(`${slot.clock} ${slot.period}`);
+  if (start === null) return null;
+  const deadline = start - 120;
+  const label = formatClock(deadline);
+  return deadline < 0 ? `${label} the day before` : label;
+}
+
+function pairs<T>(items: T[]): T[][] {
+  const rows: T[][] = [];
+  for (let i = 0; i < items.length; i += 2) rows.push(items.slice(i, i + 2));
+  return rows;
 }
 
 export default function BookingModal({
@@ -68,25 +161,21 @@ export default function BookingModal({
   loading = false,
 }: BookingModalProps) {
   const insets = useSafeAreaInsets();
-  const dates = useMemo(() => {
-    const list = [];
-    const now = new Date();
-    for (let i = 0; i < 5; i++) {
-      const d = new Date(now);
-      d.setDate(now.getDate() + i);
-      list.push({
-        id: d.toISOString().split("T")[0],
-        day: d.toLocaleDateString("en-US", { weekday: "short" }),
-        dateNum: d.getDate(),
-        month: d.toLocaleDateString("en-US", { month: "short" }),
-        iso: d.toISOString(),
-      });
-    }
-    return list;
-  }, []);
-
+  const [dates, setDates] = useState<DayChip[]>(() => buildDates());
   const [selectedDateId, setSelectedDateId] = useState(dates[0]?.id || "");
   const [slotSource, setSlotSource] = useState<string[]>(TIME_SLOTS);
+  const [selectedTime, setSelectedTime] = useState("");
+  const [internalLoading, setInternalLoading] = useState(false);
+
+  useEffect(() => {
+    if (!visible) {
+      setInternalLoading(false);
+      return;
+    }
+    const next = buildDates();
+    setDates(next);
+    setSelectedDateId(next[0]?.id || "");
+  }, [visible]);
 
   useEffect(() => {
     if (!visible || !gym?.id) return;
@@ -95,9 +184,7 @@ export default function BookingModal({
     apiFetch(`/api/gyms/${encodeURIComponent(gym.id)}`, { silent: true })
       .then((data: { slots?: { startTime?: string; endTime?: string }[] }) => {
         if (cancelled || !Array.isArray(data?.slots)) return;
-        const labels = data.slots
-          .map((slot) => slotChoiceLabel(slot))
-          .filter((label) => label.length > 0);
+        const labels = data.slots.map((slot) => slotChoiceLabel(slot)).filter((label) => label.length > 0);
         if (labels.length > 0) setSlotSource(labels);
       })
       .catch(() => {});
@@ -106,73 +193,70 @@ export default function BookingModal({
     };
   }, [visible, gym?.id]);
 
-  // Check if a time slot has already passed for the selected date (Today)
   const isTimeSlotPassed = (slot: string, dateId: string) => {
-    const todayId = dates[0]?.id;
-    if (dateId !== todayId) return false;
-
+    if (dateId !== dates[0]?.id) return false;
+    const start = clockMinutes(slot.split(/\s[-–—]\s/)[0] || slot);
+    if (start === null) return false;
     const now = new Date();
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
-
-    const startLabel = slot.split(/\s[-–—]\s/)[0]?.trim() || slot.trim();
-    const parts = startLabel.split(" ");
-    if (parts.length < 2) return false;
-    const [time, period] = parts;
-    const timeParts = time.split(":").map(Number);
-    let hours = timeParts[0];
-    const minutes = timeParts[1] || 0;
-
-    if (period.toUpperCase() === "PM" && hours !== 12) hours += 12;
-    if (period.toUpperCase() === "AM" && hours === 12) hours = 0;
-    const slotMinutes = hours * 60 + minutes;
-
-    return slotMinutes <= currentMinutes;
+    return start <= now.getHours() * 60 + now.getMinutes();
   };
 
-  const isToday = selectedDateId === dates[0]?.id;
-  const availableSlotsForDate = useMemo(() => {
-    return slotSource.filter((s) => !isTimeSlotPassed(s, selectedDateId));
-  }, [selectedDateId, dates, slotSource]);
-
-  const [selectedTime, setSelectedTime] = useState(() => {
-    const initialSlot = TIME_SLOTS.find((s) => !isTimeSlotPassed(s, dates[0]?.id || ""));
-    return initialSlot || TIME_SLOTS[3];
-  });
-  const [showRulesModal, setShowRulesModal] = useState(false);
-  const [internalLoading, setInternalLoading] = useState(false);
-
-  // When date changes, if currently selected slot has already passed, auto-select first available future slot
-  useEffect(() => {
-    if (!slotSource.includes(selectedTime) || isTimeSlotPassed(selectedTime, selectedDateId)) {
-      setSelectedTime(availableSlotsForDate[0] || "");
-    }
-  }, [selectedDateId, availableSlotsForDate, selectedTime, slotSource]);
+  const slots = useMemo(() => slotSource.map(viewSlot), [slotSource]);
+  const morning = slots.filter((slot) => slot.minutes < 12 * 60);
+  const evening = slots.filter((slot) => slot.minutes >= 12 * 60);
+  const todayId = dates[0]?.id ?? "";
 
   useEffect(() => {
-    if (!visible) {
-      setInternalLoading(false);
-    }
-  }, [visible]);
+    const passed = (slot: string) => {
+      if (selectedDateId !== todayId) return false;
+      const start = clockMinutes(slot.split(/\s[-–—]\s/)[0] || slot);
+      if (start === null) return false;
+      const now = new Date();
+      return start <= now.getHours() * 60 + now.getMinutes();
+    };
+    if (selectedTime && slotSource.includes(selectedTime) && !passed(selectedTime)) return;
+    setSelectedTime(slotSource.find((slot) => !passed(slot)) || "");
+  }, [selectedDateId, slotSource, todayId, selectedTime]);
 
   if (!visible || !gym) return null;
 
   const isCashVenue = gym.type === "turf" || gym.type === "sports";
-  const cashCost = (gym.cost || 8) * 8;
+  const creditCost = gym.cost || 8;
+  const cashCost = creditCost * 8;
   const isMandatoryVisit = isPrimaryGym && visitsRemaining > 0;
-  const isCreditVisit = !isMandatoryVisit;
+  const visitTotal = Math.max(mandatoryVisitsTotal, visitsRemaining, 1);
+  const visitsLeft = Math.max(0, Math.min(visitsRemaining, visitTotal));
+  const hasInsufficientCredits = isCashVenue ? cashBalance < cashCost : !isMandatoryVisit && availableCredits < creditCost;
+  const selected = slots.find((slot) => slot.label === selectedTime) || null;
+  const selectedPassed = !selected || isTimeSlotPassed(selected.label, selectedDateId);
+  const selectedDay = dates.find((day) => day.id === selectedDateId);
+  const busy = loading || internalLoading;
+  const creditsAfter = Math.max(0, availableCredits - creditCost);
+  const cashAfter = Math.max(0, cashBalance - cashCost);
 
-  const hasInsufficientCredits = isCashVenue
-    ? cashBalance < cashCost
-    : isCreditVisit && availableCredits < (gym.cost || 8);
+  const subtitle = (() => {
+    if (!selected || selectedPassed || !selectedDay) return "Pick a time";
+    const range = selected.endLabel ? `${selected.clock} ${selected.period} – ${selected.endLabel}` : `${selected.clock} ${selected.period}`.trim();
+    const when = `${selectedDay.day} ${selectedDay.dateNum} ${selectedDay.month} · ${range}`;
+    if (isMandatoryVisit || isCashVenue) return when;
+    return `${when} · ${creditsAfter} credits left`;
+  })();
 
-  const isCurrentTimePassed = !selectedTime || isTimeSlotPassed(selectedTime, selectedDateId);
+  const buttonLabel = isMandatoryVisit
+    ? "Confirm visit"
+    : isCashVenue
+      ? `Book with ₹${cashCost}`
+      : `Book with ${creditCost} credits`;
+
+  const cutoff = selected && !selectedPassed ? cancelCutoff(selected) : null;
+  const comesBack = isMandatoryVisit ? "visit comes" : isCashVenue ? "booking comes" : "credits come";
 
   const handleConfirmPress = async () => {
-    if (loading || internalLoading || hasInsufficientCredits || isCurrentTimePassed) return;
-    const dateObj = dates.find((d) => d.id === selectedDateId);
+    if (busy || hasInsufficientCredits || selectedPassed || !selected) return;
+    const dateObj = dates.find((day) => day.id === selectedDateId);
     setInternalLoading(true);
     try {
-      await onConfirm(selectedTime, dateObj?.iso);
+      await onConfirm(selected.label, dateObj?.iso);
     } catch (err) {
       console.error("Booking confirm error:", err);
     } finally {
@@ -180,858 +264,385 @@ export default function BookingModal({
     }
   };
 
-  return (
-    <>
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={visible}
-        onRequestClose={onClose}
+  const renderSlot = (slot: SlotView) => {
+    const passed = isTimeSlotPassed(slot.label, selectedDateId);
+    const on = selectedTime === slot.label && !passed;
+    return (
+      <Pressable
+        key={slot.label}
+        disabled={passed}
+        onPress={() => setSelectedTime(slot.label)}
+        style={[styles.slot, on && styles.slotOn, passed && styles.slotOff]}
       >
-        <View style={styles.modalOverlay}>
-          <Pressable style={styles.backdrop} onPress={onClose} />
+        <Text style={[styles.slotTime, passed && styles.slotStruck]}>
+          {slot.clock}
+          {slot.period ? <Text style={[styles.slotPeriod, on && styles.slotPeriodOn]}> {slot.period}</Text> : null}
+        </Text>
+        <Text style={[styles.slotMeta, on && styles.slotMetaOn]}>{passed ? "Passed" : slot.endLabel ? `to ${slot.endLabel}` : "Available"}</Text>
+      </Pressable>
+    );
+  };
 
-          <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 20) + 16 }]}>
-            {/* Header Close Bar */}
-            <View style={styles.modalHeaderRow}>
-              <View style={styles.headerTitleWrap}>
-                <Text style={styles.modalMainHeader}>
-                  {isPrimaryGym
-                    ? isMandatoryVisit
-                      ? "Book Mandatory Visit"
-                      : "Book with Credits"
-                    : "Book Workout"}
-                </Text>
-              </View>
-              <Pressable onPress={onClose} style={styles.closeBtn} hitSlop={10}>
-                <Ionicons name="close" size={20} color="#6B7280" />
-              </Pressable>
+  const renderGroup = (title: string, icon: keyof typeof Ionicons.glyphMap, group: SlotView[]) => {
+    if (group.length === 0) return null;
+    return (
+      <View>
+        <View style={styles.group}>
+          <Ionicons name={icon} size={18} color={MUTE} />
+          <Text style={styles.groupText}>{title}</Text>
+        </View>
+        {pairs(group).map((row) => (
+          <View key={row.map((slot) => slot.label).join("|")} style={styles.slotRow}>
+            {row.map(renderSlot)}
+            {row.length === 1 ? <View style={styles.slotSpacer} /> : null}
+          </View>
+        ))}
+      </View>
+    );
+  };
+
+  return (
+    <Modal animationType="slide" transparent visible={visible} onRequestClose={onClose}>
+      <View style={styles.overlay}>
+        <Pressable style={styles.scrim} onPress={onClose} accessibilityLabel="Close booking" />
+        <View style={styles.sheet}>
+          <View style={styles.grab} />
+          <View style={styles.head}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.title}>{isMandatoryVisit ? "Book your visit" : "Book an extra visit"}</Text>
+              <Text style={styles.gymName} numberOfLines={1}>{gym.name}</Text>
             </View>
+            <Pressable onPress={onClose} style={styles.close} accessibilityLabel="Close" hitSlop={8}>
+              <Ionicons name="close" size={18} color={INK} />
+            </Pressable>
+          </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
-              {/* ============================================================
-                  CASE 1: PRIMARY GYM — MANDATORY VISIT (Mockup Screen 3)
-                  ============================================================ */}
-              {isPrimaryGym && isMandatoryVisit && (
-                <View style={styles.visitOverviewCard}>
-                  <View style={styles.visitOverviewTop}>
-                    <View style={styles.visitIconWrapGreen}>
-                      <Ionicons name="calendar-outline" size={20} color="#166534" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                        <Text style={styles.visitOverviewTitle}>Mandatory Visit</Text>
-                        <View style={styles.includedBadge}>
-                          <Text style={styles.includedBadgeText}>Included</Text>
-                        </View>
-                      </View>
-                      <Text style={styles.visitOverviewSub}>Your required monthly visit</Text>
-                    </View>
-                  </View>
-                  <View style={styles.visitAvailableRow}>
-                    <Text style={styles.visitAvailableText}>
-                      <Text style={styles.boldGreen}>{visitsRemaining}</Text> of {mandatoryVisitsTotal} visits available
-                    </Text>
+          <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+            {isMandatoryVisit ? (
+              <View style={styles.quota}>
+                <View style={styles.quotaRow}>
+                  <Text style={styles.quotaTitle}>Your monthly visits</Text>
+                  <View style={styles.pill}>
+                    <Text style={styles.pillText}>Included</Text>
                   </View>
                 </View>
-              )}
-
-              {/* ============================================================
-                  CASE 2: PRIMARY GYM — CREDIT VISIT (Mockup Screen 4)
-                  ============================================================ */}
-              {isPrimaryGym && !isMandatoryVisit && (
-                <View style={[styles.visitOverviewCard, { borderColor: "#FCD34D", backgroundColor: "#FFFBEB" }]}>
-                  <View style={styles.visitOverviewTop}>
-                    <View style={[styles.visitIconWrapGreen, { backgroundColor: "#FEF3C7" }]}>
-                      <Ionicons name="flash" size={20} color="#B45309" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.visitOverviewTitle}>Credit Visit</Text>
-                      <Text style={styles.visitOverviewSub}>
-                        Use your ZonoFit credits for an additional workout
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={styles.visitAvailableRow}>
-                    <Text style={[styles.visitAvailableText, { color: "#92400E" }]}>
-                      <Text style={[styles.boldGreen, { color: "#B45309" }]}>{availableCredits}</Text> credits available
-                    </Text>
-                  </View>
-                </View>
-              )}
-
-              {/* ============================================================
-                  CASE 3: OTHER GYM / VISITING ANOTHER CITY (Mockup Screen 5)
-                  ============================================================ */}
-              {!isPrimaryGym && (
-                <View style={styles.otherGymContainer}>
-                  {/* Gym Media Card */}
-                  <View style={styles.otherGymCard}>
-                    {gym.image ? (
-                      <Image source={{ uri: gym.image }} style={styles.otherGymImg} resizeMode="cover" />
-                    ) : (
-                      <View style={[styles.otherGymImg, styles.otherGymImgFallback]}>
-                        <Ionicons name="barbell" size={28} color="#1F7A3E" />
-                      </View>
-                    )}
-                    <View style={styles.otherGymBadge}>
-                      <Text style={styles.otherGymBadgeText}>Other Gym</Text>
-                    </View>
-                    
-                    <View style={styles.otherGymDetails}>
-                      <Text style={styles.otherGymName} numberOfLines={1}>{gym.name}</Text>
-                      <View style={styles.otherGymMetaRow}>
-                        {gym.rating ? (
-                          <View style={styles.ratingRow}>
-                            <Ionicons name="star" size={13} color="#F59E0B" />
-                            <Text style={styles.ratingText}>{gym.rating}</Text>
-                          </View>
-                        ) : null}
-                        {gym.address ? (
-                          <Text style={styles.metaAddress} numberOfLines={1}>• {gym.address}</Text>
-                        ) : null}
-                      </View>
-                    </View>
-                  </View>
-
-                  {/* Central Traveling Notice Banner (Mockup Screen 5 Banner) */}
-                  <View style={styles.visitingCityBanner}>
-                    <View style={styles.airplaneIconWrap}>
-                      <Ionicons name="airplane" size={18} color="#0284C7" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.visitingCityTitle}>Visiting another city?</Text>
-                      <Text style={styles.visitingCityDesc}>
-                        You can use your ZonoFit credits at eligible gyms outside your primary gym area.
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              )}
-
-              {/* SELECT DATE SECTION (Mockup Horizontal Date Pills) */}
-              <View style={styles.sectionWrap}>
-                <Text style={styles.sectionHeader}>Select Date</Text>
-                <ScrollView 
-                  horizontal 
-                  showsHorizontalScrollIndicator={false} 
-                  contentContainerStyle={styles.dateScrollRow}
-                >
-                  {dates.map((d) => {
-                    const isSelected = selectedDateId === d.id;
-                    return (
-                      <Pressable
-                        key={d.id}
-                        onPress={() => setSelectedDateId(d.id)}
-                        style={[styles.dateCard, isSelected && styles.dateCardActive]}
-                      >
-                        <Text style={[styles.dateDayText, isSelected && styles.dateDayTextActive]}>
-                          {d.day}
-                        </Text>
-                        <Text style={[styles.dateNumText, isSelected && styles.dateNumTextActive]}>
-                          {d.dateNum}
-                        </Text>
-                        <Text style={[styles.dateMonthText, isSelected && styles.dateMonthTextActive]}>
-                          {d.month}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </ScrollView>
-              </View>
-
-              {/* SELECT TIME SECTION (Mockup Time Slots Grid) */}
-              <View style={styles.sectionWrap}>
-                <Text style={styles.sectionHeader}>Select Time</Text>
-                <View style={styles.timeGrid}>
-                  {slotSource.map((slot, index) => {
-                    const isPassed = isTimeSlotPassed(slot, selectedDateId);
-                    const isSelected = selectedTime === slot;
-                    return (
-                      <Pressable
-                        key={`${slot}-${index}`}
-                        disabled={isPassed}
-                        onPress={() => {
-                          if (!isPassed) setSelectedTime(slot);
-                        }}
-                        style={[
-                          styles.timeBtn,
-                          isSelected && styles.timeBtnActive,
-                          isPassed && styles.timeBtnDisabled,
-                        ]}
-                      >
-                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center" }}>
-                          {isPassed && (
-                            <Ionicons name="lock-closed" size={11} color="#9CA3AF" style={{ marginRight: 4 }} />
-                          )}
-                          <Text
-                            numberOfLines={2}
-                            style={[
-                              styles.timeBtnText,
-                              isSelected && styles.timeBtnTextActive,
-                              isPassed && styles.timeBtnTextDisabled,
-                              { textAlign: "center" },
-                            ]}
-                          >
-                            {slot}
-                          </Text>
-                        </View>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-                {isToday && availableSlotsForDate.length === 0 && (
-                  <View style={styles.allPassedBanner}>
-                    <Ionicons name="time-outline" size={15} color="#B45309" />
-                    <Text style={styles.allPassedText}>
-                      All workout slots for today have passed. Please select tomorrow or an upcoming date.
-                    </Text>
-                  </View>
-                )}
-              </View>
-
-              {/* MANDATORY VISIT GREEN NOTICE (Mockup Screen 3 Notice) */}
-              {isPrimaryGym && isMandatoryVisit && (
-                <View style={styles.mandatoryNoteBanner}>
-                  <Ionicons name="shield-checkmark" size={18} color="#166534" style={{ marginTop: 2 }} />
-                  <Text style={styles.mandatoryNoteText}>
-                    This visit is included in your membership and is used when you book. Cancel more than 2 hours before the visit and it comes back. A flat 2 credit fee still applies.
-                  </Text>
-                </View>
-              )}
-
-              {/* COST LINE (For Credit / Other Gym Visited) */}
-              {(!isPrimaryGym || !isMandatoryVisit) && (
-                <View style={styles.costLineRow}>
-                  <Text style={styles.costLineLabel}>Cost:</Text>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                    <Ionicons name="flash" size={16} color="#B45309" />
-                    <Text style={styles.costLineValue}>
-                      {isCashVenue ? `₹${cashCost} Cash` : `${gym.cost || 8} Credits`}
-                    </Text>
-                  </View>
-                </View>
-              )}
-
-              {hasInsufficientCredits && (
-                <View style={styles.insufficientBanner}>
-                  <Ionicons name="alert-circle" size={16} color="#DC2626" />
-                  <Text style={styles.insufficientText}>
-                    Insufficient credits in your wallet. Please buy credits to book this visit.
-                  </Text>
-                </View>
-              )}
-
-              {/* BOOKING RULES SUMMARY (4 Essential Points from user request) */}
-              <View style={styles.rulesBox}>
-                <View style={styles.rulesBoxHeader}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    <Ionicons name="document-text-outline" size={15} color="#166534" />
-                    <Text style={styles.rulesBoxTitle}>Booking Rules</Text>
-                  </View>
-                  <Pressable onPress={() => setShowRulesModal(true)} hitSlop={8}>
-                    <Text style={styles.rulesBoxLink}>View all rules</Text>
-                  </Pressable>
-                </View>
-                <View style={styles.rulePointsList}>
-                  {VISIT_RULES.map((rule) => (
-                    <Text key={rule.title} style={styles.rulePointLine}>
-                      • <Text style={styles.boldRule}>{rule.title}:</Text> {rule.summary}
-                    </Text>
+                <View style={styles.dots}>
+                  {Array.from({ length: visitTotal }, (_, index) => (
+                    <View key={index} style={[styles.dot, index >= visitsLeft && styles.dotUsed]} />
                   ))}
                 </View>
+                <Text style={styles.quotaNote}>
+                  <Text style={styles.quotaStrong}>{visitsLeft} of {visitTotal}</Text> left this month
+                </Text>
               </View>
-
-              {/* PRIMARY ACTION BUTTON */}
-              <Pressable
-                onPress={handleConfirmPress}
-                style={[
-                  styles.primaryActionBtn,
-                  (hasInsufficientCredits || isCurrentTimePassed) && styles.primaryActionBtnDisabled,
-                  (loading || internalLoading) && { opacity: 0.75 },
-                ]}
-                disabled={loading || internalLoading || hasInsufficientCredits || isCurrentTimePassed}
-              >
-                {(loading || internalLoading) ? (
-                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                    <Text style={styles.primaryActionBtnText}>Confirming Booking...</Text>
-                  </View>
-                ) : (
-                  <Text style={styles.primaryActionBtnText}>
-                    {isPrimaryGym
-                      ? isMandatoryVisit
-                        ? "Book Mandatory Visit"
-                        : "Book with Credits"
-                      : "Book with Credits"}
+            ) : (
+              <View style={styles.wallet}>
+                <View style={styles.walletOrb} />
+                <View style={styles.quotaRow}>
+                  <Text style={styles.walletLabel}>{isCashVenue ? "Your cash" : "Your credits"}</Text>
+                  <Text style={[styles.walletLabel, styles.walletAside]} numberOfLines={1}>
+                    {isPrimaryGym ? "Monthly visits complete" : "Credit visit"}
                   </Text>
-                )}
-              </Pressable>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Expanded Rules Details Modal */}
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={showRulesModal}
-        onRequestClose={() => setShowRulesModal(false)}
-      >
-        <View style={styles.rulesOverlay}>
-          <Pressable style={styles.backdrop} onPress={() => setShowRulesModal(false)} />
-
-          <View style={styles.rulesModalContent}>
-            <View style={styles.rulesModalHeader}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <Ionicons name="shield-checkmark" size={20} color="#166534" />
-                <Text style={styles.rulesModalTitle}>ZonoFit Booking Rules</Text>
-              </View>
-              <Pressable onPress={() => setShowRulesModal(false)} hitSlop={10}>
-                <Ionicons name="close-circle" size={24} color="#9CA3AF" />
-              </Pressable>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 460, marginTop: 14 }}>
-              {VISIT_RULES.map((rule, index) => (
-                <View key={rule.title} style={styles.fullRuleItem}>
-                  <View style={styles.fullRuleIconWrap}>
-                    <Ionicons name={rule.icon} size={18} color="#1F7A3E" />
+                </View>
+                <Text style={styles.walletBig}>
+                  {isCashVenue ? `₹${cashBalance}` : availableCredits}
+                  <Text style={styles.walletUnit}>{isCashVenue ? "" : " credits"}</Text>
+                </Text>
+                <View style={styles.walletRow}>
+                  <View style={styles.walletChip}>
+                    <Text style={styles.walletChipValue}>{isCashVenue ? `₹${cashCost}` : `${creditCost} credits`}</Text>
+                    <Text style={styles.walletChipLabel}>this visit</Text>
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.fullRuleHeading}>{index + 1}. {rule.title}</Text>
-                    <Text style={styles.fullRuleDesc}>{rule.detail}</Text>
+                  <View style={styles.walletChip}>
+                    <Text style={styles.walletChipValue}>{isCashVenue ? `₹${cashAfter}` : `${creditsAfter} credits`}</Text>
+                    <Text style={styles.walletChipLabel}>left after</Text>
                   </View>
                 </View>
-              ))}
+                <Text style={styles.cheer}>
+                  {isPrimaryGym
+                    ? `You've finished all ${mandatoryVisitsTotal} monthly visits. Love the consistency. Train more whenever you like.`
+                    : `This visit at ${gym.name} uses ${isCashVenue ? "your cash balance" : "your credits"}.`}
+                </Text>
+              </View>
+            )}
+
+            {hasInsufficientCredits ? (
+              <Text style={styles.short}>
+                {isCashVenue
+                  ? `You need ₹${cashCost} in cash to book this visit.`
+                  : `You need ${creditCost} credits. You have ${availableCredits}.`}
+              </Text>
+            ) : null}
+
+            <Text style={styles.sec}>Date</Text>
+            <ScrollView
+              horizontal
+              nestedScrollEnabled
+              showsHorizontalScrollIndicator={false}
+              style={styles.dateBleed}
+              contentContainerStyle={styles.dateRow}
+            >
+              {dates.map((day) => {
+                const on = selectedDateId === day.id;
+                return (
+                  <Pressable key={day.id} onPress={() => setSelectedDateId(day.id)} style={[styles.date, on && styles.dateOn]}>
+                    <Text style={[styles.dateSmall, on && styles.dateOnText]}>{day.day}</Text>
+                    <Text style={[styles.dateNum, on && styles.dateOnText]}>{day.dateNum}</Text>
+                    <Text style={[styles.dateSmall, on && styles.dateOnMuted]}>{day.month}</Text>
+                  </Pressable>
+                );
+              })}
             </ScrollView>
 
+            <Text style={styles.sec}>Time</Text>
+            {renderGroup("Morning", "sunny-outline", morning)}
+            {renderGroup("Evening", "moon-outline", evening)}
+            {morning.length + evening.length > 0 && morning.concat(evening).every((slot) => isTimeSlotPassed(slot.label, selectedDateId)) ? (
+              <Text style={styles.passedNote}>Today's slots have passed. Pick another day.</Text>
+            ) : null}
+
+            <View style={styles.free}>
+              <Ionicons name="shield-checkmark-outline" size={20} color={AMBER} />
+              <Text style={styles.freeText}>
+                {cutoff ? (
+                  <>
+                    Cancel before <Text style={styles.freeStrong}>{cutoff}</Text> and your {comesBack} back. A flat 2 credit fee applies.
+                  </>
+                ) : (
+                  "Pick a time to see your cancellation window."
+                )}
+              </Text>
+            </View>
+
+            <Text style={styles.sec}>Good to know</Text>
+            <View style={styles.rules}>
+              {pairs(KNOW).map((row) => (
+                <View key={row.map((rule) => rule.title).join("|")} style={styles.slotRow}>
+                  {row.map((rule) => (
+                    <View key={rule.title} style={styles.rule}>
+                      <View style={styles.ruleIcon}>
+                        <Ionicons name={rule.icon} size={18} color={BRAND} />
+                      </View>
+                      <Text style={styles.ruleTitle}>{rule.title}</Text>
+                      <Text style={styles.ruleBody}>{rule.body}</Text>
+                    </View>
+                  ))}
+                  {row.length === 1 ? <View style={styles.slotSpacer} /> : null}
+                </View>
+              ))}
+            </View>
+          </ScrollView>
+
+          <View style={[styles.cta, { paddingBottom: 14 + insets.bottom }]}>
             <Pressable
-              onPress={() => setShowRulesModal(false)}
-              style={styles.rulesCloseBtn}
+              onPress={handleConfirmPress}
+              disabled={busy || hasInsufficientCredits || selectedPassed}
+              style={({ pressed }) => [
+                styles.go,
+                (hasInsufficientCredits || selectedPassed) && styles.goOff,
+                pressed && !busy && styles.goPressed,
+              ]}
             >
-              <Text style={styles.rulesCloseBtnText}>Got It</Text>
+              {busy ? (
+                <View style={styles.confirming}>
+                  <ActivityIndicator color="#ffffff" size="small" />
+                  <Text style={styles.goText}>Confirming...</Text>
+                </View>
+              ) : (
+                <>
+                  <Text style={styles.goText}>{buttonLabel}</Text>
+                  <Text style={styles.goSub}>{subtitle}</Text>
+                </>
+              )}
             </Pressable>
           </View>
         </View>
-      </Modal>
-    </>
+      </View>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    justifyContent: "flex-end",
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFill,
-  },
-  modalContent: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingTop: 16,
-    paddingBottom: 28,
-    paddingHorizontal: 20,
-    maxHeight: "92%",
+  overlay: { flex: 1, justifyContent: "flex-end" },
+  scrim: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(8,20,12,0.55)" },
+  sheet: {
+    backgroundColor: SHEET,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    height: "86%",
+    paddingHorizontal: 22,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 10,
+    shadowOffset: { width: 0, height: -10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 16,
   },
-  modalHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 16,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
-  },
-  headerTitleWrap: {
-    flex: 1,
-  },
-  modalMainHeader: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#111827",
-  },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#F3F4F6",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  scrollBody: {
-    paddingBottom: 16,
-  },
-
-  // Primary Gym Overview Card (Screens 3 & 4)
-  visitOverviewCard: {
-    backgroundColor: "#F0FDF4",
+  grab: { width: 40, height: 4, borderRadius: 9, backgroundColor: LINE, alignSelf: "center", marginTop: 10 },
+  head: { height: 64, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
+  title: { fontSize: 22, letterSpacing: -0.5, fontWeight: "700", color: INK },
+  gymName: { marginTop: 1, fontSize: 13, color: MUTE },
+  close: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: SHEET,
     borderWidth: 1,
-    borderColor: "#BBF7D0",
-    borderRadius: 18,
-    padding: 16,
-    marginBottom: 18,
-  },
-  visitOverviewTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  visitIconWrapGreen: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: "#DCFCE7",
+    borderColor: LINE,
     alignItems: "center",
     justifyContent: "center",
   },
-  visitOverviewTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#111827",
-  },
-  includedBadge: {
-    backgroundColor: "#DCFCE7",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  includedBadgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#166534",
-  },
-  visitOverviewSub: {
-    fontSize: 12,
-    color: "#6B7280",
-    marginTop: 2,
-  },
-  visitAvailableRow: {
-    marginTop: 12,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(0,0,0,0.06)",
-  },
-  visitAvailableText: {
-    fontSize: 13,
-    color: "#166534",
-    fontWeight: "600",
-  },
-  boldGreen: {
-    fontWeight: "900",
-  },
-
-  // Other Gym (Screen 5)
-  otherGymContainer: {
-    marginBottom: 16,
-  },
-  otherGymCard: {
-    backgroundColor: "#F9FAFB",
-    borderRadius: 18,
-    overflow: "hidden",
+  scroll: { flex: 1 },
+  scrollContent: { paddingBottom: 12 },
+  quota: {
+    backgroundColor: TINT,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    marginBottom: 12,
-    position: "relative",
-  },
-  otherGymImg: {
-    width: "100%",
-    height: 140,
-    backgroundColor: "#E5E7EB",
-  },
-  otherGymImgFallback: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  otherGymBadge: {
-    position: "absolute",
-    top: 12,
-    right: 12,
-    backgroundColor: "rgba(17, 24, 39, 0.75)",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    borderColor: "rgba(107,203,119,0.4)",
     borderRadius: 20,
+    padding: 16,
+    marginTop: 6,
   },
-  otherGymBadgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#FFFFFF",
+  quotaRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
+  quotaTitle: { fontSize: 15, fontWeight: "700", color: INK },
+  pill: { backgroundColor: SHEET, borderRadius: 99, paddingHorizontal: 10, paddingVertical: 4 },
+  pillText: { fontSize: 12, fontWeight: "600", color: BRAND },
+  dots: { flexDirection: "row", gap: 6, marginTop: 12 },
+  dot: { flex: 1, height: 6, borderRadius: 9, backgroundColor: GREEN },
+  dotUsed: { backgroundColor: "rgba(107,203,119,0.28)" },
+  quotaNote: { marginTop: 8, color: MUTE, fontSize: 13 },
+  quotaStrong: { color: INK, fontWeight: "700" },
+  wallet: {
+    backgroundColor: BRAND,
+    borderRadius: 20,
+    padding: 18,
+    marginTop: 6,
+    overflow: "hidden",
   },
-  otherGymDetails: {
-    padding: 14,
+  walletOrb: {
+    position: "absolute",
+    right: -30,
+    top: -30,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: "rgba(255,255,255,0.12)",
   },
-  otherGymName: {
-    fontSize: 17,
-    fontWeight: "800",
-    color: "#111827",
-  },
-  otherGymMetaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginTop: 4,
-  },
-  ratingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-  },
-  ratingText: {
+  walletLabel: { color: "#ffffff", opacity: 0.9, fontSize: 13 },
+  walletAside: { flexShrink: 1, textAlign: "right" },
+  walletBig: { color: "#ffffff", fontSize: 40, fontWeight: "700", letterSpacing: -1.5, marginTop: 6 },
+  walletUnit: { fontSize: 15, fontWeight: "500", letterSpacing: 0, opacity: 0.85 },
+  walletRow: { flexDirection: "row", gap: 8, marginTop: 12 },
+  walletChip: { flex: 1, backgroundColor: "rgba(255,255,255,0.16)", borderRadius: 12, paddingVertical: 8, paddingHorizontal: 10 },
+  walletChipValue: { color: "#ffffff", fontSize: 15, fontWeight: "700" },
+  walletChipLabel: { color: "#ffffff", fontSize: 12, opacity: 0.9 },
+  cheer: { color: "#ffffff", fontSize: 13, marginTop: 10, lineHeight: 18 },
+  short: { marginTop: 10, color: "#b42318", fontSize: 13, fontWeight: "600" },
+  sec: {
     fontSize: 12,
-    fontWeight: "700",
-    color: "#111827",
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
+    color: MUTE,
+    fontWeight: "600",
+    marginTop: 26,
+    marginBottom: 12,
   },
-  metaAddress: {
-    fontSize: 12,
-    color: "#6B7280",
-    flex: 1,
-  },
-
-  // Visiting City Banner
-  visitingCityBanner: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-    backgroundColor: "#F0F9FF",
+  dateBleed: { marginHorizontal: -22 },
+  dateRow: { paddingHorizontal: 22, gap: 10, paddingBottom: 4 },
+  date: {
+    width: 62,
+    paddingVertical: 12,
+    borderRadius: 18,
+    backgroundColor: SHEET,
     borderWidth: 1,
-    borderColor: "#BAE6FD",
-    borderRadius: 16,
+    borderColor: LINE,
+    alignItems: "center",
+  },
+  dateOn: {
+    backgroundColor: BRAND,
+    borderColor: BRAND,
+    shadowColor: BRAND,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  dateSmall: { fontSize: 12, color: MUTE },
+  dateNum: { fontSize: 22, letterSpacing: -0.5, color: INK, fontWeight: "700", marginVertical: 2 },
+  dateOnText: { color: "#ffffff" },
+  dateOnMuted: { color: "#ffffff", opacity: 0.8 },
+  group: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10, marginTop: 6 },
+  groupText: { color: MUTE, fontSize: 13, fontWeight: "600" },
+  slotRow: { flexDirection: "row", gap: 10, marginBottom: 10 },
+  slot: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 18,
+    backgroundColor: SHEET,
+    borderWidth: 1,
+    borderColor: LINE,
+  },
+  slotOn: { borderColor: BRAND, backgroundColor: TINT, borderWidth: 1.5 },
+  slotOff: { opacity: 0.45, backgroundColor: "transparent" },
+  slotTime: { fontSize: 20, letterSpacing: -0.5, fontWeight: "700", color: INK },
+  slotStruck: { textDecorationLine: "line-through" },
+  slotPeriod: { fontSize: 13, fontWeight: "600", color: MUTE },
+  slotPeriodOn: { color: BRAND },
+  slotMeta: { fontSize: 12.5, color: MUTE, marginTop: 2 },
+  slotMetaOn: { color: BRAND },
+  slotSpacer: { flex: 1 },
+  passedNote: { color: AMBER, fontSize: 13, fontWeight: "600", marginTop: 4 },
+  free: {
+    flexDirection: "row",
+    gap: 12,
+    alignItems: "flex-start",
+    backgroundColor: ATINT,
+    borderRadius: 18,
+    padding: 14,
+    marginTop: 16,
+  },
+  freeText: { flex: 1, color: AMBER, fontSize: 14, lineHeight: 20 },
+  freeStrong: { color: INK, fontWeight: "700" },
+  rules: { paddingBottom: 6 },
+  rule: {
+    flex: 1,
+    backgroundColor: SHEET,
+    borderWidth: 1,
+    borderColor: LINE,
+    borderRadius: 18,
     padding: 14,
   },
-  airplaneIconWrap: {
+  ruleIcon: {
     width: 34,
     height: 34,
-    borderRadius: 17,
-    backgroundColor: "#E0F2FE",
+    borderRadius: 11,
+    backgroundColor: TINT,
     alignItems: "center",
     justifyContent: "center",
-  },
-  visitingCityTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#0369A1",
-    marginBottom: 2,
-  },
-  visitingCityDesc: {
-    fontSize: 11,
-    color: "#0284C7",
-    lineHeight: 16,
-  },
-
-  // Date Selector
-  sectionWrap: {
-    marginBottom: 16,
-  },
-  sectionHeader: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#111827",
     marginBottom: 10,
   },
-  dateScrollRow: {
-    gap: 8,
+  ruleTitle: { fontSize: 14, fontWeight: "700", color: INK, lineHeight: 18 },
+  ruleBody: { fontSize: 12.5, color: MUTE, marginTop: 3, lineHeight: 17 },
+  cta: {
+    marginHorizontal: -22,
+    paddingHorizontal: 22,
+    paddingTop: 16,
+    backgroundColor: SHEET,
   },
-  dateCard: {
-    width: 62,
-    paddingVertical: 10,
-    borderRadius: 14,
-    backgroundColor: "#F9FAFB",
-    borderWidth: 1.5,
-    borderColor: "#E5E7EB",
-    alignItems: "center",
-  },
-  dateCardActive: {
-    backgroundColor: "#ECFDF5",
-    borderColor: "#1F7A3E",
-  },
-  dateDayText: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#6B7280",
-    marginBottom: 2,
-  },
-  dateDayTextActive: {
-    color: "#166534",
-    fontWeight: "700",
-  },
-  dateNumText: {
-    fontSize: 17,
-    fontWeight: "800",
-    color: "#111827",
-  },
-  dateNumTextActive: {
-    color: "#1F7A3E",
-  },
-  dateMonthText: {
-    fontSize: 10,
-    color: "#9CA3AF",
-    marginTop: 2,
-  },
-  dateMonthTextActive: {
-    color: "#166534",
-    fontWeight: "700",
-  },
-
-  // Time Grid
-  timeGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  timeBtn: {
-    width: "31%",
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: "#F9FAFB",
-    borderWidth: 1.5,
-    borderColor: "#E5E7EB",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  timeBtnActive: {
-    backgroundColor: "#ECFDF5",
-    borderColor: "#1F7A3E",
-  },
-  timeBtnText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#374151",
-  },
-  timeBtnTextActive: {
-    color: "#1F7A3E",
-    fontWeight: "800",
-  },
-  timeBtnDisabled: {
-    backgroundColor: "#F3F4F6",
-    borderColor: "#E5E7EB",
-    opacity: 0.55,
-  },
-  timeBtnTextDisabled: {
-    color: "#9CA3AF",
-    textDecorationLine: "line-through",
-    fontWeight: "500",
-  },
-  allPassedBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFFBEB",
-    borderRadius: 12,
-    padding: 10,
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: "#FEF3C7",
-    gap: 8,
-  },
-  allPassedText: {
-    fontSize: 11.5,
-    fontWeight: "600",
-    color: "#B45309",
-    flex: 1,
-    lineHeight: 16,
-  },
-
-  // Mandatory note
-  mandatoryNoteBanner: {
-    flexDirection: "row",
-    gap: 10,
-    backgroundColor: "#F0FDF4",
-    borderRadius: 14,
-    padding: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: "#DCFCE7",
-  },
-  mandatoryNoteText: {
-    fontSize: 11,
-    color: "#166534",
-    lineHeight: 16,
-    fontWeight: "500",
-    flex: 1,
-  },
-
-  // Cost line
-  costLineRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "#F9FAFB",
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-  },
-  costLineLabel: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#374151",
-  },
-  costLineValue: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: "#111827",
-  },
-
-  insufficientBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "#FEF2F2",
-    borderWidth: 1,
-    borderColor: "#FECACA",
-    padding: 10,
-    borderRadius: 10,
-    marginBottom: 14,
-  },
-  insufficientText: {
-    fontSize: 11,
-    color: "#DC2626",
-    fontWeight: "600",
-    flex: 1,
-  },
-
-  // Rules Box
-  rulesBox: {
-    backgroundColor: "#F8FAFC",
-    borderRadius: 14,
-    padding: 12,
-    marginBottom: 18,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
-  rulesBoxHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 6,
-  },
-  rulesBoxTitle: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: "#334155",
-    textTransform: "uppercase",
-  },
-  rulesBoxLink: {
-    fontSize: 11,
-    color: "#166534",
-    fontWeight: "700",
-    textDecorationLine: "underline",
-  },
-  rulePointsList: {
-    gap: 8,
-  },
-  rulePointLine: {
-    fontSize: 12,
-    color: "#475569",
-    lineHeight: 17,
-  },
-  boldRule: {
-    fontWeight: "700",
-    color: "#1E293B",
-  },
-
-  // Primary Action Button
-  primaryActionBtn: {
-    height: 50,
-    borderRadius: 16,
-    backgroundColor: "#1F7A3E",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#1F7A3E",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  primaryActionBtnDisabled: {
-    backgroundColor: "#9CA3AF",
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  primaryActionBtnText: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: "#FFFFFF",
-    letterSpacing: 0.3,
-  },
-
-  // Rules Modal
-  rulesOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.65)",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 20,
-  },
-  rulesModalContent: {
-    width: "100%",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  rulesModalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
-  },
-  rulesModalTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#111827",
-  },
-  fullRuleItem: {
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 16,
-  },
-  fullRuleIconWrap: {
-    width: 36,
-    height: 36,
+  go: {
+    height: 58,
     borderRadius: 18,
-    backgroundColor: "#E8F5E9",
+    backgroundColor: BRAND,
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: BRAND,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 4,
   },
-  fullRuleHeading: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 3,
-  },
-  fullRuleDesc: {
-    fontSize: 12,
-    color: "#4B5563",
-    lineHeight: 18,
-  },
-  rulesCloseBtn: {
-    marginTop: 14,
-    height: 44,
-    backgroundColor: "#1F7A3E",
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  rulesCloseBtnText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#FFFFFF",
-  },
+  goOff: { backgroundColor: "#9aa89c", shadowOpacity: 0, elevation: 0 },
+  goPressed: { transform: [{ scale: 0.97 }] },
+  goText: { color: "#ffffff", fontWeight: "600", fontSize: 16 },
+  goSub: { color: "#ffffff", fontWeight: "500", opacity: 0.85, fontSize: 12.5, marginTop: 2 },
+  confirming: { flexDirection: "row", alignItems: "center", gap: 8 },
 });
