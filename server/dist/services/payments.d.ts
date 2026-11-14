@@ -4,6 +4,8 @@ export interface PaymentMeta {
     gymPlanId?: string | null;
     primaryGymId?: string;
     gymName?: string | null;
+    freeMonthId?: string | null;
+    waiverPaise?: number;
 }
 export declare function isRazorpayConfigured(): boolean;
 export declare function getRazorpayConfig(): {

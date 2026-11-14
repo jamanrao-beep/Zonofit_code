@@ -16,6 +16,7 @@ const notifications_1 = require("../services/notifications");
 const bookingTime_1 = require("../lib/bookingTime");
 const errorHandler_1 = require("../middleware/errorHandler");
 const taxDocuments_1 = require("../lib/taxDocuments");
+const referralRewards_1 = require("../lib/referralRewards");
 const router = (0, express_1.Router)();
 // ─── POST /api/bookings ───────────────────────────────────────────────────────
 /**
@@ -371,6 +372,7 @@ router.get("/", auth_1.requireAuth, async (req, res) => {
                     where: { bookingId: { in: autoPassedIds } },
                     data: { status: "VERIFIED", verifiedAt: new Date() },
                 });
+                await (0, referralRewards_1.settleReferralVisitIfNeeded)(req.dbUserId);
             }
         }
         if (unverifiedPassedIds.length > 0) {
@@ -479,6 +481,7 @@ router.get("/today", auth_1.requireAuth, async (req, res) => {
                     where: { bookingId: { in: autoPassedIds } },
                     data: { status: "VERIFIED", verifiedAt: new Date() },
                 });
+                await (0, referralRewards_1.settleReferralVisitIfNeeded)(req.dbUserId);
             }
         }
         if (unverifiedPassedIds.length > 0) {

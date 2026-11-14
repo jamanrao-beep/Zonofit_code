@@ -8,6 +8,7 @@ import { normalizePhone } from "../lib/phone";
 import { requireAuth } from "../middleware/auth";
 import { launchReferralForUser, noteLaunchReferralUse, resolveReferral } from "../lib/launchReferral";
 import { generateUniqueReferralCode } from "../lib/referral";
+import { REFERRAL_GOAL, REFERRAL_VISIT_CREDITS, referralSnapshot } from "../lib/referralRewards";
 import { verifyOTP } from "../lib/otpStore";
 
 function parseDob(value: string): Date | null {
@@ -102,7 +103,7 @@ router.get(
         }
 
         // Real counts from actual database (only count verified check-ins)
-        const [totalWorkouts, thisMonthWorkouts, friendsJoined, completedReferrals] = await Promise.all([
+        const [totalWorkouts, thisMonthWorkouts, friendsJoined, referralProgress] = await Promise.all([
             prisma.booking.count({
                 where: {
                     userId: user.id,
@@ -127,22 +128,12 @@ router.get(
             prisma.user.count({
                 where: { referredByUserId: user.id },
             }),
-            prisma.user.count({
-                where: {
-                    referredByUserId: user.id,
-                    bookings: {
-                        some: {
-                            OR: [
-                                { status: "CHECKED_IN" },
-                                { status: "COMPLETED", checkIn: { verifiedAt: { not: null } } },
-                            ],
-                        },
-                    },
-                },
+            referralSnapshot(user.id).catch(() => {
+                console.warn("[referral] progress was not loaded");
+                return null;
             }),
         ]);
 
-        const creditsEarned = completedReferrals * 5;
         const launchReferral = await launchReferralForUser(user.id);
 
         // Keep user model stats in sync with real verified visits
@@ -205,8 +196,12 @@ router.get(
             referral: {
                 code: userReferralCode,
                 friendsJoined,
-                creditsEarned,
-                rewardAmount: 5,
+                joined: referralProgress?.joined ?? 0,
+                creditsEarned: referralProgress?.creditsEarned ?? 0,
+                toUnlock: referralProgress?.toUnlock ?? REFERRAL_GOAL,
+                worthRupees: referralProgress?.worthRupees ?? 0,
+                monthReady: referralProgress?.monthReady ?? false,
+                rewardAmount: REFERRAL_VISIT_CREDITS,
             },
         });
     }
@@ -241,25 +236,24 @@ router.get(
                 }).catch(() => {});
             }
 
-            const [friendsJoined, completedReferrals] = await Promise.all([
+            const [friendsJoined, progress] = await Promise.all([
                 prisma.user.count({
                     where: { referredByUserId: user.id },
                 }),
-                prisma.user.count({
-                    where: {
-                        referredByUserId: user.id,
-                        bookings: {
-                            some: { status: { in: ["CHECKED_IN", "COMPLETED"] } }
-                        }
-                    }
-                })
+                referralSnapshot(user.id),
             ]);
 
             res.json({
                 referralCode,
                 friendsJoined,
-                creditsEarned: completedReferrals * 5,
-                rewardAmount: 5
+                joined: progress.joined,
+                creditsEarned: progress.creditsEarned,
+                toUnlock: progress.toUnlock,
+                worthRupees: progress.worthRupees,
+                monthReady: progress.monthReady,
+                nextCycleStarted: progress.nextCycleStarted,
+                rewardAmount: REFERRAL_VISIT_CREDITS,
+                goal: REFERRAL_GOAL,
             });
         } catch (err: any) {
             console.error("Failed to fetch referral info:", err);

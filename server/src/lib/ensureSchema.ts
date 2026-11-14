@@ -123,6 +123,41 @@ const STATEMENTS = [
     \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     PRIMARY KEY (\`userId\`)
   ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
+  `CREATE TABLE IF NOT EXISTS \`referral_progress\` (
+    \`friendId\` VARCHAR(191) NOT NULL,
+    \`referrerId\` VARCHAR(191) NOT NULL,
+    \`creditsGranted\` INTEGER NOT NULL DEFAULT 0,
+    \`qualified\` TINYINT NOT NULL DEFAULT 0,
+    \`friendGymPrice\` INTEGER NOT NULL DEFAULT 0,
+    \`referrerGymPrice\` INTEGER NOT NULL DEFAULT 0,
+    \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    PRIMARY KEY (\`friendId\`),
+    KEY \`referral_progress_referrerId\` (\`referrerId\`)
+  ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
+  `CREATE TABLE IF NOT EXISTS \`referral_free_months\` (
+    \`id\` VARCHAR(191) NOT NULL,
+    \`userId\` VARCHAR(191) NOT NULL,
+    \`worthRupees\` INTEGER NOT NULL,
+    \`status\` VARCHAR(16) NOT NULL DEFAULT 'open',
+    \`cycleNumber\` INTEGER NOT NULL,
+    \`redeemedAt\` DATETIME(3) NULL,
+    \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    PRIMARY KEY (\`id\`),
+    UNIQUE KEY \`referral_free_months_user_cycle\` (\`userId\`, \`cycleNumber\`),
+    KEY \`referral_free_months_user_status\` (\`userId\`, \`status\`)
+  ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
+  `CREATE TABLE IF NOT EXISTS \`feature_feedback\` (
+    \`id\` VARCHAR(191) NOT NULL,
+    \`userId\` VARCHAR(191) NOT NULL,
+    \`featureName\` VARCHAR(191) NOT NULL,
+    \`comment\` TEXT NOT NULL,
+    \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    PRIMARY KEY (\`id\`),
+    KEY \`feature_feedback_userId\` (\`userId\`),
+    KEY \`feature_feedback_feature_created\` (\`featureName\`, \`createdAt\`)
+  ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
+  "ALTER TABLE `feature_feedback` MODIFY `comment` TEXT NOT NULL",
+  "ALTER TABLE `feature_feedback` ADD INDEX `feature_feedback_feature_created` (`featureName`, `createdAt`)",
 ];
 
 function safeDbMessage(err: unknown): string {

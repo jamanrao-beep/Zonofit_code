@@ -12,6 +12,7 @@ const phone_1 = require("../lib/phone");
 const auth_1 = require("../middleware/auth");
 const launchReferral_1 = require("../lib/launchReferral");
 const referral_1 = require("../lib/referral");
+const referralRewards_1 = require("../lib/referralRewards");
 const otpStore_1 = require("../lib/otpStore");
 function parseDob(value) {
     const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value.trim());
@@ -97,7 +98,7 @@ router.get("/me", auth_1.requireAuth, async (req, res) => {
         }).catch(() => { });
     }
     // Real counts from actual database (only count verified check-ins)
-    const [totalWorkouts, thisMonthWorkouts, friendsJoined, completedReferrals] = await Promise.all([
+    const [totalWorkouts, thisMonthWorkouts, friendsJoined, referralProgress] = await Promise.all([
         prisma_1.default.booking.count({
             where: {
                 userId: user.id,
@@ -122,21 +123,11 @@ router.get("/me", auth_1.requireAuth, async (req, res) => {
         prisma_1.default.user.count({
             where: { referredByUserId: user.id },
         }),
-        prisma_1.default.user.count({
-            where: {
-                referredByUserId: user.id,
-                bookings: {
-                    some: {
-                        OR: [
-                            { status: "CHECKED_IN" },
-                            { status: "COMPLETED", checkIn: { verifiedAt: { not: null } } },
-                        ],
-                    },
-                },
-            },
+        (0, referralRewards_1.referralSnapshot)(user.id).catch(() => {
+            console.warn("[referral] progress was not loaded");
+            return null;
         }),
     ]);
-    const creditsEarned = completedReferrals * 5;
     const launchReferral = await (0, launchReferral_1.launchReferralForUser)(user.id);
     // Keep user model stats in sync with real verified visits
     if (user.totalWorkouts !== totalWorkouts) {
@@ -197,8 +188,12 @@ router.get("/me", auth_1.requireAuth, async (req, res) => {
         referral: {
             code: userReferralCode,
             friendsJoined,
-            creditsEarned,
-            rewardAmount: 5,
+            joined: referralProgress?.joined ?? 0,
+            creditsEarned: referralProgress?.creditsEarned ?? 0,
+            toUnlock: referralProgress?.toUnlock ?? referralRewards_1.REFERRAL_GOAL,
+            worthRupees: referralProgress?.worthRupees ?? 0,
+            monthReady: referralProgress?.monthReady ?? false,
+            rewardAmount: referralRewards_1.REFERRAL_VISIT_CREDITS,
         },
     });
 });
@@ -225,24 +220,23 @@ router.get("/referral", auth_1.requireAuth, async (req, res) => {
                 data: { referralCode }
             }).catch(() => { });
         }
-        const [friendsJoined, completedReferrals] = await Promise.all([
+        const [friendsJoined, progress] = await Promise.all([
             prisma_1.default.user.count({
                 where: { referredByUserId: user.id },
             }),
-            prisma_1.default.user.count({
-                where: {
-                    referredByUserId: user.id,
-                    bookings: {
-                        some: { status: { in: ["CHECKED_IN", "COMPLETED"] } }
-                    }
-                }
-            })
+            (0, referralRewards_1.referralSnapshot)(user.id),
         ]);
         res.json({
             referralCode,
             friendsJoined,
-            creditsEarned: completedReferrals * 5,
-            rewardAmount: 5
+            joined: progress.joined,
+            creditsEarned: progress.creditsEarned,
+            toUnlock: progress.toUnlock,
+            worthRupees: progress.worthRupees,
+            monthReady: progress.monthReady,
+            nextCycleStarted: progress.nextCycleStarted,
+            rewardAmount: referralRewards_1.REFERRAL_VISIT_CREDITS,
+            goal: referralRewards_1.REFERRAL_GOAL,
         });
     }
     catch (err) {
@@ -251,7 +245,7 @@ router.get("/referral", auth_1.requireAuth, async (req, res) => {
     }
 });
 // ─── POST /api/users/referral/apply ───────────────────────────────────────────
-// Stores who invited this member. It does not add credits.
+// Stores a friend referral, or a challenge code and its percent. It does not add credits.
 router.post("/referral/apply", auth_1.requireAuth, async (req, res) => {
     const code = typeof req.body?.code === "string" ? req.body.code : "";
     if (!code.trim()) {

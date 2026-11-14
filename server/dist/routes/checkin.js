@@ -11,6 +11,7 @@ const gymCommercial_1 = require("../lib/gymCommercial");
 const auth_1 = require("../middleware/auth");
 const errorHandler_1 = require("../middleware/errorHandler");
 const notifications_1 = require("../services/notifications");
+const referralRewards_1 = require("../lib/referralRewards");
 const router = (0, express_1.Router)();
 function codesMatch(actual, expected) {
     const actualBuf = Buffer.from(actual);
@@ -204,27 +205,14 @@ router.post("/staff", auth_1.requireAuth, [(0, express_validator_1.body)("passCo
                 where: { userId: booking.userId, status: "ACTIVE" },
                 data: { completedVisits: { increment: 1 } },
             });
-            let referrerIdToNotify = null;
-            if (booking.user?.referredByUserId && booking.user.totalWorkouts === 0) {
-                referrerIdToNotify = booking.user.referredByUserId;
-                const referrerWallet = await tx.creditWallet.findUnique({ where: { userId: referrerIdToNotify } });
-                if (referrerWallet) {
-                    await tx.creditWallet.update({
-                        where: { id: referrerWallet.id },
-                        data: { balance: { increment: 5 } },
-                    });
-                    await tx.creditTransaction.create({
-                        data: {
-                            walletId: referrerWallet.id,
-                            userId: referrerIdToNotify,
-                            type: "BONUS",
-                            amount: 5,
-                            balanceAfter: referrerWallet.balance + 5,
-                            description: `Referral reward: ${booking.user?.name || "Friend"} completed their first gym visit.`,
-                        },
-                    });
-                }
-            }
+            // totalWorkouts on the loaded user is still the pre-increment count.
+            const referral = booking.user?.referredByUserId && booking.user.totalWorkouts === 0
+                ? await (0, referralRewards_1.settleFirstReferralVisit)(tx, {
+                    id: booking.user.id,
+                    name: booking.user.name,
+                    referredByUserId: booking.user.referredByUserId,
+                })
+                : null;
             return {
                 bookingId: booking.id,
                 deskCode: (0, bookingTime_1.deskCodeFromBookingId)(booking.id),
@@ -232,13 +220,11 @@ router.post("/staff", auth_1.requireAuth, [(0, express_validator_1.body)("passCo
                 verifiedAt: updatedCheckIn.verifiedAt,
                 gymName: booking.gym.name,
                 memberId: booking.userId,
-                referrerIdToNotify,
+                referral,
             };
         });
         (0, notifications_1.sendPushNotification)(result.memberId, "Check-in Verified", `You're all checked in at ${result.gymName}. Have a great workout.`).catch(() => { });
-        if (result.referrerIdToNotify) {
-            (0, notifications_1.sendPushNotification)(result.referrerIdToNotify, "Referral Bonus", "You earned 5 credits. Your referred friend just completed their first workout.").catch(() => { });
-        }
+        (0, referralRewards_1.notifyReferralReward)(result.referral);
         res.json({
             success: true,
             bookingId: result.bookingId,
@@ -344,6 +330,7 @@ router.post("/undo", auth_1.requireAuth, [(0, express_validator_1.body)("booking
                     });
                 }
             }
+            await (0, referralRewards_1.noteReferralVisitUndone)(tx, booking.userId);
             return {
                 bookingId: booking.id,
                 deskCode: (0, bookingTime_1.deskCodeFromBookingId)(booking.id),

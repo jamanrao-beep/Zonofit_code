@@ -2,6 +2,7 @@ import crypto from "crypto";
 import Razorpay from "razorpay";
 import prisma from "../lib/prisma";
 import { createError } from "../middleware/errorHandler";
+import { redeemFreeMonth } from "../lib/referralRewards";
 import { activatePaidMembership } from "./membershipActivate";
 import { sendPushNotification } from "./notifications";
 
@@ -10,6 +11,8 @@ export interface PaymentMeta {
   gymPlanId?: string | null;
   primaryGymId?: string;
   gymName?: string | null;
+  freeMonthId?: string | null;
+  waiverPaise?: number;
 }
 
 function badSecret(value: string | undefined): boolean {
@@ -133,6 +136,14 @@ export async function fulfillPaymentOrder(input: {
         primaryGymId: meta.primaryGymId,
         gymName: meta.gymName,
       });
+      if (meta.freeMonthId && (meta.waiverPaise ?? 0) > 0) {
+        try {
+          const redeemed = await redeemFreeMonth(tx, order.userId, meta.freeMonthId);
+          if (!redeemed) console.warn("[referral] free month was not redeemed");
+        } catch {
+          console.warn("[referral] free month was not redeemed");
+        }
+      }
       await sendPushNotification(
         order.userId,
         "Membership activated",

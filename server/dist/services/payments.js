@@ -13,6 +13,7 @@ const crypto_1 = __importDefault(require("crypto"));
 const razorpay_1 = __importDefault(require("razorpay"));
 const prisma_1 = __importDefault(require("../lib/prisma"));
 const errorHandler_1 = require("../middleware/errorHandler");
+const referralRewards_1 = require("../lib/referralRewards");
 const membershipActivate_1 = require("./membershipActivate");
 const notifications_1 = require("./notifications");
 function badSecret(value) {
@@ -123,6 +124,16 @@ async function fulfillPaymentOrder(input) {
                 primaryGymId: meta.primaryGymId,
                 gymName: meta.gymName,
             });
+            if (meta.freeMonthId && (meta.waiverPaise ?? 0) > 0) {
+                try {
+                    const redeemed = await (0, referralRewards_1.redeemFreeMonth)(tx, order.userId, meta.freeMonthId);
+                    if (!redeemed)
+                        console.warn("[referral] free month was not redeemed");
+                }
+                catch {
+                    console.warn("[referral] free month was not redeemed");
+                }
+            }
             await (0, notifications_1.sendPushNotification)(order.userId, "Membership activated", `Your membership at ${meta.gymName || "your primary gym"} is now active! 10 primary visits and credits are ready in your wallet.`).catch(() => { });
         }
         else {

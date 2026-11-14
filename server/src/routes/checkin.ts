@@ -6,6 +6,7 @@ import { currentSlotWindow } from "../lib/gymCommercial";
 import { requireAuth } from "../middleware/auth";
 import { createError } from "../middleware/errorHandler";
 import { sendPushNotification } from "../services/notifications";
+import { noteReferralVisitUndone, notifyReferralReward, settleFirstReferralVisit } from "../lib/referralRewards";
 
 const router = Router();
 
@@ -233,27 +234,14 @@ router.post(
           data: { completedVisits: { increment: 1 } },
         });
 
-        let referrerIdToNotify: string | null = null;
-        if (booking.user?.referredByUserId && booking.user.totalWorkouts === 0) {
-          referrerIdToNotify = booking.user.referredByUserId;
-          const referrerWallet = await tx.creditWallet.findUnique({ where: { userId: referrerIdToNotify } });
-          if (referrerWallet) {
-            await tx.creditWallet.update({
-              where: { id: referrerWallet.id },
-              data: { balance: { increment: 5 } },
-            });
-            await tx.creditTransaction.create({
-              data: {
-                walletId: referrerWallet.id,
-                userId: referrerIdToNotify,
-                type: "BONUS",
-                amount: 5,
-                balanceAfter: referrerWallet.balance + 5,
-                description: `Referral reward: ${booking.user?.name || "Friend"} completed their first gym visit.`,
-              },
-            });
-          }
-        }
+        // totalWorkouts on the loaded user is still the pre-increment count.
+        const referral = booking.user?.referredByUserId && booking.user.totalWorkouts === 0
+          ? await settleFirstReferralVisit(tx, {
+              id: booking.user.id,
+              name: booking.user.name,
+              referredByUserId: booking.user.referredByUserId,
+            })
+          : null;
 
         return {
           bookingId: booking.id,
@@ -262,7 +250,7 @@ router.post(
           verifiedAt: updatedCheckIn.verifiedAt,
           gymName: booking.gym.name,
           memberId: booking.userId,
-          referrerIdToNotify,
+          referral,
         };
       });
 
@@ -271,13 +259,7 @@ router.post(
         "Check-in Verified",
         `You're all checked in at ${result.gymName}. Have a great workout.`
       ).catch(() => {});
-      if (result.referrerIdToNotify) {
-        sendPushNotification(
-          result.referrerIdToNotify,
-          "Referral Bonus",
-          "You earned 5 credits. Your referred friend just completed their first workout."
-        ).catch(() => {});
-      }
+      notifyReferralReward(result.referral);
 
       res.json({
         success: true,
@@ -401,6 +383,8 @@ router.post(
             });
           }
         }
+
+        await noteReferralVisitUndone(tx, booking.userId);
 
         return {
           bookingId: booking.id,

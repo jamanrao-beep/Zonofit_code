@@ -7,6 +7,8 @@ const express_1 = require("express");
 const express_validator_1 = require("express-validator");
 const prisma_1 = __importDefault(require("../lib/prisma"));
 const auth_1 = require("../middleware/auth");
+const taxDocuments_1 = require("../lib/taxDocuments");
+const referralRewards_1 = require("../lib/referralRewards");
 const membershipActivate_1 = require("../services/membershipActivate");
 const payments_1 = require("../services/payments");
 const notifications_1 = require("../services/notifications");
@@ -17,6 +19,18 @@ function hideSupplierGstin(membership) {
         return membership;
     const { gstNumber: _gstNumber, ...primaryGym } = membership.primaryGym;
     return { ...membership, primaryGym };
+}
+/** Activates a cycle and redeems a free month in the same transaction. Visit math stays on the full price. */
+async function activateAndMaybeRedeem(userId, input, freeMonthId) {
+    return prisma_1.default.$transaction(async (tx) => {
+        const activated = await (0, membershipActivate_1.activatePaidMembership)(tx, userId, input);
+        if (freeMonthId) {
+            const redeemed = await (0, referralRewards_1.redeemFreeMonth)(tx, userId, freeMonthId);
+            if (!redeemed)
+                console.warn("[referral] free month was not redeemed");
+        }
+        return activated;
+    });
 }
 // ─── GET /api/membership/plans ────────────────────────────────────────────────
 /**
@@ -121,19 +135,29 @@ router.post("/create-order", auth_1.requireAuth, [
             planId,
             gymPlanId,
         });
-        // If Razorpay is not configured on the server, directly accept & activate for testing
-        if (!(0, payments_1.isRazorpayConfigured)()) {
-            const activationResult = await (0, membershipActivate_1.activatePaidMembership)(prisma_1.default, req.dbUserId, {
-                primaryGymId: quote.gym.id,
-                gymName: gymName || quote.gym.name,
-                planId: quote.planId,
-                gymPlanId: quote.gymPlanId,
-            });
+        const offer = await (0, referralRewards_1.quotedFreeMonth)(req.dbUserId, quote.pricePaise);
+        const chargePaise = offer.chargePaise;
+        const tax = (0, taxDocuments_1.membershipTaxBranches)({
+            grossPaise: chargePaise,
+            gymGstRegistered: quote.gym.isGstRegistered === true,
+        });
+        const activationInput = {
+            primaryGymId: quote.gym.id,
+            gymName: gymName || quote.gym.name,
+            planId: quote.planId,
+            gymPlanId: quote.gymPlanId,
+        };
+        // A covered month activates now. So does a server that has no card checkout.
+        if (chargePaise === 0 || !(0, payments_1.isRazorpayConfigured)()) {
+            const activationResult = await activateAndMaybeRedeem(req.dbUserId, activationInput, offer.waiverPaise > 0 ? offer.freeMonthId : null);
             await (0, notifications_1.sendPushNotification)(req.dbUserId, "Membership activated", `Your membership at ${activationResult.gym.name} is active! ${activationResult.initialVisits} primary visits and ${activationResult.remainingCreditsToAdd} credits added to your wallet.`).catch(() => { });
+            const covered = chargePaise === 0 && offer.waiverPaise > 0;
             res.status(200).json({
                 directAccepted: true,
                 success: true,
-                message: "Membership activated directly for testing (card payments not configured).",
+                message: covered
+                    ? "Your free referral month is active."
+                    : "Membership activated directly for testing (card payments not configured).",
                 membership: hideSupplierGstin({
                     ...activationResult.membership,
                     gymName: activationResult.gym.name,
@@ -149,16 +173,17 @@ router.post("/create-order", auth_1.requireAuth, [
                 newCreditBalance: activationResult.wallet.balance,
                 gymId: activationResult.gym.id,
                 gymName: activationResult.gym.name,
-                amount: quote.pricePaise,
+                amount: chargePaise,
+                waiverPaise: offer.waiverPaise,
                 currency: "INR",
-                tax: quote.tax,
+                tax,
             });
             return;
         }
         const razorpay = (0, payments_1.getRazorpay)();
         const { keyId } = (0, payments_1.getRazorpayConfig)();
         const order = await razorpay.orders.create({
-            amount: quote.pricePaise,
+            amount: chargePaise,
             currency: "INR",
             receipt: `mem_${Date.now()}`,
         });
@@ -166,7 +191,7 @@ router.post("/create-order", auth_1.requireAuth, [
             data: {
                 userId: req.dbUserId,
                 razorpayOrderId: order.id,
-                amountPaise: quote.pricePaise,
+                amountPaise: chargePaise,
                 creditsToAdd: 0,
                 cashToAddPaise: 0,
                 purpose: "MEMBERSHIP",
@@ -175,7 +200,10 @@ router.post("/create-order", auth_1.requireAuth, [
                     gymPlanId: quote.gymPlanId,
                     primaryGymId,
                     gymName: gymName || quote.gym.name,
-                    tax: quote.tax,
+                    tax,
+                    ...(offer.freeMonthId && offer.waiverPaise > 0
+                        ? { freeMonthId: offer.freeMonthId, waiverPaise: offer.waiverPaise }
+                        : {}),
                 }),
                 status: "CREATED",
             },
@@ -183,11 +211,12 @@ router.post("/create-order", auth_1.requireAuth, [
         res.status(200).json({
             razorpayOrderId: order.id,
             keyId,
-            amount: quote.pricePaise,
+            amount: chargePaise,
+            waiverPaise: offer.waiverPaise,
             currency: "INR",
             gymId: quote.gym.id,
             gymName: quote.gym.name,
-            tax: quote.tax,
+            tax,
         });
     }
     catch (err) {
@@ -210,14 +239,20 @@ router.post("/activate", auth_1.requireAuth, async (req, res) => {
             directAccept ||
             !razorpaySignature ||
             razorpayOrderId?.startsWith("mock_")) {
-            // Direct accept mode for testing
+            // Direct accept mode for testing. An open free month is used after the cycle is granted.
             const targetGymId = primaryGymId || "83431d3a-313a-450c-b78e-62732160b6ef";
-            const result = await (0, membershipActivate_1.activatePaidMembership)(prisma_1.default, req.dbUserId, {
-                primaryGymId: targetGymId,
-                gymName,
-                planId,
-                gymPlanId,
+            const granted = await prisma_1.default.$transaction(async (tx) => {
+                const activated = await (0, membershipActivate_1.activatePaidMembership)(tx, req.dbUserId, {
+                    primaryGymId: targetGymId,
+                    gymName,
+                    planId,
+                    gymPlanId,
+                });
+                const waiverPaise = await (0, referralRewards_1.redeemOpenFreeMonth)(tx, req.dbUserId, activated.pricePaise);
+                return { activated, waiverPaise };
             });
+            const result = granted.activated;
+            const chargePaise = result.pricePaise - granted.waiverPaise;
             res.status(201).json({
                 membership: hideSupplierGstin({
                     ...result.membership,
@@ -229,9 +264,15 @@ router.post("/activate", auth_1.requireAuth, async (req, res) => {
                     maxCycles: 12,
                 }),
                 newCreditBalance: result.wallet.balance,
-                amount: result.pricePaise,
-                tax: result.tax,
-                message: "Membership activated (test mode direct accept).",
+                amount: chargePaise,
+                waiverPaise: granted.waiverPaise,
+                tax: (0, taxDocuments_1.membershipTaxBranches)({
+                    grossPaise: chargePaise,
+                    gymGstRegistered: result.gym.isGstRegistered === true,
+                }),
+                message: granted.waiverPaise > 0 && chargePaise === 0
+                    ? "Your free referral month is active."
+                    : "Membership activated (test mode direct accept).",
             });
             return;
         }

@@ -10,6 +10,7 @@ import { sendPushNotification } from "../services/notifications";
 import { isBookingSlotPast } from "../lib/bookingTime";
 import { createError } from "../middleware/errorHandler";
 import { cancellationChargePreview } from "../lib/taxDocuments";
+import { settleReferralVisitIfNeeded } from "../lib/referralRewards";
 
 const router = Router();
 
@@ -417,6 +418,7 @@ router.get(
             where: { bookingId: { in: autoPassedIds } },
             data: { status: "VERIFIED", verifiedAt: new Date() },
           });
+          await settleReferralVisitIfNeeded(req.dbUserId!);
         }
       }
 
@@ -540,6 +542,7 @@ router.get(
             where: { bookingId: { in: autoPassedIds } },
             data: { status: "VERIFIED", verifiedAt: new Date() },
           });
+          await settleReferralVisitIfNeeded(req.dbUserId!);
         }
       }
 
