@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import * as SecureStore from "expo-secure-store";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, invalidateApiCache } from "@/lib/api";
 import { useCreditsStore } from "./useCreditsStore";
 import { useUserStore } from "./useUserStore";
 import { useAuthStore } from "./useAuthStore";
@@ -16,6 +16,7 @@ const BOOKINGS_FRESH_MS = 2500;
 function noteBookingsMutation() {
   bookingsEpoch += 1;
   bookingsFetchedAt = Date.now();
+  invalidateApiCache("/api/bookings");
 }
 
 function sameBookingSnapshot(
@@ -455,46 +456,45 @@ export const useBookingStore = create<BookingState>()(
 
     try {
       const token = useAuthStore.getState().token;
-      let apiResult: any = null;
+      const localOnly = !token || token.startsWith("mock_") || bookingId.startsWith("bk_test_");
 
-      let apiSucceeded = false;
-      if (token && !token.startsWith("mock_") && !bookingId.startsWith("bk_test_")) {
-        try {
-          apiResult = await apiFetch(`/api/bookings/${bookingId}`, { 
-            method: "DELETE", 
-            token,
-            timeoutMs: 4000,
-          });
-          apiSucceeded = true;
-        } catch (apiErr: any) {
-          console.warn("Server cancellation timed out or failed, proceeding with direct test cancellation:", apiErr?.message || apiErr);
+      if (!localOnly) {
+        // "{}" is required. Content-Type JSON with an empty body never gets a response.
+        const apiResult = await apiFetch(`/api/bookings/${bookingId}/cancel`, {
+          method: "POST",
+          body: "{}",
+          token,
+          timeoutMs: 20000,
+        });
+        if (typeof apiResult?.newCreditBalance === "number") {
+          useCreditsStore.getState().noteLocalWalletChange();
+          useCreditsStore.setState({ credits: apiResult.newCreditBalance });
+        } else {
+          useCreditsStore.getState().releaseWalletCache();
+          useCreditsStore.getState().fetchWallet(token, { force: true }).catch(() => {});
         }
-      }
-
-      if (apiSucceeded && typeof apiResult?.newCreditBalance === "number") {
-        useCreditsStore.getState().noteLocalWalletChange();
-        useCreditsStore.setState({ credits: apiResult.newCreditBalance });
-      } else {
-        useCreditsStore.getState().releaseWalletCache();
-        // Fallback wallet credit update: mandatory visit charges 2 credits fee; credit visit refunds (cost - 2)
-        if (bookedCost === 0 || bookedCost === undefined) {
-          useCreditsStore.setState((s) => ({ credits: Math.max(0, s.credits - 2) }));
-        } else if (bookedCost > 0) {
-          const refundCredits = Math.max(0, bookedCost - 2);
-          useCreditsStore.setState((s) => ({ credits: s.credits + refundCredits }));
-        }
+      } else if (bookedCost === 0 || bookedCost === undefined) {
+        useCreditsStore.setState((s) => ({ credits: Math.max(0, s.credits - 2) }));
+      } else if (bookedCost > 0) {
+        const refundCredits = Math.max(0, bookedCost - 2);
+        useCreditsStore.setState((s) => ({ credits: s.credits + refundCredits }));
       }
 
       if (bookedCost === 0 || bookedCost === undefined) {
         useUserStore.getState().holdProfileSnapshot();
-        useUserStore.setState((s) => ({ visitsRemaining: Math.min(10, s.visitsRemaining + 1) }));
         const mem = useCreditsStore.getState().membershipInfo;
+        const visitCap = mem?.mandatoryVisits && mem.mandatoryVisits > 0 ? mem.mandatoryVisits : null;
+        useUserStore.setState((s) => ({
+          visitsRemaining: visitCap ? Math.min(visitCap, s.visitsRemaining + 1) : s.visitsRemaining + 1,
+        }));
         if (mem) {
           useCreditsStore.setState({
             membershipInfo: {
               ...mem,
-              mandatoryVisitsRemaining: Math.min(mem.mandatoryVisits || 10, (mem.mandatoryVisitsRemaining || 0) + 1),
-            }
+              mandatoryVisitsRemaining: visitCap
+                ? Math.min(visitCap, (mem.mandatoryVisitsRemaining || 0) + 1)
+                : (mem.mandatoryVisitsRemaining || 0) + 1,
+            },
           });
         }
       }
