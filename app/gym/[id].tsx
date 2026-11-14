@@ -103,6 +103,7 @@ export default function GymDetailScreen() {
   );
   const [confirmedBookingData, setConfirmedBookingData] = useState<{
     timeSlot: string;
+    dateIso?: string;
     isMandatoryVisit: boolean;
     mandatoryVisitsLeft: number;
     creditsDeducted: number;
@@ -219,6 +220,7 @@ export default function GymDetailScreen() {
       const updatedVisitsRemaining = useUserStore.getState().visitsRemaining;
       setConfirmedBookingData({
         timeSlot: slotTime,
+        dateIso: dateToUse,
         isMandatoryVisit,
         mandatoryVisitsLeft: updatedVisitsRemaining,
         creditsDeducted: effectiveCost,
@@ -561,6 +563,7 @@ export default function GymDetailScreen() {
           gymAddress={place}
           gymImage={photos[0]}
           timeSlot={confirmedBookingData.timeSlot}
+          dateStr={confirmedBookingData.dateIso}
           isMandatoryVisit={confirmedBookingData.isMandatoryVisit}
           mandatoryVisitsLeft={confirmedBookingData.mandatoryVisitsLeft}
           totalMandatoryVisits={membershipInfo?.mandatoryVisits || 10}

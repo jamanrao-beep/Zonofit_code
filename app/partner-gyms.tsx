@@ -131,6 +131,7 @@ export default function PartnerGymsScreen() {
     gymAddress?: string;
     gymImage?: string;
     timeSlot: string;
+    dateIso?: string;
     isMandatoryVisit?: boolean;
     mandatoryVisitsLeft?: number;
     totalMandatoryVisits?: number;
@@ -291,6 +292,7 @@ export default function PartnerGymsScreen() {
         gymAddress: selectedGym.address,
         gymImage: selectedGym.image,
         timeSlot: timeToUse,
+        dateIso: dateToUse,
         isMandatoryVisit: Boolean(isMandatory),
         mandatoryVisitsLeft: remainingMandatoryAfter,
         totalMandatoryVisits: membershipInfo?.mandatoryVisits || 10,
@@ -880,6 +882,7 @@ export default function PartnerGymsScreen() {
           gymAddress={confirmedBookingData.gymAddress}
           gymImage={confirmedBookingData.gymImage}
           timeSlot={confirmedBookingData.timeSlot}
+          dateStr={confirmedBookingData.dateIso}
           isMandatoryVisit={confirmedBookingData.isMandatoryVisit}
           mandatoryVisitsLeft={confirmedBookingData.mandatoryVisitsLeft}
           totalMandatoryVisits={confirmedBookingData.totalMandatoryVisits}

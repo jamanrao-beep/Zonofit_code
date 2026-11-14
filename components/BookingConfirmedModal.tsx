@@ -1,25 +1,29 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Modal,
   View,
   Text,
   Pressable,
   StyleSheet,
-  Dimensions,
-  Image,
   ScrollView,
+  useWindowDimensions,
+  Animated,
+  Easing as RNEasing,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import Animated, {
+import * as Haptics from "expo-haptics";
+import AnimatedRe, {
+  Easing,
   useSharedValue,
   useAnimatedStyle,
   withSpring,
   withDelay,
+  withRepeat,
+  withTiming,
 } from "react-native-reanimated";
 import { InAppNoticeBanner } from "@/components/InAppNoticeBanner";
 import { showInAppNotice, useInAppNoticeStore } from "@/store/useInAppNoticeStore";
-import { VISIT_RULES } from "@/constants/bookingRules";
 import { afterPaint } from "@/lib/afterPaint";
 
 interface BookingConfirmedModalProps {
@@ -38,26 +42,191 @@ interface BookingConfirmedModalProps {
   onDone: () => void;
 }
 
-const { height: windowHeight } = Dimensions.get("window");
+const INK = "#0f1c14";
+const MUTE = "#76867b";
+const LINE = "#e2e9e3";
+const GREEN = "#6bcb77";
+const BRAND = "#1f7a3a";
+const TINT = "#e9f6ec";
+const SHEET = "#ffffff";
+const TICKET = "#f5f8f4";
+const CONFETTI = ["#6bcb77", "#1f7a3a", "#a7e8b0", "#ffffff", "#f3d77a"];
+
+interface Clock {
+  hour: number;
+  minute: number;
+  period: string;
+}
+
+function readClock(label: string): Clock | null {
+  const match = label.trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)/i);
+  if (!match) return null;
+  return {
+    hour: Number(match[1]),
+    minute: Number(match[2] || 0),
+    period: match[3].toUpperCase(),
+  };
+}
+
+function clockText(clock: Clock, withPeriod: boolean): string {
+  const minute = clock.minute === 0 ? "00" : String(clock.minute).padStart(2, "0");
+  const time = `${clock.hour}:${minute}`;
+  return withPeriod ? `${time} ${clock.period}` : time;
+}
+
+function formatSlot(label: string): string {
+  const parts = label.split(/\s[-–—]\s/);
+  const start = readClock(parts[0] || "");
+  const end = parts[1] ? readClock(parts[1]) : null;
+  if (!start) return label;
+  if (!end) return clockText(start, true);
+  if (start.period === end.period) return `${clockText(start, false)} – ${clockText(end, true)}`;
+  return `${clockText(start, true)} – ${clockText(end, true)}`;
+}
+
+function cancelByLabel(label: string): string {
+  const start = readClock((label.split(/\s[-–—]\s/)[0] || label).trim());
+  if (!start) return "2 hrs before";
+  let hour = start.hour % 12;
+  if (start.period === "PM") hour += 12;
+  let minutes = hour * 60 + start.minute - 120;
+  const dayBefore = minutes < 0;
+  if (dayBefore) minutes += 24 * 60;
+  const hours24 = Math.floor(minutes / 60);
+  const minute = minutes % 60;
+  const period = hours24 >= 12 ? "PM" : "AM";
+  const hour12 = hours24 % 12 || 12;
+  const clock = minute === 0 ? `${hour12} ${period}` : `${hour12}:${String(minute).padStart(2, "0")} ${period}`;
+  return dayBefore ? `${clock}, day before` : clock;
+}
+
+function formatDate(raw?: string): string {
+  if (!raw || /^today$/i.test(raw.trim())) return "Today";
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return raw;
+  const now = new Date();
+  if (
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate()
+  ) {
+    return "Today";
+  }
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function placeLine(address?: string): string {
+  if (!address) return "Partner gym";
+  if (/primary gym/i.test(address) && /home/i.test(address)) return "Primary gym · Home base";
+  return address;
+}
+
+interface Piece {
+  x: number;
+  y: number;
+  dx: number;
+  rise: number;
+  fall: number;
+  spin: number;
+  w: number;
+  h: number;
+  color: string;
+}
+
+function makeBurst(width: number, height: number): Piece[] {
+  const pieces: Piece[] = [];
+  const origins = [
+    { x: width * 0.15, dir: 1 },
+    { x: width * 0.85, dir: -1 },
+  ];
+  origins.forEach((origin) => {
+    for (let i = 0; i < 23; i += 1) {
+      const spread = (Math.random() - 0.2) * origin.dir;
+      pieces.push({
+        x: origin.x,
+        y: height * 0.5,
+        dx: spread * (70 + Math.random() * 120),
+        rise: -(40 + Math.random() * 90),
+        fall: 180 + Math.random() * 220,
+        spin: (Math.random() - 0.5) * 420,
+        w: 5 + Math.random() * 6,
+        h: 3 + Math.random() * 4,
+        color: CONFETTI[i % CONFETTI.length],
+      });
+    }
+  });
+  return pieces;
+}
+
+function ConfettiBurst({ width, height }: { width: number; height: number }) {
+  const life = useMemo(() => new Animated.Value(0), []);
+  const pieces = useMemo(() => makeBurst(width, height), [width, height]);
+
+  useEffect(() => {
+    const animation = Animated.timing(life, {
+      toValue: 1,
+      duration: 2000,
+      easing: RNEasing.linear,
+      useNativeDriver: true,
+    });
+    animation.start();
+    return () => animation.stop();
+  }, [life]);
+
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      {pieces.map((piece, index) => {
+        const translateX = life.interpolate({ inputRange: [0, 1], outputRange: [0, piece.dx] });
+        const translateY = life.interpolate({
+          inputRange: [0, 0.28, 1],
+          outputRange: [0, piece.rise, piece.fall],
+        });
+        const rotate = life.interpolate({
+          inputRange: [0, 1],
+          outputRange: ["0deg", `${piece.spin}deg`],
+        });
+        const opacity = life.interpolate({ inputRange: [0, 0.72, 1], outputRange: [1, 1, 0] });
+        return (
+          <Animated.View
+            key={index}
+            style={{
+              position: "absolute",
+              left: piece.x,
+              top: piece.y,
+              width: piece.w,
+              height: piece.h,
+              borderRadius: 1,
+              backgroundColor: piece.color,
+              opacity,
+              transform: [{ translateX }, { translateY }, { rotate }],
+            }}
+          />
+        );
+      })}
+    </View>
+  );
+}
 
 export default function BookingConfirmedModal({
   visible,
   gymName,
   gymAddress,
-  gymImage,
   timeSlot,
   dateStr = "Today",
   isMandatoryVisit = false,
   mandatoryVisitsLeft,
-  totalMandatoryVisits = 10,
   creditsDeducted,
   remainingCredits,
   onViewPass,
   onDone,
 }: BookingConfirmedModalProps) {
   const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
   const checkScale = useSharedValue(0);
+  const ring = useSharedValue(0);
+  const ringLate = useSharedValue(0);
   const [openingPass, setOpeningPass] = useState(false);
+  const [burstKey, setBurstKey] = useState(0);
   const [wasVisible, setWasVisible] = useState(visible);
   if (visible !== wasVisible) {
     setWasVisible(visible);
@@ -65,12 +234,27 @@ export default function BookingConfirmedModal({
   }
 
   useEffect(() => {
-    if (visible) {
-      checkScale.value = withDelay(180, withSpring(1, { damping: 10, stiffness: 150 }));
-    } else {
+    if (!visible) {
       checkScale.value = 0;
+      ring.value = 0;
+      ringLate.value = 0;
+      return;
     }
-  }, [visible, checkScale]);
+    checkScale.value = withDelay(450, withSpring(1, { damping: 9, stiffness: 160 }));
+    ring.value = withRepeat(withTiming(1, { duration: 2600, easing: Easing.out(Easing.quad) }), -1, false);
+    ringLate.value = withDelay(
+      1300,
+      withRepeat(withTiming(1, { duration: 2600, easing: Easing.out(Easing.quad) }), -1, false)
+    );
+    const burst = setTimeout(() => setBurstKey((key) => key + 1), 550);
+    const buzz = setTimeout(() => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    }, 550);
+    return () => {
+      clearTimeout(burst);
+      clearTimeout(buzz);
+    };
+  }, [visible, checkScale, ring, ringLate]);
 
   useEffect(() => {
     if (!visible) return;
@@ -87,181 +271,107 @@ export default function BookingConfirmedModal({
     };
   }, [visible, gymName, dateStr, timeSlot]);
 
-  const checkAnimatedStyle = useAnimatedStyle(() => ({
+  const checkStyle = useAnimatedStyle(() => ({
     transform: [{ scale: checkScale.value }],
+  }));
+  const ringStyle = useAnimatedStyle(() => ({
+    opacity: 0.35 * (1 - ring.value),
+    transform: [{ scale: 0.75 + ring.value * 0.75 }],
+  }));
+  const ringLateStyle = useAnimatedStyle(() => ({
+    opacity: 0.35 * (1 - ringLate.value),
+    transform: [{ scale: 0.75 + ringLate.value * 0.75 }],
   }));
 
   if (!visible) return null;
 
   const isMandatory = isMandatoryVisit || creditsDeducted === 0;
+  const slotLabel = formatSlot(timeSlot);
+  const cancelBy = cancelByLabel(timeSlot);
+  const chip = isMandatory
+    ? `Included in your plan${mandatoryVisitsLeft !== undefined ? `  ·  ${mandatoryVisitsLeft} visits left` : ""}`
+    : `${creditsDeducted} credits used  ·  ${remainingCredits} credits left`;
 
   return (
-    <Modal
-      transparent
-      visible={visible}
-      animationType="slide"
-      statusBarTranslucent
-      onRequestClose={onDone}
-    >
+    <Modal transparent visible={visible} animationType="slide" statusBarTranslucent onRequestClose={onDone}>
       <View style={styles.overlay}>
-        <Pressable style={styles.backdrop} onPress={onDone} />
-
-        <View style={[styles.card, { paddingBottom: Math.max(insets.bottom, 14) + 6 }]}>
+        <Pressable style={styles.scrim} onPress={onDone} accessibilityLabel="Close" />
+        <View style={[styles.sheet, { paddingBottom: 18 + insets.bottom, maxHeight: height * 0.92 }]}>
           <View style={styles.grab} />
-          <ScrollView
-            bounces={false}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            style={{ maxHeight: windowHeight * 0.70, width: "100%" }}
-            contentContainerStyle={{ alignItems: "center", width: "100%", paddingBottom: 10 }}
-          >
-          {/* Confirmed Icon Header */}
-          <View style={styles.header}>
-            <View style={styles.glowRing}>
-              <Animated.View style={[styles.checkCircle, checkAnimatedStyle]}>
-                <Ionicons name="checkmark-sharp" size={38} color="#FFFFFF" />
-              </Animated.View>
+          <ScrollView bounces={false} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+            <View style={styles.badge}>
+              <AnimatedRe.View style={[styles.ring, ringStyle]} />
+              <AnimatedRe.View style={[styles.ring, ringLateStyle]} />
+              <AnimatedRe.View style={[styles.check, checkStyle]}>
+                <Ionicons name="checkmark" size={30} color="#ffffff" />
+              </AnimatedRe.View>
             </View>
+            <Text style={styles.title}>You're booked.</Text>
+            <Text style={styles.sub}>See you at the gym.</Text>
 
-            <Text style={styles.title}>Workout booked</Text>
-            <Text style={styles.subtitle}>
-              Your session is confirmed. Show your pass when you arrive at the gym.
-            </Text>
-          </View>
-
-          <View style={styles.rulesBox}>
-            {VISIT_RULES.map((rule) => (
-              <View key={rule.title} style={styles.ruleRow}>
-                <Ionicons name={rule.icon} size={14} color="#1F7A3E" style={{ marginTop: 2 }} />
-                <Text style={styles.ruleText}>
-                  <Text style={styles.ruleTitle}>{rule.title}. </Text>
-                  {rule.summary}
-                </Text>
+            <View style={styles.ticket}>
+              <View style={styles.gymRow}>
+                <View style={styles.gymIcon}>
+                  <Ionicons name="barbell-outline" size={22} color={BRAND} />
+                </View>
+                <View style={styles.gymCopy}>
+                  <Text style={styles.gymName} numberOfLines={1}>{gymName}</Text>
+                  <Text style={styles.gymPlace} numberOfLines={1}>{placeLine(gymAddress)}</Text>
+                </View>
               </View>
-            ))}
-          </View>
-
-          {/* Ticket / Pass Summary Box */}
-          <View style={styles.ticketBox}>
-            <View style={styles.gymRow}>
-              {gymImage ? (
-                <Image 
-                  source={{ uri: gymImage }} 
-                  style={styles.gymThumbnail} 
-                  resizeMode="cover" 
-                />
-              ) : (
-                <View style={[styles.gymThumbnail, styles.gymThumbFallback]}>
-                  <Ionicons name="barbell" size={24} color="#059669" />
+              <View style={styles.when}>
+                <View style={styles.whenCol}>
+                  <Text style={styles.cap}>Date</Text>
+                  <Text style={styles.whenValue}>{formatDate(dateStr)}</Text>
                 </View>
-              )}
-
-              <View style={styles.gymInfo}>
-                <View style={styles.badgeRow}>
-                  <View style={[
-                    styles.confirmedBadge,
-                    isMandatory ? { backgroundColor: "#DCFCE7", borderColor: "#86EFAC" } : { backgroundColor: "#FEF3C7", borderColor: "#FCD34D" }
-                  ]}>
-                    <Text style={[
-                      styles.confirmedBadgeText,
-                      isMandatory ? { color: "#166534" } : { color: "#B45309" }
-                    ]}>
-                      {isMandatory ? "MANDATORY PASS" : "CREDIT PASS"}
-                    </Text>
-                  </View>
-                  <Text style={styles.dateLabel}>{dateStr}</Text>
+                <View style={[styles.whenCol, styles.whenSplit]}>
+                  <Text style={styles.cap}>Time slot</Text>
+                  <Text style={styles.whenValue} numberOfLines={1}>{slotLabel}</Text>
                 </View>
-                <Text style={styles.gymName} numberOfLines={1}>{gymName}</Text>
-                {gymAddress ? (
-                  <Text style={styles.gymAddress} numberOfLines={1}>{gymAddress}</Text>
-                ) : null}
               </View>
             </View>
 
-            <View style={styles.dashDivider} />
+            <View style={styles.chip}>
+              <Ionicons name="shield-checkmark-outline" size={15} color={BRAND} />
+              <Text style={styles.chipText}>{chip}</Text>
+            </View>
 
-            {/* Slot & Booking Details */}
-            <View style={styles.detailGrid}>
-              <View style={styles.detailCol}>
-                <Text style={styles.detailLabel}>TIME SLOT</Text>
-                <View style={styles.detailValueRow}>
-                  <Ionicons name="time-outline" size={14} color="#111827" />
-                  <Text style={styles.detailValue}>{timeSlot}</Text>
-                </View>
+            <View style={styles.rules}>
+              <View style={styles.rule}>
+                <Ionicons name="time-outline" size={20} color={BRAND} />
+                <Text style={styles.ruleTitle}>Be on time</Text>
+                <Text style={styles.ruleBody}>Valid only in your slot</Text>
               </View>
-
-              <View style={styles.detailColRight}>
-                <Text style={styles.detailLabel}>ENTRY METHOD</Text>
-                <View style={styles.detailValueRow}>
-                  <Ionicons name="card-outline" size={14} color="#059669" />
-                  <Text style={[styles.detailValue, { color: "#059669" }]}>Pass at Desk</Text>
-                </View>
+              <View style={styles.rule}>
+                <Ionicons name="phone-portrait-outline" size={20} color={BRAND} />
+                <Text style={styles.ruleTitle}>Show your pass</Text>
+                <Text style={styles.ruleBody}>Staff confirm at desk</Text>
+              </View>
+              <View style={styles.rule}>
+                <Ionicons name="refresh-outline" size={20} color={BRAND} />
+                <Text style={styles.ruleTitle}>Cancel by {cancelBy}</Text>
+                <Text style={styles.ruleBody}>Flat 2 credit fee</Text>
               </View>
             </View>
-          </View>
 
-          {/* Mandatory Visit vs Credit Deduction Banner */}
-          {isMandatory ? (
-            <View style={[styles.creditsBanner, { backgroundColor: "#ECFDF5", borderColor: "#A7F3D0" }]}>
-              <View style={styles.creditDeductedRow}>
-                <View style={[styles.lightningIconWrap, { backgroundColor: "#D1FAE5" }]}>
-                  <Ionicons name="shield-checkmark" size={14} color="#059669" />
-                </View>
-                <Text style={[styles.creditsDeductedText, { color: "#065F46" }]}>
-                  <Text style={[styles.boldDeduction, { color: "#047857" }]}>Included in Membership</Text> • 0 Credits
-                </Text>
-              </View>
-              <View style={[styles.remainingPill, { backgroundColor: "#FFFFFF", borderColor: "#A7F3D0" }]}>
-                <Text style={styles.remainingLabel}>Mandatory Visits Left: </Text>
-                <Text style={[styles.remainingVal, { color: "#059669" }]}>
-                  {mandatoryVisitsLeft !== undefined ? `${mandatoryVisitsLeft} of ${totalMandatoryVisits}` : "Active"}
-                </Text>
-              </View>
-            </View>
-          ) : (
-            <View style={styles.creditsBanner}>
-              <View style={styles.creditDeductedRow}>
-                <View style={styles.lightningIconWrap}>
-                  <Ionicons name="flash" size={14} color="#D97706" />
-                </View>
-                <Text style={styles.creditsDeductedText}>
-                  <Text style={styles.boldDeduction}>{creditsDeducted} Credits</Text> deducted from wallet
-                </Text>
-              </View>
-              <View style={styles.remainingPill}>
-                <Text style={styles.remainingLabel}>Remaining Balance: </Text>
-                <Text style={styles.remainingVal}>{remainingCredits} Credits</Text>
-              </View>
-            </View>
-          )}
-
-          </ScrollView>
-
-          {/* Action CTAs — Pinned at bottom of card, outside ScrollView for reliable tap handling */}
-          <View style={styles.actions}>
             <Pressable
-              style={[styles.primaryBtn, openingPass && { opacity: 0.85 }]}
               disabled={openingPass}
               onPress={() => {
                 if (openingPass) return;
                 setOpeningPass(true);
                 afterPaint(onViewPass);
               }}
-              hitSlop={4}
+              style={({ pressed }) => [styles.go, pressed && styles.goPressed, openingPass && styles.goBusy]}
             >
-              <Ionicons name="ticket-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-              <Text style={styles.primaryBtnText}>{openingPass ? "Opening..." : "View Pass"}</Text>
+              <Ionicons name="ticket-outline" size={20} color="#ffffff" />
+              <Text style={styles.goText}>{openingPass ? "Opening..." : "View pass"}</Text>
             </Pressable>
-
-            <Pressable 
-              style={styles.secondaryBtn}
-              onPress={onDone}
-              hitSlop={8}
-            >
-              <Text style={styles.secondaryBtnText}>Back to Home</Text>
+            <Pressable onPress={onDone} hitSlop={8} style={styles.back}>
+              <Text style={styles.backText}>Back to home</Text>
             </Pressable>
-          </View>
+          </ScrollView>
         </View>
+        {burstKey > 0 ? <ConfettiBurst key={burstKey} width={width} height={height} /> : null}
         <InAppNoticeBanner overlay onOpen={onDone} />
       </View>
     </Modal>
@@ -269,288 +379,145 @@ export default function BookingConfirmedModal({
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: "flex-end",
-    backgroundColor: "transparent",
-  },
-  backdrop: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(8,16,11,0.55)",
-  },
-  card: {
-    width: "100%",
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+  overlay: { flex: 1, justifyContent: "flex-end" },
+  scrim: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(8,20,12,0.55)" },
+  sheet: {
+    backgroundColor: SHEET,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingTop: 10,
     paddingHorizontal: 22,
-    paddingTop: 12,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -8 },
-    shadowOpacity: 0.16,
-    shadowRadius: 22,
-    elevation: 16,
+    zIndex: 6,
   },
   grab: {
     width: 40,
     height: 4,
-    borderRadius: 4,
-    backgroundColor: "#E5E7EB",
-    marginBottom: 8,
+    borderRadius: 9,
+    backgroundColor: LINE,
+    alignSelf: "center",
+    marginBottom: 22,
   },
-  rulesBox: {
-    width: "100%",
-    backgroundColor: "#F4FBF6",
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#D7EADF",
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    marginBottom: 14,
-    gap: 8,
-  },
-  ruleRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-  },
-  ruleText: {
-    flex: 1,
-    fontSize: 12,
-    lineHeight: 17,
-    color: "#3F4B46",
-  },
-  ruleTitle: {
-    fontWeight: "700",
-    color: "#14532D",
-  },
-  header: {
-    alignItems: "center",
-    marginBottom: 18,
-  },
-  glowRing: {
-    width: 78,
-    height: 78,
-    borderRadius: 39,
-    backgroundColor: "#ECFDF5",
-    borderWidth: 6,
-    borderColor: "#D1FAE5",
+  scroll: { alignItems: "center", paddingBottom: 4 },
+  badge: {
+    width: 84,
+    height: 84,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 14,
   },
-  checkCircle: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: "#1F7A3E",
+  ring: {
+    position: "absolute",
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: GREEN,
+  },
+  check: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: BRAND,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#1F7A3E",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
+    shadowColor: BRAND,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
     elevation: 6,
   },
   title: {
-    fontSize: 22,
-    fontWeight: "900",
-    color: "#111827",
-    letterSpacing: -0.5,
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: "#6B7280",
+    marginTop: 14,
+    fontSize: 28,
+    letterSpacing: -0.9,
+    fontWeight: "700",
+    color: INK,
     textAlign: "center",
-    lineHeight: 18,
-    paddingHorizontal: 8,
   },
-  ticketBox: {
-    width: "100%",
-    backgroundColor: "#F9FAFB",
-    borderRadius: 22,
-    padding: 14,
+  sub: { color: MUTE, marginTop: 2, fontSize: 15, textAlign: "center" },
+  ticket: {
+    alignSelf: "stretch",
+    marginTop: 20,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    marginBottom: 14,
+    borderColor: LINE,
+    borderRadius: 22,
+    backgroundColor: TICKET,
+    overflow: "hidden",
   },
   gymRow: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
   },
-  gymThumbnail: {
-    width: 56,
-    height: 56,
+  gymIcon: {
+    width: 44,
+    height: 44,
     borderRadius: 14,
-    backgroundColor: "#E5E7EB",
-    marginRight: 12,
-  },
-  gymThumbFallback: {
+    backgroundColor: TINT,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#D1FAE5",
   },
-  gymInfo: {
-    flex: 1,
-  },
-  badgeRow: {
+  gymCopy: { flex: 1 },
+  gymName: { fontSize: 16.5, letterSpacing: -0.3, fontWeight: "700", color: INK },
+  gymPlace: { fontSize: 13, color: MUTE, marginTop: 1 },
+  when: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 2,
-  },
-  confirmedBadge: {
-    backgroundColor: "#DCFCE7",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  confirmedBadgeText: {
-    fontSize: 9,
-    fontWeight: "800",
-    color: "#166534",
-    letterSpacing: 0.5,
-  },
-  dateLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#6B7280",
-  },
-  gymName: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#111827",
-    marginTop: 2,
-  },
-  gymAddress: {
-    fontSize: 11,
-    color: "#6B7280",
-    marginTop: 1,
-  },
-  dashDivider: {
-    height: 1,
+    borderTopWidth: 1.5,
     borderStyle: "dashed",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    marginVertical: 12,
+    borderColor: LINE,
   },
-  detailGrid: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  whenCol: { flex: 1, paddingVertical: 12, paddingHorizontal: 16 },
+  whenSplit: { borderLeftWidth: 1, borderLeftColor: LINE },
+  cap: {
+    fontSize: 10.5,
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
+    color: MUTE,
+    fontWeight: "600",
   },
-  detailCol: {
-    flex: 1,
-  },
-  detailColRight: {
-    flex: 1,
-    alignItems: "flex-end",
-  },
-  detailLabel: {
-    fontSize: 9,
-    fontWeight: "700",
-    color: "#9CA3AF",
-    letterSpacing: 0.6,
-    marginBottom: 2,
-  },
-  detailValueRow: {
+  whenValue: { marginTop: 2, fontSize: 16, letterSpacing: -0.3, fontWeight: "700", color: INK },
+  chip: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    justifyContent: "center",
+    flexWrap: "wrap",
+    gap: 7,
+    marginTop: 14,
+    maxWidth: "100%",
+    backgroundColor: TINT,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: 99,
   },
-  detailValue: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#111827",
+  chipText: { flexShrink: 1, color: BRAND, fontSize: 13, fontWeight: "600", textAlign: "center" },
+  rules: {
+    alignSelf: "stretch",
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 14,
   },
-  creditsBanner: {
-    width: "100%",
-    backgroundColor: "#FEF3C7",
+  rule: { flex: 1, alignItems: "center", paddingVertical: 4, paddingHorizontal: 2 },
+  ruleTitle: { marginTop: 6, fontSize: 12.5, lineHeight: 16, fontWeight: "700", color: INK, textAlign: "center" },
+  ruleBody: { marginTop: 1, fontSize: 11.5, lineHeight: 15, color: MUTE, textAlign: "center" },
+  go: {
+    alignSelf: "stretch",
+    height: 56,
     borderRadius: 18,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: "#FDE68A",
-    marginBottom: 18,
-  },
-  creditDeductedRow: {
+    backgroundColor: BRAND,
+    marginTop: 18,
     flexDirection: "row",
+    gap: 8,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 4,
-  },
-  lightningIconWrap: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: "#FDE68A",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 6,
-  },
-  creditsDeductedText: {
-    fontSize: 12,
-    color: "#92400E",
-    fontWeight: "500",
-  },
-  boldDeduction: {
-    fontWeight: "800",
-    color: "#B45309",
-  },
-  remainingPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 2,
-  },
-  remainingLabel: {
-    fontSize: 11,
-    color: "#78350F",
-    fontWeight: "500",
-  },
-  remainingVal: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: "#1F7A3E",
-  },
-  actions: {
-    width: "100%",
-    gap: 10,
-  },
-  primaryBtn: {
-    width: "100%",
-    height: 50,
-    backgroundColor: "#1F7A3E",
-    borderRadius: 18,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#1F7A3E",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
+    shadowColor: BRAND,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
     shadowRadius: 10,
     elevation: 4,
   },
-  primaryBtnText: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: "#FFFFFF",
-  },
-  secondaryBtn: {
-    width: "100%",
-    height: 42,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  secondaryBtnText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#6B7280",
-  },
+  goPressed: { transform: [{ scale: 0.97 }] },
+  goBusy: { opacity: 0.85 },
+  goText: { color: "#ffffff", fontWeight: "600", fontSize: 16 },
+  back: { marginTop: 6, paddingVertical: 12, paddingHorizontal: 12 },
+  backText: { color: MUTE, fontWeight: "600", fontSize: 14 },
 });
