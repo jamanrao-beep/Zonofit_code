@@ -11,8 +11,6 @@ import { boxesOnLevel, challengeResultLine, knownLevel, settleChallenge, settleT
 import { noteLaunchReferralCode, rewardPercentTenths } from "../lib/launchReferral";
 import {
   appendLaunchRow,
-  rememberPhone,
-  sheetHasMobile,
   sheetHasSavedResult,
 } from "../lib/launchSheet";
 import { sendInboxNotice } from "../lib/mail";
@@ -84,7 +82,7 @@ router.post("/otp", async (req: Request, res: Response): Promise<void> => {
       res.status(429).json({ error: "TooManyRequests", message: "Too many code requests. Wait a few minutes and try again." });
       return;
     }
-    if ((await launchGamePhoneTaken(phone)) || (await sheetHasMobile(phone))) {
+    if (await launchGamePhoneTaken(phone)) {
       res.status(409).json(ALREADY);
       return;
     }
@@ -156,7 +154,7 @@ router.post("/", async (req: Request, res: Response): Promise<void> => {
     }
     inflight.add(application.phone);
     try {
-      if ((await launchGamePhoneTaken(application.phone)) || (await sheetHasMobile(application.phone))) {
+      if (await launchGamePhoneTaken(application.phone)) {
         res.status(409).json(ALREADY);
         return;
       }
@@ -184,7 +182,6 @@ router.post("/", async (req: Request, res: Response): Promise<void> => {
         });
         return;
       }
-      rememberPhone(application.phone);
       void sendInboxNotice(
         `Lucky Challenge - ${application.name}`,
         [
@@ -277,7 +274,7 @@ router.post("/result", async (req: Request, res: Response): Promise<void> => {
 
     const { application } = parsed;
     const state = await launchGameEntryState(application.phone);
-    if (state === "missing" && !(await sheetHasMobile(application.phone))) {
+    if (state === "missing") {
       res.status(400).json({ error: "NotRegistered", message: "Register before saving a result." });
       return;
     }
@@ -291,10 +288,14 @@ router.post("/result", async (req: Request, res: Response): Promise<void> => {
     }
     resultFlight.add(application.phone);
     try {
-      if (await sheetHasSavedResult(application.phone)) {
-        savedResults.add(application.phone);
-        res.status(409).json({ error: "AlreadySaved", message: "This result is already saved." });
-        return;
+      try {
+        if (await sheetHasSavedResult(application.phone)) {
+          savedResults.add(application.phone);
+          res.status(409).json({ error: "AlreadySaved", message: "This result is already saved." });
+          return;
+        }
+      } catch {
+        // Fall back to database state if sheet check times out
       }
 
       const tenths = rewardPercentTenths(settledReward);

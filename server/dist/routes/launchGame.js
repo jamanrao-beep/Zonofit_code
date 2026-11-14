@@ -64,7 +64,7 @@ router.post("/otp", async (req, res) => {
             res.status(429).json({ error: "TooManyRequests", message: "Too many code requests. Wait a few minutes and try again." });
             return;
         }
-        if ((await (0, launchGameEntries_1.launchGamePhoneTaken)(phone)) || (await (0, launchSheet_1.sheetHasMobile)(phone))) {
+        if (await (0, launchGameEntries_1.launchGamePhoneTaken)(phone)) {
             res.status(409).json(ALREADY);
             return;
         }
@@ -136,7 +136,7 @@ router.post("/", async (req, res) => {
         }
         inflight.add(application.phone);
         try {
-            if ((await (0, launchGameEntries_1.launchGamePhoneTaken)(application.phone)) || (await (0, launchSheet_1.sheetHasMobile)(application.phone))) {
+            if (await (0, launchGameEntries_1.launchGamePhoneTaken)(application.phone)) {
                 res.status(409).json(ALREADY);
                 return;
             }
@@ -165,7 +165,6 @@ router.post("/", async (req, res) => {
                 });
                 return;
             }
-            (0, launchSheet_1.rememberPhone)(application.phone);
             void (0, mail_1.sendInboxNotice)(`Lucky Challenge - ${application.name}`, [
                 "ZonoFit Lucky Challenge",
                 "zonofit.com/launch-game",
@@ -256,7 +255,7 @@ router.post("/result", async (req, res) => {
         }
         const { application } = parsed;
         const state = await (0, launchGameEntries_1.launchGameEntryState)(application.phone);
-        if (state === "missing" && !(await (0, launchSheet_1.sheetHasMobile)(application.phone))) {
+        if (state === "missing") {
             res.status(400).json({ error: "NotRegistered", message: "Register before saving a result." });
             return;
         }
@@ -270,10 +269,15 @@ router.post("/result", async (req, res) => {
         }
         resultFlight.add(application.phone);
         try {
-            if (await (0, launchSheet_1.sheetHasSavedResult)(application.phone)) {
-                savedResults.add(application.phone);
-                res.status(409).json({ error: "AlreadySaved", message: "This result is already saved." });
-                return;
+            try {
+                if (await (0, launchSheet_1.sheetHasSavedResult)(application.phone)) {
+                    savedResults.add(application.phone);
+                    res.status(409).json({ error: "AlreadySaved", message: "This result is already saved." });
+                    return;
+                }
+            }
+            catch {
+                // Fall back to database state if sheet check times out
             }
             const tenths = (0, launchReferral_1.rewardPercentTenths)(settledReward);
             if (prizeCode && tenths !== null) {
