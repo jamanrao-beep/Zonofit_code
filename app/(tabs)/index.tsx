@@ -61,7 +61,6 @@ export default function HomeScreen() {
   const { 
     visitsRemaining, 
     membershipStatus,
-    planName, 
     primaryGymName: userPrimaryGymName,
     primaryGymId: userPrimaryGymId,
     totalWorkouts, 
@@ -72,7 +71,6 @@ export default function HomeScreen() {
   const { isGuest, checkExpiry, endGuestSession, selectedGymName, selectedGymId, getHoursRemaining } = useGuestStore();
   const { bookingStatus, bookedGymName, bookedTime, bookedCost } = useBookingStore();
 
-  const [isCancellingTodayBooking, setIsCancellingTodayBooking] = useState(false);
   const [opening, setOpening] = useState<null | "pass" | "journey" | "wallet" | "invite" | "gym">(null);
   const openingLock = useRef<string | null>(null);
   const [cancelPrompt, setCancelPrompt] = useState<{
@@ -83,6 +81,7 @@ export default function HomeScreen() {
   const [showConfirmedModal, setShowConfirmedModal] = useState(false);
   const [confirmedBookingData, setConfirmedBookingData] = useState<{
     timeSlot: string;
+    dateIso?: string;
     isMandatoryVisit: boolean;
     mandatoryVisitsLeft: number;
     creditsDeducted: number;
@@ -151,7 +150,6 @@ export default function HomeScreen() {
   }, []);
 
   const askCancelToday = () => {
-    if (isCancellingTodayBooking) return;
     const currentCost = useBookingStore.getState().bookedCost;
     const isMandatory = currentCost === 0 || currentCost === undefined;
     const currentCredits = useCreditsStore.getState().credits;
@@ -175,22 +173,9 @@ export default function HomeScreen() {
   };
 
   const confirmCancelToday = async () => {
-    if (!cancelPrompt || isCancellingTodayBooking) return;
-    setIsCancellingTodayBooking(true);
-    try {
-      const result = await useBookingStore.getState().cancelBooking();
-      if (!result?.success) {
-        Alert.alert("Cancellation Failed", result?.message || "Could not cancel booking.");
-        return;
-      }
-      setCancelPrompt(null);
-    } catch (err: unknown) {
-      const message = typeof err === "object" && err !== null && "message" in err && typeof err.message === "string"
-        ? err.message
-        : "Could not cancel booking.";
-      Alert.alert("Cancellation Failed", message);
-    } finally {
-      setIsCancellingTodayBooking(false);
+    const result = await useBookingStore.getState().cancelBooking();
+    if (!result?.success) {
+      throw new Error(result?.message || "Could not cancel booking.");
     }
   };
 
@@ -242,6 +227,7 @@ export default function HomeScreen() {
       const updatedVisitsRemaining = useUserStore.getState().visitsRemaining;
       setConfirmedBookingData({
         timeSlot: slotTime,
+        dateIso: dateToUse,
         isMandatoryVisit: isMandatory,
         mandatoryVisitsLeft: updatedVisitsRemaining,
         creditsDeducted: effectiveCost,
@@ -328,17 +314,10 @@ export default function HomeScreen() {
               </Text>
             </View>
             <View style={homeStyles.hdRow}>
-              {isGuest ? (
+              {isGuest && (
                 <View style={homeStyles.pill}>
                   <Ionicons name="time-outline" size={14} color="#8A5A00" />
                   <Text style={homeStyles.pillText}>{guestHours}h left</Text>
-                </View>
-              ) : (
-                <View style={[homeStyles.pill, { backgroundColor: "#E8F4EA", borderColor: "#C6E4CC" }]}>
-                  <Ionicons name="shield-checkmark" size={13} color="#1F7A3F" />
-                  <Text style={[homeStyles.pillText, { color: "#1F7A3F" }]}>
-                    {planName || "Member"}
-                  </Text>
                 </View>
               )}
               <Pressable
@@ -486,11 +465,8 @@ export default function HomeScreen() {
                   <Pressable
                     style={[homeStyles.btn, { backgroundColor: "#FDE9E7", paddingHorizontal: 12 }]}
                     onPress={askCancelToday}
-                    disabled={isCancellingTodayBooking}
                   >
-                    <Text style={[homeStyles.btnText, { color: "#B3261E" }]}>
-                      {isCancellingTodayBooking ? "Cancelling..." : "Cancel"}
-                    </Text>
+                    <Text style={[homeStyles.btnText, { color: "#B3261E" }]}>Cancel</Text>
                   </Pressable>
                   <Pressable
                     style={homeStyles.btn}
@@ -580,56 +556,142 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          {/* CARD 4: HOW ZONOFIT WORKS */}
-          <View style={homeStyles.card}>
-            <Text style={homeStyles.cardH3}>How Zonofit works</Text>
-            <View style={homeStyles.step}>
-              <View style={homeStyles.stepNum}><Text style={homeStyles.stepNumText}>1</Text></View>
-              <View style={{ flex: 1 }}>
-                <Text style={homeStyles.stepTitle}>Choose your primary gym</Text>
-                <Text style={homeStyles.stepDesc}>Home gym from 100+ verified partners.</Text>
+          {isGuest ? (
+            <>
+              {/* CARD 4: HOW ZONOFIT WORKS (GUEST ONLY) */}
+              <View style={homeStyles.card}>
+                <Text style={homeStyles.cardH3}>How Zonofit works</Text>
+                <View style={homeStyles.step}>
+                  <View style={homeStyles.stepNum}><Text style={homeStyles.stepNumText}>1</Text></View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={homeStyles.stepTitle}>Choose your primary gym</Text>
+                    <Text style={homeStyles.stepDesc}>Home gym from 100+ verified partners.</Text>
+                  </View>
+                </View>
+
+                <View style={homeStyles.step}>
+                  <View style={homeStyles.stepNum}><Text style={homeStyles.stepNumText}>2</Text></View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={homeStyles.stepTitle}>30-day flexible cycle</Text>
+                    <Text style={homeStyles.stepDesc}>Set visits at home gym, plus flexible credits.</Text>
+                  </View>
+                </View>
+
+                <View style={homeStyles.step}>
+                  <View style={homeStyles.stepNum}><Text style={homeStyles.stepNumText}>3</Text></View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={homeStyles.stepTitle}>Work out across the network</Text>
+                    <Text style={homeStyles.stepDesc}>Use credits at any partner gym, anytime.</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* CARD 5: QUESTIONS (FAQ ACCORDION - GUEST ONLY) */}
+              <View style={homeStyles.card}>
+                <Text style={[homeStyles.cardH3, { marginBottom: 6 }]}>Questions</Text>
+                
+                <AccordionItem title="Can I explore without paying?" defaultOpen={true}>
+                  <Text style={homeStyles.accordionBodyText}>
+                    Yes. For 48 hours you can look at every partner gym, facility and plan price. No payment.
+                  </Text>
+                </AccordionItem>
+
+                <AccordionItem title="Can I try multiple gyms?">
+                  <Text style={homeStyles.accordionBodyText}>
+                    Yes. You commit visits to your primary gym, and credits unlock any partner gym.
+                  </Text>
+                </AccordionItem>
+
+                <AccordionItem title="What happens to unused credits?">
+                  <Text style={homeStyles.accordionBodyText}>
+                    They convert into an INR wallet at the end of the cycle, valid for 15 days.
+                  </Text>
+                </AccordionItem>
+              </View>
+            </>
+          ) : (
+            /* UPCOMING FEATURES BENTO GRID (SIGNED-IN ONLY) */
+            <View style={homeStyles.upcomingSection}>
+              <View style={homeStyles.upcomingHeader}>
+                <Ionicons name="sparkles" size={18} color="#1F7A3F" />
+                <Text style={homeStyles.upcomingTitle}>More Coming Your Way</Text>
+              </View>
+
+              <View style={homeStyles.bentoGrid}>
+                {/* 1: Personal Training */}
+                <Pressable
+                  style={({ pressed }) => [homeStyles.bentoCard, pressed && homeStyles.bentoCardPressed]}
+                  onPress={() => router.push("/tools/trainer-program" as any)}
+                >
+                  <View style={homeStyles.bentoTop}>
+                    <View style={[homeStyles.bentoIconBox, { backgroundColor: "#E8F4EA" }]}>
+                      <Ionicons name="fitness-outline" size={22} color="#1F7A3F" />
+                    </View>
+                    <View style={homeStyles.lockPill}>
+                      <Ionicons name="lock-closed" size={10} color="#FFFFFF" />
+                      <Text style={homeStyles.lockPillText}>Coming Soon</Text>
+                    </View>
+                  </View>
+                  <Text style={homeStyles.bentoCardTitle}>Personal Training</Text>
+                  <Text style={homeStyles.bentoCardSub}>Dedicated fitness coaches</Text>
+                </Pressable>
+
+                {/* 2: Workout Buddy */}
+                <Pressable
+                  style={({ pressed }) => [homeStyles.bentoCard, pressed && homeStyles.bentoCardPressed]}
+                  onPress={() => router.push("/tools/buddy-program" as any)}
+                >
+                  <View style={homeStyles.bentoTop}>
+                    <View style={[homeStyles.bentoIconBox, { backgroundColor: "#EBF3FE" }]}>
+                      <Ionicons name="people-outline" size={22} color="#2563EB" />
+                    </View>
+                    <View style={homeStyles.lockPill}>
+                      <Ionicons name="lock-closed" size={10} color="#FFFFFF" />
+                      <Text style={homeStyles.lockPillText}>Coming Soon</Text>
+                    </View>
+                  </View>
+                  <Text style={homeStyles.bentoCardTitle}>Workout Buddy</Text>
+                  <Text style={homeStyles.bentoCardSub}>Find a workout partner</Text>
+                </Pressable>
+
+                {/* 3: Nutrition */}
+                <Pressable
+                  style={({ pressed }) => [homeStyles.bentoCard, pressed && homeStyles.bentoCardPressed]}
+                  onPress={() => router.push("/tools/meal-scan" as any)}
+                >
+                  <View style={homeStyles.bentoTop}>
+                    <View style={[homeStyles.bentoIconBox, { backgroundColor: "#FFF1E7" }]}>
+                      <Ionicons name="nutrition-outline" size={22} color="#D97706" />
+                    </View>
+                    <View style={homeStyles.lockPill}>
+                      <Ionicons name="lock-closed" size={10} color="#FFFFFF" />
+                      <Text style={homeStyles.lockPillText}>Coming Soon</Text>
+                    </View>
+                  </View>
+                  <Text style={homeStyles.bentoCardTitle}>Nutrition</Text>
+                  <Text style={homeStyles.bentoCardSub}>Track meals & macros</Text>
+                </Pressable>
+
+                {/* 4: AI Coaching */}
+                <Pressable
+                  style={({ pressed }) => [homeStyles.bentoCard, pressed && homeStyles.bentoCardPressed]}
+                  onPress={() => router.push("/tools/ai-trainer" as any)}
+                >
+                  <View style={homeStyles.bentoTop}>
+                    <View style={[homeStyles.bentoIconBox, { backgroundColor: "#F3EEFE" }]}>
+                      <Ionicons name="hardware-chip-outline" size={22} color="#7C3AED" />
+                    </View>
+                    <View style={homeStyles.lockPill}>
+                      <Ionicons name="lock-closed" size={10} color="#FFFFFF" />
+                      <Text style={homeStyles.lockPillText}>Coming Soon</Text>
+                    </View>
+                  </View>
+                  <Text style={homeStyles.bentoCardTitle}>AI Coaching</Text>
+                  <Text style={homeStyles.bentoCardSub}>Smart fitness guidance</Text>
+                </Pressable>
               </View>
             </View>
-
-            <View style={homeStyles.step}>
-              <View style={homeStyles.stepNum}><Text style={homeStyles.stepNumText}>2</Text></View>
-              <View style={{ flex: 1 }}>
-                <Text style={homeStyles.stepTitle}>30-day flexible cycle</Text>
-                <Text style={homeStyles.stepDesc}>Set visits at home gym, plus flexible credits.</Text>
-              </View>
-            </View>
-
-            <View style={homeStyles.step}>
-              <View style={homeStyles.stepNum}><Text style={homeStyles.stepNumText}>3</Text></View>
-              <View style={{ flex: 1 }}>
-                <Text style={homeStyles.stepTitle}>Work out across the network</Text>
-                <Text style={homeStyles.stepDesc}>Use credits at any partner gym, anytime.</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* CARD 5: QUESTIONS (FAQ ACCORDION) */}
-          <View style={homeStyles.card}>
-            <Text style={[homeStyles.cardH3, { marginBottom: 6 }]}>Questions</Text>
-            
-            <AccordionItem title="Can I explore without paying?" defaultOpen={true}>
-              <Text style={homeStyles.accordionBodyText}>
-                Yes. For 48 hours you can look at every partner gym, facility and plan price. No payment.
-              </Text>
-            </AccordionItem>
-
-            <AccordionItem title="Can I try multiple gyms?">
-              <Text style={homeStyles.accordionBodyText}>
-                Yes. You commit visits to your primary gym, and credits unlock any partner gym.
-              </Text>
-            </AccordionItem>
-
-            <AccordionItem title="What happens to unused credits?">
-              <Text style={homeStyles.accordionBodyText}>
-                They convert into an INR wallet at the end of the cycle, valid for 15 days.
-              </Text>
-            </AccordionItem>
-          </View>
+          )}
         </ScrollView>
 
         {/* STICKY GUEST ACTIVATION BAR */}
@@ -670,6 +732,7 @@ export default function HomeScreen() {
             gymName={resolvedGymName}
             gymAddress="Primary Gym (Home Base)"
             timeSlot={confirmedBookingData.timeSlot}
+            dateStr={confirmedBookingData.dateIso}
             isMandatoryVisit={confirmedBookingData.isMandatoryVisit}
             mandatoryVisitsLeft={confirmedBookingData.mandatoryVisitsLeft}
             totalMandatoryVisits={mandatoryVisits}
@@ -689,11 +752,11 @@ export default function HomeScreen() {
 
         <CancelBookingSheet
           visible={cancelPrompt !== null}
-          loading={isCancellingTodayBooking}
           isMandatory={cancelPrompt?.isMandatory ?? false}
           refundCredits={cancelPrompt?.refundAmount ?? 0}
           onKeep={() => setCancelPrompt(null)}
           onConfirm={confirmCancelToday}
+          onDone={() => setCancelPrompt(null)}
         />
       </SafeAreaView>
     </SwipeableTabScreen>
@@ -1100,6 +1163,85 @@ const homeStyles = StyleSheet.create({
     color: "#66756B",
     marginTop: 2,
     lineHeight: 18,
+  },
+
+  // BENTO UPCOMING SECTION
+  upcomingSection: {
+    marginBottom: 16,
+  },
+  upcomingHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 12,
+    marginLeft: 4,
+  },
+  upcomingTitle: {
+    color: "#0F2417",
+    fontSize: 18,
+    fontWeight: "700",
+    letterSpacing: -0.3,
+  },
+  bentoGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    rowGap: 12,
+  },
+  bentoCard: {
+    width: "48.2%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 22,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#E3E9E0",
+    shadowColor: "rgba(15,36,23,0.06)",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  bentoCardPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.985 }],
+  },
+  bentoTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  bentoIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  lockPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#1F2520",
+    paddingHorizontal: 7,
+    paddingVertical: 3.5,
+    borderRadius: 9999,
+  },
+  lockPillText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  bentoCardTitle: {
+    color: "#0F2417",
+    fontSize: 15,
+    fontWeight: "700",
+    marginBottom: 3,
+  },
+  bentoCardSub: {
+    color: "#66756B",
+    fontSize: 12,
+    lineHeight: 16,
   },
 
   // ACCORDIONS

@@ -41,7 +41,7 @@ export default function BookingHistoryScreen() {
   const isGuest = useGuestStore((state) => state.isGuest);
   const endGuestSession = useGuestStore((state) => state.endGuestSession);
   const { pastBookings, bookingStatus, bookedGymName, bookedTime, cancelBooking } = useBookingStore();
-  const [isProcessingCancel, setIsProcessingCancel] = useState(false);
+
   const [openingPass, setOpeningPass] = useState(false);
   const [openingDiscover, setOpeningDiscover] = useState(false);
   const openingLock = useRef(false);
@@ -69,7 +69,6 @@ export default function BookingHistoryScreen() {
   const openPass = () => openLocked("pass", "/booking-pass");
 
   const handleCancel = () => {
-    if (isProcessingCancel) return;
     const bookedCost = useBookingStore.getState().bookedCost;
     const isMandatory = bookedCost === 0 || bookedCost === undefined;
     const currentCredits = useCreditsStore.getState().credits;
@@ -93,23 +92,9 @@ export default function BookingHistoryScreen() {
   };
 
   const confirmCancel = async () => {
-    if (!cancelPrompt || isProcessingCancel) return;
-    setIsProcessingCancel(true);
-    try {
-      const result = await cancelBooking();
-      if (!result?.success) {
-        Alert.alert("Cancellation Failed", result?.message || "Could not cancel booking.");
-        return;
-      }
-      setCancelPrompt(null);
-      router.replace("/(tabs)");
-    } catch (err: unknown) {
-      const message = typeof err === "object" && err !== null && "message" in err && typeof err.message === "string"
-        ? err.message
-        : "Could not cancel booking.";
-      Alert.alert("Cancellation Failed", message);
-    } finally {
-      setIsProcessingCancel(false);
+    const result = await cancelBooking();
+    if (!result?.success) {
+      throw new Error(result?.message || "Could not cancel booking.");
     }
   };
 
@@ -205,14 +190,11 @@ export default function BookingHistoryScreen() {
             <Text className="text-xs text-gray-500 mt-0.5">Time: {bookedTime || "Today"}</Text>
 
             <View className="flex-row items-center gap-x-2.5 mt-3 pt-3 border-t border-gray-100">
-              <Pressable 
+              <Pressable
                 onPress={handleCancel}
-                disabled={isProcessingCancel}
-                className={`flex-1 bg-red-50 border border-red-200 py-2 rounded-xl items-center active:opacity-80 ${isProcessingCancel ? "opacity-60" : ""}`}
+                className="flex-1 bg-red-50 border border-red-200 py-2 rounded-xl items-center active:opacity-80"
               >
-                <Text className="text-red-600 font-bold text-xs">
-                  {isProcessingCancel ? "Cancelling..." : "Cancel Booking"}
-                </Text>
+                <Text className="text-red-600 font-bold text-xs">Cancel Booking</Text>
               </Pressable>
               <Pressable
                 disabled={openingPass}
@@ -313,11 +295,14 @@ export default function BookingHistoryScreen() {
 
       <CancelBookingSheet
         visible={cancelPrompt !== null}
-        loading={isProcessingCancel}
         isMandatory={cancelPrompt?.isMandatory ?? false}
         refundCredits={cancelPrompt?.refundAmount ?? 0}
         onKeep={() => setCancelPrompt(null)}
         onConfirm={confirmCancel}
+        onDone={() => {
+          setCancelPrompt(null);
+          router.replace("/(tabs)");
+        }}
       />
     </SafeAreaView>
   );

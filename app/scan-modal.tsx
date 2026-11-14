@@ -29,7 +29,7 @@ export default function ScanModal() {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [verifying, setVerifying] = useState(false);
-  const [isCancellingBooking, setIsCancellingBooking] = useState(false);
+
   const [cancelPrompt, setCancelPrompt] = useState<{
     isMandatory: boolean;
     refundAmount: number;
@@ -209,7 +209,6 @@ export default function ScanModal() {
   };
 
   const askCancelBooking = () => {
-    if (isCancellingBooking) return;
     const bookedCost = useBookingStore.getState().bookedCost;
     const isMandatory = bookedCost === 0 || bookedCost === undefined;
     const currentCredits = useCreditsStore.getState().credits;
@@ -233,23 +232,9 @@ export default function ScanModal() {
   };
 
   const confirmCancelBooking = async () => {
-    if (!cancelPrompt || isCancellingBooking) return;
-    setIsCancellingBooking(true);
-    try {
-      const result = await useBookingStore.getState().cancelBooking();
-      if (!result?.success) {
-        Alert.alert("Cancellation Failed", result?.message || "Could not cancel booking.");
-        return;
-      }
-      setCancelPrompt(null);
-      router.replace("/(tabs)");
-    } catch (err: unknown) {
-      const message = typeof err === "object" && err !== null && "message" in err && typeof err.message === "string"
-        ? err.message
-        : "Could not cancel booking.";
-      Alert.alert("Cancellation Failed", message);
-    } finally {
-      setIsCancellingBooking(false);
+    const result = await useBookingStore.getState().cancelBooking();
+    if (!result?.success) {
+      throw new Error(result?.message || "Could not cancel booking.");
     }
   };
 
@@ -300,10 +285,9 @@ export default function ScanModal() {
           {bookingStatus === "Booked" && (
             <Pressable
               onPress={askCancelBooking}
-              disabled={isCancellingBooking}
               className="mt-3 px-4 py-2 bg-red-600/80 rounded-xl border border-white/20 active:opacity-80"
             >
-              <Text className="text-white font-bold text-xs">{isCancellingBooking ? "Cancelling..." : "Cancel This Booking"}</Text>
+              <Text className="text-white font-bold text-xs">Cancel This Booking</Text>
             </Pressable>
           )}
 
@@ -317,11 +301,14 @@ export default function ScanModal() {
       </View>
       <CancelBookingSheet
         visible={cancelPrompt !== null}
-        loading={isCancellingBooking}
         isMandatory={cancelPrompt?.isMandatory ?? false}
         refundCredits={cancelPrompt?.refundAmount ?? 0}
         onKeep={() => setCancelPrompt(null)}
         onConfirm={confirmCancelBooking}
+        onDone={() => {
+          setCancelPrompt(null);
+          router.replace("/(tabs)");
+        }}
       />
     </View>
   );

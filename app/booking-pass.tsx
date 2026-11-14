@@ -9,7 +9,6 @@ import {
   StyleSheet,
   StatusBar,
   Animated,
-  InteractionManager,
   Platform,
   Linking,
 } from "react-native";
@@ -96,7 +95,6 @@ export default function BookingPassScreen() {
 
   const { primaryGymId, primaryGymName } = useUserStore();
   const [copied, setCopied] = useState(false);
-  const [isProcessingCancel, setIsProcessingCancel] = useState(false);
   const [opening, setOpening] = useState<null | "history" | "book">(null);
   const openingLock = useRef<null | "history" | "book">(null);
   const [cancelPrompt, setCancelPrompt] = useState<{
@@ -126,27 +124,23 @@ export default function BookingPassScreen() {
   };
 
   useEffect(() => {
-    let loop: Animated.CompositeAnimation | null = null;
-    const task = InteractionManager.runAfterInteractions(() => {
-      loop = Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 0.35,
-            duration: 900,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 900,
-            useNativeDriver: true,
-          }),
-        ])
-      );
-      loop.start();
-    });
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 0.35,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
     return () => {
-      task.cancel();
-      loop?.stop();
+      loop.stop();
     };
   }, [pulseAnim]);
 
@@ -214,7 +208,6 @@ export default function BookingPassScreen() {
   };
 
   const handleCancelBooking = () => {
-    if (isProcessingCancel) return;
     const isMandatory = isCostZero;
     const currentCredits = useCreditsStore.getState().credits;
 
@@ -237,30 +230,9 @@ export default function BookingPassScreen() {
   };
 
   const confirmCancelBooking = async () => {
-    if (!cancelPrompt || isProcessingCancel) return;
-    setIsProcessingCancel(true);
-    try {
-      const result = await cancelBooking();
-      if (!result?.success) {
-        Alert.alert(
-          "Cancellation Failed",
-          result?.message || "Could not cancel booking."
-        );
-        return;
-      }
-      setCancelPrompt(null);
-      router.replace("/(tabs)");
-    } catch (err: unknown) {
-      const message =
-        typeof err === "object" &&
-        err !== null &&
-        "message" in err &&
-        typeof err.message === "string"
-          ? err.message
-          : "Could not cancel booking.";
-      Alert.alert("Cancellation Failed", message);
-    } finally {
-      setIsProcessingCancel(false);
+    const result = await cancelBooking();
+    if (!result?.success) {
+      throw new Error(result?.message || "Could not cancel booking.");
     }
   };
 
@@ -574,17 +546,10 @@ export default function BookingPassScreen() {
               {bookingStatus !== "Checked In" && (
                 <Pressable
                   onPress={handleCancelBooking}
-                  disabled={isProcessingCancel}
                   style={styles.dngBtn}
                 >
-                  <Text style={styles.dngBtnText}>
-                    {isProcessingCancel ? "Cancelling..." : "Cancel This Booking"}
-                  </Text>
-                  {!isProcessingCancel && (
-                    <Text style={styles.dngBtnSub}>
-                      Flat 2-credit fee applies
-                    </Text>
-                  )}
+                  <Text style={styles.dngBtnText}>Cancel This Booking</Text>
+                  <Text style={styles.dngBtnSub}>Flat 2-credit fee applies</Text>
                 </Pressable>
               )}
 
@@ -607,7 +572,10 @@ export default function BookingPassScreen() {
           refundCredits={cancelPrompt.refundAmount}
           onConfirm={confirmCancelBooking}
           onKeep={() => setCancelPrompt(null)}
-          loading={isProcessingCancel}
+          onDone={() => {
+            setCancelPrompt(null);
+            router.replace("/(tabs)");
+          }}
         />
       )}
     </SafeAreaView>
