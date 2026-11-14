@@ -322,9 +322,13 @@ export default function ContentScreen() {
   }, [type]);
 
   const fetchContent = async () => {
-    if (!staticFallback) {
-      setLoading(true);
+    // For official legal documents already bundled locally, use static text immediately and skip network call
+    if (staticFallback && type !== "app_announcement") {
+      setContent(staticFallback);
+      setLoading(false);
+      return;
     }
+    setLoading(true);
     setError(null);
     try {
       const data = await apiFetch(`/api/content/${type}`);
