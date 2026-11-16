@@ -7,6 +7,7 @@ import { afterPaint } from "@/lib/afterPaint";
 import CancelBookingSheet from "@/components/CancelBookingSheet";
 import { useBookingStore } from "@/store/useBookingStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
+import { useUserStore } from "@/store/useUserStore";
 import { useGuestStore } from "@/store/useGuestStore";
 import { promptGuestAccount } from "@/lib/guestAccount";
 
@@ -108,7 +109,15 @@ export default function BookingHistoryScreen() {
     credits: b.credits || 0,
   }));
 
-  const completedCount = allBookings.filter((b) => b.status === "checked_in").length;
+  const { membershipInfo } = useCreditsStore();
+  const { totalWorkouts, visitsRemaining } = useUserStore();
+  const mandatoryVisits = membershipInfo?.mandatoryVisits ?? 10;
+  const visitsLeft = typeof visitsRemaining === "number" && visitsRemaining <= mandatoryVisits
+    ? Math.max(0, visitsRemaining)
+    : (typeof membershipInfo?.mandatoryVisitsRemaining === "number" ? membershipInfo.mandatoryVisitsRemaining : mandatoryVisits);
+  const cycleCompleted = Math.max(membershipInfo?.completedVisits ?? 0, mandatoryVisits - visitsLeft);
+  const membershipCompleted = Math.max(cycleCompleted, totalWorkouts ?? 0);
+  const completedCount = Math.max(membershipCompleted, allBookings.filter((b) => b.status === "checked_in").length);
   const totalCreditsUsed = allBookings
     .filter((b) => b.status === "checked_in")
     .reduce((sum, b) => sum + b.credits, 0);

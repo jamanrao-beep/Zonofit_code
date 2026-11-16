@@ -201,11 +201,7 @@ router.post("/", async (req: Request, res: Response): Promise<void> => {
       applicationMessage(application)
     );
     if (!sent) {
-      res.status(503).json({
-        error: "EmailNotConfigured",
-        message: "We could not send this right now. Try again in a minute.",
-      });
-      return;
+      console.warn("[Launch] sendInboxNotice did not send email, proceeding to sheet");
     }
 
     // Append to Google Sheet in the background (non-blocking)

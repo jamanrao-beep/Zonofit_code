@@ -527,7 +527,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         primaryGymName: membership?.primaryGym?.name || order?.gymName || gymName,
         planName: membership?.plan?.name || plan || "Monthly",
         membershipStatus: membership?.status || "ACTIVE",
-        visitsRemaining: membership?.primaryGymVisits || options?.visits || 10,
+        visitsRemaining: typeof membership?.primaryGymVisits === "number" ? membership.primaryGymVisits : (options?.visits || 10),
       });
       if (typeof newCreditBalance === "number") {
         useCreditsStore.setState({ credits: newCreditBalance });

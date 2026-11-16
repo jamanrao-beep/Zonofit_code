@@ -364,6 +364,17 @@ export const useBookingStore = create<BookingState>()(
             membershipInfo: {
               ...currentMembership,
               mandatoryVisitsRemaining: Math.max(0, (currentMembership.mandatoryVisitsRemaining || 0) - 1),
+              completedVisits: (currentMembership.completedVisits || 0) + 1,
+            },
+          });
+        }
+      } else {
+        const currentMembership = useCreditsStore.getState().membershipInfo;
+        if (currentMembership) {
+          useCreditsStore.setState({
+            membershipInfo: {
+              ...currentMembership,
+              completedVisits: (currentMembership.completedVisits || 0) + 1,
             },
           });
         }
@@ -399,12 +410,22 @@ export const useBookingStore = create<BookingState>()(
             membershipInfo: {
               ...currentMembership,
               mandatoryVisitsRemaining: Math.max(0, (currentMembership.mandatoryVisitsRemaining || 0) - 1),
+              completedVisits: (currentMembership.completedVisits || 0) + 1,
             },
           });
         }
       } else {
         useCreditsStore.getState().releaseWalletCache();
         useCreditsStore.setState((s) => ({ credits: Math.max(0, s.credits - deductedCost) }));
+        const currentMembership = useCreditsStore.getState().membershipInfo;
+        if (currentMembership) {
+          useCreditsStore.setState({
+            membershipInfo: {
+              ...currentMembership,
+              completedVisits: (currentMembership.completedVisits || 0) + 1,
+            },
+          });
+        }
       }
 
       set({
@@ -480,23 +501,28 @@ export const useBookingStore = create<BookingState>()(
         useCreditsStore.setState((s) => ({ credits: s.credits + refundCredits }));
       }
 
+      const mem = useCreditsStore.getState().membershipInfo;
+      const visitCap = mem?.mandatoryVisits && mem.mandatoryVisits > 0 ? mem.mandatoryVisits : null;
       if (bookedCost === 0 || bookedCost === undefined) {
         useUserStore.getState().holdProfileSnapshot();
-        const mem = useCreditsStore.getState().membershipInfo;
-        const visitCap = mem?.mandatoryVisits && mem.mandatoryVisits > 0 ? mem.mandatoryVisits : null;
         useUserStore.setState((s) => ({
           visitsRemaining: visitCap ? Math.min(visitCap, s.visitsRemaining + 1) : s.visitsRemaining + 1,
         }));
-        if (mem) {
-          useCreditsStore.setState({
-            membershipInfo: {
-              ...mem,
-              mandatoryVisitsRemaining: visitCap
-                ? Math.min(visitCap, (mem.mandatoryVisitsRemaining || 0) + 1)
-                : (mem.mandatoryVisitsRemaining || 0) + 1,
-            },
-          });
-        }
+      }
+      if (mem) {
+        useCreditsStore.setState({
+          membershipInfo: {
+            ...mem,
+            ...(bookedCost === 0 || bookedCost === undefined
+              ? {
+                  mandatoryVisitsRemaining: visitCap
+                    ? Math.min(visitCap, (mem.mandatoryVisitsRemaining || 0) + 1)
+                    : (mem.mandatoryVisitsRemaining || 0) + 1,
+                }
+              : {}),
+            completedVisits: Math.max(0, (mem.completedVisits || 1) - 1),
+          },
+        });
       }
 
       set((state) => ({

@@ -289,11 +289,15 @@ export default function CreditsScreen() {
   const cyclesRemaining = membershipInfo?.cyclesRemaining ?? (hasMembership ? Math.max(0, maxCycles - cycleNumber) : maxCycles);
   const defaultMandatory = cycleNumber >= 5 ? 15 : 10;
   const mandatoryVisits = membershipInfo?.mandatoryVisits ?? defaultMandatory;
-  const completedVisits = Math.max(0, membershipInfo?.completedVisits ?? 0);
-  const hasBookedToday = bookingStatus === "Booked" && (bookedCost === 0 || bookedCost === undefined);
-  const mandatoryVisitsRemaining = typeof visitsRemaining === "number" && visitsRemaining < mandatoryVisits
+  const mandatoryVisitsRemaining = typeof visitsRemaining === "number" && visitsRemaining <= mandatoryVisits
     ? Math.max(0, visitsRemaining)
-    : Math.max(0, (membershipInfo?.mandatoryVisitsRemaining ?? mandatoryVisits) - completedVisits - (hasBookedToday ? 1 : 0));
+    : (typeof membershipInfo?.mandatoryVisitsRemaining === "number"
+        ? Math.max(0, membershipInfo.mandatoryVisitsRemaining)
+        : Math.max(0, mandatoryVisits - (bookingStatus === "Booked" && (bookedCost === 0 || bookedCost === undefined) ? 1 : 0)));
+
+  const completedVisits = typeof membershipInfo?.completedVisits === "number"
+    ? Math.max(0, membershipInfo.completedVisits, mandatoryVisits - mandatoryVisitsRemaining)
+    : Math.max(0, mandatoryVisits - mandatoryVisitsRemaining);
   const filledCycles = hasMembership ? Math.min(maxCycles, Math.max(0, cycleNumber)) : 0;
   const visitProgress = mandatoryVisits > 0 ? completedVisits / mandatoryVisits : 0;
   const easedVisit = useEase(isMembershipActive ? visitProgress : 0, 1100);

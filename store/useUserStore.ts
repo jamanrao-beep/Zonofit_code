@@ -186,7 +186,9 @@ export const useUserStore = create<UserState>()(
           email: data.email || "",
           phone: data.phone || null,
           avatarUrl: finalAvatarUrl,
-          visitsRemaining: membership?.primaryGymVisits || plan?.visitsPerMonth || (membership ? 10 : state.visitsRemaining),
+          visitsRemaining: typeof membership?.primaryGymVisits === "number"
+            ? membership.primaryGymVisits
+            : (typeof plan?.visitsPerMonth === "number" ? plan.visitsPerMonth : (membership ? 10 : state.visitsRemaining)),
           membershipStatus: membership ? membership.status : "No Active Membership",
           planName: plan?.name || (membership ? "Monthly Membership" : state.planName),
           primaryGymId: resolvedId,
@@ -297,7 +299,9 @@ export const useUserStore = create<UserState>()(
 
       const returnedPlan = data.membership?.plan;
       const finalPlanName = returnedPlan?.name || planName;
-      const finalVisits = data.membership?.primaryGymVisits || returnedPlan?.visitsPerMonth || visits;
+      const finalVisits = typeof data.membership?.primaryGymVisits === "number"
+        ? data.membership.primaryGymVisits
+        : (typeof returnedPlan?.visitsPerMonth === "number" ? returnedPlan.visitsPerMonth : visits);
       const finalStatus = data.membership?.status || "ACTIVE";
       const finalExpiry = data.membership?.endDate
         ? new Date(data.membership.endDate).toLocaleDateString()
@@ -348,7 +352,7 @@ export const useUserStore = create<UserState>()(
       noteProfileMutation();
       set({
         planName: data.membership?.gymPlan?.name || data.membership?.plan?.name || "Plan",
-        visitsRemaining: data.membership?.primaryGymVisits || 10,
+        visitsRemaining: typeof data.membership?.primaryGymVisits === "number" ? data.membership.primaryGymVisits : 10,
         membershipStatus: data.membership?.status || "ACTIVE",
         membershipExpiry: data.membership?.endDate ? new Date(data.membership.endDate).toLocaleDateString() : "N/A",
       });

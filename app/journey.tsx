@@ -59,12 +59,18 @@ export default function JourneyScreen() {
       return () => clearTimeout(timer);
     }
   }, [cycleMonth]);
-  // Ensure we accurately count verified visits completed this cycle
-  const checkedInToday = bookingStatus === "Checked In" ? 1 : 0;
-  const visitsCompleted = typeof membershipInfo?.completedVisits === "number"
-    ? Math.max(0, membershipInfo.completedVisits)
-    : (checkedInToday ? 1 : 0);
+
   const visitsGoal = membershipInfo?.mandatoryVisits ?? (cycleMonth <= 4 ? 10 : 15);
+  const userVisitsRemaining = useUserStore((s) => s.visitsRemaining);
+  const remainingVisitsCount = typeof userVisitsRemaining === "number" && userVisitsRemaining <= visitsGoal
+    ? Math.max(0, userVisitsRemaining)
+    : (typeof membershipInfo?.mandatoryVisitsRemaining === "number"
+        ? Math.max(0, membershipInfo.mandatoryVisitsRemaining)
+        : Math.max(0, visitsGoal - (membershipInfo?.completedVisits ?? 0)));
+
+  const visitsCompleted = typeof membershipInfo?.completedVisits === "number"
+    ? Math.max(0, membershipInfo.completedVisits, visitsGoal - remainingVisitsCount)
+    : Math.max(0, visitsGoal - remainingVisitsCount);
   const visitsRemaining = Math.max(0, visitsGoal - visitsCompleted);
 
   const monthName = new Date().toLocaleString('default', { month: 'long' });

@@ -258,15 +258,22 @@ router.post(
         }
       }
 
-      // 7. Atomically deduct credits (or primary visits)
+      // 7. Atomically deduct credits (or primary visits) and track visit completed
       let updatedWallet = wallet;
       if (isPrimaryVisit) {
         await tx.membership.update({
           where: { userId: req.dbUserId! },
-          data: { primaryGymVisits: { decrement: 1 } }
+          data: {
+            primaryGymVisits: { decrement: 1 },
+            completedVisits: { increment: 1 },
+          },
         });
       } else {
         updatedWallet = await decrementCredits(tx, req.dbUserId!, finalCreditCost);
+        await tx.membership.updateMany({
+          where: { userId: req.dbUserId! },
+          data: { completedVisits: { increment: 1 } },
+        });
       }
 
       // 8. Compute gym sequential token number
@@ -695,6 +702,15 @@ const cancelBookingHandler = async (req: Request, res: Response): Promise<void> 
       } else {
         newBalance = currentBalance;
       }
+
+      // Revert 1 completed visit count
+      const m = await tx.membership.findFirst({ where: { userId: req.dbUserId! } });
+      if (m && m.completedVisits > 0) {
+        await tx.membership.update({
+          where: { id: m.id },
+          data: { completedVisits: { decrement: 1 } },
+        });
+      }
     } else {
       // Mandatory visit (0 credits booked): flat 2 credits fee charged from wallet
       if (currentBalance < 2) {
@@ -720,10 +736,14 @@ const cancelBookingHandler = async (req: Request, res: Response): Promise<void> 
         },
       });
 
-      // Restore 1 primary gym mandatory visit on membership
+      // Restore 1 primary gym mandatory visit on membership AND revert 1 completed visit
+      const m = await tx.membership.findFirst({ where: { userId: req.dbUserId! } });
       await tx.membership.updateMany({
         where: { userId: req.dbUserId! },
-        data: { primaryGymVisits: { increment: 1 } },
+        data: {
+          primaryGymVisits: { increment: 1 },
+          completedVisits: m && m.completedVisits > 0 ? { decrement: 1 } : 0,
+        },
       });
     }
 

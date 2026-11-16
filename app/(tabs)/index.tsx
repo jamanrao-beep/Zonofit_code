@@ -100,13 +100,15 @@ export default function HomeScreen() {
 
   const cycleNum = membershipInfo?.cycleNumber || currentMonth || 1;
   const mandatoryVisits = membershipInfo?.mandatoryVisits || (cycleNum <= 4 ? 10 : 15);
-  const completedVisits = typeof membershipInfo?.completedVisits === "number"
-    ? Math.max(0, membershipInfo.completedVisits)
-    : Math.max(0, totalWorkouts || 0);
-  const hasBookedMandatory = bookingStatus === "Booked" && (bookedCost === 0 || bookedCost === undefined);
-  const visitsLeft = typeof visitsRemaining === "number" && visitsRemaining < mandatoryVisits
+  const visitsLeft = typeof visitsRemaining === "number" && visitsRemaining <= mandatoryVisits
     ? Math.max(0, visitsRemaining)
-    : Math.max(0, mandatoryVisits - completedVisits - (hasBookedMandatory ? 1 : 0));
+    : (typeof membershipInfo?.mandatoryVisitsRemaining === "number"
+        ? Math.max(0, membershipInfo.mandatoryVisitsRemaining)
+        : Math.max(0, mandatoryVisits - (bookingStatus === "Booked" && (bookedCost === 0 || bookedCost === undefined) ? 1 : 0)));
+
+  const completedVisits = typeof membershipInfo?.completedVisits === "number"
+    ? Math.max(0, membershipInfo.completedVisits, mandatoryVisits - visitsLeft)
+    : Math.max(0, mandatoryVisits - visitsLeft, totalWorkouts || 0);
 
   const effectiveCredits = credits;
   const guestHours = getHoursRemaining();

@@ -64,15 +64,21 @@ router.get(
     const maxCycles = 12;
     const cyclesRemaining = Math.max(0, maxCycles - cycleNumber);
     const mandatoryVisits = membership?.mandatoryVisits || 10;
-    let completedVisits = Math.max(0, membership?.completedVisits ?? 0);
-    if (membership && (membership.completedVisits ?? 0) < 0) {
+    const primaryGymVisits = typeof membership?.primaryGymVisits === "number"
+      ? membership.primaryGymVisits
+      : mandatoryVisits;
+    let completedVisits = Math.max(
+      0,
+      membership?.completedVisits ?? 0,
+      mandatoryVisits - primaryGymVisits
+    );
+    if (membership && (membership.completedVisits ?? 0) < completedVisits) {
       await prisma.membership.update({
         where: { id: membership.id },
-        data: { completedVisits: 0 },
+        data: { completedVisits },
       });
-      completedVisits = 0;
     }
-    const mandatoryVisitsRemaining = Math.max(0, mandatoryVisits - completedVisits);
+    const mandatoryVisitsRemaining = Math.max(0, primaryGymVisits);
 
     // Can repurchase/renew if expired OR within 3 days of expiry
     const canRepurchase = !!membership && (isExpired || daysRemaining <= 3) && cycleNumber <= maxCycles;

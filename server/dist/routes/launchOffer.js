@@ -169,11 +169,7 @@ router.post("/", async (req, res) => {
         }
         const sent = await (0, mail_1.sendInboxNotice)(`Udaipur launch offer - ${application.name}`, applicationMessage(application));
         if (!sent) {
-            res.status(503).json({
-                error: "EmailNotConfigured",
-                message: "We could not send this right now. Try again in a minute.",
-            });
-            return;
+            console.warn("[Launch] sendInboxNotice did not send email, proceeding to sheet");
         }
         // Append to Google Sheet in the background (non-blocking)
         void appendToGoogleSheet(application);

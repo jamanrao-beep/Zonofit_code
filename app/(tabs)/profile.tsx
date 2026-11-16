@@ -108,9 +108,10 @@ export default function ProfileScreen() {
     avatarUrl, 
     uploadAvatar, 
     memberSince, 
-    identityStage 
+    identityStage,
+    visitsRemaining,
   } = useUserStore();
-  const { credits } = useCreditsStore();
+  const { credits, membershipInfo } = useCreditsStore();
   const { isGuest, getHoursRemaining, endGuestSession } = useGuestStore();
 
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -308,22 +309,32 @@ export default function ProfileScreen() {
             </View>
 
             {/* Quick stats row */}
-            <View style={profileStyles.userStatsRow}>
-              <View style={profileStyles.userStatItem}>
-                <Text style={profileStyles.userStatVal}>{isGuest ? "-" : totalWorkouts}</Text>
-                <Text style={profileStyles.userStatLab}>Total Visits</Text>
-              </View>
-              <View style={profileStyles.userStatDivider} />
-              <View style={profileStyles.userStatItem}>
-                <Text style={profileStyles.userStatVal}>{isGuest ? "-" : streak}</Text>
-                <Text style={profileStyles.userStatLab}>Day Streak</Text>
-              </View>
-              <View style={profileStyles.userStatDivider} />
-              <View style={profileStyles.userStatItem}>
-                <Text style={[profileStyles.userStatVal, { color: "#1F7A3F" }]}>{isGuest ? "-" : credits}</Text>
-                <Text style={profileStyles.userStatLab}>Credits</Text>
-              </View>
-            </View>
+            {(() => {
+              const mandatoryVisits = membershipInfo?.mandatoryVisits ?? 10;
+              const visitsLeft = typeof visitsRemaining === "number" && visitsRemaining <= mandatoryVisits
+                ? Math.max(0, visitsRemaining)
+                : (typeof membershipInfo?.mandatoryVisitsRemaining === "number" ? membershipInfo.mandatoryVisitsRemaining : mandatoryVisits);
+              const cycleCompletedVisits = Math.max(membershipInfo?.completedVisits ?? 0, mandatoryVisits - visitsLeft);
+              const totalVisitsCount = Math.max(totalWorkouts || 0, cycleCompletedVisits);
+              return (
+                <View style={profileStyles.userStatsRow}>
+                  <View style={profileStyles.userStatItem}>
+                    <Text style={profileStyles.userStatVal}>{isGuest ? "-" : totalVisitsCount}</Text>
+                    <Text style={profileStyles.userStatLab}>Total Visits</Text>
+                  </View>
+                  <View style={profileStyles.userStatDivider} />
+                  <View style={profileStyles.userStatItem}>
+                    <Text style={profileStyles.userStatVal}>{isGuest ? "-" : streak}</Text>
+                    <Text style={profileStyles.userStatLab}>Day Streak</Text>
+                  </View>
+                  <View style={profileStyles.userStatDivider} />
+                  <View style={profileStyles.userStatItem}>
+                    <Text style={[profileStyles.userStatVal, { color: "#1F7A3F" }]}>{isGuest ? "-" : credits}</Text>
+                    <Text style={profileStyles.userStatLab}>Credits</Text>
+                  </View>
+                </View>
+              );
+            })()}
 
             {/* Primary Action Button (White Card Feature) */}
             {isGuest ? (
