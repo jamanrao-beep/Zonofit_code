@@ -79,13 +79,6 @@ router.post("/signin", [
     const phone = readPhone(req, res);
     if (!phone)
         return;
-    const user = await prisma_1.default.user.findFirst({
-        where: { phone },
-    });
-    if (!user) {
-        res.status(404).json({ error: "UserNotFound", message: "No user found with this phone number." });
-        return;
-    }
     if (!(await (0, rateLimit_1.rateLimit)(`otp:${phone}`, 5, 15 * 60 * 1000))) {
         res.status(429).json({ error: "TooManyRequests", message: "Too many code requests. Wait a few minutes and try again." });
         return;
@@ -214,8 +207,29 @@ router.post("/verify", auth_1.optionalAuth, [
             },
         });
         if (!user) {
-            res.status(404).json({ error: "UserNotFound", message: "User not found." });
-            return;
+            const uniqueReferralCode = await (0, referral_1.generateUniqueReferralCode)();
+            user = await prisma_1.default.user.create({
+                data: {
+                    name: "ZonoFit Member",
+                    email: `member_${phone}@zonofit.com`,
+                    phone,
+                    referralCode: uniqueReferralCode,
+                    streak: 0,
+                    totalWorkouts: 0,
+                    trainingHours: 0,
+                    wallet: {
+                        create: {
+                            balance: 0,
+                            convertibleCashBalanceInPaise: 0,
+                            nonConvertibleCashBalanceInPaise: 0,
+                        },
+                    },
+                },
+                include: {
+                    wallet: true,
+                    membership: true,
+                },
+            });
         }
         if (user.isSuspended) {
             res.status(403).json({ error: "AccountSuspended", message: "Your account has been suspended by an administrator." });

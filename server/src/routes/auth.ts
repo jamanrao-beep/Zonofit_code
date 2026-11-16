@@ -91,15 +91,6 @@ router.post(
     const phone = readPhone(req, res);
     if (!phone) return;
 
-    const user = await prisma.user.findFirst({
-      where: { phone },
-    });
-
-    if (!user) {
-      res.status(404).json({ error: "UserNotFound", message: "No user found with this phone number." });
-      return;
-    }
-
     if (!(await rateLimit(`otp:${phone}`, 5, 15 * 60 * 1000))) {
       res.status(429).json({ error: "TooManyRequests", message: "Too many code requests. Wait a few minutes and try again." });
       return;
@@ -248,8 +239,29 @@ router.post(
       });
 
       if (!user) {
-        res.status(404).json({ error: "UserNotFound", message: "User not found." });
-        return;
+        const uniqueReferralCode = await generateUniqueReferralCode();
+        user = await prisma.user.create({
+          data: {
+            name: "ZonoFit Member",
+            email: `member_${phone}@zonofit.com`,
+            phone,
+            referralCode: uniqueReferralCode,
+            streak: 0,
+            totalWorkouts: 0,
+            trainingHours: 0,
+            wallet: {
+              create: {
+                balance: 0,
+                convertibleCashBalanceInPaise: 0,
+                nonConvertibleCashBalanceInPaise: 0,
+              },
+            },
+          },
+          include: {
+            wallet: true,
+            membership: true,
+          },
+        });
       }
 
       if (user.isSuspended) {

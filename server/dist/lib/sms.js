@@ -3,30 +3,39 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendOTP = sendOTP;
 async function sendOTP(phone, code) {
     const apitxtKey = (process.env.APITXT_AUTH_KEY || "LfoDh9dYrJrDmuLt2KXMkCe12gd8MzAqoUOhjJ4laMg").trim();
-    const preferredChannel = (process.env.OTP_CHANNEL || "whatsapp").trim().toLowerCase(); // "whatsapp" (default) or "sms"
-    // Sanitize phone number (extract digits only)
+    // Sanitize phone number (extract 10 digits)
     let cleanPhone = phone.replace(/\D/g, "");
     if (cleanPhone.length > 10 && cleanPhone.startsWith("91")) {
         cleanPhone = cleanPhone.slice(2);
     }
+    if (cleanPhone.length > 10) {
+        cleanPhone = cleanPhone.slice(-10);
+    }
     if (!apitxtKey || apitxtKey.includes("placeholder") || apitxtKey.length < 10) {
         return { success: false, message: "APITXT_AUTH_KEY is not configured." };
     }
-    // 1. Dispatch through preferred channel
-    const primaryResult = await callApitxt(apitxtKey, cleanPhone, code, preferredChannel);
-    if (primaryResult.success) {
-        return primaryResult;
+    // Dispatch through both SMS and WhatsApp concurrently to guarantee delivery
+    const [smsOutcome, waOutcome] = await Promise.allSettled([
+        callApitxt(apitxtKey, cleanPhone, code, "sms"),
+        callApitxt(apitxtKey, cleanPhone, code, "whatsapp"),
+    ]);
+    const smsResult = smsOutcome.status === "fulfilled" ? smsOutcome.value : null;
+    const waResult = waOutcome.status === "fulfilled" ? waOutcome.value : null;
+    if (smsResult?.success || waResult?.success) {
+        const deliveredChannels = [
+            smsResult?.success ? "SMS" : null,
+            waResult?.success ? "WhatsApp" : null,
+        ].filter(Boolean).join(" & ");
+        console.log(`[OTP] Successfully dispatched OTP ${code} to ${cleanPhone} via ${deliveredChannels}`);
+        return {
+            success: true,
+            message: `OTP sent successfully via ${deliveredChannels}.`,
+            response: smsResult?.response || waResult?.response,
+        };
     }
-    // 2. If WhatsApp failed, automatically fallback to SMS
-    if (preferredChannel === "whatsapp") {
-        console.warn(`[OTP] WhatsApp delivery failed for ${cleanPhone}. Falling back to SMS...`);
-        const fallbackResult = await callApitxt(apitxtKey, cleanPhone, code, "sms");
-        if (fallbackResult.success) {
-            console.log(`[OTP] Fallback SMS succeeded for ${cleanPhone}`);
-            return fallbackResult;
-        }
-    }
-    return primaryResult;
+    const errorMsg = smsResult?.message || waResult?.message || "Failed to deliver OTP via SMS or WhatsApp.";
+    console.error(`[OTP] Delivery failed for ${cleanPhone}:`, errorMsg);
+    return { success: false, message: errorMsg };
 }
 async function callApitxt(authkey, cleanPhone, code, channel) {
     try {
