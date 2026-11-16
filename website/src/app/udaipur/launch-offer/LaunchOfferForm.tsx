@@ -739,12 +739,6 @@ export default function LaunchOfferForm({
                   </div>
                 </div>
               )}
-
-              {!verifyPhone && (
-                <p className="lu-note">
-                  We send a 4-digit code on WhatsApp or SMS. This number can enter once.
-                </p>
-              )}
             </div>
 
             <div className="lu-f lu-row">

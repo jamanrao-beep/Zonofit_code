@@ -158,8 +158,17 @@ router.post("/", async (req, res) => {
             return;
         }
         const { application } = parsed;
-        const phoneAllowed = await (0, rateLimit_1.rateLimit)(`launch:${application.phone}`, 5, 60 * 60 * 1000);
-        const ipAllowed = await (0, rateLimit_1.rateLimit)(`launch-ip:${clientKey(req)}`, 80, 60 * 60 * 1000);
+        let phoneAllowed = true;
+        let ipAllowed = true;
+        try {
+            phoneAllowed = await (0, rateLimit_1.rateLimit)(`launch:${application.phone}`, 5, 60 * 60 * 1000);
+            ipAllowed = await (0, rateLimit_1.rateLimit)(`launch-ip:${clientKey(req)}`, 80, 60 * 60 * 1000);
+        }
+        catch (rlErr) {
+            console.warn("[Launch] Rate limit check error, failing open:", rlErr);
+            phoneAllowed = true;
+            ipAllowed = true;
+        }
         if (!phoneAllowed || !ipAllowed) {
             res.status(429).json({
                 error: "TooManyRequests",
@@ -167,12 +176,14 @@ router.post("/", async (req, res) => {
             });
             return;
         }
-        const sent = await (0, mail_1.sendInboxNotice)(`Udaipur launch offer - ${application.name}`, applicationMessage(application));
-        if (!sent) {
-            console.warn("[Launch] sendInboxNotice did not send email, proceeding to sheet");
-        }
-        // Append to Google Sheet in the background (non-blocking)
-        void appendToGoogleSheet(application);
+        // Non-blocking: append to Google Sheet immediately and dispatch email notice in the background
+        // so slow Gmail SMTP or webhook latency never causes user-facing timeouts or submission failures.
+        void appendToGoogleSheet(application).catch((err) => {
+            console.error("[Launch] Failed to sync to Google Sheet in background:", err);
+        });
+        void (0, mail_1.sendInboxNotice)(`Udaipur launch offer - ${application.name}`, applicationMessage(application)).catch((err) => {
+            console.error("[Launch] Failed to send email notice in background:", err);
+        });
         res.json({ ok: true });
     }
     catch (err) {
