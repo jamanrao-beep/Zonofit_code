@@ -199,37 +199,47 @@ router.post("/verify", auth_1.optionalAuth, [
         return;
     }
     if (isSignIn) {
-        user = await prisma_1.default.user.findFirst({
-            where: { phone },
-            include: {
-                wallet: true,
-                membership: true,
-            },
-        });
-        if (!user) {
-            const uniqueReferralCode = await (0, referral_1.generateUniqueReferralCode)();
-            user = await prisma_1.default.user.create({
-                data: {
-                    name: "ZonoFit Member",
-                    email: `member_${phone}@zonofit.com`,
-                    phone,
-                    referralCode: uniqueReferralCode,
-                    streak: 0,
-                    totalWorkouts: 0,
-                    trainingHours: 0,
-                    wallet: {
-                        create: {
-                            balance: 0,
-                            convertibleCashBalanceInPaise: 0,
-                            nonConvertibleCashBalanceInPaise: 0,
-                        },
-                    },
-                },
+        try {
+            user = await prisma_1.default.user.findFirst({
+                where: { phone },
                 include: {
                     wallet: true,
                     membership: true,
                 },
             });
+            if (!user) {
+                const uniqueReferralCode = await (0, referral_1.generateUniqueReferralCode)();
+                user = await prisma_1.default.user.create({
+                    data: {
+                        name: "ZonoFit Member",
+                        email: `member_${phone}@zonofit.com`,
+                        phone,
+                        referralCode: uniqueReferralCode,
+                        streak: 0,
+                        totalWorkouts: 0,
+                        trainingHours: 0,
+                        wallet: {
+                            create: {
+                                balance: 0,
+                                convertibleCashBalanceInPaise: 0,
+                                nonConvertibleCashBalanceInPaise: 0,
+                            },
+                        },
+                    },
+                    include: {
+                        wallet: true,
+                        membership: true,
+                    },
+                });
+            }
+        }
+        catch (dbErr) {
+            console.error("[Auth] Database error during signin user check:", dbErr);
+            res.status(503).json({
+                error: "DatabaseUnavailable",
+                message: "Database service is temporarily unavailable. Please try again in a moment.",
+            });
+            return;
         }
         if (user.isSuspended) {
             res.status(403).json({ error: "AccountSuspended", message: "Your account has been suspended by an administrator." });

@@ -111,13 +111,18 @@ for (const dir of candidateDirs) {
 // ─── Health Check ──────────────────────────────────────────────────────────────
 app.get("/health", async (_req, res) => {
     let dbStatus = "unknown";
+    let dbError = null;
     try {
-        await prisma_1.default.$queryRaw `SELECT 1`;
+        await Promise.race([
+            prisma_1.default.$queryRaw `SELECT 1`,
+            new Promise((_, reject) => setTimeout(() => reject(new Error("Database query timed out after 2.5s")), 2500)),
+        ]);
         dbStatus = "connected";
     }
     catch (err) {
         dbStatus = "disconnected";
-        console.error("[health] database check failed");
+        dbError = err?.message || String(err);
+        console.error("[health] database check failed", err);
     }
     const uploadDirsInfo = candidateDirs.map((dir) => ({
         dir,
@@ -127,7 +132,10 @@ app.get("/health", async (_req, res) => {
     res.json({
         status: dbStatus === "connected" ? "ok" : "degraded",
         service: "zonofit-server",
+        version: "2.1.1",
+        uptime: process.uptime(),
         db: dbStatus,
+        dbError,
         cwd: process.cwd(),
         primaryUploadsDir,
         uploads: uploadDirsInfo,

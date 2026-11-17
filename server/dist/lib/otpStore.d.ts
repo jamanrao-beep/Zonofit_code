@@ -10,7 +10,7 @@ export declare function deleteOTP(key: string): Promise<void>;
  * A 10-minute code is deleted 20 minutes after it was sent, even if nobody submits it.
  */
 export declare function purgeStaleOtps(): Promise<void>;
-/** Saves a one-time code in MySQL so every API process sees the same code. */
+/** Saves a one-time code in memory and MySQL so OTP delivery is never blocked by database glitches. */
 export declare function setOTP(phone: string, code: string, ttlMinutes?: number): Promise<void>;
 /** Checks a code, locks it after 5 misses, and deletes it when it matches. */
 export declare function verifyOTP(phone: string, code: string): Promise<boolean>;
