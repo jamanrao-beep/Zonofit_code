@@ -105,7 +105,7 @@ export default function VerifyNumberScreen() {
       await sendOTP(number, true);
       setDigits(["", "", "", ""]);
       setCodeBad(false);
-      setCodeHint("Code sent via SMS & WhatsApp.");
+      setCodeHint("Code sent to your WhatsApp & SMS.");
       setResendIn(30);
       setStep("code");
       setTimeout(() => boxRefs.current[0]?.focus(), 120);
@@ -135,7 +135,7 @@ export default function VerifyNumberScreen() {
       await sendOTP(phone, true);
       setDigits(["", "", "", ""]);
       setResendIn(30);
-      setCodeHint("New code sent via SMS & WhatsApp.");
+      setCodeHint("New code sent to your WhatsApp & SMS.");
       boxRefs.current[0]?.focus();
     } catch (error: any) {
       setCodeBad(true);
@@ -309,7 +309,7 @@ export default function VerifyNumberScreen() {
                 <Text style={styles.backText}>Change number</Text>
               </Pressable>
               <Text style={styles.title}>Enter the code</Text>
-              <Text style={styles.sub}>We sent a 4-digit code via SMS & WhatsApp to +91 {formatPhone(phone)}</Text>
+              <Text style={styles.sub}>We sent a 4-digit code to your WhatsApp at +91 {formatPhone(phone)}</Text>
               <View style={styles.otpRow}>
                 {digits.map((digit, index) => (
                   <TextInput

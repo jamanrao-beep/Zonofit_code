@@ -23,59 +23,50 @@ export async function sendOTP(phone: string, code: string): Promise<SMSResult> {
     return { success: false, message: "APITXT_AUTH_KEY is not configured." };
   }
 
-  // Dispatch through both SMS and WhatsApp concurrently to guarantee delivery
-  const [smsOutcome, waOutcome] = await Promise.allSettled([
-    callApitxt(apitxtKey, cleanPhone, code, "sms"),
-    callApitxt(apitxtKey, cleanPhone, code, "whatsapp"),
-  ]);
-
-  const smsResult = smsOutcome.status === "fulfilled" ? smsOutcome.value : null;
-  const waResult = waOutcome.status === "fulfilled" ? waOutcome.value : null;
-
-  if (smsResult?.success || waResult?.success) {
-    const deliveredChannels = [
-      smsResult?.success ? "SMS" : null,
-      waResult?.success ? "WhatsApp" : null,
-    ].filter(Boolean).join(" & ");
-
-    console.log(`[OTP] Successfully dispatched OTP ${code} to ${cleanPhone} via ${deliveredChannels}`);
-    return {
-      success: true,
-      message: `OTP sent successfully via ${deliveredChannels}.`,
-      response: smsResult?.response || waResult?.response,
-    };
+  // 1. WhatsApp is the primary delivery channel in India because it bypasses carrier DLT filtering
+  const waResult = await callApitxt(apitxtKey, cleanPhone, code, "whatsapp");
+  if (waResult.success) {
+    return waResult;
   }
 
-  const errorMsg = smsResult?.message || waResult?.message || "Failed to deliver OTP via SMS or WhatsApp.";
-  console.error(`[OTP] Delivery failed for ${cleanPhone}:`, errorMsg);
-  return { success: false, message: errorMsg };
+  // 2. If WhatsApp delivery fails, fallback to standard SMS
+  console.warn(`[OTP] WhatsApp delivery failed for ${cleanPhone}. Falling back to SMS...`);
+  const smsResult = await callApitxt(apitxtKey, cleanPhone, code, "sms");
+  if (smsResult.success) {
+    return smsResult;
+  }
+
+  return waResult;
 }
 
 async function callApitxt(authkey: string, cleanPhone: string, code: string, channel: string): Promise<SMSResult> {
   try {
-    const queryParams = new URLSearchParams({
+    const formattedMobile = cleanPhone.startsWith("91") ? cleanPhone : `91${cleanPhone}`;
+    const params = new URLSearchParams({
       authkey,
-      mobile: cleanPhone,
+      mobile: formattedMobile,
       otp: code,
-      channel: channel === "whatsapp" ? "whatsapp" : "sms"
+      channel: channel === "whatsapp" ? "whatsapp" : "sms",
     });
 
     if (channel === "whatsapp") {
-      queryParams.set("country", "91");
+      params.set("country", "91");
     }
 
-    const response = await fetch(`https://apitxt.com/api/sendOTP?${queryParams.toString()}`, {
-      method: "GET"
+    const response = await fetch("https://apitxt.com/api/sendOTP", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: params.toString(),
     });
 
     const data = await response.json() as any;
 
     if (data && (data.status === "success" || data.code === 200 || data.type === "success")) {
-      console.log(`[OTP] Successfully dispatched ${channel.toUpperCase()} OTP to ${cleanPhone} via APITxT (RequestId: ${data.data?.request_id || "N/A"})`);
+      console.log(`[OTP] Successfully dispatched ${channel.toUpperCase()} OTP to ${formattedMobile} via APITxT (RequestId: ${data.data?.request_id || "N/A"})`);
       return { success: true, message: "OTP sent successfully.", response: data };
     } else {
       const errorMsg = data.message || JSON.stringify(data);
-      console.error(`[OTP] APITxT ${channel.toUpperCase()} error for ${cleanPhone}:`, errorMsg);
+      console.error(`[OTP] APITxT ${channel.toUpperCase()} error for ${formattedMobile}:`, errorMsg);
       return { success: false, message: errorMsg, response: data };
     }
   } catch (error: any) {

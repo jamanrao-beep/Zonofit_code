@@ -227,7 +227,7 @@ export default function CreateAccountScreen() {
       setPhoneCode("");
       setPhoneOtpOpen(true);
       setPhoneResend(30);
-      setPhoneHint(`Code sent to +91 ${phone} via SMS & WhatsApp`);
+      setPhoneHint(`Code sent to your WhatsApp at +91 ${phone}`);
     } catch (error: any) {
       setPhoneBad(true);
       setPhoneHint(error?.message || "Couldn't send the code.");
