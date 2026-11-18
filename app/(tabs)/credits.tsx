@@ -16,7 +16,6 @@ import Animated, {
   Easing,
   FadeIn,
   FadeInDown,
-  SlideInDown,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -843,24 +842,30 @@ export default function CreditsScreen() {
           </View>
         </ScrollView>
 
-        <Modal visible={sheet !== null} transparent animationType="none" statusBarTranslucent onRequestClose={() => setInfoKey(null)}>
+        <Modal visible={sheet !== null} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setInfoKey(null)}>
           {sheet ? (
             <View style={styles.sheetOverlay}>
-              <Animated.View entering={FadeIn.duration(250)} style={StyleSheet.absoluteFill}>
-                <Pressable style={styles.sheetBackdrop} onPress={() => setInfoKey(null)} />
-              </Animated.View>
-              <Animated.View
-                entering={SlideInDown.duration(420).easing(Easing.bezier(0.2, 0.8, 0.2, 1))}
-                style={[styles.sheet, { paddingBottom: 22 + insets.bottom }]}
+              <Pressable style={styles.sheetBackdropPressable} onPress={() => setInfoKey(null)} accessibilityLabel="Close" />
+              <View
+                style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}
               >
                 <View style={styles.grab} />
                 <Text style={styles.sheetTitle}>{sheet.title}</Text>
                 <Text style={styles.sheetBody}>{sheet.body}</Text>
                 {sheet.example ? <Text style={styles.sheetExample}>{sheet.example}</Text> : null}
-                <Pressable onPress={() => setInfoKey(null)} style={styles.sheetBtn}>
+                <Pressable
+                  onPress={() => setInfoKey(null)}
+                  style={({ pressed }) => [
+                    styles.sheetBtn,
+                    pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
+                  ]}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Got it"
+                >
                   <Text style={styles.sheetBtnText}>Got it</Text>
                 </Pressable>
-              </Animated.View>
+              </View>
             </View>
           ) : null}
         </Modal>
@@ -1250,14 +1255,16 @@ const styles = StyleSheet.create({
   redDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#DC2626" },
   shine: { position: "absolute", top: -16, bottom: -16, flexDirection: "row" },
   shinePart: { flex: 1 },
-  sheetOverlay: { flex: 1, justifyContent: "flex-end" },
-  sheetBackdrop: { flex: 1, backgroundColor: "rgba(10,20,14,0.45)" },
+  sheetOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(10,20,14,0.45)" },
+  sheetBackdropPressable: { ...StyleSheet.absoluteFill, zIndex: 1 },
   sheet: {
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: 24,
     paddingTop: 12,
+    zIndex: 10,
+    elevation: 24,
   },
   grab: { width: 42, height: 5, borderRadius: 3, backgroundColor: "#DCE2E8", alignSelf: "center", marginBottom: 18 },
   sheetTitle: { fontSize: 21, fontWeight: "800", letterSpacing: -0.3, color: INK, marginBottom: 8 },
