@@ -11,6 +11,7 @@ const taxDocuments_1 = require("../lib/taxDocuments");
 const referralRewards_1 = require("../lib/referralRewards");
 const membershipActivate_1 = require("../services/membershipActivate");
 const payments_1 = require("../services/payments");
+const plural_1 = require("../services/plural");
 const notifications_1 = require("../services/notifications");
 const router = (0, express_1.Router)();
 /** Member responses keep the gym name. The GSTIN stays off the customer payload. */
@@ -182,6 +183,57 @@ router.post("/create-order", auth_1.requireAuth, [
             });
             return;
         }
+        if ((0, plural_1.isPluralConfigured)()) {
+            const merchantReference = `mem_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+            const user = await prisma_1.default.user.findUnique({
+                where: { id: req.dbUserId },
+                select: { phone: true, email: true, name: true },
+            });
+            const pluralOrder = await (0, plural_1.createPluralOrder)({
+                merchantReference,
+                amountPaise: chargePaise,
+                userId: req.dbUserId,
+                customerPhone: user?.phone || undefined,
+                customerEmail: user?.email || undefined,
+                customerName: user?.name || undefined,
+            });
+            await prisma_1.default.paymentOrder.create({
+                data: {
+                    userId: req.dbUserId,
+                    razorpayOrderId: pluralOrder.orderId,
+                    amountPaise: chargePaise,
+                    creditsToAdd: 0,
+                    cashToAddPaise: 0,
+                    purpose: "MEMBERSHIP",
+                    metaJson: JSON.stringify({
+                        merchantReference,
+                        gateway: "PLURAL",
+                        planId: quote.planId,
+                        gymPlanId: quote.gymPlanId,
+                        primaryGymId,
+                        gymName: gymName || quote.gym.name,
+                        tax,
+                        ...(offer.freeMonthId && offer.waiverPaise > 0
+                            ? { freeMonthId: offer.freeMonthId, waiverPaise: offer.waiverPaise }
+                            : {}),
+                    }),
+                    status: "CREATED",
+                },
+            });
+            res.status(200).json({
+                gateway: "PLURAL",
+                orderId: pluralOrder.orderId,
+                razorpayOrderId: pluralOrder.orderId,
+                redirectUrl: pluralOrder.redirectUrl,
+                amount: chargePaise,
+                waiverPaise: offer.waiverPaise,
+                currency: "INR",
+                gymId: quote.gym.id,
+                gymName: quote.gym.name,
+                tax,
+            });
+            return;
+        }
         const razorpay = (0, payments_1.getRazorpay)();
         const { keyId } = (0, payments_1.getRazorpayConfig)();
         const order = await razorpay.orders.create({
@@ -236,6 +288,70 @@ router.post("/create-order", auth_1.requireAuth, [
  */
 router.post("/activate", auth_1.requireAuth, async (req, res) => {
     const { razorpayOrderId, razorpayPaymentId, razorpaySignature, directAccept, primaryGymId, gymName, planId, gymPlanId, } = req.body;
+    const orderLookupId = req.body.orderId || razorpayOrderId;
+    if (orderLookupId) {
+        const order = await prisma_1.default.paymentOrder.findFirst({
+            where: {
+                OR: [
+                    { razorpayOrderId: orderLookupId },
+                    { metaJson: { contains: orderLookupId } },
+                ],
+            },
+        });
+        if (order) {
+            if (order.status !== "FULFILLED") {
+                if ((0, plural_1.isPluralConfigured)()) {
+                    try {
+                        const pluralOrder = await (0, plural_1.getPluralOrderStatus)(orderLookupId);
+                        const pluralStatus = (pluralOrder?.status || "").toUpperCase();
+                        if (pluralStatus === "CHARGED" ||
+                            pluralStatus === "CAPTURED" ||
+                            pluralStatus === "SUCCESS" ||
+                            pluralStatus === "SUCCESSFUL" ||
+                            pluralStatus === "PROCESSED") {
+                            await (0, payments_1.fulfillPaymentOrder)({
+                                razorpayOrderId: order.razorpayOrderId,
+                                referenceId: pluralOrder?.payment_id || `plrl_${Date.now()}`,
+                                userId: req.dbUserId,
+                            });
+                        }
+                    }
+                    catch (pErr) {
+                        console.warn("[membership/activate] Plural check:", pErr.message);
+                    }
+                }
+                else if (!(0, payments_1.isRazorpayConfigured)()) {
+                    // Dev mode auto-fulfill
+                    await (0, payments_1.fulfillPaymentOrder)({
+                        razorpayOrderId: order.razorpayOrderId,
+                        referenceId: `dev_${Date.now()}`,
+                        userId: req.dbUserId,
+                    });
+                }
+            }
+            const membership = await prisma_1.default.membership.findUnique({
+                where: { userId: req.dbUserId },
+                include: { plan: true, gymPlan: true, primaryGym: true },
+            });
+            const wallet = await prisma_1.default.creditWallet.findUnique({ where: { userId: req.dbUserId } });
+            if (membership) {
+                res.status(200).json({
+                    membership: hideSupplierGstin({
+                        ...membership,
+                        gymName: membership.primaryGym?.name || gymName,
+                        plan: membership.plan
+                            ? { ...membership.plan, priceINR: membership.plan.priceInPaise / 100 }
+                            : null,
+                        cycleNumber: membership.cycleNumber,
+                        maxCycles: 12,
+                    }),
+                    newCreditBalance: wallet?.balance ?? 0,
+                    message: "Membership activated successfully.",
+                });
+                return;
+            }
+        }
+    }
     try {
         if (!(0, payments_1.isRazorpayConfigured)() ||
             directAccept ||

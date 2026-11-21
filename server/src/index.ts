@@ -31,6 +31,7 @@ import trialGymsRouter from "./routes/trial-gyms";
 import couponsRouter from "./routes/coupons";
 import contentRouter from "./routes/content";
 import googleOAuthReturnRoutes from "./routes/googleOAuthReturn";
+import pluralPaymentsRouter from "./routes/pluralPayments";
 
 import prisma from "./lib/prisma";
 
@@ -92,7 +93,7 @@ app.use(express.json({
   limit: "1mb",
   verify: (req, _res, buf) => {
     const url = (req as { originalUrl?: string; url?: string }).originalUrl || req.url || "";
-    if (url.startsWith("/api/credits/webhook")) {
+    if (url.includes("/webhook")) {
       (req as express.Request & { rawBody?: Buffer }).rawBody = Buffer.from(buf);
     }
   },
@@ -189,6 +190,7 @@ app.use("/api/feedback", feedbackRoutes);
 app.use("/api/launch-offer", launchOfferRoutes);
 app.use("/api/launch-game", launchGameRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/payments/plural", pluralPaymentsRouter);
 
 // ─── 404 & Error Handling ──────────────────────────────────────────────────────
 app.use(notFoundHandler);
@@ -209,11 +211,15 @@ function assertBootSecrets(): void {
 }
 
 function warnMissingProviderKeys(): void {
-    const names = ["RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET", "RAZORPAY_WEBHOOK_SECRET", "APITXT_AUTH_KEY"];
-    const missing = names.filter((name) => {
-        const value = process.env[name]?.trim() ?? "";
-        return value.length < 8 || /placeholder/i.test(value);
-    });
+    const hasPlural = (process.env.PLURAL_CLIENT_ID?.trim()?.length ?? 0) >= 5 && (process.env.PLURAL_CLIENT_SECRET?.trim()?.length ?? 0) >= 5;
+    const hasRazorpay = (process.env.RAZORPAY_KEY_ID?.trim()?.length ?? 0) >= 8 && (process.env.RAZORPAY_KEY_SECRET?.trim()?.length ?? 0) >= 8;
+
+    const missing: string[] = [];
+    if (!hasPlural && !hasRazorpay) {
+        missing.push("PLURAL_CLIENT_ID & PLURAL_CLIENT_SECRET (or RAZORPAY_KEY_ID)");
+    }
+    const apiTxt = process.env.APITXT_AUTH_KEY?.trim() ?? "";
+    if (apiTxt.length < 8 || /placeholder/i.test(apiTxt)) missing.push("APITXT_AUTH_KEY");
     if (!normalizeAppPassword(process.env.GMAIL_APP_PASSWORD)) missing.push("GMAIL_APP_PASSWORD");
     if (missing.length > 0) {
         console.warn(`[Startup] Payments or SMS stay unavailable until these are set: ${missing.join(", ")}`);

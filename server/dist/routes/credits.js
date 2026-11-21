@@ -11,6 +11,7 @@ const constants_1 = require("../lib/constants");
 const wallet_1 = require("../lib/wallet");
 const notifications_1 = require("../services/notifications");
 const payments_1 = require("../services/payments");
+const plural_1 = require("../services/plural");
 const settings_1 = require("../services/settings");
 const router = (0, express_1.Router)();
 // ─── GET /api/credits/balance ─────────────────────────────────────────────────
@@ -222,6 +223,45 @@ router.post("/create-order", auth_1.requireAuth, [
     const amountINR = credits * settings.creditPurchasePrice;
     const amountPaise = amountINR * 100;
     try {
+        if ((0, plural_1.isPluralConfigured)()) {
+            const merchantReference = `cr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+            const user = await prisma_1.default.user.findUnique({
+                where: { id: req.dbUserId },
+                select: { phone: true, email: true, name: true },
+            });
+            const pluralOrder = await (0, plural_1.createPluralOrder)({
+                merchantReference,
+                amountPaise,
+                userId: req.dbUserId,
+                customerPhone: user?.phone || undefined,
+                customerEmail: user?.email || undefined,
+                customerName: user?.name || undefined,
+            });
+            await prisma_1.default.paymentOrder.create({
+                data: {
+                    userId: req.dbUserId,
+                    razorpayOrderId: pluralOrder.orderId,
+                    amountPaise,
+                    creditsToAdd: credits,
+                    purpose: "CREDITS",
+                    metaJson: JSON.stringify({
+                        merchantReference,
+                        gateway: "PLURAL",
+                    }),
+                    status: "CREATED",
+                },
+            });
+            res.status(200).json({
+                gateway: "PLURAL",
+                orderId: pluralOrder.orderId,
+                razorpayOrderId: pluralOrder.orderId,
+                redirectUrl: pluralOrder.redirectUrl,
+                amount: amountPaise,
+                currency: "INR",
+                credits,
+            });
+            return;
+        }
         if (!(0, payments_1.isRazorpayConfigured)()) {
             const wallet = await prisma_1.default.creditWallet.findUnique({ where: { userId: req.dbUserId } });
             if (!wallet) {
@@ -441,6 +481,46 @@ router.post("/create-cash-order", auth_1.requireAuth, [
     const { amountINR } = req.body;
     const amountPaise = amountINR * 100;
     try {
+        if ((0, plural_1.isPluralConfigured)()) {
+            const merchantReference = `cash_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+            const user = await prisma_1.default.user.findUnique({
+                where: { id: req.dbUserId },
+                select: { phone: true, email: true, name: true },
+            });
+            const pluralOrder = await (0, plural_1.createPluralOrder)({
+                merchantReference,
+                amountPaise,
+                userId: req.dbUserId,
+                customerPhone: user?.phone || undefined,
+                customerEmail: user?.email || undefined,
+                customerName: user?.name || undefined,
+            });
+            await prisma_1.default.paymentOrder.create({
+                data: {
+                    userId: req.dbUserId,
+                    razorpayOrderId: pluralOrder.orderId,
+                    amountPaise,
+                    creditsToAdd: 0,
+                    cashToAddPaise: amountPaise,
+                    purpose: "CASH",
+                    metaJson: JSON.stringify({
+                        merchantReference,
+                        gateway: "PLURAL",
+                    }),
+                    status: "CREATED",
+                },
+            });
+            res.status(200).json({
+                gateway: "PLURAL",
+                orderId: pluralOrder.orderId,
+                razorpayOrderId: pluralOrder.orderId,
+                redirectUrl: pluralOrder.redirectUrl,
+                amount: amountPaise,
+                currency: "INR",
+                cashToAddINR: amountINR,
+            });
+            return;
+        }
         if (!(0, payments_1.isRazorpayConfigured)()) {
             const wallet = await prisma_1.default.creditWallet.findUnique({ where: { userId: req.dbUserId } });
             if (!wallet) {

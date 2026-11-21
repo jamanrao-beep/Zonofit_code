@@ -8,10 +8,14 @@ import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useRouter, useSegments, Stack } from "expo-router";
 import { isRunningInExpoGo } from "expo";
 import * as SplashScreen from "expo-splash-screen";
+import * as WebBrowser from "expo-web-browser";
 import { useEffect } from "react";
 import { LogBox, View } from "react-native";
 import { warmUpApiConnection } from "@/lib/api";
 import "../global.css";
+
+// Automatically handles web redirect authentication flows
+WebBrowser.maybeCompleteAuthSession();
 
 // Pre-warm TCP and TLS socket to backend so first user actions execute with zero cold-start delay
 warmUpApiConnection();

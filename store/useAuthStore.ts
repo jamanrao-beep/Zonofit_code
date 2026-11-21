@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import * as SecureStore from "expo-secure-store";
 import { apiFetch } from "@/lib/api";
+import { handlePaymentCheckout } from "@/lib/payment";
 import { useGuestStore } from "./useGuestStore";
 import { calculateMembershipBreakdown } from "@/constants/credits";
 import { FALLBACK_NETWORK_GYMS } from "@/constants/fallbackGyms";
@@ -447,28 +448,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       let newCreditBalance = order?.newCreditBalance;
 
       if (!isDirectAccepted) {
-        if (!order?.keyId || !order?.razorpayOrderId) {
-          throw new Error(order?.message || "Card payments are not configured yet.");
-        }
-
-        const RazorpayCheckout = require("react-native-razorpay").default;
-        const payment = await RazorpayCheckout.open({
-          description: `ZonoFit membership at ${order.gymName || gymName || "your gym"}`,
-          currency: order.currency || "INR",
-          key: order.keyId,
-          amount: order.amount,
-          name: "ZonoFit",
-          order_id: order.razorpayOrderId,
-          theme: { color: "#059669" },
+        await handlePaymentCheckout(order, {
+          description: `ZonoFit membership at ${order?.gymName || gymName || "your gym"}`,
+          token,
         });
 
         const activated = await apiFetch("/api/membership/activate", {
           method: "POST",
           token,
           body: JSON.stringify({
-            razorpayOrderId: order.razorpayOrderId,
-            razorpayPaymentId: payment.razorpay_payment_id,
-            razorpaySignature: payment.razorpay_signature,
+            orderId: order?.orderId || order?.razorpayOrderId,
+            primaryGymId: gymId,
+            gymName,
+            planId: plan,
           }),
         });
 

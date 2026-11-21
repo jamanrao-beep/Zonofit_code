@@ -103,8 +103,13 @@ export async function fulfillPaymentOrder(input: {
   userId?: string;
 }) {
   return prisma.$transaction(async (tx) => {
-    const order = await (tx as any).paymentOrder.findUnique({
-      where: { razorpayOrderId: input.razorpayOrderId },
+    const order = await (tx as any).paymentOrder.findFirst({
+      where: {
+        OR: [
+          { razorpayOrderId: input.razorpayOrderId },
+          { metaJson: { contains: input.razorpayOrderId } },
+        ],
+      },
     });
     if (!order) throw createError("Payment order not found.", 404, "OrderNotFound");
     if (input.userId && order.userId !== input.userId) {

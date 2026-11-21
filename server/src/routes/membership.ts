@@ -6,6 +6,7 @@ import { membershipTaxBranches } from "../lib/taxDocuments";
 import { quotedFreeMonth, redeemFreeMonth, redeemOpenFreeMonth } from "../lib/referralRewards";
 import { activatePaidMembership, quotePaidMembership, type MembershipActivationInput } from "../services/membershipActivate";
 import { fulfillPaymentOrder, getRazorpay, getRazorpayConfig, isRazorpayConfigured, verifyCheckoutSignature } from "../services/payments";
+import { createPluralOrder, getPluralOrderStatus, isPluralConfigured } from "../services/plural";
 import { sendPushNotification } from "../services/notifications";
 
 const router = Router();
@@ -224,6 +225,61 @@ router.post(
         return;
       }
 
+      if (isPluralConfigured()) {
+        const merchantReference = `mem_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+        const user = await prisma.user.findUnique({
+          where: { id: req.dbUserId! },
+          select: { phone: true, email: true, name: true },
+        });
+
+        const pluralOrder = await createPluralOrder({
+          merchantReference,
+          amountPaise: chargePaise,
+          userId: req.dbUserId!,
+          customerPhone: user?.phone || undefined,
+          customerEmail: user?.email || undefined,
+          customerName: user?.name || undefined,
+        });
+
+        await (prisma as any).paymentOrder.create({
+          data: {
+            userId: req.dbUserId!,
+            razorpayOrderId: pluralOrder.orderId,
+            amountPaise: chargePaise,
+            creditsToAdd: 0,
+            cashToAddPaise: 0,
+            purpose: "MEMBERSHIP",
+            metaJson: JSON.stringify({
+              merchantReference,
+              gateway: "PLURAL",
+              planId: quote.planId,
+              gymPlanId: quote.gymPlanId,
+              primaryGymId,
+              gymName: gymName || quote.gym.name,
+              tax,
+              ...(offer.freeMonthId && offer.waiverPaise > 0
+                ? { freeMonthId: offer.freeMonthId, waiverPaise: offer.waiverPaise }
+                : {}),
+            }),
+            status: "CREATED",
+          },
+        });
+
+        res.status(200).json({
+          gateway: "PLURAL",
+          orderId: pluralOrder.orderId,
+          razorpayOrderId: pluralOrder.orderId,
+          redirectUrl: pluralOrder.redirectUrl,
+          amount: chargePaise,
+          waiverPaise: offer.waiverPaise,
+          currency: "INR",
+          gymId: quote.gym.id,
+          gymName: quote.gym.name,
+          tax,
+        });
+        return;
+      }
+
       const razorpay = getRazorpay();
       const { keyId } = getRazorpayConfig();
       const order = await razorpay.orders.create({
@@ -302,6 +358,74 @@ router.post(
       planId?: string;
       gymPlanId?: string;
     };
+
+    const orderLookupId = req.body.orderId || razorpayOrderId;
+    if (orderLookupId) {
+      const order = await (prisma as any).paymentOrder.findFirst({
+        where: {
+          OR: [
+            { razorpayOrderId: orderLookupId },
+            { metaJson: { contains: orderLookupId } },
+          ],
+        },
+      });
+
+      if (order) {
+        if (order.status !== "FULFILLED") {
+          if (isPluralConfigured()) {
+            try {
+              const pluralOrder = await getPluralOrderStatus(orderLookupId);
+              const pluralStatus = (pluralOrder?.status || "").toUpperCase();
+              if (
+                pluralStatus === "CHARGED" ||
+                pluralStatus === "CAPTURED" ||
+                pluralStatus === "SUCCESS" ||
+                pluralStatus === "SUCCESSFUL" ||
+                pluralStatus === "PROCESSED"
+              ) {
+                await fulfillPaymentOrder({
+                  razorpayOrderId: order.razorpayOrderId,
+                  referenceId: pluralOrder?.payment_id || `plrl_${Date.now()}`,
+                  userId: req.dbUserId,
+                });
+              }
+            } catch (pErr: any) {
+              console.warn("[membership/activate] Plural check:", pErr.message);
+            }
+          } else if (!isRazorpayConfigured()) {
+            // Dev mode auto-fulfill
+            await fulfillPaymentOrder({
+              razorpayOrderId: order.razorpayOrderId,
+              referenceId: `dev_${Date.now()}`,
+              userId: req.dbUserId,
+            });
+          }
+        }
+
+        const membership = await prisma.membership.findUnique({
+          where: { userId: req.dbUserId! },
+          include: { plan: true, gymPlan: true, primaryGym: true },
+        });
+        const wallet = await prisma.creditWallet.findUnique({ where: { userId: req.dbUserId! } });
+
+        if (membership) {
+          res.status(200).json({
+            membership: hideSupplierGstin({
+              ...membership,
+              gymName: membership.primaryGym?.name || gymName,
+              plan: membership.plan
+                ? { ...membership.plan, priceINR: membership.plan.priceInPaise / 100 }
+                : null,
+              cycleNumber: membership.cycleNumber,
+              maxCycles: 12,
+            }),
+            newCreditBalance: wallet?.balance ?? 0,
+            message: "Membership activated successfully.",
+          });
+          return;
+        }
+      }
+    }
 
     try {
       if (

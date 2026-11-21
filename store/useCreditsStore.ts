@@ -4,6 +4,7 @@ import * as SecureStore from "expo-secure-store";
 import { Alert } from "react-native";
 import { apiFetch, invalidateApiCache } from "@/lib/api";
 import { shopCreditsForRupees } from "@/data/shopCatalog";
+import { handlePaymentCheckout } from "@/lib/payment";
 import { useAuthStore } from "./useAuthStore";
 
 const secureStorage = {
@@ -124,37 +125,11 @@ interface CreditsState {
   reset: () => void;
 }
 
-async function confirmRazorpayOrder(orderData: any, description: string) {
-  if (orderData?.directAccepted) {
-    const token = useAuthStore.getState().token;
-    if (token) await useCreditsStore.getState().fetchWallet(token, { force: true });
-    return;
-  }
-  if (!orderData?.keyId || !orderData?.razorpayOrderId) {
-    throw new Error(orderData?.message || "Card payments are not configured yet.");
-  }
-  const RazorpayCheckout = require("react-native-razorpay").default;
-  if (!RazorpayCheckout?.open) {
-    throw new Error("Card payments need the ZonoFit app on a phone.");
-  }
-  const payment = await RazorpayCheckout.open({
-    description,
-    currency: orderData.currency || "INR",
-    key: orderData.keyId,
-    amount: orderData.amount,
-    name: "ZonoFit",
-    order_id: orderData.razorpayOrderId,
-    theme: { color: "#059669" },
-  });
+async function confirmPaymentOrder(orderData: any, description: string) {
   const token = useAuthStore.getState().token;
-  await apiFetch("/api/credits/confirm", {
-    method: "POST",
-    token,
-    body: JSON.stringify({
-      razorpayOrderId: orderData.razorpayOrderId,
-      razorpayPaymentId: payment.razorpay_payment_id,
-      razorpaySignature: payment.razorpay_signature,
-    }),
+  await handlePaymentCheckout(orderData, {
+    description,
+    token: token || undefined,
   });
   if (token) await useCreditsStore.getState().fetchWallet(token, { force: true });
 }
@@ -366,7 +341,7 @@ export const useCreditsStore = create<CreditsState>()(
         return { success: true, message: orderData.message || `Successfully purchased ${creditsAmount} credits.` };
       }
 
-      await confirmRazorpayOrder(orderData, "Purchase " + creditsAmount + " ZonoFit Credits");
+      await confirmPaymentOrder(orderData, "Purchase " + creditsAmount + " ZonoFit Credits");
       return { success: true, message: "Successfully purchased " + creditsAmount + " credits." };
     } catch (err: any) {
       const msg = err.description || err.message || "Payment failed.";
@@ -399,7 +374,7 @@ export const useCreditsStore = create<CreditsState>()(
         return { success: true, message: orderData.message || `Successfully added ₹${amountINR}.` };
       }
 
-      await confirmRazorpayOrder(orderData, "Top up Rs " + amountINR);
+      await confirmPaymentOrder(orderData, "Top up Rs " + amountINR);
       return { success: true, message: "Successfully added Rs " + amountINR + "." };
     } catch (err: any) {
       const msg = err.description || err.message || "Payment failed.";

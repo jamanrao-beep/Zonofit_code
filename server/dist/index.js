@@ -33,6 +33,7 @@ const trial_gyms_1 = __importDefault(require("./routes/trial-gyms"));
 const coupons_1 = __importDefault(require("./routes/coupons"));
 const content_1 = __importDefault(require("./routes/content"));
 const googleOAuthReturn_1 = __importDefault(require("./routes/googleOAuthReturn"));
+const pluralPayments_1 = __importDefault(require("./routes/pluralPayments"));
 const prisma_1 = __importDefault(require("./lib/prisma"));
 // Process level safety guards
 process.on("unhandledRejection", (reason) => {
@@ -81,7 +82,7 @@ app.use(express_1.default.json({
     limit: "1mb",
     verify: (req, _res, buf) => {
         const url = req.originalUrl || req.url || "";
-        if (url.startsWith("/api/credits/webhook")) {
+        if (url.includes("/webhook")) {
             req.rawBody = Buffer.from(buf);
         }
     },
@@ -169,6 +170,7 @@ app.use("/api/feedback", feedback_1.default);
 app.use("/api/launch-offer", launchOffer_1.default);
 app.use("/api/launch-game", launchGame_1.default);
 app.use("/api/admin", admin_1.default);
+app.use("/api/payments/plural", pluralPayments_1.default);
 // ─── 404 & Error Handling ──────────────────────────────────────────────────────
 app.use(errorHandler_1.notFoundHandler);
 app.use(errorHandler_1.errorHandler);
@@ -185,11 +187,15 @@ function assertBootSecrets() {
     }
 }
 function warnMissingProviderKeys() {
-    const names = ["RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET", "RAZORPAY_WEBHOOK_SECRET", "APITXT_AUTH_KEY"];
-    const missing = names.filter((name) => {
-        const value = process.env[name]?.trim() ?? "";
-        return value.length < 8 || /placeholder/i.test(value);
-    });
+    const hasPlural = (process.env.PLURAL_CLIENT_ID?.trim()?.length ?? 0) >= 5 && (process.env.PLURAL_CLIENT_SECRET?.trim()?.length ?? 0) >= 5;
+    const hasRazorpay = (process.env.RAZORPAY_KEY_ID?.trim()?.length ?? 0) >= 8 && (process.env.RAZORPAY_KEY_SECRET?.trim()?.length ?? 0) >= 8;
+    const missing = [];
+    if (!hasPlural && !hasRazorpay) {
+        missing.push("PLURAL_CLIENT_ID & PLURAL_CLIENT_SECRET (or RAZORPAY_KEY_ID)");
+    }
+    const apiTxt = process.env.APITXT_AUTH_KEY?.trim() ?? "";
+    if (apiTxt.length < 8 || /placeholder/i.test(apiTxt))
+        missing.push("APITXT_AUTH_KEY");
     if (!(0, mail_1.normalizeAppPassword)(process.env.GMAIL_APP_PASSWORD))
         missing.push("GMAIL_APP_PASSWORD");
     if (missing.length > 0) {
