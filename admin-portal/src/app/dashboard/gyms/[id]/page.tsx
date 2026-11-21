@@ -52,9 +52,9 @@ export default function AdminGymDetailPage() {
     description: "",
     priceINR: "",
     billingCycle: "MONTHLY",
-    initialPeriodMonths: "",
-    initialCutoffDays: "",
-    subsequentCutoffDays: ""
+    initialPeriodMonths: "4",
+    initialCutoffDays: "10",
+    subsequentCutoffDays: "15"
   });
   const [savingPlan, setSavingPlan] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
@@ -138,9 +138,9 @@ export default function AdminGymDetailPage() {
         description: "",
         priceINR: "",
         billingCycle: "MONTHLY",
-        initialPeriodMonths: "",
-        initialCutoffDays: "",
-        subsequentCutoffDays: ""
+        initialPeriodMonths: "4",
+        initialCutoffDays: "10",
+        subsequentCutoffDays: "15"
       });
       fetchGym();
     } catch (err) {
@@ -368,8 +368,8 @@ export default function AdminGymDetailPage() {
                   <div>
                     <div className="font-bold text-black">{plan.name} - ₹{plan.priceInPaise / 100} / {plan.billingCycle}</div>
                     <div className="text-xs text-gray-500 mt-1">
-                      First {plan.initialPeriodMonths} months: {plan.initialCutoffDays} days cutoff<br/>
-                      After {plan.initialPeriodMonths} months: {plan.subsequentCutoffDays} days cutoff
+                      First {plan.initialPeriodMonths} {plan.initialPeriodMonths === 1 ? "month" : "months"}: {plan.initialCutoffDays} days cutoff<br/>
+                      After {plan.initialPeriodMonths} {plan.initialPeriodMonths === 1 ? "month" : "months"}: {plan.subsequentCutoffDays} days cutoff
                     </div>
                   </div>
                   <button 

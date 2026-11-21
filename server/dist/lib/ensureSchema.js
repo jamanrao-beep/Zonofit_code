@@ -161,6 +161,7 @@ const STATEMENTS = [
   ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
     "ALTER TABLE `feature_feedback` MODIFY `comment` TEXT NOT NULL",
     "ALTER TABLE `feature_feedback` ADD INDEX `feature_feedback_feature_created` (`featureName`, `createdAt`)",
+    "UPDATE `gym_plans` SET `initialPeriodMonths` = 4 WHERE `initialPeriodMonths` = 1",
 ];
 function safeDbMessage(err) {
     const message = String(err?.message ?? "");

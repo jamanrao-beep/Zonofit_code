@@ -482,7 +482,7 @@ router.post("/gyms", requireAuth, requireAdmin, async (req: Request, res: Respon
             description: `Full access to ${createdGym.name} facilities with ZonoFit credits.`,
             priceInPaise: priceM * 100,
             billingCycle: "MONTHLY",
-            initialPeriodMonths: 1,
+            initialPeriodMonths: 4,
             initialCutoffDays: 10,
             subsequentCutoffDays: 15,
             isActive: true,
