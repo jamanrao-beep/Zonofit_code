@@ -17,10 +17,7 @@ const router = (0, express_1.Router)();
  */
 router.post("/webhook", async (req, res) => {
     const rawBody = req.rawBody;
-    const signatureHeader = req.headers["x-plural-signature"] ||
-        req.headers["x-verify"] ||
-        req.headers["x-pine-signature"] ||
-        req.headers["signature"];
+    const signatureHeader = req.headers["x-plural-signature"] || req.headers["x-verify"] || req.headers["signature"];
     const signature = Array.isArray(signatureHeader) ? signatureHeader[0] : signatureHeader;
     // Verify HMAC-SHA256 signature if webhook secret is configured
     if (process.env.PLURAL_WEBHOOK_SECRET) {
@@ -30,32 +27,18 @@ router.post("/webhook", async (req, res) => {
             return;
         }
     }
-    const payload = req.body || {};
-    const event = String(payload?.event || payload?.event_name || payload?.status || "");
-    const orderId = payload?.merchant_order_reference ||
-        payload?.data?.merchant_order_reference ||
-        payload?.order_id ||
-        payload?.data?.order_id;
-    const paymentId = payload?.payment_id ||
-        payload?.data?.payment_id ||
-        payload?.transaction_id ||
-        payload?.data?.transaction_id ||
-        `plrl_${Date.now()}`;
-    const status = String(payload?.data?.status ||
-        payload?.status ||
-        payload?.order_status ||
-        payload?.data?.order_status ||
-        "").toUpperCase();
+    const payload = req.body;
+    const event = payload?.event || payload?.event_name || payload?.status || "";
+    const orderId = payload?.order_id || payload?.data?.order_id || payload?.merchant_order_reference || payload?.data?.merchant_order_reference;
+    const paymentId = payload?.payment_id || payload?.data?.payment_id || `plrl_${Date.now()}`;
+    const status = (payload?.data?.status || payload?.status || "").toUpperCase();
     console.log(`[Plural Webhook] Received event: ${event || status} for order ${orderId}`);
     // Treat as successful if status is CHARGED, CAPTURED, SUCCESS, or event contains payment.captured / order.processed
     const isSuccess = status === "CHARGED" ||
         status === "CAPTURED" ||
         status === "SUCCESS" ||
-        status === "SUCCESSFUL" ||
-        status === "PROCESSED" ||
         event.toLowerCase().includes("captured") ||
         event.toLowerCase().includes("success") ||
-        event.toLowerCase().includes("order.processed") ||
         event.toLowerCase().includes("order_processed");
     if (orderId && isSuccess) {
         try {
@@ -69,22 +52,7 @@ router.post("/webhook", async (req, res) => {
             console.error(`[Plural Webhook] Error fulfilling order ${orderId}:`, err.message);
         }
     }
-    else if (orderId && (status === "FAILED" || status === "CANCELLED" || event.toLowerCase().includes("failed"))) {
-        try {
-            await prisma_1.default.paymentOrder.updateMany({
-                where: {
-                    OR: [
-                        { razorpayOrderId: String(orderId) },
-                        { metaJson: { contains: String(orderId) } },
-                    ],
-                    status: "CREATED",
-                },
-                data: { status: "FAILED" },
-            });
-        }
-        catch { }
-    }
-    // Acknowledge receipt within 5 seconds as required by Pine Labs
+    // Acknowledge receipt within 5 seconds
     res.status(200).json({ status: "received", orderId });
 });
 /**
@@ -99,14 +67,9 @@ router.post("/verify", auth_1.requireAuth, [(0, express_validator_1.body)("order
     }
     const { orderId } = req.body;
     try {
-        // Find the local order record (by orderId or by merchantReference in metaJson)
-        const order = await prisma_1.default.paymentOrder.findFirst({
-            where: {
-                OR: [
-                    { razorpayOrderId: orderId },
-                    { metaJson: { contains: orderId } },
-                ],
-            },
+        // Find the local order record
+        const order = await prisma_1.default.paymentOrder.findUnique({
+            where: { razorpayOrderId: orderId },
         });
         if (!order) {
             res.status(404).json({ error: "OrderNotFound", message: "Payment order not found." });
@@ -123,11 +86,7 @@ router.post("/verify", auth_1.requireAuth, [(0, express_validator_1.body)("order
             try {
                 const pluralOrder = await (0, plural_1.getPluralOrderStatus)(orderId);
                 const pluralStatus = (pluralOrder?.status || "").toUpperCase();
-                if (pluralStatus === "CHARGED" ||
-                    pluralStatus === "CAPTURED" ||
-                    pluralStatus === "SUCCESS" ||
-                    pluralStatus === "SUCCESSFUL" ||
-                    pluralStatus === "PROCESSED") {
+                if (pluralStatus === "CHARGED" || pluralStatus === "CAPTURED" || pluralStatus === "SUCCESS") {
                     isPaid = true;
                     referenceId = pluralOrder?.payment_id || pluralOrder?.transaction_id || referenceId;
                 }
@@ -142,7 +101,7 @@ router.post("/verify", auth_1.requireAuth, [(0, express_validator_1.body)("order
         }
         if (isPaid) {
             await (0, payments_1.fulfillPaymentOrder)({
-                razorpayOrderId: order.razorpayOrderId,
+                razorpayOrderId: orderId,
                 referenceId,
                 userId: req.dbUserId,
             });

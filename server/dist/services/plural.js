@@ -128,14 +128,7 @@ async function createPluralOrder(params) {
     }
     const data = await res.json();
     const orderId = data.order_id || data.id || params.merchantReference;
-    const checkoutHost = config.isUat
-        ? "https://checkoutuat.pluralonline.com"
-        : "https://checkout.pluralonline.com";
-    const redirectUrl = data.redirect_url ||
-        data.payment_link ||
-        data.checkout_url ||
-        data.url ||
-        (data.token ? `${checkoutHost}/?token=${data.token}` : null);
+    const redirectUrl = data.redirect_url || data.payment_link || data.checkout_url || data.url;
     if (!redirectUrl) {
         console.error("[Plural] Missing redirect URL in response:", data);
         throw (0, errorHandler_1.createError)("Plural did not provide a checkout redirect URL.", 502, "PluralRedirectMissing");
@@ -150,7 +143,6 @@ async function createPluralOrder(params) {
 }
 /**
  * Verifies an incoming webhook HMAC-SHA256 signature from Plural.
- * Matches both hex and base64 digest formats.
  */
 function verifyPluralWebhookSignature(rawBody, signature) {
     const config = getPluralConfig();
@@ -158,16 +150,12 @@ function verifyPluralWebhookSignature(rawBody, signature) {
     if (!secret || !signature)
         return false;
     const bodyBuffer = Buffer.isBuffer(rawBody) ? rawBody : Buffer.from(rawBody);
-    const expectedHex = crypto_1.default.createHmac("sha256", secret).update(bodyBuffer).digest("hex");
-    const expectedBase64 = crypto_1.default.createHmac("sha256", secret).update(bodyBuffer).digest("base64");
-    const cleanSig = signature.trim();
-    if (cleanSig.toLowerCase() === expectedHex.toLowerCase()) {
-        return true;
-    }
-    if (cleanSig === expectedBase64) {
-        return true;
-    }
-    return false;
+    const expected = crypto_1.default.createHmac("sha256", secret).update(bodyBuffer).digest("hex");
+    const actualBuf = Buffer.from(signature);
+    const expectedBuf = Buffer.from(expected);
+    if (actualBuf.length !== expectedBuf.length)
+        return false;
+    return crypto_1.default.timingSafeEqual(actualBuf, expectedBuf);
 }
 /**
  * Queries Plural server-to-server for definitive status of an order.

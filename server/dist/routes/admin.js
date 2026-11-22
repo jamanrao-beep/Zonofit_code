@@ -159,26 +159,50 @@ router.get("/dashboard", auth_1.requireAuth, requireAdmin, async (req, res) => {
 router.get("/users", auth_1.requireAuth, requireAdmin, async (req, res) => {
     try {
         const role = req.query.role;
+        const page = Math.max(1, parseInt(req.query.page || "1", 10));
+        const limit = Math.max(1, Math.min(100, parseInt(req.query.limit || "10", 10)));
+        const search = (req.query.search || "").trim();
         const where = {};
         if (role && role !== "ALL") {
             where.systemRole = role;
         }
-        const users = await prisma_1.default.user.findMany({
-            where,
-            include: {
-                membership: true,
-                wallet: true,
-                gymsOwned: {
-                    select: { id: true, name: true, city: true }
+        if (search) {
+            where.OR = [
+                { name: { contains: search } },
+                { email: { contains: search } },
+                { phone: { contains: search } },
+                { gymsOwned: { some: { name: { contains: search } } } },
+            ];
+        }
+        const [users, total] = await Promise.all([
+            prisma_1.default.user.findMany({
+                where,
+                include: {
+                    membership: true,
+                    wallet: true,
+                    gymsOwned: {
+                        select: { id: true, name: true, city: true }
+                    },
+                    _count: {
+                        select: { bookings: true }
+                    }
                 },
-                _count: {
-                    select: { bookings: true }
-                }
+                orderBy: { createdAt: "desc" },
+                skip: (page - 1) * limit,
+                take: limit,
+            }),
+            prisma_1.default.user.count({ where }),
+        ]);
+        const totalPages = Math.ceil(total / limit) || 1;
+        res.json({
+            users,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages,
             },
-            orderBy: { createdAt: "desc" },
-            take: 100
         });
-        res.json({ users });
     }
     catch (err) {
         res.status(500).json({ error: "ServerError", message: err.message });

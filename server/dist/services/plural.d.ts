@@ -40,7 +40,6 @@ export interface PluralOrderResult {
 export declare function createPluralOrder(params: CreateOrderParams): Promise<PluralOrderResult>;
 /**
  * Verifies an incoming webhook HMAC-SHA256 signature from Plural.
- * Matches both hex and base64 digest formats.
  */
 export declare function verifyPluralWebhookSignature(rawBody: Buffer | string, signature: string | undefined): boolean;
 /**

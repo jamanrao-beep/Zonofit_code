@@ -166,27 +166,54 @@ router.get("/dashboard", requireAuth, requireAdmin, async (req: Request, res: Re
 router.get("/users", requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
     const role = req.query.role as string | undefined;
+    const page = Math.max(1, parseInt((req.query.page as string) || "1", 10));
+    const limit = Math.max(1, Math.min(100, parseInt((req.query.limit as string) || "10", 10)));
+    const search = ((req.query.search as string) || "").trim();
+
     const where: any = {};
     if (role && role !== "ALL") {
       where.systemRole = role;
     }
+    if (search) {
+      where.OR = [
+        { name: { contains: search } },
+        { email: { contains: search } },
+        { phone: { contains: search } },
+        { gymsOwned: { some: { name: { contains: search } } } },
+      ];
+    }
 
-    const users = await prisma.user.findMany({
-      where,
-      include: {
-        membership: true,
-        wallet: true,
-        gymsOwned: {
-          select: { id: true, name: true, city: true }
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        include: {
+          membership: true,
+          wallet: true,
+          gymsOwned: {
+            select: { id: true, name: true, city: true }
+          },
+          _count: {
+            select: { bookings: true }
+          }
         },
-        _count: {
-          select: { bookings: true }
-        }
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.user.count({ where }),
+    ]);
+
+    const totalPages = Math.ceil(total / limit) || 1;
+
+    res.json({
+      users,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
       },
-      orderBy: { createdAt: "desc" },
-      take: 100
     });
-    res.json({ users });
   } catch (err: any) {
     res.status(500).json({ error: "ServerError", message: err.message });
   }
