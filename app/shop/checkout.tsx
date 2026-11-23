@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from "react";
+import { ackPush, ackWork } from "@/lib/tapAck";
 import {
   View,
   Text,
@@ -121,39 +122,44 @@ export default function CheckoutScreen() {
       selectedSize: line.item.selectedSize || line.item.variant,
       selectedColor: line.item.selectedColor,
     }));
-    const result = await checkoutCart(payload, afterCoupon, appliedCoupon?.code, creditsNeeded, {
-      fullName: address.fullName,
-      phoneNumber: address.phoneNumber,
-      flatHouse: address.flatHouse,
-      areaStreet: address.areaStreet,
-      landmark: address.landmark,
-      city: address.city,
-      state: address.state,
-      pincode: address.pincode,
+    const started = ackWork("Placing your order…", async () => {
+      try {
+        const result = await checkoutCart(payload, afterCoupon, appliedCoupon?.code, creditsNeeded, {
+          fullName: address.fullName,
+          phoneNumber: address.phoneNumber,
+          flatHouse: address.flatHouse,
+          areaStreet: address.areaStreet,
+          landmark: address.landmark,
+          city: address.city,
+          state: address.state,
+          pincode: address.pincode,
+        });
+        if (!result.success) {
+          Alert.alert("Order not placed", result.message || "Checkout did not go through.");
+          return;
+        }
+        try {
+          await fetchWallet(token, { force: true });
+        } catch {
+          // The order is already placed. The wallet figure on the receipt uses the last known balance.
+        }
+        const left = useCreditsStore.getState().credits;
+        const orders = result.orders || [];
+        setReceipt({
+          ids: orders.map((order) => order.id),
+          lines: orders.map((order) => `${order.item?.title || "Item"}  ×${order.quantity}`),
+          itemTotal: subtotal,
+          cashUsed: 0,
+          creditsUsed: result.breakdown?.creditsUsed || creditsNeeded,
+          creditsLeft: left,
+        });
+        removeLines(ready.map((line) => cartLineKey(line.item)));
+        router.replace("/shop/success" as never);
+      } finally {
+        setPlacing(false);
+      }
     });
-    if (!result.success) {
-      setPlacing(false);
-      Alert.alert("Order not placed", result.message || "Checkout did not go through.");
-      return;
-    }
-    try {
-      await fetchWallet(token, { force: true });
-    } catch {
-      // The order is already placed. The wallet figure on the receipt uses the last known balance.
-    }
-    const left = useCreditsStore.getState().credits;
-    const orders = result.orders || [];
-    setReceipt({
-      ids: orders.map((order) => order.id),
-      lines: orders.map((order) => `${order.item?.title || "Item"}  ×${order.quantity}`),
-      itemTotal: subtotal,
-      cashUsed: 0,
-      creditsUsed: result.breakdown?.creditsUsed || creditsNeeded,
-      creditsLeft: left,
-    });
-    removeLines(ready.map((line) => cartLineKey(line.item)));
-    setPlacing(false);
-    router.replace("/shop/success" as never);
+    if (!started) setPlacing(false);
   };
 
   const needsAccount = isGuest || !token;
@@ -207,7 +213,7 @@ export default function CheckoutScreen() {
           <Text style={styles.emptyCopy}>Add a product before checkout.</Text>
         </View>
         <View style={[styles.foot, { paddingBottom: Math.max(insets.bottom, 14) }]}>
-          <Pressable style={[shopStyles.cta, { justifyContent: "center" }]} onPress={() => router.push("/shop" as never)}>
+          <Pressable style={[shopStyles.cta, { justifyContent: "center" }]} onPress={() => ackPush(router, "/shop" as never)}>
             <Text style={shopStyles.ctaText}>Browse shop</Text>
           </Pressable>
         </View>

@@ -10,6 +10,8 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { afterPaint } from "@/lib/afterPaint";
+import { usePatientHint } from "@/lib/usePatientHint";
 import { apiFetch } from "@/lib/api";
 
 export interface BookingModalGym {
@@ -166,6 +168,7 @@ export default function BookingModal({
   const [slotSource, setSlotSource] = useState<string[]>(TIME_SLOTS);
   const [selectedTime, setSelectedTime] = useState("");
   const [internalLoading, setInternalLoading] = useState(false);
+  const patient = usePatientHint(internalLoading);
 
   useEffect(() => {
     if (!visible) {
@@ -251,17 +254,22 @@ export default function BookingModal({
   const cutoff = selected && !selectedPassed ? cancelCutoff(selected) : null;
   const comesBack = isMandatoryVisit ? "visit comes" : isCashVenue ? "booking comes" : "credits come";
 
-  const handleConfirmPress = async () => {
+  const handleConfirmPress = () => {
     if (busy || hasInsufficientCredits || selectedPassed || !selected) return;
     const dateObj = dates.find((day) => day.id === selectedDateId);
+    const slotLabel = selected.label;
     setInternalLoading(true);
-    try {
-      await onConfirm(selected.label, dateObj?.iso);
-    } catch (err) {
-      console.error("Booking confirm error:", err);
-    } finally {
-      setInternalLoading(false);
-    }
+    afterPaint(() => {
+      void (async () => {
+        try {
+          await onConfirm(slotLabel, dateObj?.iso);
+        } catch (err) {
+          console.error("Booking confirm error:", err);
+        } finally {
+          setInternalLoading(false);
+        }
+      })();
+    });
   };
 
   const renderSlot = (slot: SlotView) => {
@@ -446,7 +454,7 @@ export default function BookingModal({
               {busy ? (
                 <View style={styles.confirming}>
                   <ActivityIndicator color="#ffffff" size="small" />
-                  <Text style={styles.goText}>Confirming...</Text>
+                  <Text style={styles.goText}>{patient ? "Thank you for being patient." : "Confirming..."}</Text>
                 </View>
               ) : (
                 <>

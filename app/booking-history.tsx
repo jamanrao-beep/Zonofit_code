@@ -3,7 +3,7 @@ import { ScrollView, Text, View, Pressable, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
-import { afterPaint } from "@/lib/afterPaint";
+import { ackBack, ackPush, ackReplace, ackRoute } from "@/lib/tapAck";
 import CancelBookingSheet from "@/components/CancelBookingSheet";
 import { useBookingStore } from "@/store/useBookingStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
@@ -61,10 +61,15 @@ export default function BookingHistoryScreen() {
 
   const openLocked = (kind: "pass" | "discover", path: string) => {
     if (openingLock.current) return;
+    const started = ackRoute("Opening…", () => router.push(path as never), () => {
+      openingLock.current = false;
+      setOpeningPass(false);
+      setOpeningDiscover(false);
+    });
+    if (!started) return;
     openingLock.current = true;
     if (kind === "pass") setOpeningPass(true);
     else setOpeningDiscover(true);
-    afterPaint(() => router.push(path as never));
   };
 
   const openPass = () => openLocked("pass", "/booking-pass");
@@ -80,7 +85,7 @@ export default function BookingHistoryScreen() {
         `Cancelling a mandatory visit requires a flat 2 Credits fee, but your wallet balance is only ${currentCredits} Credits.\n\nPlease buy credits to cancel this booking.`,
         [
           { text: "OK", style: "cancel" },
-          { text: "Buy Credits", onPress: () => router.push("/credits") }
+          { text: "Buy Credits", onPress: () => ackPush(router, "/credits") }
         ]
       );
       return;
@@ -123,11 +128,7 @@ export default function BookingHistoryScreen() {
     .reduce((sum, b) => sum + b.credits, 0);
 
   const handleGoBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace("/(tabs)");
-    }
+    ackBack(router, "/(tabs)");
   };
 
   if (isGuest) {
@@ -310,7 +311,7 @@ export default function BookingHistoryScreen() {
         onConfirm={confirmCancel}
         onDone={() => {
           setCancelPrompt(null);
-          router.replace("/(tabs)");
+          ackReplace(router, "/(tabs)", "Taking you home…");
         }}
       />
     </SafeAreaView>

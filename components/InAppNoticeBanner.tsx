@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { useInAppNoticeStore, type InAppNotice } from "@/store/useInAppNoticeStore";
 import { ZonoNoticeMark } from "@/components/ZonoNoticeMark";
+import { ackPush } from "@/lib/tapAck";
 
 const HIDDEN_Y = -240;
 
@@ -59,7 +60,7 @@ export function InAppNoticeBanner({
   const openNotifications = () => {
     dismiss();
     onOpen?.();
-    router.push("/notifications" as never);
+    ackPush(router, "/notifications");
   };
 
   return (

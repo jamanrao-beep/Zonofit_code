@@ -24,7 +24,7 @@ import AnimatedRe, {
 } from "react-native-reanimated";
 import { InAppNoticeBanner } from "@/components/InAppNoticeBanner";
 import { showInAppNotice, useInAppNoticeStore } from "@/store/useInAppNoticeStore";
-import { afterPaint } from "@/lib/afterPaint";
+import { ackRoute, ackWork } from "@/lib/tapAck";
 
 interface BookingConfirmedModalProps {
   visible: boolean;
@@ -358,15 +358,20 @@ export default function BookingConfirmedModal({
               disabled={openingPass}
               onPress={() => {
                 if (openingPass) return;
+                const started = ackRoute("Opening…", onViewPass, () => setOpeningPass(false));
+                if (!started) return;
                 setOpeningPass(true);
-                afterPaint(onViewPass);
               }}
               style={({ pressed }) => [styles.go, pressed && styles.goPressed, openingPass && styles.goBusy]}
             >
               <Ionicons name="ticket-outline" size={20} color="#ffffff" />
               <Text style={styles.goText}>{openingPass ? "Opening..." : "View pass"}</Text>
             </Pressable>
-            <Pressable onPress={onDone} hitSlop={8} style={styles.back}>
+            <Pressable
+              onPress={() => ackWork("Going back…", () => onDone())}
+              hitSlop={8}
+              style={styles.back}
+            >
               <Text style={styles.backText}>Back to home</Text>
             </Pressable>
           </ScrollView>

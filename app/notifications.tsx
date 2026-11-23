@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { ackBack, ackPush } from "@/lib/tapAck";
 import { View, Text, Pressable, ScrollView, RefreshControl, ActivityIndicator, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -217,7 +218,7 @@ export default function NotificationsScreen() {
         let targetRoute = item.ctaRoute;
         if (targetRoute === "/sign-in") targetRoute = "/(auth)/create-account";
         if (targetRoute.startsWith("/role-application")) targetRoute = "/trainers/register";
-        router.push(targetRoute as any);
+        ackPush(router, targetRoute);
       } catch (err) {
         console.warn("Could not navigate to notification route:", item.ctaRoute);
       }
@@ -306,7 +307,7 @@ export default function NotificationsScreen() {
       <View className="px-5 pt-3 pb-3 flex-row items-center justify-between border-b border-gray-100 bg-white">
         <View className="flex-row items-center gap-3">
           <Pressable
-            onPress={() => router.back()}
+            onPress={() => ackBack(router)}
             className="w-9 h-9 rounded-full bg-gray-50 items-center justify-center border border-gray-200"
           >
             <Ionicons name="arrow-back" size={18} color="#1F2520" />
@@ -321,7 +322,7 @@ export default function NotificationsScreen() {
 
         <View className="flex-row items-center gap-2">
           <Pressable
-            onPress={() => router.push("/lock-preview" as never)}
+            onPress={() => ackPush(router, "/lock-preview" as never)}
             className="px-3 py-1.5 rounded-full bg-[#0C2416] active:opacity-80"
           >
             <Text className="text-xs font-bold text-white">Lock screen</Text>

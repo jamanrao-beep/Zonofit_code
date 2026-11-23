@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from "react";
+import { ackPush } from "@/lib/tapAck";
 import {
   View,
   Text,
@@ -133,7 +134,7 @@ export default function OrdersScreen() {
         purchasable: true,
       });
     });
-    router.push("/shop/cart" as never);
+    ackPush(router, "/shop/cart");
   };
 
   return (
@@ -142,7 +143,7 @@ export default function OrdersScreen() {
       <View style={shopStyles.top}>
         <ShopBackButton fallback="/shop" />
         <Text style={[shopStyles.h2, { flex: 1 }]}>Your orders</Text>
-        <Pressable accessibilityLabel="Shop" onPress={() => router.push("/shop" as never)} style={shopStyles.act}>
+        <Pressable accessibilityLabel="Shop" onPress={() => ackPush(router, "/shop" as never)} style={shopStyles.act}>
           <Ionicons name="bag-handle-outline" size={22} color={shop.ink} />
         </Pressable>
       </View>
@@ -167,7 +168,7 @@ export default function OrdersScreen() {
                   ? "Orders are saved to an account. You can still browse the shop and add items."
                   : "Your protein and gear orders will show up here."}
               </Text>
-              <Pressable style={[shopStyles.cta, { justifyContent: "center", marginTop: 18 }]} onPress={() => router.push("/shop" as never)}>
+              <Pressable style={[shopStyles.cta, { justifyContent: "center", marginTop: 18 }]} onPress={() => ackPush(router, "/shop" as never)}>
                 <Text style={shopStyles.ctaText}>Browse shop</Text>
               </Pressable>
               {(isGuest || !token) ? (

@@ -3,7 +3,7 @@ import { View, Text, ScrollView, Image, Pressable, Dimensions, StatusBar, StyleS
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { afterPaint } from '@/lib/afterPaint';
+import { ackPush, ackRoute, ackWork } from '@/lib/tapAck';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useGuestStore } from '@/store/useGuestStore';
 import { useBookingStore } from '@/store/useBookingStore';
@@ -170,9 +170,11 @@ export default function GymDetailScreen() {
           { text: "Cancel", style: "cancel" },
           { 
             text: "Create Account", 
-            onPress: async () => {
-              await endGuestSession();
-              router.replace("/(auth)/create-account");
+            onPress: () => {
+              ackWork("Opening…", async () => {
+                await endGuestSession();
+                router.replace("/(auth)/create-account");
+              });
             } 
           }
         ]
@@ -194,7 +196,7 @@ export default function GymDetailScreen() {
         `This booking requires ${visitCredits} credits, but you currently have ${credits} credits. Please buy credits to continue.`,
         [
           { text: "Cancel", style: "cancel" },
-          { text: "Buy Credits", onPress: () => router.push("/credits") }
+          { text: "Buy Credits", onPress: () => ackPush(router, "/credits") }
         ]
       );
       return;
@@ -245,16 +247,18 @@ export default function GymDetailScreen() {
   };
 
   const goBack = () => {
-    if (isFromOnboarding) {
-      useAuthStore.getState().setIsViewingOnboardingGym(false);
-    }
-    if (router.canGoBack()) {
-      router.back();
-    } else if (isFromOnboarding) {
-      router.replace("/onboarding/choose-gym" as any);
-    } else {
-      router.replace("/partner-gyms" as any);
-    }
+    ackRoute("Going back…", () => {
+      if (isFromOnboarding) {
+        useAuthStore.getState().setIsViewingOnboardingGym(false);
+      }
+      if (router.canGoBack()) {
+        router.back();
+      } else if (isFromOnboarding) {
+        router.replace("/onboarding/choose-gym" as any);
+      } else {
+        router.replace("/partner-gyms" as any);
+      }
+    });
   };
 
   return (
@@ -469,9 +473,11 @@ export default function GymDetailScreen() {
                 { text: "Cancel", style: "cancel" },
                 { 
                   text: "Create Account", 
-                  onPress: async () => {
-                    await endGuestSession();
-                    router.replace("/(auth)/create-account");
+                  onPress: () => {
+                    ackWork("Opening…", async () => {
+                      await endGuestSession();
+                      router.replace("/(auth)/create-account");
+                    });
                   } 
                 }
               ]
@@ -491,19 +497,25 @@ export default function GymDetailScreen() {
             }
             if (openingNextLock.current) return;
             selectGym(live.id, live.name);
-            useAuthStore.getState().setIsViewingOnboardingGym(false);
+            const started = ackRoute("Opening…", () => {
+              useAuthStore.getState().setIsViewingOnboardingGym(false);
+              router.push({
+                pathname: '/onboarding/eligibility',
+                params: {
+                  gymId: live.id,
+                  gymName: live.name,
+                  city: live.city || 'Udaipur',
+                  address: place || live.city || '',
+                  price: String(live.monthlyPrice || params.price || ''),
+                },
+              } as any);
+            }, () => {
+              openingNextLock.current = false;
+              setOpeningNext(false);
+            });
+            if (!started) return;
             openingNextLock.current = true;
             setOpeningNext(true);
-            afterPaint(() => router.push({
-              pathname: '/onboarding/eligibility',
-              params: {
-                gymId: live.id,
-                gymName: live.name,
-                city: live.city || 'Udaipur',
-                address: place || live.city || '',
-                price: String(live.monthlyPrice || params.price || ''),
-              },
-            } as any));
           }}
         >
           <Text style={styles.bottomLabel}>{openingNext ? "Opening..." : "Next"}</Text>

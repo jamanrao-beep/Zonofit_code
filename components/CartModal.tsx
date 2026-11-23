@@ -10,6 +10,7 @@ import { useAddressStore } from "@/store/useAddressStore";
 import DeliveryAddressModal from "@/components/DeliveryAddressModal";
 import { apiFetch } from "@/lib/api";
 import { SHOP_CREDIT_INR, shopCreditsForRupees } from "@/data/shopCatalog";
+import { ackWork } from "@/lib/tapAck";
 
 interface CartModalProps {
   visible: boolean;
@@ -59,10 +60,12 @@ export default function CartModal({ visible, onClose }: CartModalProps) {
         [
           { 
             text: "Create Account", 
-            onPress: async () => {
+            onPress: () => {
               onClose();
-              await endGuestSession();
-              router.replace("/(auth)/create-account");
+              ackWork("Opening…", async () => {
+                await endGuestSession();
+                router.replace("/(auth)/create-account");
+              });
             } 
           },
           { text: "Cancel", style: "cancel" }

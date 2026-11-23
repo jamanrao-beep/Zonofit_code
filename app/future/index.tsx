@@ -1,4 +1,5 @@
 import React from "react";
+import { ackPush } from "@/lib/tapAck";
 import { View, Text, ScrollView, Pressable, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -23,7 +24,7 @@ export default function FutureOverviewScreen() {
     return (
       <Pressable 
         key={id}
-        onPress={() => router.push(`/future/${id}`)}
+        onPress={() => ackPush(router, `/future/${id}`)}
         className="w-[170px] bg-white border border-gray-100 shadow-sm rounded-[24px] p-4 mr-4"
         style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 }}
       >

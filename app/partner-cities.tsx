@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { ackBack, ackPush } from "@/lib/tapAck";
 import {
   View,
   Text,
@@ -319,7 +320,7 @@ export default function PartnerCitiesScreen() {
   };
 
   const handleSelectActiveCity = (cityName: string) => {
-    router.push(`/partner-gyms?city=${encodeURIComponent(cityName)}` as any);
+    ackPush(router, `/partner-gyms?city=${encodeURIComponent(cityName)}`);
   };
 
   const handleSelectHomeCity = () => {
@@ -329,8 +330,7 @@ export default function PartnerCitiesScreen() {
 
   const confirmHomeViewGyms = () => {
     setSheet(null);
-    // User explicitly wants to browse Udaipur gyms with the restricted banner
-    router.push("/partner-gyms?city=Udaipur" as any);
+    ackPush(router, "/partner-gyms?city=Udaipur");
   };
 
   const notifyCity = (city: string) => {
@@ -427,7 +427,7 @@ export default function PartnerCitiesScreen() {
         {/* ─── Back Button ─── */}
         <View style={styles.top}>
           <Pressable
-            onPress={() => router.back()}
+            onPress={() => ackBack(router)}
             style={styles.back}
             accessibilityLabel="Back"
             hitSlop={8}

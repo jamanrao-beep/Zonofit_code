@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter, useLocalSearchParams } from "expo-router";
-import { afterPaint } from "@/lib/afterPaint";
+import { ackBack, ackPush, ackRoute, ackWork } from "@/lib/tapAck";
 import { useBookingStore } from "@/store/useBookingStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
 import { apiFetch } from "@/lib/api";
@@ -97,9 +97,7 @@ export default function PartnerGymsScreen() {
 
   const openGym = (gym: { id: string; name: string; image?: string; address?: string; membershipPrice?: number }) => {
     if (openingLock.current) return;
-    openingLock.current = gym.id;
-    setOpeningGymId(gym.id);
-    afterPaint(() => {
+    const started = ackRoute("Opening…", () => {
       router.push({
         pathname: `/gym/${gym.id}`,
         params: {
@@ -109,7 +107,13 @@ export default function PartnerGymsScreen() {
           price: gym.membershipPrice ? String(gym.membershipPrice) : "",
         },
       } as any);
+    }, () => {
+      openingLock.current = null;
+      setOpeningGymId(null);
     });
+    if (!started) return;
+    openingLock.current = gym.id;
+    setOpeningGymId(gym.id);
   };
   const [searchQuery, setSearchQuery] = useState(params.q || "");
   const [searchOpen, setSearchOpen] = useState(!!params.q);
@@ -216,9 +220,11 @@ export default function PartnerGymsScreen() {
           { text: "Cancel", style: "cancel" },
           { 
             text: "Create Account", 
-            onPress: async () => {
-              await endGuestSession();
-              router.replace("/(auth)/create-account");
+            onPress: () => {
+              ackWork("Opening…", async () => {
+                await endGuestSession();
+                router.replace("/(auth)/create-account");
+              });
             } 
           }
         ]
@@ -413,7 +419,7 @@ export default function PartnerGymsScreen() {
       <View style={styles.topNav}>
         {/* Back Button */}
         <Pressable 
-          onPress={() => router.back()} 
+          onPress={() => ackBack(router)} 
           style={styles.navBackBtn}
           hitSlop={10}
         >
@@ -422,7 +428,7 @@ export default function PartnerGymsScreen() {
 
         {/* Location / City Title */}
         <Pressable 
-          onPress={() => router.push("/partner-cities" as any)}
+          onPress={() => ackPush(router, "/partner-cities")}
           style={styles.locationHeaderWrap}
         >
           <Text style={styles.headerSmallLabel}>PARTNER CENTRES IN</Text>
@@ -612,7 +618,7 @@ export default function PartnerGymsScreen() {
                   Want to use credits at partner gyms? Explore our network in other cities like Delhi NCR, Mumbai, or Jaipur when traveling.
                 </Text>
                 <Pressable 
-                  onPress={() => router.push("/partner-cities" as any)}
+                  onPress={() => ackPush(router, "/partner-cities")}
                   style={styles.changeCityBtn}
                 >
                   <Ionicons name="location-outline" size={14} color="#FFFFFF" />
@@ -634,7 +640,7 @@ export default function PartnerGymsScreen() {
                 </Text>
               </View>
               <Pressable 
-                onPress={() => router.push("/partner-cities" as any)}
+                onPress={() => ackPush(router, "/partner-cities")}
                 style={styles.changeCityChip}
               >
                 <Text style={styles.changeCityChipText}>Change City</Text>
@@ -680,7 +686,7 @@ export default function PartnerGymsScreen() {
                           `You cannot visit ${gym.name} in Udaipur. As per policy, local visits are restricted to your Primary Gym. Network credits can be used in other cities (e.g. Delhi NCR, Mumbai, Jaipur) when traveling.`,
                           [
                             { text: "View Details", onPress: () => openGym(gym) },
-                            { text: "Select Another City", onPress: () => router.push("/partner-cities" as any) },
+                            { text: "Select Another City", onPress: () => ackPush(router, "/partner-cities") },
                             { text: "Close", style: "cancel" }
                           ]
                         );
@@ -782,7 +788,7 @@ export default function PartnerGymsScreen() {
                               "You cannot visit other gyms in Udaipur. Your ZonoFit membership allows local visits only at your designated Primary Gym. Network credits can be used in other cities (e.g. Delhi NCR, Mumbai, Jaipur) when traveling.",
                               [
                                 { text: "Got It", style: "cancel" },
-                                { text: "Select Another City", onPress: () => router.push("/partner-cities" as any) }
+                                { text: "Select Another City", onPress: () => ackPush(router, "/partner-cities") }
                               ]
                             )}
                             style={styles.lockedPillBtn}

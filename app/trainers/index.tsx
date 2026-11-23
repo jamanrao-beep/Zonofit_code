@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { ackBack, ackPush } from "@/lib/tapAck";
 import { View, Text, ScrollView, Pressable, Image, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -34,7 +35,7 @@ export default function TrainersIndexScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F7F4" }} edges={["top"]}>
       {/* Header */}
       <View className="px-5 py-4 flex-row items-center bg-white border-b border-black/5">
-        <Pressable onPress={() => router.back()} className="mr-4 active:opacity-70">
+        <Pressable onPress={() => ackBack(router)} className="mr-4 active:opacity-70">
           <Ionicons name="arrow-back" size={24} color="#1F2520" />
         </Pressable>
         <Text className="text-lg font-black text-[#1F2520]">Community</Text>
@@ -79,7 +80,7 @@ export default function TrainersIndexScreen() {
           profiles.map((profile) => (
             <Pressable
               key={profile.id}
-              onPress={() => router.push(`/trainers/${profile.id}` as any)}
+              onPress={() => ackPush(router, `/trainers/${profile.id}` as any)}
               className="bg-white rounded-[24px] p-5 mb-4 border border-black/5 shadow-sm active:opacity-90"
             >
               <View className="flex-row items-center mb-3">

@@ -18,6 +18,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useGuestStore } from "@/store/useGuestStore";
+import { ackBack, ackPush } from "@/lib/tapAck";
 import { useUserStore } from "@/store/useUserStore";
 import { useAddressStore } from "@/store/useAddressStore";
 import { ZonoNoticeMark } from "@/components/ZonoNoticeMark";
@@ -123,8 +124,7 @@ export default function EligibilityScreen() {
       closeSheet();
       return;
     }
-    if (router.canGoBack()) router.back();
-    else router.replace("/onboarding/choose-gym");
+    ackBack(router, "/onboarding/choose-gym");
   };
 
   useEffect(() => {
@@ -176,29 +176,28 @@ export default function EligibilityScreen() {
       shakeCheck();
       return;
     }
-    setSheetOpen(false);
-    setDone(true);
     if (leaving.current) return;
     leaving.current = true;
+    setSheetOpen(false);
+    setDone(true);
     const city = selectedAddress?.city || params.city || "Udaipur";
     const price = params.price || livePrice;
-    setTimeout(() => {
-      router.push({
-        pathname: "/onboarding/order-summary",
-        params: {
-          mode: "purchase",
-          isFirstTime: "true",
-          gymId: currentGymId || "gym-being-fit",
-          gymName,
-          city,
-          address: gymPlace,
-          price,
-          eligibility: selected.id,
-          previousGym: previousGymName.trim(),
-          previousPlatform: previousPlatformName.trim(),
-        },
-      } as any);
-    }, 700);
+    const started = ackPush(router, {
+      pathname: "/onboarding/order-summary",
+      params: {
+        mode: "purchase",
+        isFirstTime: "true",
+        gymId: currentGymId || "gym-being-fit",
+        gymName,
+        city,
+        address: gymPlace,
+        price,
+        eligibility: selected.id,
+        previousGym: previousGymName.trim(),
+        previousPlatform: previousPlatformName.trim(),
+      },
+    });
+    if (!started) leaving.current = false;
   };
 
   return (

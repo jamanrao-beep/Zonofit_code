@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { ackBack } from "@/lib/tapAck";
 import { View, Text, ScrollView, Pressable, Alert, ActivityIndicator, TextInput } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
@@ -27,7 +28,7 @@ export default function TopUpInrScreen() {
 
     if (result.success) {
       Alert.alert("Success", `Successfully added ₹${numAmount} to your INR wallet!`, [
-        { text: "OK", onPress: () => router.back() }
+        { text: "OK", onPress: () => ackBack(router) }
       ]);
     } else {
       Alert.alert("Payment Failed", result.message || "Failed to add cash.");
@@ -103,7 +104,7 @@ export default function TopUpInrScreen() {
 
       {/* Header */}
       <View className="flex-row items-center justify-center px-5 pt-10 pb-6 relative">
-        <Pressable onPress={() => router.back()} className="absolute left-5 top-10 z-10 p-2">
+        <Pressable onPress={() => ackBack(router)} className="absolute left-5 top-10 z-10 p-2">
           <Ionicons name="chevron-back" size={26} color="#000" />
         </Pressable>
         <View className="items-center">

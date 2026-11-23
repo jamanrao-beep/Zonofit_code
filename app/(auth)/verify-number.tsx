@@ -16,6 +16,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { ZonoNoticeMark } from "@/components/ZonoNoticeMark";
 import { requestGoogleIdToken } from "@/lib/googleAuth";
+import { ackPush, ackReplace } from "@/lib/tapAck";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useGuestStore } from "@/store/useGuestStore";
 
@@ -375,7 +376,7 @@ export default function VerifyNumberScreen() {
         {step === "done" ? <View /> : (
           <Text style={styles.foot}>
             New to Zonofit?{" "}
-            <Text style={styles.footLink} onPress={() => router.replace("/(auth)/create-account")}>
+            <Text style={styles.footLink} onPress={() => ackReplace(router, "/(auth)/create-account")}>
               Create account
             </Text>
           </Text>
@@ -385,7 +386,7 @@ export default function VerifyNumberScreen() {
           <Text
             style={styles.legalLink}
             onPress={() =>
-              router.push({ pathname: "/content", params: { type: "terms_and_conditions", title: "Terms & Conditions" } } as any)
+              ackPush(router, { pathname: "/content", params: { type: "terms_and_conditions", title: "Terms & Conditions" } })
             }
           >
             Terms
@@ -394,7 +395,7 @@ export default function VerifyNumberScreen() {
           <Text
             style={styles.legalLink}
             onPress={() =>
-              router.push({ pathname: "/content", params: { type: "privacy_policy", title: "Privacy Policy" } } as any)
+              ackPush(router, { pathname: "/content", params: { type: "privacy_policy", title: "Privacy Policy" } })
             }
           >
             Privacy Policy

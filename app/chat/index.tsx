@@ -1,4 +1,5 @@
 import React from "react";
+import { ackBack, ackPush } from "@/lib/tapAck";
 import { View, Text, Pressable, ScrollView, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -12,7 +13,7 @@ export default function ChatIndexScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }} edges={["top"]}>
       {/* Header */}
       <View className="px-5 py-4 border-b border-gray-100 flex-row items-center justify-between">
-        <Pressable onPress={() => router.back()} className="p-2 -ml-2 rounded-full active:bg-gray-100">
+        <Pressable onPress={() => ackBack(router)} className="p-2 -ml-2 rounded-full active:bg-gray-100">
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </Pressable>
         <Text className="text-lg font-bold text-[#111827]">Messages</Text>
@@ -26,7 +27,7 @@ export default function ChatIndexScreen() {
         {FALLBACK_NETWORK_GYMS.slice(0, 3).map((gym) => (
           <Pressable
             key={gym.id}
-            onPress={() => router.push(`/chat/${gym.id}` as any)}
+            onPress={() => ackPush(router, `/chat/${gym.id}` as any)}
             className="flex-row items-center px-5 py-3.5 border-b border-gray-50 active:bg-gray-50"
           >
             <Image

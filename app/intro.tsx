@@ -1,4 +1,5 @@
 import { useRouter } from "expo-router";
+import { ackReplace } from "@/lib/tapAck";
 import React, { useRef, useState, useCallback, useEffect } from "react";
 import { useAuthStore } from "@/store/useAuthStore";
 import {
@@ -584,11 +585,11 @@ export default function IntroScreen() {
   const isLast = activeIndex === 3;
 
   const handleFinish = useCallback(() => {
-    router.replace("/(auth)/create-account");
+    ackReplace(router, "/(auth)/create-account");
   }, [router]);
 
   const handleSignIn = useCallback(() => {
-    router.replace({ pathname: "/(auth)/verify-number", params: { mode: "signin" } });
+    ackReplace(router, { pathname: "/(auth)/verify-number", params: { mode: "signin" } });
   }, [router]);
 
   const goToNext = useCallback(() => {

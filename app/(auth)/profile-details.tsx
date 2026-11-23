@@ -18,6 +18,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/store/useAuthStore";
+import { ackWork } from "@/lib/tapAck";
 import { apiFetch } from "@/lib/api";
 
 const MONTH_NAMES = [
@@ -81,9 +82,15 @@ export default function ProfileDetailsScreen() {
         { 
           text: "Log Out & Go Back", 
           style: "destructive",
-          onPress: async () => {
-            await useAuthStore.getState().signOut();
-            router.replace("/(auth)/create-account");
+          onPress: () => {
+            ackWork("Signing out…", async () => {
+              try {
+                await useAuthStore.getState().signOut();
+              } catch (err) {
+                console.warn("Sign out:", err);
+              }
+              router.replace("/(auth)/create-account");
+            });
           }
         }
       ]
@@ -223,14 +230,13 @@ export default function ProfileDetailsScreen() {
   };
 
   // Main Continue Handler
-  const handleContinue = async () => {
+  const handleContinue = () => {
     const trimmedName = name.trim();
     if (!trimmedName || trimmedName.length < 2) {
       Alert.alert("Name Required", "Full name is compulsory. Please enter your name to proceed.");
       return;
     }
 
-    // MANDATORY DATE OF BIRTH CHECK
     if (!dob.trim() || dob.trim().length < 8) {
       Alert.alert(
         "Date of Birth Required",
@@ -240,7 +246,6 @@ export default function ProfileDetailsScreen() {
       return;
     }
 
-    // EMAIL & VERIFICATION CHECK
     const trimmedEmail = email.trim();
     if (!trimmedEmail || !trimmedEmail.includes("@") || !trimmedEmail.includes(".")) {
       Alert.alert("Email Required", "Please enter a valid email address.");
@@ -251,18 +256,19 @@ export default function ProfileDetailsScreen() {
       return;
     }
 
-    try {
-      await updateProfile({ 
-        name: trimmedName, 
-        dob: dob.trim(), 
-        email: trimmedEmail,
-        referral: referral.trim() 
-      });
-      // Proceed to city selection
-      router.replace("/onboarding/select-city");
-    } catch (e: any) {
-      Alert.alert("Error", e?.message || "Failed to save profile. Please try again.");
-    }
+    ackWork("Saving…", async () => {
+      try {
+        await updateProfile({
+          name: trimmedName,
+          dob: dob.trim(),
+          email: trimmedEmail,
+          referral: referral.trim(),
+        });
+        router.replace("/onboarding/select-city");
+      } catch (e: any) {
+        Alert.alert("Error", e?.message || "Failed to save profile. Please try again.");
+      }
+    });
   };
 
   // Calculate approximate age if DOB set

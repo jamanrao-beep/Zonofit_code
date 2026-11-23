@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import Reanimated, { Easing as SheetEasing, FadeIn, SlideInDown } from "react-native-reanimated";
+import { afterPaint } from "@/lib/afterPaint";
 
 interface CancelBookingSheetProps {
   visible: boolean;
@@ -17,8 +18,7 @@ interface CancelBookingSheetProps {
 
 type Phase = "ask" | "working" | "done" | "failed";
 
-const LOADER_DELAY_MS = 250;
-const SLOW_HINT_MS = 4000;
+const SLOW_HINT_MS = 650;
 const SUCCESS_HOLD_MS = 1600;
 
 function failureCopy(error: unknown): string {
@@ -111,35 +111,36 @@ export default function CancelBookingSheet({
   };
 
   const run = () => {
-    if (busy) return;
+    if (busy || phase === "working" || phase === "done") return;
     setBusy(true);
     setHint("");
-    setPhase("ask");
+    setPhase("working");
     clearTimers();
 
-    const showLoader = setTimeout(() => setPhase("working"), LOADER_DELAY_MS);
-    const showSlow = setTimeout(() => setHint("Still working. Hang tight."), SLOW_HINT_MS);
-    timers.current.push(showLoader, showSlow);
+    const showSlow = setTimeout(() => setHint("Thank you for being patient."), SLOW_HINT_MS);
+    timers.current.push(showSlow);
 
-    void (async () => {
-      try {
-        await onConfirmRef.current();
-        clearTimers();
-        setPhase("done");
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-        const close = setTimeout(() => {
+    afterPaint(() => {
+      void (async () => {
+        try {
+          await onConfirmRef.current();
+          clearTimers();
+          setPhase("done");
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+          const close = setTimeout(() => {
+            setBusy(false);
+            if (onDoneRef.current) onDoneRef.current();
+            else onKeepRef.current();
+          }, SUCCESS_HOLD_MS);
+          timers.current.push(close);
+        } catch (error) {
+          clearTimers();
           setBusy(false);
-          if (onDoneRef.current) onDoneRef.current();
-          else onKeepRef.current();
-        }, SUCCESS_HOLD_MS);
-        timers.current.push(close);
-      } catch (error) {
-        clearTimers();
-        setBusy(false);
-        setFailure(failureCopy(error));
-        setPhase("failed");
-      }
-    })();
+          setFailure(failureCopy(error));
+          setPhase("failed");
+        }
+      })();
+    });
   };
 
   const spinRotate = spin.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });

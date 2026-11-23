@@ -1,5 +1,6 @@
 import { API_URL } from "@/lib/api";
 import { CREDIT_CASH_VALUE, CREDIT_FITNESS_VALUE } from "@/constants/credits";
+import rawSampleProducts from "@/store/sampleProducts.json";
 
 /** 1 shop credit = ₹8, the outside-gym rate. */
 export const SHOP_CREDIT_INR = CREDIT_CASH_VALUE;
@@ -34,6 +35,7 @@ export interface ShopProduct {
   color: string;
   shape: ShopShape;
   best: boolean;
+  badge?: string;
   imageUrl?: string;
   images?: string[];
   description: string;
@@ -292,8 +294,98 @@ function inferSub(blob: string, category: ShopCategory): string {
   return category;
 }
 
+export function getSampleCatalogProducts(): ShopProduct[] {
+  const fallbackSocksImg = "https://images.unsplash.com/photo-1586350977771-b3b0abd50c82?w=800&auto=format&fit=crop&q=80";
+
+  return (rawSampleProducts as any[]).map((p) => {
+    const category = (p.Category as ShopCategory) || "Supplements";
+    const blob = norm(`${p.ProductName} ${p["Sub-type"] || ""}`);
+    const imgUrl = (p["ImageURL(internal)"]?.trim()) || (p.ProductID?.toUpperCase() === "ZF-APP-08" ? fallbackSocksImg : "");
+
+    const bullets = [p.AboutItem1, p.AboutItem2, p.AboutItem3, p.AboutItem4]
+      .map((b: string) => (b || "").trim())
+      .filter((b: string) => b.length > 0 && b !== "Check");
+    const description = bullets.length ? bullets.join("\n\n• ") : (p.Info || p.ProductName || "");
+
+    const specs: { label: string; value: string }[] = [];
+    if (p["Sub-type"]) specs.push({ label: "Sub-type", value: p["Sub-type"] });
+    if (p.Manufacturer && p.Manufacturer !== "Check") specs.push({ label: "Manufacturer", value: p.Manufacturer });
+    if (p.NetQuantity && p.NetQuantity !== "Check") specs.push({ label: "Net Quantity", value: p.NetQuantity });
+    if (p.ItemWeight && p.ItemWeight !== "Check") specs.push({ label: "Item Weight", value: p.ItemWeight });
+    if (p.MaterialComposition && p.MaterialComposition !== "Check") specs.push({ label: "Material Composition", value: p.MaterialComposition });
+    if (p.OuterMaterial && p.OuterMaterial !== "Check") specs.push({ label: "Outer Material", value: p.OuterMaterial });
+    if (p["Length/Size"] && p["Length/Size"] !== "Check") specs.push({ label: "Size / Dimensions", value: p["Length/Size"] });
+    if (p.CareInstructions && p.CareInstructions !== "Check") specs.push({ label: "Care Instructions", value: p.CareInstructions });
+    if (p.CountryOfOrigin && p.CountryOfOrigin !== "Check") specs.push({ label: "Country of Origin", value: p.CountryOfOrigin });
+
+    let colorOptions: string[] | undefined;
+    if (p.ColourOptions && p.ColourOptions !== "N/A" && p.ColourOptions !== "Check") {
+      colorOptions = p.ColourOptions.split(/[,/]/).map((s: string) => s.trim()).filter(Boolean);
+    }
+
+    let sizeOptions: string[] | undefined;
+    let options: string[] = [];
+    let optionLabel = "";
+
+    const variantRaw = p["Size/Variant"]?.trim();
+    if (variantRaw && variantRaw !== "N/A" && variantRaw !== "Check") {
+      if (variantRaw.toLowerCase().startsWith("flavour:")) {
+        optionLabel = "Flavour";
+        options = variantRaw.replace(/^flavour:\s*/i, "").split(/[/&]/).map((s: string) => s.replace(/\s*more\s*$/i, "").trim()).filter(Boolean);
+      } else {
+        optionLabel = "Size";
+        sizeOptions = variantRaw.split(/[,/]/).map((s: string) => s.trim()).filter(Boolean);
+      }
+    }
+
+    const price = Number(p["ZonoFitPrice(₹)"]) || 0;
+    const mrp = Math.round(price * 1.25);
+    const pack = p.NetQuantity && p.NetQuantity !== "Check"
+      ? p.NetQuantity
+      : p["Length/Size"] && p["Length/Size"] !== "Check"
+        ? p["Length/Size"]
+        : p.Info || "";
+
+    return {
+      id: p.ProductID ? p.ProductID.toLowerCase() : `zf-item-${Math.random()}`,
+      name: p.ProductName || "ZonoFit Product",
+      brand: p.Brand || "ZonoFit",
+      category,
+      sub: p["Sub-type"] || category,
+      goals: inferGoals(blob, category),
+      optionLabel: optionLabel || (colorOptions?.length ? "Colour" : sizeOptions?.length ? "Size" : "Option"),
+      options: options.length ? options : (sizeOptions || colorOptions || []),
+      defaultOption: 0,
+      pack,
+      price,
+      mrp,
+      rating: 4.8,
+      ratingCount: "80+",
+      color: "#1F7A3F",
+      shape: inferShape(category, blob),
+      best: Boolean(p.Badge && /bestseller|value|clean|top/i.test(p.Badge)),
+      badge: p.Badge && p.Badge !== "Already listed" ? p.Badge : undefined,
+      imageUrl: imgUrl,
+      images: imgUrl ? [imgUrl] : [],
+      description,
+      info: p.Info || "",
+      specs,
+      sizeOptions,
+      colorOptions,
+      catalogueCopy: false,
+      purchasable: false,
+      inStock: false,
+    };
+  });
+}
+
 export function mergeLiveItems(live: LiveMarketplaceItem[]): ShopProduct[] {
-  const products: ShopProduct[] = [];
+  const sampleProducts = getSampleCatalogProducts();
+  if (!live || live.length === 0) {
+    return sampleProducts;
+  }
+
+  const liveProducts: ShopProduct[] = [];
 
   for (const item of live) {
     if (!item?.id || !item.title) continue;
@@ -322,7 +414,7 @@ export function mergeLiveItems(live: LiveMarketplaceItem[]): ShopProduct[] {
 
     const blob = norm(`${item.title} ${item.description || ""}`);
     const category = inferCategory(blob, item.storeCategory);
-    products.push({
+    liveProducts.push({
       id: item.id,
       name: item.title,
       brand,
@@ -354,7 +446,16 @@ export function mergeLiveItems(live: LiveMarketplaceItem[]): ShopProduct[] {
     });
   }
 
-  return products;
+  // Merge live items with sample products (live overrides matching IDs)
+  const liveMap = new Map(liveProducts.map((p) => [p.id.toLowerCase(), p]));
+  const merged: ShopProduct[] = [...liveProducts];
+  for (const sp of sampleProducts) {
+    if (!liveMap.has(sp.id.toLowerCase())) {
+      merged.push(sp);
+    }
+  }
+
+  return merged;
 }
 
 export interface ShopListQuery {

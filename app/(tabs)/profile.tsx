@@ -13,7 +13,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { MaterialIcons, Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
-import { afterPaint } from "@/lib/afterPaint";
+import { ackRoute, ackWork } from "@/lib/tapAck";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useUserStore } from "@/store/useUserStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
@@ -129,9 +129,13 @@ export default function ProfileScreen() {
 
   const openRow = (key: string, action: () => void) => {
     if (openingLock.current) return;
+    const started = ackRoute("Opening…", action, () => {
+      openingLock.current = null;
+      setOpeningRow(null);
+    });
+    if (!started) return;
     openingLock.current = key;
     setOpeningRow(key);
-    afterPaint(action);
   };
 
   const pickImage = async () => {
@@ -156,23 +160,25 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleConfirmSignOut = async () => {
+  const handleConfirmSignOut = () => {
+    if (isSigningOut) return;
     setIsSigningOut(true);
-    try {
-      if (isGuest) {
-        await endGuestSession();
-      } else {
-        await signOut();
+    const started = ackWork("Signing out…", async () => {
+      try {
+        if (isGuest) {
+          await endGuestSession();
+        } else {
+          await signOut();
+        }
+      } catch (err) {
+        console.warn("Sign out handler:", err);
+      } finally {
+        setIsSigningOut(false);
+        setShowSignOutModal(false);
+        router.replace("/intro" as any);
       }
-      setShowSignOutModal(false);
-      router.replace("/intro" as any);
-    } catch (err) {
-      console.warn("Sign out handler:", err);
-      setShowSignOutModal(false);
-      router.replace("/intro" as any);
-    } finally {
-      setIsSigningOut(false);
-    }
+    });
+    if (!started) setIsSigningOut(false);
   };
 
   if (!isLoaded && !isGuest) {
@@ -240,9 +246,11 @@ export default function ProfileScreen() {
                 You are exploring ZonoFit with temporary guest access. Create a permanent account to unlock booking, check-ins, and credits.
               </Text>
               <Pressable 
-                onPress={async () => {
-                  await endGuestSession();
-                  router.replace("/(auth)/create-account");
+                onPress={() => {
+                  ackWork("Opening…", async () => {
+                    await endGuestSession();
+                    router.replace("/(auth)/create-account");
+                  });
                 }}
                 style={profileStyles.guestCalloutBtn}
               >
@@ -341,10 +349,15 @@ export default function ProfileScreen() {
               <Pressable
                 style={profileStyles.btnFull}
                 disabled={openingRow === "create"}
-                onPress={() => openRow("create", async () => {
-                  await endGuestSession();
-                  router.replace("/(auth)/create-account");
-                })}
+                onPress={() => {
+                  if (openingRow === "create") return;
+                  const started = ackWork("Opening…", async () => {
+                    await endGuestSession();
+                    router.replace("/(auth)/create-account");
+                  }, () => setOpeningRow(null));
+                  if (!started) return;
+                  setOpeningRow("create");
+                }}
               >
                 <Text style={profileStyles.btnFullText}>
                   {openingRow === "create" ? "Opening..." : "Create Full Account"}

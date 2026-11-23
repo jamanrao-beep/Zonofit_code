@@ -3,7 +3,7 @@ import { View, Text, ScrollView, Pressable, StyleSheet, Dimensions, Alert } from
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { afterPaint } from '@/lib/afterPaint';
+import { ackBack, ackPush, ackRoute } from '@/lib/tapAck';
 import { useUserStore } from '@/store/useUserStore';
 import { useCreditsStore } from '@/store/useCreditsStore';
 import { useBookingStore } from '@/store/useBookingStore';
@@ -80,10 +80,7 @@ export default function JourneyScreen() {
       <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }} edges={['top']}>
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 14, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}>
           <Pressable
-            onPress={() => {
-              if (router.canGoBack()) router.back();
-              else router.replace("/(tabs)");
-            }}
+            onPress={() => ackBack(router, "/(tabs)")}
             style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}
           >
             <Ionicons name="arrow-back" size={20} color="#111827" />
@@ -105,9 +102,13 @@ export default function JourneyScreen() {
             disabled={openingBrowse}
             onPress={() => {
               if (openingLock.current) return;
+              const started = ackRoute("Opening…", () => router.push("/partner-gyms?city=Udaipur" as any), () => {
+                openingLock.current = false;
+                setOpeningBrowse(false);
+              });
+              if (!started) return;
               openingLock.current = true;
               setOpeningBrowse(true);
-              afterPaint(() => router.push("/partner-gyms?city=Udaipur" as any));
             }}
             style={{ backgroundColor: '#1F7A3E', borderRadius: 16, paddingVertical: 14, alignItems: 'center', marginBottom: 10, opacity: openingBrowse ? 0.8 : 1 }}
           >
@@ -130,13 +131,7 @@ export default function JourneyScreen() {
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 14, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
           <Pressable 
-            onPress={() => {
-              if (router.canGoBack()) {
-                router.back();
-              } else {
-                router.replace("/(tabs)");
-              }
-            }} 
+            onPress={() => ackBack(router, "/(tabs)")} 
             style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}
             hitSlop={8}
           >
@@ -148,7 +143,7 @@ export default function JourneyScreen() {
           </View>
         </View>
 
-        <Pressable onPress={() => router.push("/notifications" as any)} style={{ width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-end', position: 'relative' }}>
+        <Pressable onPress={() => ackPush(router, "/notifications")} style={{ width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-end', position: 'relative' }}>
           <Ionicons name="notifications-outline" size={22} color="#111827" />
           <View style={{ position: 'absolute', top: 8, right: 4, width: 7, height: 7, borderRadius: 4, backgroundColor: '#EF4444', borderWidth: 1.5, borderColor: '#FFFFFF' }} />
         </Pressable>
@@ -212,10 +207,14 @@ export default function JourneyScreen() {
               disabled={openingNext}
               onPress={() => {
                 if (openingLock.current) return;
+                const path = bookingStatus === "Booked" ? "/booking-pass" : "/partner-gyms";
+                const started = ackRoute("Opening…", () => router.push(path as never), () => {
+                  openingLock.current = false;
+                  setOpeningNext(false);
+                });
+                if (!started) return;
                 openingLock.current = true;
                 setOpeningNext(true);
-                const path = bookingStatus === "Booked" ? "/booking-pass" : "/partner-gyms";
-                afterPaint(() => router.push(path as never));
               }}
               style={{ backgroundColor: '#4C9A2A', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, flexDirection: 'row', alignItems: 'center', opacity: openingNext ? 0.8 : 1 }}
             >
@@ -489,9 +488,13 @@ export default function JourneyScreen() {
                   disabled={openingHistory}
                   onPress={() => {
                     if (openingLock.current) return;
+                    const started = ackRoute("Opening…", () => router.push("/booking-history" as any), () => {
+                      openingLock.current = false;
+                      setOpeningHistory(false);
+                    });
+                    if (!started) return;
                     openingLock.current = true;
                     setOpeningHistory(true);
-                    afterPaint(() => router.push("/booking-history" as any));
                   }}
                 >
                   <Text style={{ fontSize: 12, fontWeight: '600', color: '#4C9A2A' }}>{openingHistory ? "Opening..." : "View all"}</Text>

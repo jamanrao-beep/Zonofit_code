@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { ackBack } from "@/lib/tapAck";
 import { View, Text, FlatList, ActivityIndicator, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
@@ -89,7 +90,7 @@ export default function TransactionsScreen() {
           headerStyle: { backgroundColor: "#fff" },
           headerShadowVisible: false,
           headerLeft: () => (
-            <Pressable onPress={() => router.back()} className="mr-4 p-1">
+            <Pressable onPress={() => ackBack(router)} className="mr-4 p-1">
               <Ionicons name="arrow-back" size={24} color="#1F2520" />
             </Pressable>
           ),

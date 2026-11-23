@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { ackBack, ackPush } from "@/lib/tapAck";
 import { 
   ScrollView, 
   Text, 
@@ -78,7 +79,7 @@ export default function DailyMotivationScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB" }} edges={["top"]}>
       {/* Top Header */}
       <View className="flex-row items-center justify-between px-5 pt-3 pb-3 bg-white border-b border-gray-100">
-        <Pressable onPress={() => router.back()} className="w-10 h-10 items-center justify-center -ml-2 active:opacity-60">
+        <Pressable onPress={() => ackBack(router)} className="w-10 h-10 items-center justify-center -ml-2 active:opacity-60">
           <Ionicons name="chevron-back" size={24} color="#111827" />
         </Pressable>
         <View className="items-center flex-1">
@@ -138,7 +139,7 @@ export default function DailyMotivationScreen() {
                 <Text className="text-[#1F7A3E] font-bold text-xs">Share Quote</Text>
               </Pressable>
               <Pressable 
-                onPress={() => router.push("/explore")}
+                onPress={() => ackPush(router, "/explore")}
                 className="flex-1 bg-white/20 rounded-xl py-3 flex-row items-center justify-center border border-white/30 active:bg-white/30"
               >
                 <Ionicons name="calendar-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />

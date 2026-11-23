@@ -8,6 +8,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { useGuestStore } from "@/store/useGuestStore";
 import { apiFetch } from "@/lib/api";
 import { promptGuestAccount } from "@/lib/guestAccount";
+import { ackBack } from "@/lib/tapAck";
 
 const GOAL = 4;
 const INK = "#101c14";
@@ -172,8 +173,7 @@ export default function InviteScreen() {
   const remainingLabel = unlocked ? "unlocked" : `${Math.max(0, GOAL - info.joined)} to go`;
 
   const goBack = () => {
-    if (router.canGoBack()) router.back();
-    else router.replace("/(tabs)/explore" as never);
+    ackBack(router, "/(tabs)/explore");
   };
 
   const askForAccount = () => {

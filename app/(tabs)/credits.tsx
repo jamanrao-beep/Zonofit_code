@@ -1,4 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
+import { ackPush, ackWork } from "@/lib/tapAck";
+import { afterPaint } from "@/lib/afterPaint";
+import { usePatientHint } from "@/lib/usePatientHint";
 import {
   ActivityIndicator,
   Alert,
@@ -228,6 +231,7 @@ export default function CreditsScreen() {
 
   const [purchaseQuantity, setPurchaseQuantity] = useState(MIN_CREDITS);
   const [buyPhase, setBuyPhase] = useState<"idle" | "loading" | "ok">("idle");
+  const buyPatient = usePatientHint(buyPhase === "loading");
   const [boughtQty, setBoughtQty] = useState(0);
   const [showAllActivity, setShowAllActivity] = useState(false);
   const [headerLine, setHeaderLine] = useState(false);
@@ -392,7 +396,7 @@ export default function CreditsScreen() {
         "Additional credits can only be purchased while your membership is active.",
         [
           { text: "Not now", style: "cancel" },
-          { text: "See plans", onPress: () => router.push("/onboarding/order-summary?mode=repurchase" as never) },
+          { text: "See plans", onPress: () => ackPush(router, "/onboarding/order-summary?mode=repurchase" as never) },
         ]
       );
       return;
@@ -405,25 +409,29 @@ export default function CreditsScreen() {
     balanceAtBuy.current = displayCredits;
     const qty = purchaseQuantity;
     setBuyPhase("loading");
-    const result = await buyCredits(qty, qty * CREDIT_FITNESS_VALUE);
-    if (result.success) {
-      setBoughtQty(qty);
-      setBuyPhase("ok");
-      setBurst((n) => n + 1);
-      showToast(`${qty} credits added. New balance ${formatINR(balanceAtBuy.current + qty)}`);
-      if (token) fetchWallet(token, { force: true });
-      if (resetTimer.current) clearTimeout(resetTimer.current);
-      resetTimer.current = setTimeout(() => {
+    afterPaint(() => {
+      void (async () => {
+        const result = await buyCredits(qty, qty * CREDIT_FITNESS_VALUE);
+        if (result.success) {
+          setBoughtQty(qty);
+          setBuyPhase("ok");
+          setBurst((n) => n + 1);
+          showToast(`${qty} credits added. New balance ${formatINR(balanceAtBuy.current + qty)}`);
+          if (token) fetchWallet(token, { force: true });
+          if (resetTimer.current) clearTimeout(resetTimer.current);
+          resetTimer.current = setTimeout(() => {
+            setBuyPhase("idle");
+            setPurchaseQuantity(MIN_CREDITS);
+          }, 2200);
+          return;
+        }
         setBuyPhase("idle");
-        setPurchaseQuantity(MIN_CREDITS);
-      }, 2200);
-      return;
-    }
-    setBuyPhase("idle");
-    const message = result.message || "Could not complete purchase.";
-    if (!/cancel/i.test(message)) {
-      Alert.alert("Payment failed", message);
-    }
+        const message = result.message || "Could not complete purchase.";
+        if (!/cancel/i.test(message)) {
+          Alert.alert("Payment failed", message);
+        }
+      })();
+    });
   };
 
   const onScroll = (y: number) => {
@@ -467,9 +475,11 @@ export default function CreditsScreen() {
                   Guest mode can browse gyms and prices. Create an account to hold credits and book a visit.
                 </Text>
                 <Pressable
-                  onPress={async () => {
-                    await endGuestSession();
-                    router.replace("/(auth)/create-account");
+                  onPress={() => {
+                    ackWork("Opening…", async () => {
+                      await endGuestSession();
+                      router.replace("/(auth)/create-account");
+                    });
                   }}
                   style={styles.heroCta}
                 >
@@ -477,7 +487,7 @@ export default function CreditsScreen() {
                   <Text style={styles.heroCtaText}>Create account</Text>
                 </Pressable>
                 <Pressable
-                  onPress={() => router.push("/partner-gyms?city=Udaipur" as never)}
+                  onPress={() => ackPush(router, "/partner-gyms?city=Udaipur" as never)}
                   style={styles.guestSecondary}
                 >
                   <Text style={styles.guestSecondaryText}>Browse Udaipur gyms</Text>
@@ -507,7 +517,7 @@ export default function CreditsScreen() {
               <Ionicons name="time-outline" size={20} color={INK} />
             </Pressable>
             <Pressable
-              onPress={() => router.push("/(tabs)/profile" as never)}
+              onPress={() => ackPush(router, "/(tabs)/profile")}
               accessibilityLabel="Profile"
               style={[styles.iconBtn, styles.avatarBtn]}
             >
@@ -553,7 +563,7 @@ export default function CreditsScreen() {
             <Pressable
               onPress={() => {
                 if (isMembershipActive) scrollToTopUp();
-                else router.push("/onboarding/order-summary?mode=repurchase" as never);
+                else ackPush(router, "/onboarding/order-summary?mode=repurchase");
               }}
               style={styles.heroCta}
             >
@@ -578,7 +588,7 @@ export default function CreditsScreen() {
                   : "Renew now so your workouts continue without a break."}
               </Text>
               <Pressable
-                onPress={() => router.push("/onboarding/order-summary?mode=repurchase" as never)}
+                onPress={() => ackPush(router, "/onboarding/order-summary?mode=repurchase" as never)}
                 style={styles.alertBtn}
               >
                 <Text style={styles.alertBtnText}>{isExpired ? "Renew membership" : "Renew plan"}</Text>
@@ -589,7 +599,7 @@ export default function CreditsScreen() {
               <Text style={styles.joinTitle}>No active membership</Text>
               <Text style={styles.joinBody}>A membership unlocks your gym, visit cycle, and credit top-ups.</Text>
               <Pressable
-                onPress={() => router.push("/onboarding/order-summary?mode=repurchase" as never)}
+                onPress={() => ackPush(router, "/onboarding/order-summary?mode=repurchase" as never)}
                 style={styles.joinBtn}
               >
                 <Text style={styles.joinBtnText}>See membership</Text>
@@ -699,7 +709,7 @@ export default function CreditsScreen() {
                 />
               </View>
               <Pressable
-                onPress={() => router.push("/onboarding/order-summary?mode=repurchase" as never)}
+                onPress={() => ackPush(router, "/onboarding/order-summary?mode=repurchase" as never)}
                 style={styles.inrBtn}
               >
                 <Text style={styles.inrBtnText}>Use cash toward renewal</Text>
@@ -797,7 +807,7 @@ export default function CreditsScreen() {
                 {buyPhase === "loading" ? (
                   <>
                     <ActivityIndicator color="#FFFFFF" />
-                    <Text style={styles.buyText}>Processing...</Text>
+                    <Text style={styles.buyText}>{buyPatient ? "Thank you for being patient." : "Processing..."}</Text>
                   </>
                 ) : buyPhase === "ok" ? (
                   <>

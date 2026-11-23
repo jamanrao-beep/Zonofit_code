@@ -4,19 +4,24 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useGuestStore } from "@/store/useGuestStore";
+import { ackWork } from "@/lib/tapAck";
 
 export default function GuestExpiredScreen() {
   const router = useRouter();
   const { clearGuestSession } = useGuestStore();
 
-  const handleCreateAccount = async () => {
-    await clearGuestSession();
-    router.replace("/(auth)/create-account");
+  const handleCreateAccount = () => {
+    ackWork("Opening…", async () => {
+      await clearGuestSession();
+      router.replace("/(auth)/create-account");
+    });
   };
 
-  const handleLogin = async () => {
-    await clearGuestSession();
-    router.replace("/(auth)/verify-number" as any);
+  const handleLogin = () => {
+    ackWork("Opening…", async () => {
+      await clearGuestSession();
+      router.replace("/(auth)/verify-number" as any);
+    });
   };
 
   return (

@@ -1,4 +1,7 @@
 import React, { useState } from "react";
+import { ackBack } from "@/lib/tapAck";
+import { afterPaint } from "@/lib/afterPaint";
+import { usePatientHint } from "@/lib/usePatientHint";
 import { View, Text, ScrollView, Pressable, Alert, TextInput, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
@@ -10,6 +13,7 @@ export default function ConvertScreen() {
   const { credits, cashBalance, convertCreditsToCash, convertCashToCredits } = useCreditsStore();
   const [conversionType, setConversionType] = useState<"creditsToCash" | "cashToCredits">("creditsToCash");
   const [loading, setLoading] = useState(false);
+  const patient = usePatientHint(loading);
   const [amount, setAmount] = useState<string>("");
 
   const isCreditsToCash = conversionType === "creditsToCash";
@@ -41,26 +45,32 @@ export default function ConvertScreen() {
     }
 
     setLoading(true);
-    let result;
-    if (isCreditsToCash) {
-       result = await convertCreditsToCash(numAmount);
-    } else {
-       // user spends `numAmount` INR, which buys `youWillReceive` credits.
-       result = await convertCashToCredits(youWillReceive);
-    }
-    setLoading(false);
+    const creditsToCash = isCreditsToCash;
+    const spend = numAmount;
+    const receive = youWillReceive;
+    afterPaint(() => {
+      void (async () => {
+        let result;
+        if (creditsToCash) {
+          result = await convertCreditsToCash(spend);
+        } else {
+          result = await convertCashToCredits(receive);
+        }
+        setLoading(false);
 
-    if (result.success) {
-      Alert.alert(
-        "Success", 
-        isCreditsToCash 
-          ? `Converted ${numAmount} Credits into ₹${youWillReceive} INR!` 
-          : `Converted ₹${numAmount} INR into ${youWillReceive} Credits!`, 
-        [{ text: "OK", onPress: () => router.back() }]
-      );
-    } else {
-      Alert.alert("Error", result.message || "Conversion failed.");
-    }
+        if (result.success) {
+          Alert.alert(
+            "Success",
+            creditsToCash
+              ? `Converted ${spend} Credits into ₹${receive} INR!`
+              : `Converted ₹${spend} INR into ${receive} Credits!`,
+            [{ text: "OK", onPress: () => ackBack(router) }]
+          );
+        } else {
+          Alert.alert("Error", result.message || "Conversion failed.");
+        }
+      })();
+    });
   };
 
   const recentConversions = [
@@ -75,7 +85,7 @@ export default function ConvertScreen() {
 
       {/* Header */}
       <View className="flex-row items-center justify-center px-5 pt-4 pb-6 relative">
-        <Pressable onPress={() => router.back()} className="absolute left-5 top-4 z-10 p-2">
+        <Pressable onPress={() => ackBack(router)} className="absolute left-5 top-4 z-10 p-2">
           <Ionicons name="chevron-back" size={24} color="#000" />
         </Pressable>
         <View className="items-center">
@@ -203,7 +213,7 @@ export default function ConvertScreen() {
               numAmount > 0 ? "bg-[#7C3AED]" : "bg-gray-300"
             }`}
           >
-            {loading ? <ActivityIndicator color="#fff" /> : <Text className="font-bold text-white text-[15px]">Convert Now</Text>}
+            {loading ? <Text className="font-bold text-white text-[15px]">{patient ? "Thank you for being patient." : "Converting..."}</Text> : <Text className="font-bold text-white text-[15px]">Convert Now</Text>}
           </Pressable>
         </View>
 

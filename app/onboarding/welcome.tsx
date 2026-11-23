@@ -7,6 +7,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { useGuestStore } from "@/store/useGuestStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
 import { useUserStore } from "@/store/useUserStore";
+import { ackRoute } from "@/lib/tapAck";
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -29,19 +30,15 @@ export default function WelcomeScreen() {
     : credits;
   const displayCredits = `${resolvedCredits} Credits available`;
   
-  const handleGoHome = () => {
-    if (router.canGoBack()) {
-      router.dismissAll();
-    }
-    router.replace("/(tabs)");
+  const leaveWelcome = (title: string) => {
+    ackRoute(title, () => {
+      if (router.canGoBack()) router.dismissAll();
+      router.replace("/(tabs)");
+    });
   };
-  
-  const handleBookVisit = () => {
-    if (router.canGoBack()) {
-      router.dismissAll();
-    }
-    router.replace("/(tabs)");
-  };
+
+  const handleGoHome = () => leaveWelcome("Taking you home…");
+  const handleBookVisit = () => leaveWelcome("Opening…");
 
   useEffect(() => {
     const backAction = () => {

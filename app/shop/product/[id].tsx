@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { ackReplace } from "@/lib/tapAck";
 import {
   View,
   Text,
@@ -54,7 +55,7 @@ export default function ProductDetailScreen() {
   const { width } = useWindowDimensions();
   const products = useShopCatalogStore((state) => state.products);
   const load = useShopCatalogStore((state) => state.load);
-  const product = products.find((entry) => entry.id === productId);
+  const product = products.find((entry) => entry.id.toLowerCase() === productId.toLowerCase());
   const [option, setOption] = useState("");
   const [sizeChoice, setSizeChoice] = useState("");
   const [colorChoice, setColorChoice] = useState("");
@@ -106,7 +107,7 @@ export default function ProductDetailScreen() {
         </View>
         <View style={styles.missing}>
           <Text style={styles.missingTitle}>This product is not in the shop</Text>
-          <Pressable onPress={() => router.replace("/shop" as never)} style={styles.missingBtn}>
+          <Pressable onPress={() => ackReplace(router, "/shop" as never)} style={styles.missingBtn}>
             <Text style={styles.missingBtnText}>Back to shop</Text>
           </Pressable>
         </View>
@@ -224,7 +225,15 @@ export default function ProductDetailScreen() {
             <Text style={styles.launchBannerText}>Marketplace Coming Soon · Official Sneak Peek</Text>
           </View>
 
-          {product.brand ? <Text style={styles.brand}>{product.brand}</Text> : null}
+          <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 8, marginTop: 14 }}>
+            {product.brand ? <Text style={styles.brand}>{product.brand}</Text> : null}
+            {product.badge ? (
+              <View style={styles.badgePill}>
+                <Ionicons name="ribbon-outline" size={12} color="#D97706" />
+                <Text style={styles.badgePillText}>{product.badge}</Text>
+              </View>
+            ) : null}
+          </View>
           <Text style={styles.name}>{product.name}</Text>
           {variantLabel || product.pack ? (
             <Text style={styles.pack}>{variantLabel ? `${variantLabel}  ` : ""}{product.pack}</Text>
@@ -447,7 +456,23 @@ const styles = StyleSheet.create({
   dots: { flexDirection: "row", justifyContent: "center", gap: 6, marginTop: 10 },
   dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: shop.line },
   dotOn: { width: 20, backgroundColor: shop.hero, borderRadius: 7 },
-  brand: { marginTop: 16, fontSize: 12, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase", color: shop.muted },
+  brand: { fontSize: 12, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase", color: shop.muted },
+  badgePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#FEF3C7",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+  },
+  badgePillText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#92400E",
+  },
   name: { fontSize: 26, lineHeight: 30, fontWeight: "700", color: shop.ink, marginTop: 4 },
   pack: { color: shop.muted, marginTop: 4 },
   rateRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 10 },

@@ -1,4 +1,5 @@
 import React from "react";
+import { ackBack } from "@/lib/tapAck";
 import { View, Text, ScrollView, Pressable, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
@@ -323,7 +324,7 @@ export default function FeatureDetailsScreen() {
 
       {/* Header */}
       <View className="flex-row items-center px-5 pt-4 pb-4">
-        <Pressable onPress={() => router.back()} className="p-2 -ml-2 z-10">
+        <Pressable onPress={() => ackBack(router)} className="p-2 -ml-2 z-10">
           <Ionicons name="chevron-back" size={26} color="#000" />
         </Pressable>
         <Text className="text-[18px] font-bold text-black flex-1 text-center -ml-6">Feature Details</Text>

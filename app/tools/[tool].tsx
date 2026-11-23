@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { ackBack } from "@/lib/tapAck";
 import {
   View,
   Text,
@@ -248,7 +249,7 @@ export default function ToolScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: BG }} edges={["top"]}>
       <View style={styles.top}>
-        <Pressable style={styles.back} onPress={() => router.back()} accessibilityLabel="Back">
+        <Pressable style={styles.back} onPress={() => ackBack(router)} accessibilityLabel="Back">
           <Ionicons name="chevron-back" size={22} color={INK} />
         </Pressable>
         <Text style={styles.topTitle}>Coming soon</Text>

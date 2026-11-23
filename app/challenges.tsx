@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { ackBack } from "@/lib/tapAck";
 import { View, Text, ScrollView, Pressable, ActivityIndicator, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
@@ -119,7 +120,7 @@ export default function ChallengesScreen() {
           headerStyle: { backgroundColor: "#F5F7F4" },
           headerShadowVisible: false,
           headerLeft: () => (
-            <Pressable onPress={() => router.back()} className="mr-4 p-1">
+            <Pressable onPress={() => ackBack(router)} className="mr-4 p-1">
               <Ionicons name="arrow-back" size={24} color="#1F2520" />
             </Pressable>
           ),

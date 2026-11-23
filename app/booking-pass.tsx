@@ -15,7 +15,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
-import { afterPaint } from "@/lib/afterPaint";
+import { ackBack, ackPush, ackReplace, ackRoute } from "@/lib/tapAck";
 import { useAuthStore } from "@/store/useAuthStore";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
@@ -115,12 +115,16 @@ export default function BookingPassScreen() {
 
   const openScreen = (key: "history" | "book", path: string, replace = false) => {
     if (openingLock.current) return;
-    openingLock.current = key;
-    setOpening(key);
-    afterPaint(() => {
+    const started = ackRoute("Opening…", () => {
       if (replace) router.replace(path as never);
       else router.push(path as never);
+    }, () => {
+      openingLock.current = null;
+      setOpening(null);
     });
+    if (!started) return;
+    openingLock.current = key;
+    setOpening(key);
   };
 
   useEffect(() => {
@@ -217,7 +221,7 @@ export default function BookingPassScreen() {
         `Cancelling a mandatory visit requires a flat 2 Credits fee, but your wallet balance is only ${currentCredits} Credits.\n\nPlease buy credits to cancel this booking.`,
         [
           { text: "OK", style: "cancel" },
-          { text: "Buy Credits", onPress: () => router.push("/credits") },
+          { text: "Buy Credits", onPress: () => ackPush(router, "/credits") },
         ]
       );
       return;
@@ -237,11 +241,7 @@ export default function BookingPassScreen() {
   };
 
   const handleGoBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace("/(tabs)");
-    }
+    ackBack(router, "/(tabs)");
   };
 
   const isPassed = isBookingSlotPast(
@@ -269,7 +269,7 @@ export default function BookingPassScreen() {
         <Text style={styles.barTitle}>Booking Pass</Text>
 
         <Pressable
-          onPress={() => router.replace("/(tabs)")}
+          onPress={() => ackReplace(router, "/(tabs)", "Taking you home…")}
           hitSlop={10}
           style={styles.ib}
           accessibilityLabel="Home"
@@ -554,7 +554,7 @@ export default function BookingPassScreen() {
               )}
 
               <Pressable
-                onPress={() => router.replace("/(tabs)")}
+                onPress={() => ackReplace(router, "/(tabs)", "Taking you home…")}
                 style={styles.ghBtn}
               >
                 <Text style={styles.ghBtnText}>Back to Home</Text>
@@ -574,7 +574,7 @@ export default function BookingPassScreen() {
           onKeep={() => setCancelPrompt(null)}
           onDone={() => {
             setCancelPrompt(null);
-            router.replace("/(tabs)");
+            ackReplace(router, "/(tabs)", "Taking you home…");
           }}
         />
       )}

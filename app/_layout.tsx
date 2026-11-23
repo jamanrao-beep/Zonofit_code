@@ -4,6 +4,7 @@ import { useCreditsStore } from "@/store/useCreditsStore";
 import { useBookingStore } from "@/store/useBookingStore";
 import { useGuestStore } from "@/store/useGuestStore";
 import { InAppNoticeBanner } from "@/components/InAppNoticeBanner";
+import { TapWaitOverlay } from "@/components/TapWaitOverlay";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useRouter, useSegments, Stack } from "expo-router";
 import { isRunningInExpoGo } from "expo";
@@ -129,6 +130,7 @@ function AuthGate() {
         <Stack.Screen name="booking-pass" options={{ headerShown: false }} />
       </Stack>
       <InAppNoticeBanner />
+      <TapWaitOverlay />
     </View>
   );
 }

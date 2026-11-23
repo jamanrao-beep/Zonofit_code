@@ -12,6 +12,7 @@ import { cartLineKey, useCartStore, type ShopItem } from "@/store/useCartStore";
 import { useWishlistStore } from "@/store/useWishlistStore";
 import { useGuestStore } from "@/store/useGuestStore";
 import { promptGuestAccount } from "@/lib/guestAccount";
+import { ackPush } from "@/lib/tapAck";
 import ProductVisual from "@/components/shop/ProductVisual";
 import { shopToast } from "@/components/shop/ShopToast";
 import { shop } from "@/components/shop/theme";
@@ -58,7 +59,7 @@ export default function ProductCard({
   const off = offPercent(product);
   const [imgFailed, setImgFailed] = useState(false);
 
-  const open = () => router.push(`/shop/product/${product.id}` as never);
+  const open = () => ackPush(router, `/shop/product/${product.id}`);
 
   const onWish = () => {
     if (isGuest) {
@@ -101,6 +102,11 @@ export default function ProductCard({
         <View style={styles.comingSoonBadge} pointerEvents="none">
           <Text style={styles.comingSoonBadgeText}>COMING SOON</Text>
         </View>
+        {product.badge ? (
+          <View style={styles.productBadge} pointerEvents="none">
+            <Text style={styles.productBadgeText}>{product.badge.toUpperCase()}</Text>
+          </View>
+        ) : null}
         <Pressable accessibilityLabel="Wishlist" onPress={onWish} style={styles.heart}>
           <Ionicons name={wished ? "heart" : "heart-outline"} size={18} color={wished ? shop.red : shop.muted} />
         </Pressable>
@@ -173,6 +179,23 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     fontSize: 9.5,
     letterSpacing: 0.5,
+  },
+  productBadge: {
+    position: "absolute",
+    left: 8,
+    bottom: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  productBadgeText: {
+    color: "#B45309",
+    fontWeight: "800",
+    fontSize: 9,
+    letterSpacing: 0.3,
   },
   preview: {
     position: "absolute",

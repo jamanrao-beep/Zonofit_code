@@ -7,6 +7,8 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { useCreditsStore } from "@/store/useCreditsStore";
 import { useUserStore } from "@/store/useUserStore";
 import { apiFetch } from "@/lib/api";
+import { ackReplace } from "@/lib/tapAck";
+import { usePatientHint } from "@/lib/usePatientHint";
 
 export default function PaymentResultScreen() {
   const router = useRouter();
@@ -16,6 +18,7 @@ export default function PaymentResultScreen() {
 
   const [verifying, setVerifying] = useState(isSuccess);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const patient = usePatientHint(verifying);
 
   useEffect(() => {
     let mounted = true;
@@ -63,7 +66,9 @@ export default function PaymentResultScreen() {
           <>
             <ActivityIndicator size="large" color="#166534" style={{ marginBottom: 20 }} />
             <Text style={styles.title}>Confirming Payment...</Text>
-            <Text style={styles.subtitle}>Securing your fitness credits & membership status.</Text>
+            <Text style={styles.subtitle}>
+              {patient ? "Thank you for being patient." : "Securing your fitness credits and membership status."}
+            </Text>
           </>
         ) : isSuccess ? (
           <>
@@ -76,7 +81,7 @@ export default function PaymentResultScreen() {
             </Text>
             <Pressable
               style={[styles.button, styles.successBtn]}
-              onPress={() => router.replace("/(tabs)/credits")}
+              onPress={() => ackReplace(router, "/(tabs)/credits", "Opening…")}
             >
               <Text style={styles.buttonText}>Go to Wallet</Text>
             </Pressable>
@@ -92,7 +97,7 @@ export default function PaymentResultScreen() {
             </Text>
             <Pressable
               style={[styles.button, styles.failBtn]}
-              onPress={() => router.replace("/(tabs)/credits")}
+              onPress={() => ackReplace(router, "/(tabs)/credits", "Opening…")}
             >
               <Text style={styles.buttonText}>Return to App</Text>
             </Pressable>

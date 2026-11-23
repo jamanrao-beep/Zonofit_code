@@ -17,6 +17,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { ZonoNoticeMark } from "@/components/ZonoNoticeMark";
 import { requestGoogleIdToken } from "@/lib/googleAuth";
+import { ackPush } from "@/lib/tapAck";
 import { apiFetch } from "@/lib/api";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useGuestStore } from "@/store/useGuestStore";
@@ -184,7 +185,7 @@ export default function CreateAccountScreen() {
         : "You need to be 18 or older.";
 
   const goSignIn = () => {
-    router.push({ pathname: "/(auth)/verify-number", params: { mode: "signin" } });
+    ackPush(router, { pathname: "/(auth)/verify-number", params: { mode: "signin" } });
   };
 
   const offerSignIn = (number: string) => {
@@ -196,7 +197,7 @@ export default function CreateAccountScreen() {
         {
           text: "Sign in",
           onPress: () => {
-            router.push({
+            ackPush(router, {
               pathname: "/(auth)/verify-number",
               params: { mode: "signin", phone: number },
             });
@@ -770,7 +771,7 @@ export default function CreateAccountScreen() {
               <Text
                 style={styles.legalLink}
                 onPress={() =>
-                  router.push({ pathname: "/content", params: { type: "terms_and_conditions", title: "Terms & Conditions" } } as any)
+                  ackPush(router, { pathname: "/content", params: { type: "terms_and_conditions", title: "Terms & Conditions" } })
                 }
               >
                 Terms
@@ -779,7 +780,7 @@ export default function CreateAccountScreen() {
               <Text
                 style={styles.legalLink}
                 onPress={() =>
-                  router.push({ pathname: "/content", params: { type: "privacy_policy", title: "Privacy Policy" } } as any)
+                  ackPush(router, { pathname: "/content", params: { type: "privacy_policy", title: "Privacy Policy" } })
                 }
               >
                 Privacy Policy

@@ -12,7 +12,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
-import { afterPaint } from "@/lib/afterPaint";
+import { ackPush, ackRoute } from "@/lib/tapAck";
 import { SwipeableTabScreen } from "@/components/SwipeableTabScreen";
 import { PARTNER_CITIES } from "@/constants/fallbackGyms";
 
@@ -32,9 +32,13 @@ export default function ExploreScreen() {
 
   const openPath = (key: "gyms" | "shop" | "invite" | "search", path: string) => {
     if (openingLock.current) return;
+    const started = ackRoute("Opening…", () => router.push(path as any), () => {
+      openingLock.current = null;
+      setOpening(null);
+    });
+    if (!started) return;
     openingLock.current = key;
     setOpening(key);
-    afterPaint(() => router.push(path as any));
   };
 
   const handleSearchSubmit = () => {
@@ -70,7 +74,7 @@ export default function ExploreScreen() {
 
         {/* Circular Action/Notifications Button */}
         <Pressable 
-          onPress={() => router.push("/notifications" as any)}
+          onPress={() => ackPush(router, "/notifications")}
           style={styles.circleBtn}
           hitSlop={8}
         >

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ackBack } from "@/lib/tapAck";
 import { View, Text, Pressable, StyleSheet, useWindowDimensions } from "react-native";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -169,7 +170,7 @@ export default function LockPreviewScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Close lock screen preview"
-          onPress={() => router.back()}
+          onPress={() => ackBack(router)}
           style={({ pressed }) => [styles.close, pressed && { opacity: 0.8 }]}
         >
           <Text style={styles.closeText}>Close preview</Text>

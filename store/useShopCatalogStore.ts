@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { apiFetch } from "@/lib/api";
-import { mergeLiveItems, type LiveMarketplaceItem, type ShopProduct } from "@/data/shopCatalog";
+import { getSampleCatalogProducts, mergeLiveItems, type LiveMarketplaceItem, type ShopProduct } from "@/data/shopCatalog";
 
 interface ShopCatalogState {
   products: ShopProduct[];
@@ -11,9 +11,9 @@ interface ShopCatalogState {
 }
 
 export const useShopCatalogStore = create<ShopCatalogState>((set, get) => ({
-  products: [],
+  products: getSampleCatalogProducts(),
   loading: false,
-  loaded: false,
+  loaded: true,
   loadError: false,
   load: async () => {
     if (get().loading) return;

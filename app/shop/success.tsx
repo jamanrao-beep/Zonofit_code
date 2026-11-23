@@ -1,4 +1,5 @@
 import React from "react";
+import { ackReplace } from "@/lib/tapAck";
 import { View, Text, ScrollView, Pressable, StyleSheet, StatusBar } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -54,10 +55,10 @@ export default function ShopSuccessScreen() {
 
       <View style={[styles.foot, { paddingBottom: Math.max(insets.bottom, 14) }]}>
         <View style={styles.actions}>
-          <Pressable style={[styles.ghost, { flex: 1 }]} onPress={() => router.replace("/shop" as never)}>
+          <Pressable style={[styles.ghost, { flex: 1 }]} onPress={() => ackReplace(router, "/shop" as never)}>
             <Text style={styles.ghostText}>Keep shopping</Text>
           </Pressable>
-          <Pressable style={[shopStyles.cta, { flex: 1, justifyContent: "center" }]} onPress={() => router.replace("/shop/orders" as never)}>
+          <Pressable style={[shopStyles.cta, { flex: 1, justifyContent: "center" }]} onPress={() => ackReplace(router, "/shop/orders" as never)}>
             <Text style={shopStyles.ctaText}>Track order</Text>
           </Pressable>
         </View>

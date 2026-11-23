@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { ackPush } from "@/lib/tapAck";
 import { View, Text, ScrollView, Pressable, Image, Alert, Modal, ActivityIndicator, TextInput } from "react-native";
 import { useCreditsStore } from "@/store/useCreditsStore";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -103,7 +104,7 @@ export default function MarketplaceScreen() {
           </View>
         </View>
         <View className="flex-row items-center gap-3">
-          <Pressable onPress={() => router.push("/marketplace/orders")} className="bg-[#F5F7F4] p-2 rounded-full active:bg-gray-200">
+          <Pressable onPress={() => ackPush(router, "/marketplace/orders")} className="bg-[#F5F7F4] p-2 rounded-full active:bg-gray-200">
             <Ionicons name="cube-outline" size={20} color="#1F2520" />
           </Pressable>
           <Pressable onPress={() => setIsCartModalOpen(true)} className="bg-[#F5F7F4] p-2 rounded-full active:bg-gray-200 relative">

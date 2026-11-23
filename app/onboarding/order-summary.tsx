@@ -21,6 +21,9 @@ import { useUserStore } from "@/store/useUserStore";
 import DeliveryAddressModal from "@/components/DeliveryAddressModal";
 import { FALLBACK_NETWORK_GYMS } from "@/constants/fallbackGyms";
 import { calculateMembershipBreakdown } from "@/constants/credits";
+import { ackBack } from "@/lib/tapAck";
+import { afterPaint } from "@/lib/afterPaint";
+import { usePatientHint } from "@/lib/usePatientHint";
 
 export default function OrderSummaryScreen() {
   const router = useRouter();
@@ -49,6 +52,7 @@ export default function OrderSummaryScreen() {
 
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const patient = usePatientHint(isProcessing);
 
   useEffect(() => {
     if (token) {
@@ -88,7 +92,8 @@ export default function OrderSummaryScreen() {
 
   const finalPayableAmount = membershipTotal;
 
-  const handleProceed = async () => {
+  const handleProceed = () => {
+    if (isProcessing) return;
     if (!selectedAddress) {
       Alert.alert(
         "Delivery Address Required",
@@ -101,38 +106,40 @@ export default function OrderSummaryScreen() {
       return;
     }
 
-    // This is the FINAL step of onboarding: process payment, activate membership, and show success!
     setIsProcessing(true);
-    try {
-      const city = selectedAddress?.city || params.city || matchedGym?.city || "Udaipur";
-      const targetGymId = params.gymId || currentGymId || "gym-being-fit";
+    afterPaint(() => {
+      void (async () => {
+        try {
+          const city = selectedAddress?.city || params.city || matchedGym?.city || "Udaipur";
+          const targetGymId = params.gymId || currentGymId || "gym-being-fit";
 
-      await completeOnboarding(city, targetGymId, "Monthly", {
-        price: membershipTotal,
-        visits: mandatoryVisitsCount,
-        credits: walletCreditsCount,
-        gymName: displayGymName,
-        cycleNumber: currentCycle,
-      });
-      if (token) {
-        await fetchWallet(token, { force: true });
-      }
-      
-      // Navigate to Payment Success / Welcome Screen with dynamic parameters
-      router.replace({
-        pathname: "/onboarding/welcome",
-        params: {
-          credits: String(walletCreditsCount),
-          gymName: displayGymName,
-          visits: String(mandatoryVisitsCount),
-          price: String(membershipTotal),
-        },
-      } as any);
-    } catch (e: any) {
-      Alert.alert("Payment Error", e?.message || "Could not complete payment. Please try again.");
-    } finally {
-      setIsProcessing(false);
-    }
+          await completeOnboarding(city, targetGymId, "Monthly", {
+            price: membershipTotal,
+            visits: mandatoryVisitsCount,
+            credits: walletCreditsCount,
+            gymName: displayGymName,
+            cycleNumber: currentCycle,
+          });
+          if (token) {
+            await fetchWallet(token, { force: true });
+          }
+
+          router.replace({
+            pathname: "/onboarding/welcome",
+            params: {
+              credits: String(walletCreditsCount),
+              gymName: displayGymName,
+              visits: String(mandatoryVisitsCount),
+              price: String(membershipTotal),
+            },
+          } as any);
+        } catch (e: any) {
+          Alert.alert("Payment Error", e?.message || "Could not complete payment. Please try again.");
+        } finally {
+          setIsProcessing(false);
+        }
+      })();
+    });
   };
 
   return (
@@ -142,13 +149,7 @@ export default function OrderSummaryScreen() {
       {/* Header with Dynamic Title based on First-Time Purchase vs Repurchase */}
       <View style={styles.header}>
         <Pressable 
-          onPress={() => {
-            if (router.canGoBack()) {
-              router.back();
-            } else {
-              router.replace("/onboarding/choose-gym");
-            }
-          }} 
+          onPress={() => ackBack(router, "/onboarding/choose-gym")} 
           style={styles.backButton}
           hitSlop={10}
         >
@@ -369,7 +370,7 @@ export default function OrderSummaryScreen() {
           disabled={loading || isProcessing}
         >
           {loading || isProcessing ? (
-            <ActivityIndicator color="#FFFFFF" />
+            patient ? <Text style={styles.proceedButtonText}>Thank you for being patient.</Text> : <ActivityIndicator color="#FFFFFF" />
           ) : (
             <View style={styles.proceedButtonContent}>
               <Text style={styles.proceedButtonText}>Proceed to Pay</Text>

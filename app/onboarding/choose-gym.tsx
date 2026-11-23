@@ -7,6 +7,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { useGuestStore } from "@/store/useGuestStore";
 import { apiFetch } from "@/lib/api";
 import { gymPhotoUrls, httpUrl, stringList } from "@/lib/gymPhotos";
+import { ackBack, ackPush } from "@/lib/tapAck";
 
 type PreviewGym = {
   id: string;
@@ -77,15 +78,15 @@ export default function ChooseGymScreen() {
   const handleSelectGym = (gym: PreviewGym) => {
     useGuestStore.getState().selectGym(gym.id, gym.name);
     useAuthStore.getState().setIsViewingOnboardingGym(true);
-    router.push({
+    ackPush(router, {
       pathname: `/gym/${gym.id}`,
       params: {
         name: gym.name,
         address: gym.address,
         image: gym.image,
         price: gym.membershipPrice ? String(gym.membershipPrice) : "",
-      }
-    } as any);
+      },
+    });
   };
 
   return (
@@ -95,13 +96,7 @@ export default function ChooseGymScreen() {
       {/* Header with Progress Bar */}
       <View style={styles.header}>
         <Pressable 
-          onPress={() => {
-            if (router.canGoBack()) {
-              router.back();
-            } else {
-              router.replace("/onboarding/select-city");
-            }
-          }} 
+          onPress={() => ackBack(router, "/onboarding/select-city")} 
           style={styles.backButton}
           hitSlop={10}
         >

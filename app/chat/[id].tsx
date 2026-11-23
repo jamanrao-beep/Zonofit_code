@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { ackBack } from "@/lib/tapAck";
 import { View, Text, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -68,7 +69,7 @@ export default function ChatScreen() {
       <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F7F4", alignItems: "center", justifyContent: "center", padding: 20 }} edges={["top"]}>
         <Ionicons name="chatbubble-ellipses-outline" size={48} color="#6B756E" />
         <Text style={{ fontSize: 16, fontWeight: "bold", color: "#1F2520", marginTop: 12 }}>Conversation Not Found</Text>
-        <Pressable onPress={() => router.back()} style={{ marginTop: 16, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: "#1F7A3E", borderRadius: 16 }}>
+        <Pressable onPress={() => ackBack(router)} style={{ marginTop: 16, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: "#1F7A3E", borderRadius: 16 }}>
           <Text style={{ color: "white", fontWeight: "bold" }}>Go Back</Text>
         </Pressable>
       </SafeAreaView>
@@ -110,7 +111,7 @@ export default function ChatScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }} edges={["top", "bottom"]}>
       {/* Header */}
       <View className="px-5 py-3 border-b border-black/5 flex-row items-center bg-white shadow-sm z-10">
-        <Pressable onPress={() => router.back()} className="p-2 -ml-2 rounded-full active:bg-gray-100">
+        <Pressable onPress={() => ackBack(router)} className="p-2 -ml-2 rounded-full active:bg-gray-100">
           <Ionicons name="arrow-back" size={24} color="#1F2520" />
         </Pressable>
         <View className="ml-2 flex-1">

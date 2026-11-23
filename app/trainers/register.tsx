@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { ackBack, ackPush } from "@/lib/tapAck";
 import { View, Text, ScrollView, Pressable, TextInput, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -84,7 +85,7 @@ export default function TrainerRegisterScreen() {
       Alert.alert(
         "Application submitted",
         isTrainer ? "Your trainer profile has been submitted and is pending admin approval." : "Your buddy profile has been created successfully!",
-        [{ text: "Go to Home", onPress: () => router.push("/") }]
+        [{ text: "Go to Home", onPress: () => ackPush(router, "/") }]
       );
     } catch (err: any) {
       console.error(err);
@@ -98,7 +99,7 @@ export default function TrainerRegisterScreen() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F7F4" }} edges={["top"]}>
         <View className="px-5 py-4 flex-row items-center border-b border-black/5 bg-white">
-          <Pressable onPress={() => router.back()} className="mr-4">
+          <Pressable onPress={() => ackBack(router)} className="mr-4">
             <Ionicons name="arrow-back" size={24} color="#1F2520" />
           </Pressable>
           <Text className="text-lg font-black text-[#1F2520]">{title}</Text>
@@ -128,7 +129,7 @@ export default function TrainerRegisterScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F7F4" }} edges={["top"]}>
       {/* Header */}
       <View className="px-5 py-4 flex-row items-center border-b border-black/5 bg-white">
-        <Pressable onPress={() => router.back()} className="mr-4 active:opacity-70">
+        <Pressable onPress={() => ackBack(router)} className="mr-4 active:opacity-70">
           <Ionicons name="arrow-back" size={24} color="#1F2520" />
         </Pressable>
         <Text className="text-lg font-black text-[#1F2520]">{title}</Text>

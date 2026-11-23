@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { ackPush } from "@/lib/tapAck";
 import { View, Text, StyleSheet, Pressable, Dimensions } from "react-native";
 import MapView, { Marker } from "react-native-maps";
 import * as Location from "expo-location";
@@ -90,7 +91,7 @@ export default function BuyCreditsMapScreen() {
         </View>
 
         <Pressable
-          onPress={() => router.push(`/buy-credits/${selectedGym.id}`)}
+          onPress={() => ackPush(router, `/buy-credits/${selectedGym.id}`)}
           className="w-full bg-[#1F2520] h-14 rounded-2xl items-center justify-center flex-row shadow-sm active:bg-[#323b34]"
         >
           <Text className="text-white font-bold text-base mr-2">Choose Subscription</Text>

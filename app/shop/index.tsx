@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { ackPush } from "@/lib/tapAck";
 import {
   View,
   Text,
@@ -69,7 +70,7 @@ export default function ShopHomeScreen() {
   const waiting = !loaded && products.length === 0 && !loadError;
   const cardWidth = Math.min(172, Math.max(150, width * 0.42));
 
-  const openList = (href: string) => router.push(href as never);
+  const openList = (href: string) => ackPush(router, href);
 
   return (
     <SafeAreaView style={shopStyles.screen} edges={["top"]}>
@@ -168,7 +169,7 @@ export default function ShopHomeScreen() {
             </Text>
             <View style={styles.repActions}>
               <Pressable
-                onPress={() => router.push("/(tabs)/credits" as never)}
+                onPress={() => ackPush(router, "/(tabs)/credits")}
                 style={styles.cred}
               >
                 <Ionicons name="wallet-outline" size={20} color={shop.ink} style={{ flexShrink: 0 }} />
@@ -191,10 +192,10 @@ export default function ShopHomeScreen() {
                     return;
                   }
                   if (!primaryGym) {
-                    router.push("/onboarding/select-city" as never);
+                    ackPush(router, "/onboarding/select-city");
                     return;
                   }
-                  router.push("/onboarding/order-summary?mode=repurchase" as never);
+                  ackPush(router, "/onboarding/order-summary?mode=repurchase");
                 }}
                 style={styles.details}
               >
@@ -332,7 +333,7 @@ export default function ShopHomeScreen() {
 
       {cartCount > 0 ? (
         <Pressable
-          onPress={() => router.push("/shop/cart" as never)}
+          onPress={() => ackPush(router, "/shop/cart" as never)}
           style={[styles.cbar, { bottom: insets.bottom + 16 }]}
         >
           <View>

@@ -24,7 +24,7 @@ import BookingConfirmedModal from "@/components/BookingConfirmedModal";
 import CancelBookingSheet from "@/components/CancelBookingSheet";
 import { SwipeableTabScreen } from "@/components/SwipeableTabScreen";
 import { promptGuestAccount } from "@/lib/guestAccount";
-import { afterPaint } from "@/lib/afterPaint";
+import { ackPush, ackRoute } from "@/lib/tapAck";
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -162,7 +162,7 @@ export default function HomeScreen() {
         `Cancelling a mandatory visit requires a flat 2 Credits fee, but your wallet balance is only ${currentCredits} Credits.\n\nPlease buy credits to cancel this booking.`,
         [
           { text: "OK", style: "cancel" },
-          { text: "Buy Credits", onPress: () => router.push("/(tabs)/credits" as any) }
+          { text: "Buy Credits", onPress: () => ackPush(router, "/(tabs)/credits") }
         ]
       );
       return;
@@ -201,7 +201,7 @@ export default function HomeScreen() {
         `This booking requires 8 credits, but you currently have ${credits} credits. Please buy credits to continue.`,
         [
           { text: "Cancel", style: "cancel" },
-          { text: "Buy Credits", onPress: () => router.push("/(tabs)/credits" as any) }
+          { text: "Buy Credits", onPress: () => ackPush(router, "/(tabs)/credits") }
         ]
       );
       return;
@@ -257,46 +257,38 @@ export default function HomeScreen() {
 
   const openScreen = (key: "pass" | "journey" | "wallet" | "invite", path: string) => {
     if (openingLock.current) return;
+    const started = ackRoute("Opening…", () => router.push(path as any), clearOpening);
+    if (!started) return;
     openingLock.current = key;
     setOpening(key);
-    afterPaint(() => {
-      try {
-        router.push(path as any);
-      } catch {
-        clearOpening();
-      }
-    });
   };
 
   const openGymPick = () => {
     if (openingLock.current) return;
+    const started = ackRoute("Opening…", () => {
+      if (isGuest && selectedGymId) {
+        router.push({
+          pathname: `/gym/${selectedGymId}`,
+          params: { name: selectedGymName || "" },
+        } as any);
+        return;
+      }
+      if (isGuest) {
+        router.push("/partner-gyms?city=Udaipur" as any);
+        return;
+      }
+      if (userPrimaryGymId) {
+        router.push({
+          pathname: `/gym/${userPrimaryGymId}`,
+          params: { name: resolvedGymName },
+        } as any);
+        return;
+      }
+      router.push("/partner-gyms" as any);
+    }, clearOpening);
+    if (!started) return;
     openingLock.current = "gym";
     setOpening("gym");
-    afterPaint(() => {
-      try {
-        if (isGuest && selectedGymId) {
-          router.push({
-            pathname: `/gym/${selectedGymId}`,
-            params: { name: selectedGymName || "" },
-          } as any);
-          return;
-        }
-        if (isGuest) {
-          router.push("/partner-gyms?city=Udaipur" as any);
-          return;
-        }
-        if (userPrimaryGymId) {
-          router.push({
-            pathname: `/gym/${userPrimaryGymId}`,
-            params: { name: resolvedGymName },
-          } as any);
-          return;
-        }
-        router.push("/partner-gyms" as any);
-      } catch {
-        clearOpening();
-      }
-    });
   };
 
   return (
@@ -323,7 +315,7 @@ export default function HomeScreen() {
                 </View>
               )}
               <Pressable
-                onPress={() => router.push("/(tabs)/profile" as any)}
+                onPress={() => ackPush(router, "/(tabs)/profile")}
                 style={homeStyles.ibAv}
                 accessibilityLabel="Profile"
               >
@@ -623,7 +615,7 @@ export default function HomeScreen() {
                 {/* 1: Personal Training */}
                 <Pressable
                   style={({ pressed }) => [homeStyles.bentoCard, pressed && homeStyles.bentoCardPressed]}
-                  onPress={() => router.push("/tools/trainer-program" as any)}
+                  onPress={() => ackPush(router, "/tools/trainer-program")}
                 >
                   <View style={homeStyles.bentoTop}>
                     <View style={[homeStyles.bentoIconBox, { backgroundColor: "#E8F4EA" }]}>
@@ -641,7 +633,7 @@ export default function HomeScreen() {
                 {/* 2: Workout Buddy */}
                 <Pressable
                   style={({ pressed }) => [homeStyles.bentoCard, pressed && homeStyles.bentoCardPressed]}
-                  onPress={() => router.push("/tools/buddy-program" as any)}
+                  onPress={() => ackPush(router, "/tools/buddy-program")}
                 >
                   <View style={homeStyles.bentoTop}>
                     <View style={[homeStyles.bentoIconBox, { backgroundColor: "#EBF3FE" }]}>
@@ -659,7 +651,7 @@ export default function HomeScreen() {
                 {/* 3: Nutrition */}
                 <Pressable
                   style={({ pressed }) => [homeStyles.bentoCard, pressed && homeStyles.bentoCardPressed]}
-                  onPress={() => router.push("/tools/meal-scan" as any)}
+                  onPress={() => ackPush(router, "/tools/meal-scan")}
                 >
                   <View style={homeStyles.bentoTop}>
                     <View style={[homeStyles.bentoIconBox, { backgroundColor: "#FFF1E7" }]}>
@@ -677,7 +669,7 @@ export default function HomeScreen() {
                 {/* 4: AI Coaching */}
                 <Pressable
                   style={({ pressed }) => [homeStyles.bentoCard, pressed && homeStyles.bentoCardPressed]}
-                  onPress={() => router.push("/tools/ai-trainer" as any)}
+                  onPress={() => ackPush(router, "/tools/ai-trainer")}
                 >
                   <View style={homeStyles.bentoTop}>
                     <View style={[homeStyles.bentoIconBox, { backgroundColor: "#F3EEFE" }]}>

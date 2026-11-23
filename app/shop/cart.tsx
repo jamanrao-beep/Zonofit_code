@@ -1,4 +1,5 @@
 import React from "react";
+import { ackPush } from "@/lib/tapAck";
 import { View, Text, ScrollView, Pressable, Image, StyleSheet, StatusBar } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -48,7 +49,7 @@ export default function CartScreen() {
             <Text style={styles.emptyCopy}>Explore upcoming categories and vote for items you want us to stock first!</Text>
           </View>
           <View style={[styles.foot, { paddingBottom: Math.max(insets.bottom, 14) }]}>
-            <Pressable style={[shopStyles.cta, { justifyContent: "center" }]} onPress={() => router.push("/shop" as never)}>
+            <Pressable style={[shopStyles.cta, { justifyContent: "center" }]} onPress={() => ackPush(router, "/shop" as never)}>
               <Text style={shopStyles.ctaText}>Browse & Vote For Products</Text>
             </Pressable>
           </View>
@@ -73,7 +74,7 @@ export default function CartScreen() {
                 const preview = line.item.purchasable === false || !isMarketplaceId(line.item.id);
                 return (
                   <View key={key} style={[styles.row, index === 0 && { borderTopWidth: 0, paddingTop: 0 }]}>
-                    <Pressable onPress={() => router.push(`/shop/product/${line.item.id}` as never)} style={styles.thumb}>
+                    <Pressable onPress={() => ackPush(router, `/shop/product/${line.item.id}` as never)} style={styles.thumb}>
                       {line.item.image ? (
                         <Image source={{ uri: line.item.image }} style={styles.thumbImage} resizeMode="contain" />
                       ) : (
@@ -141,7 +142,7 @@ export default function CartScreen() {
             </View>
           </ScrollView>
           <View style={[styles.foot, { paddingBottom: Math.max(insets.bottom, 14) }]}>
-            <Pressable style={shopStyles.cta} onPress={() => router.push("/shop" as never)}>
+            <Pressable style={shopStyles.cta} onPress={() => ackPush(router, "/shop" as never)}>
               <Text style={shopStyles.ctaText}>Ordering Coming Soon</Text>
               <View style={styles.ctaRight}>
                 <Text style={shopStyles.ctaText}>Browse & Vote More</Text>

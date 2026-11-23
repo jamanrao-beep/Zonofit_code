@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { ackBack, ackPush } from "@/lib/tapAck";
 import { View, Text, ScrollView, Pressable, Image, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -44,7 +45,7 @@ export default function TrainerDetailScreen() {
       <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F7F4", alignItems: "center", justifyContent: "center" }} edges={["top"]}>
         <Ionicons name="alert-circle-outline" size={48} color="#6B756E" />
         <Text className="text-[#1F2520] font-bold text-base mt-3">Profile not found</Text>
-        <Pressable onPress={() => router.back()} className="mt-4 px-6 py-3 bg-[#6BCB77] rounded-2xl">
+        <Pressable onPress={() => ackBack(router)} className="mt-4 px-6 py-3 bg-[#6BCB77] rounded-2xl">
           <Text className="text-white font-bold">Go Back</Text>
         </Pressable>
       </SafeAreaView>
@@ -57,7 +58,7 @@ export default function TrainerDetailScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F7F4" }} edges={["top"]}>
       {/* Header */}
       <View className="px-5 py-4 flex-row items-center justify-between border-b border-black/5 bg-[#F5F7F4] z-10 relative">
-        <Pressable onPress={() => router.back()} className="active:opacity-70 w-10 h-10 rounded-full bg-white items-center justify-center shadow-sm">
+        <Pressable onPress={() => ackBack(router)} className="active:opacity-70 w-10 h-10 rounded-full bg-white items-center justify-center shadow-sm">
           <Ionicons name="arrow-back" size={20} color="#1F2520" />
         </Pressable>
         <Text className="text-sm font-bold text-[#6B756E] uppercase tracking-wider">{isTrainer ? "Trainer" : "Workout Buddy"}</Text>
@@ -138,7 +139,7 @@ export default function TrainerDetailScreen() {
             profile.gyms.map((g: any, index: number) => (
               <Pressable 
                 key={index} 
-                onPress={() => router.push(`/gym/${g.gym.id}` as any)}
+                onPress={() => ackPush(router, `/gym/${g.gym.id}` as any)}
                 className="bg-white p-4 rounded-[24px] border border-black/5 shadow-sm flex-row items-center mb-3 active:opacity-90"
               >
                 {gymPhotoUrls(g.gym)[0] ? (
@@ -178,7 +179,7 @@ export default function TrainerDetailScreen() {
         }}
       >
         <Pressable
-          onPress={() => router.push("/chat" as any)}
+          onPress={() => ackPush(router, "/chat" as any)}
           className="bg-[#1F2520] h-14 rounded-2xl items-center justify-center flex-row gap-x-2 active:opacity-90"
         >
           <Ionicons name="chatbubble-ellipses" size={20} color="white" />

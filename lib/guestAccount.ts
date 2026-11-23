@@ -1,4 +1,5 @@
 import { Alert } from "react-native";
+import { ackWork } from "@/lib/tapAck";
 
 type ReplaceRouter = {
   replace: (href: "/(auth)/create-account") => void;
@@ -15,10 +16,10 @@ export function promptGuestAccount(
     {
       text: "Create Account",
       onPress: () => {
-        void (async () => {
+        ackWork("Opening…", async () => {
           await endGuestSession();
           router.replace("/(auth)/create-account");
-        })();
+        });
       },
     },
   ]);

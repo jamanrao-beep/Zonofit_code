@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { ackBack, ackPush } from "@/lib/tapAck";
 import { View, Text, ScrollView, Pressable, Alert, ActivityIndicator, TextInput, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
@@ -85,7 +86,7 @@ export default function TopUpCreditsScreen() {
 
             if (result.success) {
               Alert.alert("Success", `You successfully purchased ${quantity} credits!`, [
-                { text: "Done", onPress: () => router.back() },
+                { text: "Done", onPress: () => ackBack(router) },
               ]);
             } else {
               Alert.alert("Payment Failed", result.message || "An error occurred.");
@@ -104,7 +105,7 @@ export default function TopUpCreditsScreen() {
 
       {/* Header */}
       <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100 bg-white">
-        <Pressable onPress={() => router.back()} className="p-2 -ml-2 rounded-full active:bg-gray-100">
+        <Pressable onPress={() => ackBack(router)} className="p-2 -ml-2 rounded-full active:bg-gray-100">
           <Ionicons name="chevron-back" size={24} color="#111827" />
         </Pressable>
         <Text className="text-lg font-bold text-[#111827]">Buy Additional Credits</Text>
@@ -281,7 +282,7 @@ export default function TopUpCreditsScreen() {
                 "Additional credits can only be purchased while your membership is active. Would you like to explore membership plans?",
                 [
                   { text: "Cancel", style: "cancel" },
-                  { text: "Explore Plans", onPress: () => router.push("/onboarding/order-summary?mode=repurchase" as any) },
+                  { text: "Explore Plans", onPress: () => ackPush(router, "/onboarding/order-summary?mode=repurchase" as any) },
                 ]
               );
             } else {
@@ -324,7 +325,7 @@ export default function TopUpCreditsScreen() {
 
         {!isMembershipActive && (
           <Pressable
-            onPress={() => router.push("/onboarding/order-summary?mode=repurchase" as any)}
+            onPress={() => ackPush(router, "/onboarding/order-summary?mode=repurchase" as any)}
             className="mt-3.5 items-center"
           >
             <Text className="text-xs font-bold text-[#1F7A3E]">

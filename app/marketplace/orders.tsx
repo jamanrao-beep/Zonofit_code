@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { ackBack } from "@/lib/tapAck";
 import { View, Text, Pressable, ScrollView, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -31,7 +32,7 @@ export default function OrdersScreen() {
       {/* Header */}
       <View className="px-5 pt-3 pb-4 flex-row items-center justify-between">
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => ackBack(router)}
           className="w-9 h-9 rounded-full bg-white items-center justify-center border border-black/5 shadow-sm"
         >
           <Ionicons name="arrow-back" size={18} color="#1F2520" />

@@ -17,6 +17,7 @@ import {
   ImageSourcePropType,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { ackBack, ackPush } from "@/lib/tapAck";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Canvas, Circle, Group, Path } from "@shopify/react-native-skia";
@@ -254,13 +255,12 @@ export default function SelectCityScreen() {
   };
 
   const goBack = () => {
-    if (router.canGoBack()) router.back();
-    else router.replace("/(auth)/create-account");
+    ackBack(router, "/(auth)/create-account");
   };
 
   const confirmHome = () => {
     setSheet(null);
-    router.push("/onboarding/choose-gym");
+    ackPush(router, "/onboarding/choose-gym");
   };
 
   const notifyCity = (city: string) => {

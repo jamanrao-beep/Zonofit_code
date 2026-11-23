@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useFocusEffect, useRouter } from "expo-router";
+import { ackPush } from "@/lib/tapAck";
 import {
   categoryNameFor,
   filterShopProducts,
@@ -194,7 +195,7 @@ export default function ShopListScreen() {
                   setSub("All");
                   return;
                 }
-                router.push("/shop" as never);
+                ackPush(router, "/shop");
               }}
             >
               <Text style={styles.emptyBtnText}>{search ? "Clear search" : "Browse shop"}</Text>

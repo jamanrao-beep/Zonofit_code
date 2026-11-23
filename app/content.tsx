@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
+import { ackBack } from "@/lib/tapAck";
 import { 
   View, 
   Text, 
@@ -374,7 +375,7 @@ export default function ContentScreen() {
       <View className="px-5 py-3.5 flex-row items-center justify-between border-b border-gray-100 bg-white">
         <View className="flex-row items-center flex-1 pr-3">
           <Pressable 
-            onPress={() => router.back()} 
+            onPress={() => ackBack(router)} 
             hitSlop={12}
             className="w-10 h-10 rounded-full bg-gray-50 border border-gray-200 items-center justify-center mr-3 active:bg-gray-100"
           >

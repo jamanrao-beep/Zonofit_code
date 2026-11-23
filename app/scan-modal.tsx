@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { ackBack, ackPush, ackReplace } from "@/lib/tapAck";
 import { View, Text, StyleSheet, Pressable, Alert, ActivityIndicator } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Location from "expo-location";
@@ -58,7 +59,7 @@ export default function ScanModal() {
         <Pressable onPress={requestPermission} className="mt-6 bg-[#6BCB77] px-6 py-3 rounded-2xl">
           <Text className="text-white font-bold">Grant Permission</Text>
         </Pressable>
-        <Pressable onPress={() => router.back()} className="mt-4 px-6 py-3 rounded-2xl">
+        <Pressable onPress={() => ackBack(router)} className="mt-4 px-6 py-3 rounded-2xl">
           <Text className="text-white/70 font-bold">Close</Text>
         </Pressable>
       </View>
@@ -173,7 +174,7 @@ export default function ScanModal() {
                 Alert.alert(
                   "Pass ready",
                   `Your visit at ${gym.name} is booked. Show the pass to the front desk. They confirm the visit.`,
-                  [{ text: "View pass", onPress: () => router.replace("/booking-pass" as any) }]
+                  [{ text: "View pass", onPress: () => ackReplace(router, "/booking-pass" as any) }]
                 );
               } catch (e: any) {
                 Alert.alert("Error", e.message || "Walk-in check-in failed.");
@@ -198,7 +199,7 @@ export default function ScanModal() {
       Alert.alert(
         "Show your pass",
         "Show this pass to the front desk. They confirm the visit. Scanning the gym code does not check you in.",
-        [{ text: "View pass", onPress: () => router.replace("/booking-pass" as any) }]
+        [{ text: "View pass", onPress: () => ackReplace(router, "/booking-pass" as any) }]
       );
 
     } catch (error: any) {
@@ -219,7 +220,7 @@ export default function ScanModal() {
         `Cancelling a mandatory visit requires a flat 2 Credits fee, but your wallet balance is only ${currentCredits} Credits.\n\nPlease buy credits to cancel this booking.`,
         [
           { text: "OK", style: "cancel" },
-          { text: "Buy Credits", onPress: () => router.push("/credits") },
+          { text: "Buy Credits", onPress: () => ackPush(router, "/credits") },
         ]
       );
       return;
@@ -274,7 +275,7 @@ export default function ScanModal() {
             </View>
           ) : (
             <Pressable 
-              onPress={() => router.back()}
+              onPress={() => ackBack(router)}
               className="w-12 h-12 bg-white/20 rounded-full items-center justify-center border border-white/30"
             >
               <Ionicons name="close" size={24} color="white" />
@@ -307,7 +308,7 @@ export default function ScanModal() {
         onConfirm={confirmCancelBooking}
         onDone={() => {
           setCancelPrompt(null);
-          router.replace("/(tabs)");
+          ackReplace(router, "/(tabs)", "Taking you home…");
         }}
       />
     </View>

@@ -1,4 +1,5 @@
 import React from "react";
+import { ackBack, ackPush } from "@/lib/tapAck";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -13,10 +14,7 @@ export function ShopBackButton({ fallback = "/(tabs)/explore" }: { fallback?: st
   return (
     <Pressable
       accessibilityLabel="Back"
-      onPress={() => {
-        if (router.canGoBack()) router.back();
-        else router.replace(fallback as never);
-      }}
+      onPress={() => ackBack(router, fallback)}
       style={shopStyles.back}
     >
       <Ionicons name="arrow-back" size={20} color={shop.ink} />
@@ -37,7 +35,7 @@ export function CartIconButton() {
   const router = useRouter();
   const count = useCartStore((state) => state.cartItems.reduce((sum, line) => sum + line.quantity, 0));
   return (
-    <Pressable accessibilityLabel="Cart" onPress={() => router.push("/shop/cart" as never)} style={shopStyles.act}>
+    <Pressable accessibilityLabel="Cart" onPress={() => ackPush(router, "/shop/cart" as never)} style={shopStyles.act}>
       <Ionicons name="cart-outline" size={22} color={shop.ink} />
       <Badge count={count} />
     </Pressable>
@@ -47,7 +45,7 @@ export function CartIconButton() {
 export function OrdersIconButton() {
   const router = useRouter();
   return (
-    <Pressable accessibilityLabel="Orders" onPress={() => router.push("/shop/orders" as never)} style={shopStyles.act}>
+    <Pressable accessibilityLabel="Orders" onPress={() => ackPush(router, "/shop/orders" as never)} style={shopStyles.act}>
       <Ionicons name="receipt-outline" size={22} color={shop.ink} />
     </Pressable>
   );
@@ -66,7 +64,7 @@ export function WishIconButton() {
           promptGuestAccount(router, endGuestSession, "Create an account to save products. You can still add items to the cart.");
           return;
         }
-        router.push("/shop/category/all?wish=1" as never);
+        ackPush(router, "/shop/category/all?wish=1");
       }}
       style={shopStyles.act}
     >
