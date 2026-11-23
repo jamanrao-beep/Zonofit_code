@@ -1,11 +1,6 @@
-import { Router, Request, Response, NextFunction } from "express";
+import { NextFunction, Request, Response, Router } from "express";
 import fs from "fs";
-import path from "path";
 import multer from "multer";
-import prisma from "../lib/prisma";
-import { requireAuth } from "../middleware/auth";
-import { createError } from "../middleware/errorHandler";
-import { getSystemSettings } from "../services/settings";
 import { roleCanAccess } from "../lib/adminAccess";
 import { featureLabel, parseVote } from "../lib/earlyAccess";
 import { slotsPayloadToJson } from "../lib/gymCommercial";
@@ -17,7 +12,11 @@ import {
   updateGymOwnerLogin,
 } from "../lib/gymOwner";
 import { presentMarketplaceItem, readMarketplaceWrite } from "../lib/marketplaceItem";
+import prisma from "../lib/prisma";
 import { getUploadsDir, publicUploadUrl } from "../lib/uploads";
+import { requireAuth } from "../middleware/auth";
+import { createError } from "../middleware/errorHandler";
+import { getSystemSettings } from "../services/settings";
 
 function asInt(value: unknown, fallback: number): number {
   if (typeof value === "number" && Number.isFinite(value)) return Math.round(value);
@@ -673,9 +672,9 @@ router.put("/gyms/:id", requireAuth, requireAdmin, async (req: Request, res: Res
     const anyCredential = creds.value.usernameProvided || creds.value.passwordProvided || creds.value.passkeyProvided;
     const ownerRow = ownerId
       ? await prisma.user.findUnique({
-          where: { id: ownerId },
-          select: { id: true, portalUsername: true, passwordHash: true, passkeyHash: true },
-        })
+        where: { id: ownerId },
+        select: { id: true, portalUsername: true, passwordHash: true, passkeyHash: true },
+      })
       : null;
     if (ownerId && !ownerRow) {
       res.status(404).json({ error: "NotFound", message: "This gym's owner account is missing." });
@@ -728,67 +727,67 @@ router.put("/gyms/:id", requireAuth, requireAdmin, async (req: Request, res: Res
         }
 
         return tx.gym.update({
-      where: { id: gymId },
-      data: {
-        customGymId: customGymId !== undefined ? customGymId : existingGym.customGymId,
-        name: name !== undefined ? name : existingGym.name,
-        description: description !== undefined
-          ? (typeof description === "string" && description.trim() ? description.trim() : null)
-          : existingGym.description,
-        address: address !== undefined ? address : existingGym.address,
-        city: city !== undefined ? city.trim() : existingGym.city,
-        state: state !== undefined && state.trim()
-          ? state.trim()
-          : ((city && city.toLowerCase().trim() === "udaipur") || existingGym.city?.toLowerCase().trim() === "udaipur"
-              ? "Rajasthan"
-              : existingGym.state),
-        landmark: landmark !== undefined ? landmark : existingGym.landmark,
-        googleMapsUrl: googleMapsUrl !== undefined ? googleMapsUrl : existingGym.googleMapsUrl,
-        contactPhone: contactPhone !== undefined ? contactPhone : existingGym.contactPhone,
-        monthlyPrice: priceM,
-        creditCost: derivedCreditCost,
-        weekdayHours: weekdayHours !== undefined ? weekdayHours : existingGym.weekdayHours,
-        weekendHours: weekendHours !== undefined ? weekendHours : existingGym.weekendHours,
-        facilities: facilities !== undefined ? (Array.isArray(facilities) ? facilities : [facilities]) : (existingGym.facilities as any ?? []),
-        totalSlots: finalCappingMode === "DAILY_TOTAL" ? (finalMaxDaily || 25) : (finalMaxSlot || 5),
-        cappingMode: finalCappingMode,
-        maxDailyVisits: finalMaxDaily,
-        maxSlotVisits: finalMaxSlot,
+          where: { id: gymId },
+          data: {
+            customGymId: customGymId !== undefined ? customGymId : existingGym.customGymId,
+            name: name !== undefined ? name : existingGym.name,
+            description: description !== undefined
+              ? (typeof description === "string" && description.trim() ? description.trim() : null)
+              : existingGym.description,
+            address: address !== undefined ? address : existingGym.address,
+            city: city !== undefined ? city.trim() : existingGym.city,
+            state: state !== undefined && state.trim()
+              ? state.trim()
+              : ((city && city.toLowerCase().trim() === "udaipur") || existingGym.city?.toLowerCase().trim() === "udaipur"
+                ? "Rajasthan"
+                : existingGym.state),
+            landmark: landmark !== undefined ? landmark : existingGym.landmark,
+            googleMapsUrl: googleMapsUrl !== undefined ? googleMapsUrl : existingGym.googleMapsUrl,
+            contactPhone: contactPhone !== undefined ? contactPhone : existingGym.contactPhone,
+            monthlyPrice: priceM,
+            creditCost: derivedCreditCost,
+            weekdayHours: weekdayHours !== undefined ? weekdayHours : existingGym.weekdayHours,
+            weekendHours: weekendHours !== undefined ? weekendHours : existingGym.weekendHours,
+            facilities: facilities !== undefined ? (Array.isArray(facilities) ? facilities : [facilities]) : (existingGym.facilities as any ?? []),
+            totalSlots: finalCappingMode === "DAILY_TOTAL" ? (finalMaxDaily || 25) : (finalMaxSlot || 5),
+            cappingMode: finalCappingMode,
+            maxDailyVisits: finalMaxDaily,
+            maxSlotVisits: finalMaxSlot,
 
-        slotsJson: nextSlotsJson,
+            slotsJson: nextSlotsJson,
 
-        ownerId,
-        contactEmail: existingGym.contactEmail,
-        ownerName: ownerName !== undefined ? ownerName : existingGym.ownerName,
-        bankDetailsJson: bankDetails !== undefined ? (typeof bankDetails === "string" ? bankDetails : JSON.stringify(bankDetails)) : existingGym.bankDetailsJson,
+            ownerId,
+            contactEmail: existingGym.contactEmail,
+            ownerName: ownerName !== undefined ? ownerName : existingGym.ownerName,
+            bankDetailsJson: bankDetails !== undefined ? (typeof bankDetails === "string" ? bankDetails : JSON.stringify(bankDetails)) : existingGym.bankDetailsJson,
 
-        logoUrl: logoUrl !== undefined ? logoUrl : existingGym.logoUrl,
-        exteriorImageUrl: exteriorImageUrl !== undefined ? exteriorImageUrl : existingGym.exteriorImageUrl,
-        interiorImageUrls: interiorImageUrls !== undefined ? (Array.isArray(interiorImageUrls) ? interiorImageUrls : [interiorImageUrls]) : (existingGym.interiorImageUrls as any ?? []),
-        imageUrls: [
-          exteriorImageUrl || existingGym.exteriorImageUrl,
-          logoUrl || existingGym.logoUrl,
-          ...(Array.isArray(interiorImageUrls) ? interiorImageUrls : (Array.isArray(existingGym.interiorImageUrls) ? (existingGym.interiorImageUrls as any[]) : []))
-        ].filter(Boolean) as string[],
+            logoUrl: logoUrl !== undefined ? logoUrl : existingGym.logoUrl,
+            exteriorImageUrl: exteriorImageUrl !== undefined ? exteriorImageUrl : existingGym.exteriorImageUrl,
+            interiorImageUrls: interiorImageUrls !== undefined ? (Array.isArray(interiorImageUrls) ? interiorImageUrls : [interiorImageUrls]) : (existingGym.interiorImageUrls as any ?? []),
+            imageUrls: [
+              exteriorImageUrl || existingGym.exteriorImageUrl,
+              logoUrl || existingGym.logoUrl,
+              ...(Array.isArray(interiorImageUrls) ? interiorImageUrls : (Array.isArray(existingGym.interiorImageUrls) ? (existingGym.interiorImageUrls as any[]) : []))
+            ].filter(Boolean) as string[],
 
-        payoutModel: finalPayoutModel,
-        payoutCommissionRate: finalCommRate,
-        payoutFixedPerVisit: finalFixedPayout,
-        paymentCycle: paymentCycle !== undefined ? paymentCycle : existingGym.paymentCycle,
+            payoutModel: finalPayoutModel,
+            payoutCommissionRate: finalCommRate,
+            payoutFixedPerVisit: finalFixedPayout,
+            paymentCycle: paymentCycle !== undefined ? paymentCycle : existingGym.paymentCycle,
 
-        isGstRegistered: isGstRegistered !== undefined ? !!isGstRegistered : existingGym.isGstRegistered,
-        gstNumber: isGstRegistered === false ? null : (gstNumber !== undefined ? gstNumber : existingGym.gstNumber),
-        invoicePrefix: invoicePrefix !== undefined ? invoicePrefix : existingGym.invoicePrefix,
+            isGstRegistered: isGstRegistered !== undefined ? !!isGstRegistered : existingGym.isGstRegistered,
+            gstNumber: isGstRegistered === false ? null : (gstNumber !== undefined ? gstNumber : existingGym.gstNumber),
+            invoicePrefix: invoicePrefix !== undefined ? invoicePrefix : existingGym.invoicePrefix,
 
-        lat: latVal,
-        lng: lngVal,
-        isVerified: isVerified !== undefined ? !!isVerified : existingGym.isVerified,
-        requiresVerification: requiresVerification !== undefined ? !!requiresVerification : (existingGym.requiresVerification ?? false),
-        isActive: isActive !== undefined ? !!isActive : existingGym.isActive,
-      },
-      include: {
-        owner: { select: { id: true, name: true, portalUsername: true } },
-      },
+            lat: latVal,
+            lng: lngVal,
+            isVerified: isVerified !== undefined ? !!isVerified : existingGym.isVerified,
+            requiresVerification: requiresVerification !== undefined ? !!requiresVerification : (existingGym.requiresVerification ?? false),
+            isActive: isActive !== undefined ? !!isActive : existingGym.isActive,
+          },
+          include: {
+            owner: { select: { id: true, name: true, portalUsername: true } },
+          },
         });
       });
     } catch (err: unknown) {
@@ -835,7 +834,7 @@ router.put("/gyms/:id/economy", requireAuth, requireAdmin, async (req: Request, 
   try {
     const gymId = req.params.id as string;
     const { creditPurchasePrice, creditConversionValue, initialVisitCut, cashExpiryDays } = req.body;
-    
+
     const gym = await prisma.gym.update({
       where: { id: gymId },
       data: {
@@ -845,7 +844,7 @@ router.put("/gyms/:id/economy", requireAuth, requireAdmin, async (req: Request, 
         cashExpiryDays: cashExpiryDays !== "" ? parseInt(cashExpiryDays, 10) : null
       }
     });
-    
+
     await prisma.adminAuditLog.create({
       data: {
         adminId: req.dbUserId!,
@@ -854,7 +853,7 @@ router.put("/gyms/:id/economy", requireAuth, requireAdmin, async (req: Request, 
         details: "Updated per-gym economy overrides"
       }
     });
-    
+
     res.json({ gym });
   } catch (err: any) {
     res.status(500).json({ error: "ServerError", message: err.message });
@@ -866,7 +865,7 @@ router.post("/gyms/:id/plans", requireAuth, requireAdmin, async (req: Request, r
   try {
     const gymId = req.params.id as string;
     const { name, description, initialPeriodMonths, initialCutoffDays, subsequentCutoffDays, priceInPaise, billingCycle } = req.body;
-    
+
     const plan = await prisma.gymPlan.create({
       data: {
         gymId,
@@ -879,7 +878,7 @@ router.post("/gyms/:id/plans", requireAuth, requireAdmin, async (req: Request, r
         subsequentCutoffDays: parseInt(subsequentCutoffDays, 10)
       }
     });
-    
+
     await prisma.adminAuditLog.create({
       data: {
         adminId: req.dbUserId!,
@@ -888,7 +887,7 @@ router.post("/gyms/:id/plans", requireAuth, requireAdmin, async (req: Request, r
         details: `Created plan ${name} for gym ${gymId}`
       }
     });
-    
+
     res.json({ plan });
   } catch (err: any) {
     res.status(500).json({ error: "ServerError", message: err.message });
@@ -902,7 +901,7 @@ router.delete("/gyms/:gymId/plans/:planId", requireAuth, requireAdmin, async (re
     await prisma.gymPlan.delete({
       where: { id: planId }
     });
-    
+
     await prisma.adminAuditLog.create({
       data: {
         adminId: req.dbUserId!,
@@ -911,7 +910,7 @@ router.delete("/gyms/:gymId/plans/:planId", requireAuth, requireAdmin, async (re
         details: `Deleted plan ${planId}`
       }
     });
-    
+
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: "ServerError", message: err.message });
@@ -990,11 +989,11 @@ router.get("/feature-feedback", requireAuth, requireAdmin, async (req: Request, 
         createdAt: row.createdAt,
         user: row.user
           ? {
-              id: row.user.id,
-              name: row.user.name,
-              email: row.user.email,
-              phone: row.user.phone,
-            }
+            id: row.user.id,
+            name: row.user.name,
+            email: row.user.email,
+            phone: row.user.phone,
+          }
           : null,
       };
     });
@@ -1067,7 +1066,7 @@ router.put("/marketing/coupons/:id", requireAuth, requireAdmin, async (req: Requ
   try {
     const id = req.params.id as string;
     const { isActive, usageLimit } = req.body;
-    
+
     const coupon = await prisma.marketingCoupon.update({
       where: { id },
       data: {
@@ -1095,7 +1094,7 @@ router.put("/marketing/coupons/:id", requireAuth, requireAdmin, async (req: Requ
 router.delete("/marketing/coupons/:id", requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
-    
+
     const coupon = await prisma.marketingCoupon.delete({
       where: { id }
     });
@@ -1144,11 +1143,11 @@ router.get("/settings", requireAuth, requireAdmin, async (req: Request, res: Res
 // ─── PUT /api/admin/settings ─────────────────────────────────────────────────
 router.put("/settings", requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
-    const { 
+    const {
       creditPurchasePrice, creditConversionValue, cashExpiryDays, initialVisitCut,
       referralsEnabled, payoutsEnabled, signupsEnabled, couponsEnabled
     } = req.body;
-    
+
     const settings = await prisma.systemSettings.upsert({
       where: { id: "default" },
       update: {
@@ -1181,7 +1180,7 @@ router.put("/settings", requireAuth, requireAdmin, async (req: Request, res: Res
         details: "Updated system settings (including Kill Switches)"
       }
     });
-    
+
     res.json({ message: "Settings updated successfully", settings });
   } catch (err: any) {
     res.status(500).json({ error: "ServerError", message: err.message });
@@ -1234,7 +1233,7 @@ router.put("/memberships/:id/status", requireAuth, requireAdmin, async (req: Req
       where: { id: membershipId },
       data: { status }
     });
-    
+
     await prisma.adminAuditLog.create({
       data: {
         adminId: req.dbUserId!,
@@ -1269,7 +1268,7 @@ router.post("/content", requireAuth, requireAdmin, async (req: Request, res: Res
       update: { value },
       create: { key, value }
     });
-    
+
     await prisma.adminAuditLog.create({
       data: {
         adminId: req.dbUserId!,
@@ -1288,7 +1287,7 @@ router.post("/content", requireAuth, requireAdmin, async (req: Request, res: Res
 router.post("/notifications/broadcast", requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
     const { title, body, userId } = req.body;
-    
+
     if (userId) {
       await prisma.notification.create({
         data: { userId, title, body }
@@ -1603,7 +1602,7 @@ router.put("/trial-gyms/:id", requireAuth, requireAdmin, async (req: Request, re
         imageUrl
       }
     });
-    
+
     await prisma.adminAuditLog.create({
       data: {
         adminId: req.dbUserId!,
@@ -1612,7 +1611,7 @@ router.put("/trial-gyms/:id", requireAuth, requireAdmin, async (req: Request, re
         details: `Updated trial gym: ${name}`
       }
     });
-    
+
     res.json({ trialGym });
   } catch (err: any) {
     res.status(500).json({ error: "ServerError", message: err.message });
@@ -1623,11 +1622,11 @@ router.put("/trial-gyms/:id", requireAuth, requireAdmin, async (req: Request, re
 router.delete("/trial-gyms/:id", requireAuth, requireAdmin, async (req: Request, res: Response): Promise<void> => {
   try {
     const trialGymId = req.params.id as string;
-    
+
     await prisma.trialGym.delete({
       where: { id: trialGymId }
     });
-    
+
     await prisma.adminAuditLog.create({
       data: {
         adminId: req.dbUserId!,
@@ -1636,7 +1635,7 @@ router.delete("/trial-gyms/:id", requireAuth, requireAdmin, async (req: Request,
         details: `Deleted trial gym: ${trialGymId}`
       }
     });
-    
+
     res.json({ success: true, message: "Trial gym deleted successfully" });
   } catch (err: any) {
     res.status(500).json({ error: "ServerError", message: err.message });
@@ -1651,7 +1650,7 @@ router.put("/support/:id/status", requireAuth, requireAdmin, async (req: Request
       where: { id: req.params.id as string },
       data: { status }
     });
-    
+
     await prisma.adminAuditLog.create({
       data: {
         adminId: req.dbUserId!,
@@ -1785,7 +1784,7 @@ router.put("/gym-applications/:id", requireAuth, requireAdmin, async (req: Reque
 router.delete("/gyms/:id", requireAuth, requireAdmin, async (req: Request, res: Response): Promise<void> => {
   try {
     const gymId = req.params.id as string;
-    
+
     // First delete any related applications
     await prisma.gymApplication.deleteMany({
       where: { gymId }

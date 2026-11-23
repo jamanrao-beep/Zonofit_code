@@ -299,8 +299,8 @@ export default function CreditsScreen() {
         : Math.max(0, mandatoryVisits - (bookingStatus === "Booked" && (bookedCost === 0 || bookedCost === undefined) ? 1 : 0)));
 
   const completedVisits = typeof membershipInfo?.completedVisits === "number"
-    ? Math.max(0, membershipInfo.completedVisits, mandatoryVisits - mandatoryVisitsRemaining)
-    : Math.max(0, mandatoryVisits - mandatoryVisitsRemaining);
+    ? Math.max(0, membershipInfo.completedVisits)
+    : 0;
   const filledCycles = hasMembership ? Math.min(maxCycles, Math.max(0, cycleNumber)) : 0;
   const visitProgress = mandatoryVisits > 0 ? completedVisits / mandatoryVisits : 0;
   const easedVisit = useEase(isMembershipActive ? visitProgress : 0, 1100);

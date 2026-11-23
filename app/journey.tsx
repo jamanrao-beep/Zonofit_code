@@ -69,8 +69,8 @@ export default function JourneyScreen() {
         : Math.max(0, visitsGoal - (membershipInfo?.completedVisits ?? 0)));
 
   const visitsCompleted = typeof membershipInfo?.completedVisits === "number"
-    ? Math.max(0, membershipInfo.completedVisits, visitsGoal - remainingVisitsCount)
-    : Math.max(0, visitsGoal - remainingVisitsCount);
+    ? Math.max(0, membershipInfo.completedVisits)
+    : 0;
   const visitsRemaining = Math.max(0, visitsGoal - visitsCompleted);
 
   const monthName = new Date().toLocaleString('default', { month: 'long' });
