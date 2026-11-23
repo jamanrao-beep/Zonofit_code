@@ -6,16 +6,16 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const fs_1 = __importDefault(require("fs"));
 const multer_1 = __importDefault(require("multer"));
-const prisma_1 = __importDefault(require("../lib/prisma"));
-const auth_1 = require("../middleware/auth");
-const errorHandler_1 = require("../middleware/errorHandler");
-const settings_1 = require("../services/settings");
 const adminAccess_1 = require("../lib/adminAccess");
 const earlyAccess_1 = require("../lib/earlyAccess");
 const gymCommercial_1 = require("../lib/gymCommercial");
 const gymOwner_1 = require("../lib/gymOwner");
 const marketplaceItem_1 = require("../lib/marketplaceItem");
+const prisma_1 = __importDefault(require("../lib/prisma"));
 const uploads_1 = require("../lib/uploads");
+const auth_1 = require("../middleware/auth");
+const errorHandler_1 = require("../middleware/errorHandler");
+const settings_1 = require("../services/settings");
 function asInt(value, fallback) {
     if (typeof value === "number" && Number.isFinite(value))
         return Math.round(value);
@@ -825,12 +825,70 @@ router.get("/finance", auth_1.requireAuth, requireAdmin, async (req, res) => {
             orderBy: [{ status: "asc" }, { createdAt: "desc" }],
             take: 50
         });
+        // Partner Gym Upfront Advance & Utilization Tracking:
+        // Tracks upfront visits paid (10 visits per active membership) vs member visits utilized
+        const activeMemberships = await prisma_1.default.membership.findMany({
+            where: {
+                status: "ACTIVE",
+                primaryGymId: { not: null },
+            },
+            include: {
+                primaryGym: {
+                    select: {
+                        id: true,
+                        name: true,
+                        customGymId: true,
+                        city: true,
+                        state: true,
+                        monthlyPrice: true,
+                        bankDetailsJson: true,
+                    },
+                },
+            },
+        });
+        const gymMap = new Map();
+        for (const mem of activeMemberships) {
+            if (!mem.primaryGym)
+                continue;
+            const gid = mem.primaryGym.id;
+            if (!gymMap.has(gid)) {
+                gymMap.set(gid, {
+                    gymId: mem.primaryGym.id,
+                    gymName: mem.primaryGym.name,
+                    customGymId: mem.primaryGym.customGymId,
+                    city: mem.primaryGym.city,
+                    state: mem.primaryGym.state,
+                    bankDetailsJson: mem.primaryGym.bankDetailsJson,
+                    monthlyPrice: mem.primaryGym.monthlyPrice || 1500,
+                    activeMembers: 0,
+                    upfrontVisitsPaid: 0,
+                    visitsUtilized: 0,
+                });
+            }
+            const entry = gymMap.get(gid);
+            entry.activeMembers += 1;
+            const memVisits = mem.mandatoryVisits || 10;
+            entry.upfrontVisitsPaid += memVisits;
+            entry.visitsUtilized += mem.completedVisits || 0;
+        }
+        const gymAdvanceTracking = Array.from(gymMap.values()).map((item) => {
+            const perVisitRate = Math.round((item.monthlyPrice || 1500) / 15);
+            const advanceVisitsRemaining = Math.max(0, item.upfrontVisitsPaid - item.visitsUtilized);
+            const advanceFundsBalanceINR = advanceVisitsRemaining * perVisitRate;
+            return {
+                ...item,
+                advanceVisitsRemaining,
+                perVisitRateINR: perVisitRate,
+                advanceFundsBalanceINR,
+            };
+        });
         res.json({
             gmv,
             totalPaid,
             totalPending,
             netRevenue: gmv - totalPaid,
-            recentPayouts
+            recentPayouts,
+            gymAdvanceTracking,
         });
     }
     catch (err) {

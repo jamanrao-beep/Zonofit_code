@@ -957,12 +957,72 @@ router.get("/finance", requireAuth, requireAdmin, async (req: Request, res: Resp
       take: 50
     });
 
+    // Partner Gym Upfront Advance & Utilization Tracking:
+    // Tracks upfront visits paid (10 visits per active membership) vs member visits utilized
+    const activeMemberships = await prisma.membership.findMany({
+      where: {
+        status: "ACTIVE",
+        primaryGymId: { not: null },
+      },
+      include: {
+        primaryGym: {
+          select: {
+            id: true,
+            name: true,
+            customGymId: true,
+            city: true,
+            state: true,
+            monthlyPrice: true,
+            bankDetailsJson: true,
+          },
+        },
+      },
+    });
+
+    const gymMap = new Map<string, any>();
+    for (const mem of activeMemberships) {
+      if (!mem.primaryGym) continue;
+      const gid = mem.primaryGym.id;
+      if (!gymMap.has(gid)) {
+        gymMap.set(gid, {
+          gymId: mem.primaryGym.id,
+          gymName: mem.primaryGym.name,
+          customGymId: mem.primaryGym.customGymId,
+          city: mem.primaryGym.city,
+          state: mem.primaryGym.state,
+          bankDetailsJson: mem.primaryGym.bankDetailsJson,
+          monthlyPrice: mem.primaryGym.monthlyPrice || 1500,
+          activeMembers: 0,
+          upfrontVisitsPaid: 0,
+          visitsUtilized: 0,
+        });
+      }
+      const entry = gymMap.get(gid);
+      entry.activeMembers += 1;
+      const memVisits = mem.mandatoryVisits || 10;
+      entry.upfrontVisitsPaid += memVisits;
+      entry.visitsUtilized += mem.completedVisits || 0;
+    }
+
+    const gymAdvanceTracking = Array.from(gymMap.values()).map((item) => {
+      const perVisitRate = Math.round((item.monthlyPrice || 1500) / 15);
+      const advanceVisitsRemaining = Math.max(0, item.upfrontVisitsPaid - item.visitsUtilized);
+      const advanceFundsBalanceINR = advanceVisitsRemaining * perVisitRate;
+      return {
+        ...item,
+        advanceVisitsRemaining,
+        perVisitRateINR: perVisitRate,
+        advanceFundsBalanceINR,
+      };
+    });
+
     res.json({
       gmv,
       totalPaid,
       totalPending,
       netRevenue: gmv - totalPaid,
-      recentPayouts
+      recentPayouts,
+      gymAdvanceTracking,
     });
   } catch (err: any) {
     res.status(500).json({ error: "ServerError", message: err.message });

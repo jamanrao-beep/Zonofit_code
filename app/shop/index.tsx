@@ -41,6 +41,7 @@ export default function ShopHomeScreen() {
   const cartCount = useCartStore((state) => state.cartItems.reduce((sum, line) => sum + line.quantity, 0));
   const cartTotal = useCartStore((state) => state.getTotalPrice());
   const credits = useCreditsStore((state) => state.credits);
+  const membershipInfo = useCreditsStore((state) => state.membershipInfo);
   const fetchWallet = useCreditsStore((state) => state.fetchWallet);
   const token = useAuthStore((state) => state.token);
   const user = useAuthStore((state) => state.user);
@@ -58,6 +59,13 @@ export default function ShopHomeScreen() {
   );
 
   const primaryGym = primaryGymName || membershipGymName || user?.primaryGym || selectedGymName || "";
+  const cycleNumber = membershipInfo?.cycleNumber || 1;
+  const includedVisits = (cycleNumber > 4 || membershipInfo?.mandatoryVisits === 15) ? 15 : 10;
+  const planCostCredits = Math.round(((membershipInfo as any)?.priceINR || (membershipInfo as any)?.planPriceINR || 1500) / 10);
+  const hasEnoughCredits = !isGuest && credits >= planCostCredits;
+  const creditShortfall = Math.max(0, planCostCredits - (isGuest ? 0 : credits));
+  const fillPercent = planCostCredits > 0 ? Math.min(100, Math.round(((isGuest ? 0 : credits) / planCostCredits) * 100)) : 0;
+  const gymDisplayName = primaryGym || "ZonoFit Test Arena";
   const q = search.trim().toLowerCase();
   const matchesSearch = products.filter((product) => {
     if (!q) return true;
@@ -147,61 +155,125 @@ export default function ShopHomeScreen() {
           ) : null}
 
 
-          <View style={styles.rep}>
-            <View style={styles.blob} />
-            <View style={styles.chip}>
-              <Ionicons name="fitness-outline" size={14} color={shop.hero} />
-              <Text style={styles.chipText}>Your primary gym</Text>
+          {/* ─── Hero Repurchase Membership Card (Mockup Exact Match) ─── */}
+          <View style={heroStyles.hero}>
+            <View style={heroStyles.heroAmbient} />
+
+            {/* Chip */}
+            <View style={heroStyles.chip}>
+              <View style={heroStyles.chipDot} />
+              <Text style={heroStyles.chipText}>Your primary gym</Text>
             </View>
-            <Text style={styles.repTitle}>{isGuest ? "Membership is locked" : "Repurchase Your Membership"}</Text>
-            <View style={styles.gymRow}>
-              <Text style={styles.gymName}>
-                {isGuest
-                  ? selectedGymName ? `Pick: ${selectedGymName}` : "Choose a gym first"
-                  : primaryGym ? `at ${primaryGym}` : "Choose your gym"}
-              </Text>
-              {!isGuest && primaryGym ? <Ionicons name="checkmark-circle" size={18} color={shop.hero} /> : null}
-            </View>
-            <Text style={styles.repCopy}>
-              {isGuest
-                ? "Guest mode can browse products. Renewing a membership and spending credits needs an account."
-                : `Keep your progress going with ${primaryGym || "your gym"}. Use your remaining credits to renew your monthly plan.`}
+
+            {/* Title */}
+            <Text style={heroStyles.heroTitle}>
+              Renew your membership at{" "}
+              <Text style={heroStyles.heroTitleSpan}>{gymDisplayName}</Text>
             </Text>
-            <View style={styles.repActions}>
-              <Pressable
-                onPress={() => ackPush(router, "/(tabs)/credits")}
-                style={styles.cred}
-              >
-                <Ionicons name="wallet-outline" size={20} color={shop.ink} style={{ flexShrink: 0 }} />
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={styles.credLabel} numberOfLines={1}>Your Credits</Text>
-                  <Text style={styles.credValue} numberOfLines={1}>
-                    {isGuest ? "Locked" : credits}
+
+            {/* Subtitle */}
+            <Text style={heroStyles.heroSub}>
+              Keep your progress going. Renew with your credits in one tap.
+            </Text>
+
+            {/* Credit Comparison Box */}
+            <View style={heroStyles.cr}>
+              <View style={heroStyles.crRow}>
+                <View>
+                  <Text style={heroStyles.crSmall}>Your credits</Text>
+                  <Text style={heroStyles.crBig}>
+                    {isGuest ? "0" : credits}
+                    <Text style={heroStyles.crBigSpan}> credits</Text>
                   </Text>
-                  {!isGuest ? (
-                    <Text style={styles.credWorth} numberOfLines={1}>
-                      ≈ {inr(credits * GYM_CREDIT_INR)} at gyms
-                    </Text>
-                  ) : null}
                 </View>
-              </Pressable>
-              <Pressable
-                onPress={() => {
-                  if (isGuest) {
-                    promptGuestAccount(router, endGuestSession, "Create an account before renewing a membership.");
-                    return;
-                  }
-                  if (!primaryGym) {
-                    ackPush(router, "/onboarding/select-city");
-                    return;
-                  }
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={heroStyles.crSmall}>Monthly plan</Text>
+                  <Text style={heroStyles.crCostVal}>{planCostCredits} credits</Text>
+                </View>
+              </View>
+
+              {/* Progress Bar */}
+              <View style={heroStyles.bar}>
+                <View style={[heroStyles.barFill, { width: `${fillPercent}%` }]} />
+              </View>
+
+              {/* Dynamic Note */}
+              <View style={heroStyles.note}>
+                {hasEnoughCredits ? (
+                  <>
+                    <Ionicons name="checkmark-circle" size={15} color="#6BCB77" />
+                    <Text style={heroStyles.noteText}>
+                      You have enough. {credits - planCostCredits} credits left after renewing.
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Ionicons name="alert-circle-outline" size={15} color="#FCD34D" />
+                    <Text style={[heroStyles.noteText, { color: "#FEF3C7" }]}>
+                      You need {creditShortfall} more credits to renew.
+                    </Text>
+                  </>
+                )}
+              </View>
+            </View>
+
+            {/* CTA Button */}
+            <Pressable
+              onPress={() => {
+                if (isGuest) {
+                  promptGuestAccount(router, endGuestSession, "Create an account to renew your membership.");
+                  return;
+                }
+                if (hasEnoughCredits) {
                   ackPush(router, "/onboarding/order-summary?mode=repurchase");
-                }}
-                style={styles.details}
-              >
-                <Text style={styles.detailsText}>{isGuest ? "Create Account" : "View Details"}</Text>
-                <Ionicons name="arrow-forward" size={16} color="#fff" />
-              </Pressable>
+                } else {
+                  ackPush(router, "/(tabs)/credits");
+                }
+              }}
+              style={({ pressed }) => [heroStyles.ctaBtn, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
+            >
+              <Text style={heroStyles.ctaText}>
+                {isGuest
+                  ? "Create Account to Renew"
+                  : hasEnoughCredits
+                    ? "Renew now"
+                    : `Add ${creditShortfall} credits & renew`}
+              </Text>
+            </Pressable>
+
+            {/* View plan details link */}
+            <Pressable
+              onPress={() => {
+                if (isGuest) {
+                  promptGuestAccount(router, endGuestSession, "Create an account to view plan details.");
+                  return;
+                }
+                ackPush(router, "/onboarding/order-summary?mode=repurchase");
+              }}
+              style={{ marginTop: 14 }}
+            >
+              <Text style={heroStyles.planDetailsLink}>View plan details</Text>
+            </Pressable>
+          </View>
+
+          {/* ─── 3-Column Included Benefits Card (.inc Exact Match) ─── */}
+          <View style={heroStyles.incCard}>
+            <View style={heroStyles.incCol}>
+              <Ionicons name="calendar-outline" size={20} color="#1F7A3F" />
+              <Text style={heroStyles.incBold}>30 days</Text>
+              <Text style={heroStyles.incSub}>of access</Text>
+            </View>
+            <View style={heroStyles.incDivider} />
+            <View style={heroStyles.incCol}>
+              <Ionicons name="barbell-outline" size={20} color="#1F7A3F" />
+              <Text style={heroStyles.incBold}>{includedVisits} visits</Text>
+              <Text style={heroStyles.incSub}>included</Text>
+            </View>
+            <View style={heroStyles.incDivider} />
+            <View style={heroStyles.incCol}>
+              <Ionicons name="sparkles-outline" size={20} color="#1F7A3F" />
+              <Text style={heroStyles.incBold}>Rest as credits</Text>
+              <Text style={heroStyles.incSub}>use anywhere</Text>
             </View>
           </View>
         </View>
@@ -581,5 +653,178 @@ const styles = StyleSheet.create({
     fontSize: 9.5,
     fontWeight: "700",
     color: "#526357",
+  },
+});
+
+const heroStyles = StyleSheet.create({
+  hero: {
+    marginTop: 12,
+    borderRadius: 30,
+    backgroundColor: "#0A3D25",
+    padding: 22,
+    position: "relative",
+    overflow: "hidden",
+  },
+  heroAmbient: {
+    position: "absolute",
+    right: -40,
+    top: -40,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: "rgba(107, 203, 119, 0.14)",
+  },
+  chip: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 99,
+  },
+  chipDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: "#6BCB77",
+  },
+  chipText: {
+    fontSize: 11,
+    letterSpacing: 1.4,
+    textTransform: "uppercase",
+    fontWeight: "800",
+    color: "#FFFFFF",
+  },
+  heroTitle: {
+    fontSize: 25,
+    lineHeight: 31,
+    fontWeight: "800",
+    letterSpacing: -0.6,
+    color: "#FFFFFF",
+    marginTop: 14,
+  },
+  heroTitleSpan: {
+    color: "#6BCB77",
+  },
+  heroSub: {
+    color: "rgba(255, 255, 255, 0.75)",
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 6,
+  },
+  cr: {
+    marginTop: 20,
+  },
+  crRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+  },
+  crSmall: {
+    fontSize: 12,
+    color: "rgba(255, 255, 255, 0.7)",
+    marginBottom: 4,
+  },
+  crBig: {
+    fontSize: 36,
+    fontWeight: "800",
+    letterSpacing: -1.5,
+    lineHeight: 40,
+    color: "#FFFFFF",
+  },
+  crBigSpan: {
+    fontSize: 14,
+    fontWeight: "500",
+    letterSpacing: 0,
+    color: "rgba(255, 255, 255, 0.7)",
+  },
+  crCostVal: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    textAlign: "right",
+  },
+  bar: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "rgba(255, 255, 255, 0.16)",
+    marginTop: 12,
+    overflow: "hidden",
+  },
+  barFill: {
+    height: "100%",
+    borderRadius: 4,
+    backgroundColor: "#6BCB77",
+  },
+  note: {
+    marginTop: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  noteText: {
+    fontSize: 12.5,
+    color: "#FFFFFF",
+    fontWeight: "500",
+    flex: 1,
+  },
+  ctaBtn: {
+    width: "100%",
+    height: 56,
+    borderRadius: 18,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  ctaText: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#0A3D25",
+  },
+  planDetailsLink: {
+    textAlign: "center",
+    fontSize: 13.5,
+    fontWeight: "600",
+    color: "rgba(255, 255, 255, 0.85)",
+  },
+  incCard: {
+    flexDirection: "row",
+    marginTop: 14,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E2E9E3",
+    borderRadius: 22,
+    overflow: "hidden",
+  },
+  incCol: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 6,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  incDivider: {
+    width: 1,
+    backgroundColor: "#E2E9E3",
+    marginVertical: 10,
+  },
+  incBold: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#0F1C14",
+    marginTop: 4,
+  },
+  incSub: {
+    fontSize: 11,
+    color: "#76867B",
+    marginTop: 1,
   },
 });

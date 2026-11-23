@@ -26,7 +26,7 @@ export default function AdminFinancePage() {
   const [selectedPayout, setSelectedPayout] = useState<any | null>(null);
   const [referenceNote, setReferenceNote] = useState("");
   const [copiedField, setCopiedField] = useState<string | null>(null);
-  const [filterTab, setFilterTab] = useState<"ALL" | "PENDING" | "PAID">("ALL");
+  const [filterTab, setFilterTab] = useState<"ALL" | "UPFRONT" | "EXTRA" | "PENDING" | "PAID">("ALL");
 
   const fetchFinance = async () => {
     try {
@@ -110,8 +110,17 @@ export default function AdminFinancePage() {
   }
 
   const allPayouts = data?.recentPayouts || [];
+  const advanceTracking = data?.gymAdvanceTracking || [];
+  const totalAdvanceVisits = advanceTracking.reduce((sum: number, g: any) => sum + (g.advanceVisitsRemaining || 0), 0);
+  const totalAdvanceValueINR = advanceTracking.reduce((sum: number, g: any) => sum + (g.advanceFundsBalanceINR || 0), 0);
+
   const pendingCount = allPayouts.filter((p: any) => p.status === "PENDING").length;
+  const upfrontCount = allPayouts.filter((p: any) => p.payoutType === "UPFRONT_10_VISITS").length;
+  const extraCount = allPayouts.filter((p: any) => p.payoutType === "EXTRA_VISITS").length;
+
   const filteredPayouts = allPayouts.filter((p: any) => {
+    if (filterTab === "UPFRONT") return p.payoutType === "UPFRONT_10_VISITS";
+    if (filterTab === "EXTRA") return p.payoutType === "EXTRA_VISITS";
     if (filterTab === "PENDING") return p.status === "PENDING";
     if (filterTab === "PAID") return p.status === "PAID";
     return true;
@@ -121,7 +130,7 @@ export default function AdminFinancePage() {
     <div className="p-8 max-w-7xl mx-auto space-y-8">
       <div>
         <h1 className="text-3xl font-bold text-black mb-2">Financial Center</h1>
-        <p className="text-gray-600">Track GMV, revenue, upfront 10-visit settlements (48-72h window), and extra visits payout workflow.</p>
+        <p className="text-gray-600">Track GMV, revenue, upfront 10-visit settlements (48-72h window), gym advance balances, and extra visits payout workflow.</p>
       </div>
 
       {/* KPI Cards */}
@@ -170,6 +179,111 @@ export default function AdminFinancePage() {
         </div>
       </div>
 
+      {/* Partner Gym Upfront Advance & Utilization Table (Audio Note 2 Requirement) */}
+      <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <h2 className="text-xl font-bold text-black">Partner Gym Upfront Advance &amp; Visit Utilization</h2>
+              <span className="text-xs px-2.5 py-0.5 bg-blue-100 text-blue-800 rounded-full font-bold">
+                10 Visits Upfront / Member
+              </span>
+            </div>
+            <p className="text-xs text-gray-500">
+              When a member purchases a plan, ZonoFit pays the partner gym upfront for 10 visits within 48–72 hours.
+              This table tracks advance visits held by each gym vs visits completed by members (e.g. 5 members = 50 visits paid; 7 done = 43 advance visits due).
+            </p>
+          </div>
+          <div className="flex items-center gap-3 bg-blue-50 px-4 py-2 rounded-2xl border border-blue-100">
+            <div>
+              <div className="text-[10px] uppercase font-bold text-blue-700 tracking-wider">Total Active Advance</div>
+              <div className="text-base font-black text-blue-900">{totalAdvanceVisits} Visits Due (₹{totalAdvanceValueINR.toLocaleString()})</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-gray-100 text-xs text-gray-400 uppercase tracking-wider">
+                <th className="pb-3 font-bold">Partner Gym</th>
+                <th className="pb-3 font-bold">Active Members</th>
+                <th className="pb-3 font-bold">Upfront Paid</th>
+                <th className="pb-3 font-bold">Member Visits Done</th>
+                <th className="pb-3 font-bold">Advance Holding (Due)</th>
+                <th className="pb-3 font-bold">Holding Value</th>
+                <th className="pb-3 font-bold text-right">Payment Credentials</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50 text-sm">
+              {advanceTracking.length > 0 ? (
+                advanceTracking.map((g: any) => (
+                  <tr key={g.gymId} className="hover:bg-gray-50/70 transition-colors">
+                    <td className="py-3.5 font-bold text-black">
+                      <div className="flex items-center gap-2">
+                        <Building2 size={16} className="text-gray-400" />
+                        <div>
+                          <div>{g.gymName}</div>
+                          <div className="text-[11px] font-normal text-gray-500">
+                            {g.city}, {g.state} {g.customGymId ? `• ID: ${g.customGymId}` : ""}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3.5 font-bold text-gray-800">
+                      <span className="px-2.5 py-1 bg-gray-100 text-gray-800 rounded-lg text-xs font-bold">
+                        {g.activeMembers} {g.activeMembers === 1 ? "Member" : "Members"}
+                      </span>
+                    </td>
+                    <td className="py-3.5 font-bold text-blue-700">
+                      {g.upfrontVisitsPaid} Visits
+                      <div className="text-[11px] font-normal text-gray-500">Auto-paid 10/user</div>
+                    </td>
+                    <td className="py-3.5 font-bold text-emerald-700">
+                      {g.visitsUtilized} Visits
+                      <div className="text-[11px] font-normal text-gray-500">Completed check-ins</div>
+                    </td>
+                    <td className="py-3.5">
+                      <span className="px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-lg text-xs font-bold">
+                        {g.advanceVisitsRemaining} Visits Active
+                      </span>
+                    </td>
+                    <td className="py-3.5 font-black text-black">
+                      ₹{g.advanceFundsBalanceINR.toLocaleString()}
+                      <div className="text-[10px] font-normal text-gray-400">@ ₹{g.perVisitRateINR}/visit</div>
+                    </td>
+                    <td className="py-3.5 text-right">
+                      <button
+                        onClick={() => {
+                          setSelectedPayout({
+                            id: `adv_${g.gymId}`,
+                            gym: g,
+                            payoutType: "UPFRONT_10_VISITS",
+                            visitCount: g.upfrontVisitsPaid,
+                            amountPaise: g.advanceFundsBalanceINR * 100,
+                            status: "PAID",
+                            referenceNote: `Active advance for ${g.activeMembers} members`,
+                          });
+                        }}
+                        className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5"
+                      >
+                        <QrCode size={13} /> View QR / Bank
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={7} className="py-6 text-center text-gray-400 text-xs">
+                    No active gym memberships currently in progress.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* Payout History & Workflow Table */}
       <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
@@ -179,7 +293,7 @@ export default function AdminFinancePage() {
               Tap any gym row to open its bank details, UPI ID, or scan its QR code to execute transfer directly.
             </p>
           </div>
-          <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-2xl">
+          <div className="flex flex-wrap items-center gap-1.5 bg-gray-100 p-1 rounded-2xl">
             <button
               onClick={() => setFilterTab("ALL")}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
@@ -187,6 +301,22 @@ export default function AdminFinancePage() {
               }`}
             >
               All ({allPayouts.length})
+            </button>
+            <button
+              onClick={() => setFilterTab("UPFRONT")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                filterTab === "UPFRONT" ? "bg-blue-600 text-white shadow-xs" : "text-gray-600 hover:text-black"
+              }`}
+            >
+              Upfront 10-Visits (48–72h) ({upfrontCount})
+            </button>
+            <button
+              onClick={() => setFilterTab("EXTRA")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                filterTab === "EXTRA" ? "bg-purple-600 text-white shadow-xs" : "text-gray-600 hover:text-black"
+              }`}
+            >
+              Monthly Extra (1st–7th) ({extraCount})
             </button>
             <button
               onClick={() => setFilterTab("PENDING")}
@@ -486,7 +616,19 @@ export default function AdminFinancePage() {
               </div>
 
               {/* Action / Mark as Paid Form */}
-              {isPending ? (
+              {selectedPayout.id.startsWith("adv_") ? (
+                <div className="pt-2">
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-900 mb-4">
+                    <strong>Active Advance Holding:</strong> This gym holds an active upfront advance balance ({selectedPayout.referenceNote}). Payment credentials above can be used for any settlements.
+                  </div>
+                  <button
+                    onClick={() => setSelectedPayout(null)}
+                    className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl text-sm font-bold transition-colors cursor-pointer"
+                  >
+                    Close
+                  </button>
+                </div>
+              ) : isPending ? (
                 <div className="space-y-4">
                   <div>
                     <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">
