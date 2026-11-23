@@ -139,8 +139,7 @@
 @keyframes zfp-spin { to { transform: rotate(360deg); } }
 .zf-portal .help { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-top: 18px; color: var(--muted); font-size: 14px; }
 .zf-portal .help a { color: var(--hero); font-weight: 700; }
-.zf-portal .resend { display: block; width: 100%; margin-top: 10px; border: 0; background: none; color: var(--hero); font-weight: 700; font-size: 13px; }
-.zf-portal .resend:disabled { color: var(--muted); }
+.zf-portal .alt { display: block; width: 100%; margin: -8px 0 14px; border: 0; background: none; color: var(--hero); font-weight: 700; font-size: 13.5px; text-align: left; cursor: pointer; }
 .zf-portal .hint { text-align: center; color: var(--muted); font-size: 12.5px; margin: 8px 0 0; }
 .zf-portal .sec { display: flex; gap: 8px; align-items: center; justify-content: center; color: rgba(255,255,255,.65); font-size: 13px; margin-top: 8px; position: relative; z-index: 2; }
 .zf-portal .cue { position: relative; z-index: 4; display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 8px auto 0; color: rgba(255,255,255,.7); font-size: 13px; letter-spacing: .04em; }

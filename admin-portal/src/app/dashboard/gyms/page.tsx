@@ -86,7 +86,7 @@ export default function AdminGymsPage() {
   const handleAppUpdate = async (appId: string, status: string) => {
     const token = localStorage.getItem("zonofit_portal_token");
     try {
-      await fetch(`/api/admin/gym-applications/${appId}`, {
+      const res = await fetch(`/api/admin/gym-applications/${appId}`, {
         method: "PUT",
         headers: { 
           "Authorization": `Bearer ${token}`,
@@ -94,6 +94,9 @@ export default function AdminGymsPage() {
         },
         body: JSON.stringify({ status })
       });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || "Failed");
+      if (data.message) alert(data.message);
       fetchApplications();
       fetchGyms();
     } catch (err) {
@@ -106,7 +109,7 @@ export default function AdminGymsPage() {
     g.name?.toLowerCase().includes(search.toLowerCase()) ||
     g.city?.toLowerCase().includes(search.toLowerCase()) ||
     g.customGymId?.toLowerCase().includes(search.toLowerCase()) ||
-    g.owner?.email?.toLowerCase().includes(search.toLowerCase())
+    g.owner?.portalUsername?.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -201,9 +204,11 @@ export default function AdminGymsPage() {
                         )}
                       </div>
                       <div className="text-xs text-gray-500 mt-0.5">{gym.city}, {gym.address}</div>
-                      {gym.owner?.email && (
-                        <div className="text-xs text-slate-600 mt-0.5">Owner login: {gym.owner.email}</div>
-                      )}
+                      {gym.owner?.portalUsername ? (
+                        <div className="text-xs text-slate-600 mt-0.5">Owner login: {gym.owner.portalUsername}</div>
+                      ) : gym.owner ? (
+                        <div className="text-xs text-amber-700 mt-0.5">Owner login: not set. Add a username, password, and passkey.</div>
+                      ) : null}
                     </td>
                     <td className="py-4">
                       <div className="font-bold text-gray-900">₹{gym.monthlyPrice || 3000}</div>

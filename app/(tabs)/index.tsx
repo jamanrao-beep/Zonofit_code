@@ -9,7 +9,9 @@ import {
   ToastAndroid,
   Platform,
   Alert,
+  ActivityIndicator,
 } from "react-native";
+import * as Haptics from "expo-haptics";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -69,7 +71,7 @@ export default function HomeScreen() {
   } = useUserStore();
   const { credits, membershipInfo } = useCreditsStore();
   const { isGuest, checkExpiry, endGuestSession, selectedGymName, selectedGymId, getHoursRemaining } = useGuestStore();
-  const { bookingStatus, bookedGymName, bookedTime, bookedCost } = useBookingStore();
+  const { bookingStatus, bookedGymName, bookedTime, bookedCost, isCancelling } = useBookingStore();
 
   const [opening, setOpening] = useState<null | "pass" | "journey" | "wallet" | "invite" | "gym">(null);
   const openingLock = useRef<string | null>(null);
@@ -107,8 +109,8 @@ export default function HomeScreen() {
         : Math.max(0, mandatoryVisits - (bookingStatus === "Booked" && (bookedCost === 0 || bookedCost === undefined) ? 1 : 0)));
 
   const completedVisits = typeof membershipInfo?.completedVisits === "number"
-    ? Math.max(0, membershipInfo.completedVisits, mandatoryVisits - visitsLeft)
-    : Math.max(0, mandatoryVisits - visitsLeft, totalWorkouts || 0);
+    ? Math.max(0, membershipInfo.completedVisits)
+    : Math.max(0, totalWorkouts || 0);
 
   const effectiveCredits = credits;
   const guestHours = getHoursRemaining();
@@ -152,6 +154,7 @@ export default function HomeScreen() {
   }, []);
 
   const askCancelToday = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     const currentCost = useBookingStore.getState().bookedCost;
     const isMandatory = currentCost === 0 || currentCost === undefined;
     const currentCredits = useCreditsStore.getState().credits;
@@ -457,10 +460,19 @@ export default function HomeScreen() {
                 </View>
                 <View style={{ flexDirection: "row", gap: 6 }}>
                   <Pressable
-                    style={[homeStyles.btn, { backgroundColor: "#FDE9E7", paddingHorizontal: 16 }]}
+                    style={({ pressed }) => [
+                      homeStyles.btn,
+                      { backgroundColor: "#FDE9E7", paddingHorizontal: 16 },
+                      (pressed || isCancelling) && { opacity: 0.7 }
+                    ]}
+                    disabled={isCancelling || cancelPrompt !== null}
                     onPress={askCancelToday}
                   >
-                    <Text style={[homeStyles.btnText, { color: "#B3261E" }]}>Cancel</Text>
+                    {isCancelling ? (
+                      <ActivityIndicator size="small" color="#B3261E" />
+                    ) : (
+                      <Text style={[homeStyles.btnText, { color: "#B3261E" }]}>Cancel</Text>
+                    )}
                   </Pressable>
                   <Pressable
                     style={homeStyles.btn}

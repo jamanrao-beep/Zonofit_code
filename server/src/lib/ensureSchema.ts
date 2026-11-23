@@ -159,6 +159,14 @@ const STATEMENTS = [
   "ALTER TABLE `feature_feedback` MODIFY `comment` TEXT NOT NULL",
   "ALTER TABLE `feature_feedback` ADD INDEX `feature_feedback_feature_created` (`featureName`, `createdAt`)",
   "UPDATE `gym_plans` SET `initialPeriodMonths` = 4 WHERE `initialPeriodMonths` = 1",
+  "ALTER TABLE `users` ADD COLUMN `portalUsername` VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL",
+  "ALTER TABLE `users` ADD COLUMN `passkeyHash` VARCHAR(191) NULL",
+  "CREATE UNIQUE INDEX `users_portalUsername_key` ON `users`(`portalUsername`)",
+  "ALTER TABLE `gym_payouts` ADD COLUMN `payoutType` VARCHAR(64) NOT NULL DEFAULT 'UPFRONT_10_VISITS'",
+  "ALTER TABLE `gym_payouts` ADD COLUMN `visitCount` INTEGER NOT NULL DEFAULT 10",
+  "ALTER TABLE `gym_payouts` ADD COLUMN `description` TEXT NULL",
+  "ALTER TABLE `gym_payouts` ADD COLUMN `referenceNote` VARCHAR(191) NULL",
+  "UPDATE `gyms` SET `state` = 'Rajasthan' WHERE LOWER(`city`) = 'udaipur' AND (`state` IS NULL OR `state` = 'Maharashtra' OR `state` = '')",
 ];
 
 function safeDbMessage(err: unknown): string {

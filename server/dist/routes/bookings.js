@@ -69,6 +69,7 @@ router.post("/", auth_1.requireAuth, [
                 select: {
                     id: true,
                     name: true,
+                    city: true,
                     creditCost: true,
                     totalSlots: true,
                     cappingMode: true,
@@ -85,6 +86,7 @@ router.post("/", auth_1.requireAuth, [
             select: {
                 id: true,
                 name: true,
+                city: true,
                 creditCost: true,
                 totalSlots: true,
                 cappingMode: true,
@@ -97,6 +99,7 @@ router.post("/", auth_1.requireAuth, [
             select: {
                 id: true,
                 name: true,
+                city: true,
                 creditCost: true,
                 totalSlots: true,
                 cappingMode: true,
@@ -163,6 +166,12 @@ router.post("/", auth_1.requireAuth, [
         let isPrimaryVisit = false;
         if (membership.primaryGymId === gym.id && membership.primaryGymVisits > 0) {
             isPrimaryVisit = true;
+        }
+        // Enforce Udaipur restriction:
+        // In Udaipur, local visits are restricted strictly to the user's designated Primary Gym.
+        const isUdaipurGym = (gym.city || "").toLowerCase().trim() === "udaipur";
+        if (isUdaipurGym && membership.primaryGymId && membership.primaryGymId !== gym.id) {
+            throw (0, errorHandler_1.createError)("Local visits in Udaipur are restricted to your designated Primary Gym. Network credits can only be used in other partner cities (e.g. Delhi NCR, Mumbai, Jaipur) when traveling.", 403, "RestrictedCityGym");
         }
         let wallet = await tx.creditWallet.findUnique({
             where: { userId: req.dbUserId },
@@ -236,23 +245,55 @@ router.post("/", auth_1.requireAuth, [
                 throw (0, errorHandler_1.createError)("This gym has reached its ZonoFit visits for the day.", 409, "NoSlotsAvailable");
             }
         }
-        // 7. Atomically deduct credits (or primary visits) and track visit completed
+        // 7. Atomically deduct credits (or primary visits)
         let updatedWallet = wallet;
         if (isPrimaryVisit) {
             await tx.membership.update({
                 where: { userId: req.dbUserId },
                 data: {
                     primaryGymVisits: { decrement: 1 },
-                    completedVisits: { increment: 1 },
                 },
             });
         }
         else {
             updatedWallet = await (0, wallet_1.decrementCredits)(tx, req.dbUserId, finalCreditCost);
-            await tx.membership.updateMany({
-                where: { userId: req.dbUserId },
-                data: { completedVisits: { increment: 1 } },
-            });
+            // Extra visits (11th visit onwards at primary gym or credit visit at partner gym):
+            // Automatically surface under Pending Payments for the gym in the Financial Center!
+            const extraVisitPayoutPaise = Math.round((0, gymCommercial_1.visitPayoutInr)(gym) * 100);
+            if (extraVisitPayoutPaise > 0) {
+                const pendingExtraPayout = await tx.gymPayout.findFirst({
+                    where: {
+                        gymId: gym.id,
+                        status: "PENDING",
+                        payoutType: "EXTRA_VISITS",
+                    },
+                });
+                if (pendingExtraPayout) {
+                    await tx.gymPayout.update({
+                        where: { id: pendingExtraPayout.id },
+                        data: {
+                            amountPaise: { increment: extraVisitPayoutPaise },
+                            visitCount: { increment: 1 },
+                            periodEnd: new Date(),
+                            description: `Extra visits (${pendingExtraPayout.visitCount + 1} visits: 11th+ / credit visits) at ${gym.name}`,
+                        },
+                    });
+                }
+                else {
+                    await tx.gymPayout.create({
+                        data: {
+                            gymId: gym.id,
+                            payoutType: "EXTRA_VISITS",
+                            visitCount: 1,
+                            amountPaise: extraVisitPayoutPaise,
+                            status: "PENDING",
+                            periodStart: new Date(),
+                            periodEnd: new Date(),
+                            description: `Extra visits (11th+ / credit visits) at ${gym.name}`,
+                        },
+                    });
+                }
+            }
         }
         // 8. Compute gym sequential token number
         const lastBookingAtGym = await tx.booking.findFirst({
@@ -557,7 +598,18 @@ const cancelBookingHandler = async (req, res) => {
     const result = await prisma_1.default.$transaction(async (tx) => {
         const booking = await tx.booking.findFirst({
             where: { id: bookingId, userId: req.dbUserId },
-            include: { gym: { select: { name: true } } },
+            include: {
+                gym: {
+                    select: {
+                        name: true,
+                        monthlyPrice: true,
+                        creditCost: true,
+                        payoutModel: true,
+                        payoutCommissionRate: true,
+                        payoutFixedPerVisit: true
+                    }
+                }
+            },
         });
         if (!booking)
             throw (0, errorHandler_1.createError)("Booking not found.", 404, "BookingNotFound");
@@ -626,6 +678,29 @@ const cancelBookingHandler = async (req, res) => {
                 await tx.membership.update({
                     where: { id: m.id },
                     data: { completedVisits: { decrement: 1 } },
+                });
+            }
+            // Revert extra visit payout if pending
+            const extraVisitPayoutPaise = Math.round((0, gymCommercial_1.visitPayoutInr)(booking.gym) * 100);
+            const pendingExtraPayout = await tx.gymPayout.findFirst({
+                where: {
+                    gymId: booking.gymId,
+                    status: "PENDING",
+                    payoutType: "EXTRA_VISITS",
+                },
+            });
+            if (pendingExtraPayout && pendingExtraPayout.visitCount > 1) {
+                await tx.gymPayout.update({
+                    where: { id: pendingExtraPayout.id },
+                    data: {
+                        amountPaise: Math.max(0, pendingExtraPayout.amountPaise - extraVisitPayoutPaise),
+                        visitCount: Math.max(0, pendingExtraPayout.visitCount - 1),
+                    },
+                });
+            }
+            else if (pendingExtraPayout && pendingExtraPayout.visitCount <= 1) {
+                await tx.gymPayout.delete({
+                    where: { id: pendingExtraPayout.id },
                 });
             }
         }

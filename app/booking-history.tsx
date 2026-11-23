@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { ScrollView, Text, View, Pressable, Alert } from "react-native";
+import { ScrollView, Text, View, Pressable, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -41,7 +41,7 @@ export default function BookingHistoryScreen() {
   const router = useRouter();
   const isGuest = useGuestStore((state) => state.isGuest);
   const endGuestSession = useGuestStore((state) => state.endGuestSession);
-  const { pastBookings, bookingStatus, bookedGymName, bookedTime, cancelBooking } = useBookingStore();
+  const { pastBookings, bookingStatus, bookedGymName, bookedTime, cancelBooking, isCancelling } = useBookingStore();
 
   const [openingPass, setOpeningPass] = useState(false);
   const [openingDiscover, setOpeningDiscover] = useState(false);
@@ -120,9 +120,8 @@ export default function BookingHistoryScreen() {
   const visitsLeft = typeof visitsRemaining === "number" && visitsRemaining <= mandatoryVisits
     ? Math.max(0, visitsRemaining)
     : (typeof membershipInfo?.mandatoryVisitsRemaining === "number" ? membershipInfo.mandatoryVisitsRemaining : mandatoryVisits);
-  const cycleCompleted = Math.max(membershipInfo?.completedVisits ?? 0, mandatoryVisits - visitsLeft);
-  const membershipCompleted = Math.max(cycleCompleted, totalWorkouts ?? 0);
-  const completedCount = Math.max(membershipCompleted, allBookings.filter((b) => b.status === "checked_in").length);
+  const verifiedVisits = allBookings.filter((b) => b.status === "checked_in").length;
+  const completedCount = Math.max(membershipInfo?.completedVisits ?? 0, verifiedVisits, totalWorkouts ?? 0);
   const totalCreditsUsed = allBookings
     .filter((b) => b.status === "checked_in")
     .reduce((sum, b) => sum + b.credits, 0);
@@ -202,9 +201,14 @@ export default function BookingHistoryScreen() {
             <View className="flex-row items-center gap-x-2.5 mt-3 pt-3 border-t border-gray-100">
               <Pressable
                 onPress={handleCancel}
+                disabled={isCancelling || cancelPrompt !== null}
                 className="flex-1 bg-red-50 border border-red-200 py-2.5 px-3 rounded-xl items-center active:opacity-80"
               >
-                <Text className="text-red-600 font-bold text-xs">Cancel Booking</Text>
+                {isCancelling ? (
+                  <ActivityIndicator size="small" color="#DC2626" />
+                ) : (
+                  <Text className="text-red-600 font-bold text-xs">Cancel Booking</Text>
+                )}
               </Pressable>
               <Pressable
                 disabled={openingPass}

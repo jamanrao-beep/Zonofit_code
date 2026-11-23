@@ -229,7 +229,10 @@ router.post(
             ...(alreadyCheckedInToday === 0 ? { streak: { increment: 1 } } : {}),
           },
         });
-        // Note: membership completedVisits is already incremented upon booking creation
+        await tx.membership.updateMany({
+          where: { userId: booking.userId },
+          data: { completedVisits: { increment: 1 } },
+        });
 
         // totalWorkouts on the loaded user is still the pre-increment count.
         const referral = booking.user?.referredByUserId && booking.user.totalWorkouts === 0
@@ -369,7 +372,10 @@ router.post(
               streak: newStreak,
             },
           });
-          // Note: membership completedVisits remains tracked with the active booking
+          await tx.membership.updateMany({
+            where: { userId: booking.userId },
+            data: { completedVisits: { decrement: 1 } },
+          });
         }
 
         await noteReferralVisitUndone(tx, booking.userId);

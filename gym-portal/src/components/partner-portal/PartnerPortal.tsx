@@ -29,24 +29,23 @@ const MOUTH: Record<string, string> = {
   sad: "M104 154q16-14 32 0",
 };
 
-function emailOk(value: string) {
-  return /^\S+@\S+\.\S+$/.test(value);
+function usernameOk(value: string) {
+  const trimmed = value.trim();
+  return trimmed.length >= 3 && trimmed.length <= 64 && !/[\u0000-\u001F\u007F\s]/.test(trimmed);
 }
 
 export function PartnerPortal({ fontClass }: { fontClass: string }) {
   const router = useRouter();
   const login = useAuthStore((state) => state.login);
   const [lang, setLang] = useState<Lang>("en");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [code, setCode] = useState("");
-  const [otpStep, setOtpStep] = useState(false);
+  const [username, setUsername] = useState("");
+  const [secret, setSecret] = useState("");
+  const [method, setMethod] = useState<"password" | "passkey">("password");
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState("");
-  const [badField, setBadField] = useState<"email" | "password" | "code" | "">("");
+  const [badField, setBadField] = useState<"username" | "password" | "">("");
   const [loading, setLoading] = useState(false);
-  const [resendIn, setResendIn] = useState(0);
   const [mascot, setMascot] = useState("");
   const [mouth, setMouth] = useState("idle");
   const [bubble, setBubble] = useState("b_idle");
@@ -57,13 +56,11 @@ export function PartnerPortal({ fontClass }: { fontClass: string }) {
   const pupilRef = useRef<SVGGElement>(null);
 
   const t = (key: string) => COPY[lang][key] ?? key;
-  const emailValid = emailOk(email.trim());
-  const passwordValid = password.length >= 8;
-  const codeValid = code.length >= 4 && code.length <= 6;
-  const ready = emailValid && passwordValid && (!otpStep || codeValid);
-  const charge = otpStep
-    ? (emailValid ? 34 : 0) + (passwordValid ? 33 : 0) + (codeValid ? 33 : 0)
-    : (emailValid ? 50 : 0) + (passwordValid ? 50 : 0);
+  const usernameValid = usernameOk(username);
+  const secretMin = method === "password" ? 8 : 6;
+  const secretValid = secret.length >= secretMin && secret.length <= 72;
+  const ready = usernameValid && secretValid;
+  const charge = (usernameValid ? 50 : 0) + (secretValid ? 50 : 0);
   const cards = useMemo(() => [...PARTNER_GYMS, ...PARTNER_GYMS], []);
   const quoteWords = t("q_text").split(" ");
   const quoteHits = new Set(t("q_hl").split("|"));
@@ -78,12 +75,6 @@ export function PartnerPortal({ fontClass }: { fontClass: string }) {
   }, []);
 
   useEffect(() => {
-    if (resendIn <= 0) return;
-    const timer = setTimeout(() => setResendIn((seconds) => seconds - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [resendIn]);
-
-  useEffect(() => {
     setBubbleOn(false);
     const timer = window.setTimeout(() => setBubbleOn(true), 120);
     return () => window.clearTimeout(timer);
@@ -94,7 +85,7 @@ export function PartnerPortal({ fontClass }: { fontClass: string }) {
       const pupil = pupilRef.current;
       const mascotNode = mascotRef.current;
       if (!pupil || !mascotNode) return;
-      if (mascot === "pw" || document.activeElement?.id === "partner-email") return;
+      if (mascot === "pw" || document.activeElement?.id === "partner-username") return;
       const rect = mascotNode.getBoundingClientRect();
       const dx = event.clientX - (rect.left + rect.width / 2);
       const dy = event.clientY - (rect.top + rect.height / 2);
@@ -120,7 +111,7 @@ export function PartnerPortal({ fontClass }: { fontClass: string }) {
     return () => observer.disconnect();
   }, []);
 
-  const lookAlongEmail = (value: string) => {
+  const lookAlongUsername = (value: string) => {
     const count = Math.min(value.length, 24);
     if (pupilRef.current) pupilRef.current.style.transform = `translate(${2 + count * 0.18}px, 5px)`;
   };
@@ -135,7 +126,7 @@ export function PartnerPortal({ fontClass }: { fontClass: string }) {
     }
   };
 
-  const fail = (message: string, field: "email" | "password" | "code") => {
+  const fail = (message: string, field: "username" | "password") => {
     setError(message);
     setBadField(field);
     setMascot("sad");
@@ -143,18 +134,14 @@ export function PartnerPortal({ fontClass }: { fontClass: string }) {
     setBubble("b_err");
   };
 
-  const signIn = async (includeCode: boolean) => {
-    const trimmed = email.trim().toLowerCase();
-    if (!emailOk(trimmed)) {
-      fail(t("e1"), "email");
+  const signIn = async () => {
+    const trimmed = username.trim();
+    if (!usernameOk(trimmed)) {
+      fail(t("e1"), "username");
       return;
     }
-    if (password.length < 8) {
-      fail(t("e2"), "password");
-      return;
-    }
-    if (includeCode && !/^\d{4,6}$/.test(code)) {
-      fail("Enter the 6-digit verification code from your email.", "code");
+    if (secret.length < secretMin || secret.length > 72) {
+      fail(method === "password" ? t("e2") : t("e3"), "password");
       return;
     }
 
@@ -162,22 +149,20 @@ export function PartnerPortal({ fontClass }: { fontClass: string }) {
     setError("");
     setBadField("");
     try {
-      const res = await fetch("/api/auth/portal/signin", {
+      const res = await fetch("/api/auth/portal/gym-signin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: trimmed,
-          password,
-          ...(includeCode ? { code } : {}),
-        }),
+        body: JSON.stringify(
+          method === "passkey"
+            ? { username: trimmed, passkey: secret }
+            : { username: trimmed, password: secret },
+        ),
       });
       let data: {
-        otpRequired?: boolean;
-        retryAfterSeconds?: number;
         message?: string;
         error?: string;
         token?: string;
-        user?: { id?: string; name?: string; email?: string; role?: string };
+        user?: { id?: string; name?: string; username?: string; role?: string };
       } = {};
       try {
         data = await res.json();
@@ -185,30 +170,20 @@ export function PartnerPortal({ fontClass }: { fontClass: string }) {
         throw new Error(res.status === 503 || res.status === 502 ? "The portal is starting. Try again in a moment." : "Could not reach the portal.");
       }
       if (!res.ok) {
-        if (typeof data.retryAfterSeconds === "number") setResendIn(data.retryAfterSeconds);
         throw new Error(data.message || data.error || "Could not sign in.");
       }
-      if (data.otpRequired) {
-        setOtpStep(true);
-        setCode("");
-        setResendIn(5 * 60);
-        setMascot("");
-        setMouth("em");
-        setBubble("b_otp");
-        return;
-      }
       const user = data.user;
-      if (!data.token || !user?.id || !user.name || !user.email || (user.role !== "GYM_OWNER" && user.role !== "ADMIN")) {
-        throw new Error("This portal is for gym partners and administrators only.");
+      if (!data.token || !user?.id || !user.name || !user.username || user.role !== "GYM_OWNER") {
+        throw new Error("This portal is for gym partners.");
       }
-      login({ id: user.id, name: user.name, email: user.email, role: user.role as "GYM_OWNER" | "ADMIN" }, data.token);
+      login({ id: user.id, name: user.name, username: user.username, role: "GYM_OWNER" }, data.token);
       setMascot("joy");
       setMouth("joy");
       setBubble("b_ok");
       setOpening(true);
       window.setTimeout(() => router.push("/dashboard"), 900);
     } catch (err) {
-      fail(err instanceof Error ? err.message : "Could not sign in.", includeCode ? "code" : "password");
+      fail(err instanceof Error ? err.message : "Could not sign in.", "password");
     } finally {
       setLoading(false);
     }
@@ -216,7 +191,18 @@ export function PartnerPortal({ fontClass }: { fontClass: string }) {
 
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
-    void signIn(otpStep);
+    void signIn();
+  };
+
+  const switchMethod = () => {
+    setMethod((current) => (current === "password" ? "passkey" : "password"));
+    setSecret("");
+    setShowPassword(false);
+    setBadField("");
+    setError("");
+    setMascot("");
+    setMouth("idle");
+    setBubble("b_idle");
   };
 
   return (
@@ -287,21 +273,23 @@ export function PartnerPortal({ fontClass }: { fontClass: string }) {
 
           <form className="card" onSubmit={onSubmit} noValidate>
             <div className="charge" style={{ width: `${charge}%` }} />
-            <h2>{otpStep ? t("b_otp") : t("wl")}</h2>
-            <p className="sub">{otpStep ? t("otpHint") : t("sub")}</p>
-            <div className={`f${emailValid ? " v" : ""}${badField === "email" ? " bad" : ""}`}>
+            <h2>{t("wl")}</h2>
+            <p className="sub">{t("sub")}</p>
+            <div className={`f${usernameValid ? " v" : ""}${badField === "username" ? " bad" : ""}`}>
               <input
-                id="partner-email"
-                type="email"
-                inputMode="email"
+                id="partner-username"
+                type="text"
                 autoComplete="username"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 placeholder=" "
-                value={email}
+                value={username}
                 aria-label={t("le")}
-                onFocus={() => { setMascot(""); setMouth("em"); setBubble("b_em"); lookAlongEmail(email); }}
-                onChange={(event) => { setEmail(event.target.value); setBadField(""); setError(""); lookAlongEmail(event.target.value); if (emailOk(event.target.value.trim()) && password.length >= 8) setBubble("b_ready"); }}
+                onFocus={() => { setMascot(""); setMouth("em"); setBubble("b_em"); lookAlongUsername(username); }}
+                onChange={(event) => { setUsername(event.target.value); setBadField(""); setError(""); lookAlongUsername(event.target.value); if (usernameOk(event.target.value) && secret.length >= secretMin) setBubble("b_ready"); }}
               />
-              <label htmlFor="partner-email">{t("le")}</label>
+              <label htmlFor="partner-username">{t("le")}</label>
               <span className="ok" aria-hidden="true">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
               </span>
@@ -312,12 +300,12 @@ export function PartnerPortal({ fontClass }: { fontClass: string }) {
                 type={showPassword ? "text" : "password"}
                 autoComplete="current-password"
                 placeholder=" "
-                value={password}
-                aria-label={t("lp")}
+                value={secret}
+                aria-label={method === "passkey" ? t("lk") : t("lp")}
                 onFocus={() => { setMascot(showPassword ? "peek" : "pw"); setMouth("pw"); setBubble(showPassword ? "b_peek" : "b_pw"); }}
-                onChange={(event) => { setPassword(event.target.value); setBadField(""); setError(""); if (emailValid && event.target.value.length >= 8) setBubble("b_ready"); }}
+                onChange={(event) => { setSecret(event.target.value); setBadField(""); setError(""); if (usernameValid && event.target.value.length >= secretMin && event.target.value.length <= 72) setBubble("b_ready"); }}
               />
-              <label htmlFor="partner-password">{t("lp")}</label>
+              <label htmlFor="partner-password">{method === "passkey" ? t("lk") : t("lp")}</label>
               <button
                 type="button"
                 className="eye"
@@ -331,21 +319,9 @@ export function PartnerPortal({ fontClass }: { fontClass: string }) {
                 <svg className="i" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 15a3 3 0 100-6 3 3 0 000 6z" /></svg>
               </button>
             </div>
-            {otpStep ? (
-              <div className={`f${badField === "code" ? " bad" : ""}`}>
-                <input
-                  id="partner-code"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  placeholder=" "
-                  maxLength={6}
-                  value={code}
-                  aria-label={t("lc")}
-                  onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
-                />
-                <label htmlFor="partner-code">{t("lc")}</label>
-              </div>
-            ) : null}
+            <button type="button" className="alt" onClick={switchMethod}>
+              {method === "password" ? t("usePasskey") : t("usePassword")}
+            </button>
             <div className="err" role="alert">{error}</div>
             <div className="row">
               <label className="sw">
@@ -355,16 +331,9 @@ export function PartnerPortal({ fontClass }: { fontClass: string }) {
               </label>
             </div>
             <button className={`go${ready && !loading ? " ready" : ""}${loading ? " busy" : ""}`} type="submit" disabled={loading}>
-              <span className="tx">{otpStep ? t("verify") : t("si")}</span>
+              <span className="tx">{t("si")}</span>
               <span className="sp" />
             </button>
-            {otpStep ? (
-              <button type="button" className="resend" disabled={loading || resendIn > 0} onClick={() => void signIn(false)}>
-                {resendIn > 0
-                  ? `${t("resend")} ${Math.floor(resendIn / 60)}:${String(resendIn % 60).padStart(2, "0")}`
-                  : t("resend")}
-              </button>
-            ) : null}
             <div className="help">
               <span>{t("hp")}</span>
               <a href="mailto:zonofitofficial@gmail.com">{t("hp2")}</a>

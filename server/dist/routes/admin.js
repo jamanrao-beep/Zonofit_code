@@ -184,7 +184,11 @@ router.get("/users", auth_1.requireAuth, requireAdmin, async (req, res) => {
                         select: { id: true, name: true, city: true }
                     },
                     _count: {
-                        select: { bookings: true }
+                        select: {
+                            bookings: {
+                                where: { status: { in: ["CONFIRMED", "CHECKED_IN", "COMPLETED"] } }
+                            }
+                        }
                     }
                 },
                 orderBy: { createdAt: "desc" },
@@ -273,7 +277,7 @@ router.get("/gyms", auth_1.requireAuth, requireAdmin, async (req, res) => {
                 _count: {
                     select: { bookings: true }
                 },
-                owner: { select: { id: true, email: true, name: true } },
+                owner: { select: { id: true, name: true, portalUsername: true } },
             },
             orderBy: { createdAt: "desc" }
         });
@@ -347,17 +351,21 @@ router.post("/gyms", auth_1.requireAuth, requireAdmin, async (req, res) => {
         // * star internal
         customGymId, ownerName, bankDetails, cappingMode, maxDailyVisits, maxSlotVisits, payoutModel, payoutCommissionRate, payoutFixedPerVisit, paymentCycle, isGstRegistered, gstNumber, invoicePrefix, 
         // public / user facing
-        name, description, address, city, state, landmark, googleMapsUrl, contactPhone, monthlyPrice, weekdayHours, weekendHours, facilities, slots, logoUrl, exteriorImageUrl, interiorImageUrls, lat, lng, isVerified, requiresVerification, isActive, ownerEmail, ownerPassword, } = req.body;
+        name, description, address, city, state, landmark, googleMapsUrl, contactPhone, monthlyPrice, weekdayHours, weekendHours, facilities, slots, logoUrl, exteriorImageUrl, interiorImageUrls, lat, lng, isVerified, requiresVerification, isActive, ownerUsername, ownerPassword, ownerPasskey, } = req.body;
         if (!name || !address) {
             res.status(400).json({ error: "ValidationError", message: "Gym Name and Full Address are required." });
             return;
         }
-        const loginEmail = (0, gymOwner_1.cleanOwnerEmail)(ownerEmail);
-        const loginPassword = (0, gymOwner_1.cleanOwnerPassword)(ownerPassword);
-        if (!loginEmail || !loginPassword) {
+        const creds = (0, gymOwner_1.readOwnerCredentials)({ ownerUsername, ownerPassword, ownerPasskey });
+        if (!creds.ok) {
+            res.status(400).json({ error: "OwnerLoginRequired", message: creds.message });
+            return;
+        }
+        const { username: loginUsername, password: loginPassword, passkey: loginPasskey } = creds.value;
+        if (!loginUsername || !loginPassword || !loginPasskey) {
             res.status(400).json({
                 error: "OwnerLoginRequired",
-                message: "Add the gym owner's email and a password of 8 to 72 characters. You will give these to the owner.",
+                message: "Set a username, a password of 8 to 72 characters, and a passkey of 6 to 72 characters. You will give all three to the gym owner.",
             });
             return;
         }
@@ -393,8 +401,9 @@ router.post("/gyms", auth_1.requireAuth, requireAdmin, async (req, res) => {
         try {
             const created = await prisma_1.default.$transaction(async (tx) => {
                 const gymOwner = await (0, gymOwner_1.createGymOwner)(tx, {
-                    email: loginEmail,
+                    username: loginUsername,
                     password: loginPassword,
+                    passkey: loginPasskey,
                     name: ownerDisplayName,
                 });
                 const createdGym = await tx.gym.create({
@@ -408,7 +417,7 @@ router.post("/gyms", auth_1.requireAuth, requireAdmin, async (req, res) => {
                         landmark: landmark || null,
                         googleMapsUrl: googleMapsUrl || null,
                         contactPhone: contactPhone || null,
-                        contactEmail: loginEmail,
+                        contactEmail: null,
                         monthlyPrice: priceM,
                         creditCost: derivedCreditCost,
                         weekdayHours: weekdayHours || "06:00 AM - 10:00 PM",
@@ -460,8 +469,9 @@ router.post("/gyms", auth_1.requireAuth, requireAdmin, async (req, res) => {
             owner = created.owner;
         }
         catch (err) {
-            if (err.code === "P2002") {
-                res.status(409).json({ error: "AccountExists", message: "That owner email or gym ID is already used." });
+            const conflict = (0, gymOwner_1.accountConflictMessage)(err);
+            if (conflict) {
+                res.status(409).json({ error: "AccountExists", message: conflict });
                 return;
             }
             throw err;
@@ -471,13 +481,13 @@ router.post("/gyms", auth_1.requireAuth, requireAdmin, async (req, res) => {
                 adminId: req.dbUserId,
                 actionType: "CREATE_GYM",
                 targetId: gym.id,
-                details: `Created gym ${gym.name} (${finalCustomId}) with owner login ${owner.email}`,
+                details: `Created gym ${gym.name} (${finalCustomId}) with owner login ${owner.portalUsername}`,
             },
         });
         res.status(201).json({
             gym,
-            owner: { id: owner.id, email: owner.email, name: owner.name },
-            message: "Gym created. Give the owner that email and password. They sign in on the gym portal, then enter the code sent to that inbox.",
+            owner: { id: owner.id, name: owner.name, portalUsername: owner.portalUsername },
+            message: "Gym created. Give the owner the username, password, and passkey you set. They sign in on the gym portal with the username and either secret. No email code is sent.",
         });
     }
     catch (err) {
@@ -523,7 +533,7 @@ router.put("/gyms/:id/slots", auth_1.requireAuth, requireAdmin, async (req, res)
 router.put("/gyms/:id", auth_1.requireAuth, requireAdmin, async (req, res) => {
     try {
         const gymId = req.params.id;
-        const { customGymId, ownerName, bankDetails, cappingMode, maxDailyVisits, maxSlotVisits, payoutModel, payoutCommissionRate, payoutFixedPerVisit, paymentCycle, isGstRegistered, gstNumber, invoicePrefix, name, description, address, city, state, landmark, googleMapsUrl, contactPhone, monthlyPrice, weekdayHours, weekendHours, facilities, slots, logoUrl, exteriorImageUrl, interiorImageUrls, lat, lng, isVerified, requiresVerification, isActive, ownerEmail, ownerPassword, } = req.body;
+        const { customGymId, ownerName, bankDetails, cappingMode, maxDailyVisits, maxSlotVisits, payoutModel, payoutCommissionRate, payoutFixedPerVisit, paymentCycle, isGstRegistered, gstNumber, invoicePrefix, name, description, address, city, state, landmark, googleMapsUrl, contactPhone, monthlyPrice, weekdayHours, weekendHours, facilities, slots, logoUrl, exteriorImageUrl, interiorImageUrls, lat, lng, isVerified, requiresVerification, isActive, ownerUsername, ownerPassword, ownerPasskey, } = req.body;
         const existingGym = await prisma_1.default.gym.findUnique({ where: { id: gymId } });
         if (!existingGym) {
             res.status(404).json({ error: "NotFound", message: "Gym not found" });
@@ -540,30 +550,34 @@ router.put("/gyms/:id", auth_1.requireAuth, requireAdmin, async (req, res) => {
         const latVal = lat !== undefined ? parseFloat(lat) : existingGym.lat;
         const lngVal = lng !== undefined ? parseFloat(lng) : existingGym.lng;
         let ownerId = existingGym.ownerId;
-        const nextEmail = ownerEmail !== undefined && String(ownerEmail).trim() !== "" ? (0, gymOwner_1.cleanOwnerEmail)(ownerEmail) : null;
-        const passwordText = typeof ownerPassword === "string" ? ownerPassword : "";
-        const nextPassword = passwordText.length > 0 ? (0, gymOwner_1.cleanOwnerPassword)(passwordText) : null;
-        if (ownerEmail !== undefined && String(ownerEmail).trim() !== "" && !nextEmail) {
-            res.status(400).json({ error: "InvalidEmail", message: "Enter a valid owner email." });
+        const creds = (0, gymOwner_1.readOwnerCredentials)({ ownerUsername, ownerPassword, ownerPasskey });
+        if (!creds.ok) {
+            res.status(400).json({ error: "OwnerLoginRequired", message: creds.message });
             return;
         }
-        if (passwordText.length > 0 && !nextPassword) {
-            res.status(400).json({ error: "InvalidPassword", message: "Password must be 8 to 72 characters." });
+        const { username: nextUsername, password: nextPassword, passkey: nextPasskey } = creds.value;
+        const anyCredential = creds.value.usernameProvided || creds.value.passwordProvided || creds.value.passkeyProvided;
+        const ownerRow = ownerId
+            ? await prisma_1.default.user.findUnique({
+                where: { id: ownerId },
+                select: { id: true, portalUsername: true, passwordHash: true, passkeyHash: true },
+            })
+            : null;
+        if (ownerId && !ownerRow) {
+            res.status(404).json({ error: "NotFound", message: "This gym's owner account is missing." });
             return;
         }
-        if (!ownerId && nextEmail && !nextPassword) {
+        const hasLogin = Boolean(ownerRow?.portalUsername && ownerRow.passwordHash && ownerRow.passkeyHash);
+        if (!hasLogin && anyCredential && (!nextUsername || !nextPassword || !nextPasskey)) {
             res.status(400).json({
                 error: "OwnerLoginRequired",
-                message: "This gym has no owner login yet. Set an email and a password of 8 to 72 characters.",
+                message: "This gym has no partner login yet. Set a username, a password of 8 to 72 characters, and a passkey of 6 to 72 characters.",
             });
             return;
         }
-        if (nextEmail && ownerId) {
-            const taken = await prisma_1.default.user.findUnique({ where: { email: nextEmail }, select: { id: true } });
-            if (taken && taken.id !== ownerId) {
-                res.status(409).json({ error: "AccountExists", message: "That owner email is already used." });
-                return;
-            }
+        if (nextUsername && await (0, gymOwner_1.portalUsernameTaken)(prisma_1.default, nextUsername, ownerId ?? undefined)) {
+            res.status(409).json({ error: "AccountExists", message: "That username is already used." });
+            return;
         }
         let nextSlotsJson = existingGym.slotsJson;
         if (slots !== undefined) {
@@ -579,19 +593,22 @@ router.put("/gyms/:id", auth_1.requireAuth, requireAdmin, async (req, res) => {
         let gym;
         try {
             gym = await prisma_1.default.$transaction(async (tx) => {
-                if (!ownerId && nextEmail && nextPassword) {
+                const nextName = typeof ownerName === "string" && ownerName.trim() ? ownerName.trim() : undefined;
+                if (!ownerId && nextUsername && nextPassword && nextPasskey) {
                     const createdOwner = await (0, gymOwner_1.createGymOwner)(tx, {
-                        email: nextEmail,
+                        username: nextUsername,
                         password: nextPassword,
-                        name: (typeof ownerName === "string" && ownerName.trim()) || existingGym.name,
+                        passkey: nextPasskey,
+                        name: nextName || existingGym.name,
                     });
                     ownerId = createdOwner.id;
                 }
-                else if (ownerId && (nextEmail || nextPassword || (typeof ownerName === "string" && ownerName.trim()))) {
+                else if (ownerId && (nextUsername || nextPassword || nextPasskey || nextName)) {
                     await (0, gymOwner_1.updateGymOwnerLogin)(tx, ownerId, {
-                        email: nextEmail || undefined,
+                        username: nextUsername || undefined,
                         password: nextPassword || undefined,
-                        name: typeof ownerName === "string" && ownerName.trim() ? ownerName.trim() : undefined,
+                        passkey: nextPasskey || undefined,
+                        name: nextName,
                     });
                 }
                 return tx.gym.update({
@@ -603,8 +620,12 @@ router.put("/gyms/:id", auth_1.requireAuth, requireAdmin, async (req, res) => {
                             ? (typeof description === "string" && description.trim() ? description.trim() : null)
                             : existingGym.description,
                         address: address !== undefined ? address : existingGym.address,
-                        city: city !== undefined ? city : existingGym.city,
-                        state: state !== undefined ? state : existingGym.state,
+                        city: city !== undefined ? city.trim() : existingGym.city,
+                        state: state !== undefined && state.trim()
+                            ? state.trim()
+                            : ((city && city.toLowerCase().trim() === "udaipur") || existingGym.city?.toLowerCase().trim() === "udaipur"
+                                ? "Rajasthan"
+                                : existingGym.state),
                         landmark: landmark !== undefined ? landmark : existingGym.landmark,
                         googleMapsUrl: googleMapsUrl !== undefined ? googleMapsUrl : existingGym.googleMapsUrl,
                         contactPhone: contactPhone !== undefined ? contactPhone : existingGym.contactPhone,
@@ -619,7 +640,7 @@ router.put("/gyms/:id", auth_1.requireAuth, requireAdmin, async (req, res) => {
                         maxSlotVisits: finalMaxSlot,
                         slotsJson: nextSlotsJson,
                         ownerId,
-                        contactEmail: nextEmail || existingGym.contactEmail,
+                        contactEmail: existingGym.contactEmail,
                         ownerName: ownerName !== undefined ? ownerName : existingGym.ownerName,
                         bankDetailsJson: bankDetails !== undefined ? (typeof bankDetails === "string" ? bankDetails : JSON.stringify(bankDetails)) : existingGym.bankDetailsJson,
                         logoUrl: logoUrl !== undefined ? logoUrl : existingGym.logoUrl,
@@ -644,19 +665,23 @@ router.put("/gyms/:id", auth_1.requireAuth, requireAdmin, async (req, res) => {
                         isActive: isActive !== undefined ? !!isActive : existingGym.isActive,
                     },
                     include: {
-                        owner: { select: { id: true, email: true, name: true } },
+                        owner: { select: { id: true, name: true, portalUsername: true } },
                     },
                 });
             });
         }
         catch (err) {
-            if (err.code === "P2002") {
-                res.status(409).json({ error: "AccountExists", message: "That owner email or gym ID is already used." });
+            const conflict = (0, gymOwner_1.accountConflictMessage)(err);
+            if (conflict) {
+                res.status(409).json({ error: "AccountExists", message: conflict });
                 return;
             }
             throw err;
         }
-        res.json({ gym, message: "Gym updated successfully" });
+        const loginNote = !hasLogin && nextUsername
+            ? " Partner login saved. Give the owner that username, password, and passkey. No email code is sent."
+            : "";
+        res.json({ gym, message: `Gym updated successfully.${loginNote}` });
     }
     catch (err) {
         console.error("Admin update gym error:", err);
@@ -673,7 +698,7 @@ router.get("/gyms/:id", auth_1.requireAuth, requireAdmin, async (req, res) => {
                 plans: {
                     orderBy: { createdAt: "asc" }
                 },
-                owner: { select: { id: true, email: true, name: true } },
+                owner: { select: { id: true, name: true, portalUsername: true } },
             }
         });
         if (!gym)
@@ -783,9 +808,22 @@ router.get("/finance", auth_1.requireAuth, requireAdmin, async (req, res) => {
         });
         const totalPending = (pendingPayouts._sum.amountPaise || 0) / 100;
         const recentPayouts = await prisma_1.default.gymPayout.findMany({
-            include: { gym: true },
-            orderBy: { createdAt: "desc" },
-            take: 10
+            include: {
+                gym: {
+                    select: {
+                        id: true,
+                        name: true,
+                        customGymId: true,
+                        ownerName: true,
+                        contactPhone: true,
+                        city: true,
+                        state: true,
+                        bankDetailsJson: true,
+                    }
+                }
+            },
+            orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+            take: 50
         });
         res.json({
             gmv,
@@ -1009,9 +1047,9 @@ router.get("/users/:id/history", auth_1.requireAuth, requireAdmin, async (req, r
         const userId = req.params.id;
         const bookings = await prisma_1.default.booking.findMany({
             where: { userId },
-            include: { gym: { select: { name: true } } },
+            include: { gym: { select: { name: true, city: true } } },
             orderBy: { createdAt: "desc" },
-            take: 10
+            take: 20
         });
         const transactions = await prisma_1.default.creditTransaction.findMany({
             where: { userId },
@@ -1469,17 +1507,21 @@ router.put("/support/:id/status", auth_1.requireAuth, requireAdmin, async (req, 
 // ─── POST /api/admin/payouts/process ───────────────────────────────────────
 router.post("/payouts/process", auth_1.requireAuth, requireAdmin, async (req, res) => {
     try {
-        const { payoutId } = req.body || {};
+        const { payoutId, referenceNote } = req.body || {};
         const whereClause = { status: "PENDING" };
         if (payoutId) {
             whereClause.id = payoutId;
         }
+        const updateData = {
+            status: "PAID",
+            payoutDate: new Date()
+        };
+        if (referenceNote && typeof referenceNote === "string") {
+            updateData.referenceNote = referenceNote.trim();
+        }
         const result = await prisma_1.default.gymPayout.updateMany({
             where: whereClause,
-            data: {
-                status: "PAID",
-                payoutDate: new Date()
-            }
+            data: updateData
         });
         await prisma_1.default.adminAuditLog.create({
             data: {
@@ -1527,12 +1569,31 @@ router.put("/gym-applications/:id", auth_1.requireAuth, requireAdmin, async (req
                     isActive: true
                 }
             });
-            const gym = await prisma_1.default.gym.findUnique({ where: { id: application.gymId } });
+            const gym = await prisma_1.default.gym.findUnique({
+                where: { id: application.gymId },
+                include: { owner: { select: { id: true, portalUsername: true, passwordHash: true, passkeyHash: true } } },
+            });
             if (gym?.ownerId) {
                 await prisma_1.default.user.update({
                     where: { id: gym.ownerId },
                     data: { systemRole: "GYM_OWNER" }
                 });
+            }
+            const ownerReady = Boolean(gym?.owner?.portalUsername && gym.owner.passwordHash && gym.owner.passkeyHash);
+            if (!ownerReady) {
+                await prisma_1.default.adminAuditLog.create({
+                    data: {
+                        adminId: req.dbUserId,
+                        actionType: "EVALUATE_GYM_APPLICATION",
+                        targetId: application.id,
+                        details: `Updated gym application ${application.id} to ${status}`
+                    }
+                });
+                res.json({
+                    application,
+                    message: "Application approved. Open this gym and set a username, password, and passkey before the owner can sign in.",
+                });
+                return;
             }
         }
         await prisma_1.default.adminAuditLog.create({

@@ -8,6 +8,7 @@ exports.quotePaidMembership = quotePaidMembership;
 const prisma_1 = __importDefault(require("../lib/prisma"));
 const taxDocuments_1 = require("../lib/taxDocuments");
 const errorHandler_1 = require("../middleware/errorHandler");
+const gymCommercial_1 = require("../lib/gymCommercial");
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 async function resolveGym(tx, primaryGymId, gymName) {
     if (UUID_RE.test(primaryGymId)) {
@@ -140,6 +141,22 @@ async function activatePaidMembership(tx, userId, input) {
             amount: remainingCreditsToAdd,
             balanceAfter: updatedWallet.balance,
             description: `Membership ${nextCycleNumber} of 12 activated — ${initialVisits} visits at ${gym.name}, ${remainingCreditsToAdd} credits added.`,
+        },
+    });
+    // Upfront 10-visit lump sum payment for the partner gym (due within 48-72 hours)
+    const singleVisitPayout = (0, gymCommercial_1.visitPayoutInr)(gym);
+    const upfrontPayoutPaise = Math.round(initialVisits * singleVisitPayout * 100);
+    const userRow = await tx.user.findUnique({ where: { id: userId }, select: { name: true, phone: true } });
+    await tx.gymPayout.create({
+        data: {
+            gymId: gym.id,
+            payoutType: "UPFRONT_10_VISITS",
+            visitCount: initialVisits,
+            amountPaise: Math.max(100, upfrontPayoutPaise),
+            status: "PENDING",
+            periodStart: now,
+            periodEnd: new Date(now.getTime() + 72 * 60 * 60 * 1000), // 72-hour settlement window
+            description: `Upfront ${initialVisits}-visit lump sum for ${userRow?.name || "Member"}'s membership (Cycle ${nextCycleNumber}) at ${gym.name}`,
         },
     });
     return {

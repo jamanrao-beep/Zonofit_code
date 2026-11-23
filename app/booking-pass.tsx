@@ -11,6 +11,7 @@ import {
   Animated,
   Platform,
   Linking,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -91,6 +92,7 @@ export default function BookingPassScreen() {
     bookedTokenNumber,
     bookedGymPrefix,
     cancelBooking,
+    isCancelling,
   } = useBookingStore();
 
   const { primaryGymId, primaryGymName } = useUserStore();
@@ -212,6 +214,7 @@ export default function BookingPassScreen() {
   };
 
   const handleCancelBooking = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     const isMandatory = isCostZero;
     const currentCredits = useCreditsStore.getState().credits;
 
@@ -546,10 +549,20 @@ export default function BookingPassScreen() {
               {bookingStatus !== "Checked In" && (
                 <Pressable
                   onPress={handleCancelBooking}
-                  style={styles.dngBtn}
+                  disabled={isCancelling || cancelPrompt !== null}
+                  style={({ pressed }) => [
+                    styles.dngBtn,
+                    (pressed || isCancelling) && { opacity: 0.7 }
+                  ]}
                 >
-                  <Text style={styles.dngBtnText}>Cancel This Booking</Text>
-                  <Text style={styles.dngBtnSub}>Flat 2-credit fee applies</Text>
+                  {isCancelling ? (
+                    <ActivityIndicator size="small" color="#B3261E" />
+                  ) : (
+                    <>
+                      <Text style={styles.dngBtnText}>Cancel This Booking</Text>
+                      <Text style={styles.dngBtnSub}>Flat 2-credit fee applies</Text>
+                    </>
+                  )}
                 </Pressable>
               )}
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuthStore } from "@/store/useAuthStore";
-import { User, Mail, Lock, Building2, Save } from "lucide-react";
+import { User, Lock, Building2, Save } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -111,17 +111,17 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-sm font-semibold text-gray-700">Email Address</label>
+                      <label className="text-sm font-semibold text-gray-700">Sign-in username</label>
                       <div className="relative">
-                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                        <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                         <input 
-                          type="email" 
-                          defaultValue={user.email}
+                          type="text" 
+                          value={user.username || "Not set yet"}
                           disabled
                           className="w-full bg-gray-50 border border-gray-100 rounded-xl py-3 pl-12 pr-4 text-gray-500 cursor-not-allowed"
                         />
                       </div>
-                      <p className="text-xs text-gray-400">Email addresses cannot be changed directly. Contact support.</p>
+                      <p className="text-xs text-gray-400">ZonoFit assigns this username. It is not an email address. Ask support to change it.</p>
                     </div>
 
                     <div className="space-y-2">

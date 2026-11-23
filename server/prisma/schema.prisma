@@ -109,9 +109,11 @@ model User {
   emergencyContact String?
 
   // Portal Authentication
-  systemRole   SystemRole @default(MEMBER)
-  passwordHash String?
-  isSuspended  Boolean    @default(false)
+  systemRole     SystemRole @default(MEMBER)
+  passwordHash   String?
+  portalUsername String?    @unique @db.VarChar(64)
+  passkeyHash    String?    @db.VarChar(191)
+  isSuspended    Boolean    @default(false)
 
   // Referral system (Phase 2 — column exists but logic is Phase 2)
   referralCode     String? @unique
@@ -774,15 +776,19 @@ model SystemSettings {
 // ─────────────────────────────────────────────
 
 model GymPayout {
-  id          String    @id @default(uuid())
-  gymId       String
-  periodStart DateTime
-  periodEnd   DateTime
-  amountPaise Int
-  status      String    @default("PENDING") // PENDING, PAID
-  payoutDate  DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id            String    @id @default(uuid())
+  gymId         String
+  periodStart   DateTime
+  periodEnd     DateTime
+  amountPaise   Int
+  status        String    @default("PENDING") // PENDING, PAID
+  payoutType    String    @default("UPFRONT_10_VISITS") // UPFRONT_10_VISITS, EXTRA_VISITS
+  visitCount    Int       @default(10)
+  description   String?   @db.Text
+  referenceNote String?
+  payoutDate    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   gym Gym @relation(fields: [gymId], references: [id], onDelete: Cascade)
 

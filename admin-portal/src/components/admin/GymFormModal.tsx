@@ -26,6 +26,13 @@ const AVAILABLE_FACILITIES = [
   "Nutrition Cafe"
 ];
 
+function cleanUsername(value: string): string | null {
+  const username = value.trim();
+  if (username.length < 3 || username.length > 64) return null;
+  if (/[\u0000-\u001F\u007F\s]/.test(username)) return null;
+  return username;
+}
+
 const DEFAULT_SLOTS = [
   { slotId: "1", startTime: "06:00 AM", endTime: "07:00 AM", capacity: 8, isEnabled: true },
   { slotId: "2", startTime: "07:00 AM", endTime: "08:00 AM", capacity: 10, isEnabled: true },
@@ -41,8 +48,10 @@ export default function GymFormModal({ isOpen, onClose, onSuccess, initialData }
   // Internal Admin Fields (* star marked)
   const [customGymId, setCustomGymId] = useState(initialData?.customGymId || "");
   const [ownerName, setOwnerName] = useState(initialData?.ownerName || "");
-  const [ownerEmail, setOwnerEmail] = useState(initialData?.owner?.email || initialData?.contactEmail || "");
+  const [ownerUsername, setOwnerUsername] = useState(initialData?.owner?.portalUsername || "");
   const [ownerPassword, setOwnerPassword] = useState("");
+  const [ownerPasskey, setOwnerPasskey] = useState("");
+  const hasExistingLogin = Boolean(initialData?.owner?.portalUsername);
   const storedBank = (() => {
     const raw = initialData?.bankDetails || initialData?.bankDetailsJson;
     if (!raw) return {};
@@ -83,8 +92,10 @@ export default function GymFormModal({ isOpen, onClose, onSuccess, initialData }
   const [name, setName] = useState(initialData?.name || "");
   const [description, setDescription] = useState(initialData?.description || "");
   const [address, setAddress] = useState(initialData?.address || "");
-  const [city, setCity] = useState(initialData?.city || "Mumbai");
-  const [state, setState] = useState(initialData?.state || "Maharashtra");
+  const [city, setCity] = useState(initialData?.city || "Udaipur");
+  const [state, setState] = useState(
+    initialData?.state || (initialData?.city?.toLowerCase()?.includes("udaipur") ? "Rajasthan" : "Maharashtra")
+  );
   const [landmark, setLandmark] = useState(initialData?.landmark || "");
   const [googleMapsUrl, setGoogleMapsUrl] = useState(initialData?.googleMapsUrl || "");
   const [lat, setLat] = useState(initialData?.lat || 18.5204);
@@ -188,17 +199,25 @@ export default function GymFormModal({ isOpen, onClose, onSuccess, initialData }
       setError("Full Address is required");
       return;
     }
-    if (!ownerEmail.trim() || !/^\S+@\S+\.\S+$/.test(ownerEmail.trim())) {
-      setError("Owner email is required. This is the login you give the gym.");
+    const username = cleanUsername(ownerUsername);
+    const passwordSet = ownerPassword.length > 0;
+    const passkeySet = ownerPasskey.length > 0;
+    const anyCredential = ownerUsername.trim().length > 0 || passwordSet || passkeySet;
+    const needFullLogin = !isEdit || (!hasExistingLogin && anyCredential);
+    if (needFullLogin && (!username || ownerPassword.length < 8 || ownerPassword.length > 72 || ownerPasskey.length < 6 || ownerPasskey.length > 72)) {
+      setError("Set a username, a password of 8 to 72 characters, and a passkey of 6 to 72 characters. Symbols are allowed in the username. No spaces.");
       return;
     }
-    const needsNewPassword = !isEdit || !initialData?.owner?.id;
-    if (needsNewPassword && ownerPassword.length < 8) {
-      setError("Set an owner password of at least 8 characters. You will give it to the gym.");
+    if (hasExistingLogin && !username) {
+      setError("Username must be 3 to 64 characters, with no spaces. Symbols are allowed. Leave the password and passkey blank to keep them.");
       return;
     }
-    if (ownerPassword && (ownerPassword.length < 8 || ownerPassword.length > 72)) {
+    if (passwordSet && (ownerPassword.length < 8 || ownerPassword.length > 72)) {
       setError("Owner password must be 8 to 72 characters.");
+      return;
+    }
+    if (passkeySet && (ownerPasskey.length < 6 || ownerPasskey.length > 72)) {
+      setError("Owner passkey must be 6 to 72 characters.");
       return;
     }
 
@@ -212,8 +231,9 @@ export default function GymFormModal({ isOpen, onClose, onSuccess, initialData }
         // Internal Admin (* star)
         customGymId: customGymId.trim() || undefined,
         ownerName: ownerName.trim() || undefined,
-        ownerEmail: ownerEmail.trim().toLowerCase(),
+        ownerUsername: username || undefined,
         ownerPassword: ownerPassword || undefined,
+        ownerPasskey: ownerPasskey || undefined,
         bankDetails,
         cappingMode,
         maxDailyVisits: cappingMode === "DAILY_TOTAL" ? Number(maxDailyVisits) : null,
@@ -263,6 +283,10 @@ export default function GymFormModal({ isOpen, onClose, onSuccess, initialData }
         throw new Error(resJson.message || "Failed to save gym profile");
       }
 
+      const gaveLogin = !isEdit || passwordSet || passkeySet || (!hasExistingLogin && Boolean(username));
+      if (gaveLogin) {
+        window.alert("Give the gym owner the username, password, and passkey from this form. They sign in on the gym portal with the username and either secret. No email code is sent.");
+      }
       onSuccess();
       onClose();
     } catch (err: any) {
@@ -353,33 +377,48 @@ export default function GymFormModal({ isOpen, onClose, onSuccess, initialData }
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-300 uppercase mb-1.5">
-                  * Owner login email
+                  * Owner username
                 </label>
                 <input
-                  type="email"
-                  required
-                  placeholder="owner@gym.com"
-                  value={ownerEmail}
-                  onChange={(e) => setOwnerEmail(e.target.value)}
+                  type="text"
+                  autoComplete="off"
+                  placeholder="e.g. Iron#01"
+                  value={ownerUsername}
+                  onChange={(e) => setOwnerUsername(e.target.value)}
                   className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-300 uppercase mb-1.5">
-                  * Owner login password
+                  * Owner password
                 </label>
                 <input
                   type="text"
-                  autoComplete="new-password"
-                  placeholder={isEdit ? "Leave blank to keep the current password" : "At least 8 characters"}
+                  autoComplete="off"
+                  placeholder={hasExistingLogin ? "Leave blank to keep the current password" : "8 to 72 characters"}
                   value={ownerPassword}
                   onChange={(e) => setOwnerPassword(e.target.value)}
                   className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-300 uppercase mb-1.5">
+                  * Owner passkey
+                </label>
+                <input
+                  type="text"
+                  autoComplete="off"
+                  placeholder={hasExistingLogin ? "Leave blank to keep the current passkey" : "6 to 72 characters"}
+                  value={ownerPasskey}
+                  onChange={(e) => setOwnerPasskey(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
             </div>
             <p className="text-[11px] text-slate-400 -mt-2">
-              Give this email and password to the gym owner. They sign in on the gym portal, then enter the code sent to that inbox.
+              {hasExistingLogin
+                ? "The owner signs in with this username and either the password or the passkey. Leave a secret blank to keep it. No email code is sent."
+                : "Required for a new gym. Give the owner this username, password, and passkey. They sign in with the username and either secret. Symbols are allowed in the username. No email code is sent."}
             </p>
 
             {/* * Visit Capping Model: Mutually Exclusive (NO overlap) */}
@@ -702,8 +741,8 @@ export default function GymFormModal({ isOpen, onClose, onSuccess, initialData }
               />
             </div>
 
-            {/* Address, Landmark & City */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Address, Landmark, City & State */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               <div className="md:col-span-2">
                 <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">
                   Full Address <span className="text-red-500">*</span>
@@ -733,13 +772,45 @@ export default function GymFormModal({ isOpen, onClose, onSuccess, initialData }
 
               <div>
                 <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">
-                  City
+                  City <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="Mumbai / Pune"
+                  required
+                  placeholder="e.g. Udaipur, Mumbai"
                   value={city}
-                  onChange={(e) => setCity(e.target.value)}
+                  onChange={(e) => {
+                    const nextCity = e.target.value;
+                    setCity(nextCity);
+                    const lower = nextCity.toLowerCase().trim();
+                    if (lower === "udaipur" || lower === "jaipur" || lower === "jodhpur" || lower === "kota" || lower === "ajmer" || lower === "bhilwara") {
+                      if (!state || state === "Maharashtra") setState("Rajasthan");
+                    } else if (lower === "mumbai" || lower === "pune" || lower === "nagpur" || lower === "nashik") {
+                      if (!state || state === "Rajasthan") setState("Maharashtra");
+                    } else if (lower.includes("delhi") || lower.includes("ncr") || lower === "noida" || lower === "gurgaon") {
+                      setState("Delhi NCR");
+                    } else if (lower === "bengaluru" || lower === "bangalore") {
+                      setState("Karnataka");
+                    } else if (lower === "hyderabad") {
+                      setState("Telangana");
+                    } else if (lower === "ahmedabad") {
+                      setState("Gujarat");
+                    }
+                  }}
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-black font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">
+                  State <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Rajasthan, Maharashtra"
+                  value={state}
+                  onChange={(e) => setState(e.target.value)}
                   className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-black font-medium"
                 />
               </div>

@@ -1,6 +1,8 @@
+import { createHash } from "crypto";
 import { Request, Response, Router } from "express";
 import { body, validationResult } from "express-validator";
 import bcrypt from "bcryptjs";
+import { cleanPortalUsername } from "../lib/gymOwner";
 import { signToken } from "../lib/jwt";
 import { createEmailCode, emailOtpKey, sendEmailOTP } from "../lib/mail";
 import { EMAIL_OTP_TTL_MINUTES, deleteOTP, emailResendWaitSeconds, setOTP, verifyOTP } from "../lib/otpStore";
@@ -14,7 +16,7 @@ const router = Router();
 router.post("/signup", (_req: Request, res: Response): void => {
   res.status(403).json({
     error: "SignupClosed",
-    message: "Gym partner accounts are created when ZonoFit approves a gym application. Sign in if you already have one.",
+    message: "Gym partner accounts are created by ZonoFit. Sign in with the username, password, or passkey you were given.",
   });
 });
 
@@ -58,9 +60,14 @@ router.post(
         return;
       }
 
-      // Check if they are allowed to login here
-      if (user.systemRole === "MEMBER") {
-        res.status(403).json({ error: "AccessDenied", message: "Standard members cannot access the portal." });
+      // Admin portal only. Gym partners use POST /gym-signin with a username.
+      if (user.systemRole !== "ADMIN") {
+        res.status(403).json({
+          error: "AccessDenied",
+          message: user.systemRole === "GYM_OWNER"
+            ? "Gym partners sign in with the username and password or passkey from ZonoFit."
+            : "Standard members cannot access the portal.",
+        });
         return;
       }
 
@@ -123,5 +130,95 @@ router.post(
     }
   }
 );
+
+function gymLoginBucket(username: string): string {
+  return createHash("sha256").update(username.toLowerCase()).digest("hex").slice(0, 32);
+}
+
+let gymDummyHash = "";
+
+async function burnGymSecretCompare(secret: string): Promise<void> {
+  if (!gymDummyHash) gymDummyHash = await bcrypt.hash("zonofit-gym-portal", 12);
+  await bcrypt.compare(secret, gymDummyHash);
+}
+
+// POST /api/auth/portal/gym-signin
+// Gym owners only. Username plus password, or username plus passkey. No email and no OTP.
+router.post("/gym-signin", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const password = typeof req.body?.password === "string" ? req.body.password : "";
+    const passkey = typeof req.body?.passkey === "string" ? req.body.passkey : "";
+    const username = cleanPortalUsername(req.body?.username);
+    const rawName = typeof req.body?.username === "string" ? req.body.username.trim() : "";
+
+    if (!rawName) {
+      res.status(400).json({ error: "ValidationError", message: "Enter the username ZonoFit gave this gym." });
+      return;
+    }
+    if (password && passkey) {
+      res.status(400).json({ error: "ValidationError", message: "Use the password or the passkey, not both." });
+      return;
+    }
+    const secret = passkey || password;
+    if (!secret) {
+      res.status(400).json({ error: "ValidationError", message: "Enter the password or the passkey." });
+      return;
+    }
+
+    const bucket = gymLoginBucket(username || rawName.slice(0, 64));
+    if (!(await rateLimit(`gym-signin:${bucket}`, 8, 15 * 60 * 1000))) {
+      res.status(429).json({ error: "TooManyRequests", message: "Too many sign-in attempts. Wait a few minutes and try again." });
+      return;
+    }
+
+    const invalid = { error: "InvalidCredentials", message: "That username or secret is not right." };
+    if (!username || secret.length > 72) {
+      await burnGymSecretCompare(secret.slice(0, 72));
+      res.status(401).json(invalid);
+      return;
+    }
+
+    const user = await prisma.user.findFirst({ where: { portalUsername: username } });
+    const hash = passkey ? user?.passkeyHash : user?.passwordHash;
+    if (!user || !hash) {
+      await burnGymSecretCompare(secret);
+      res.status(401).json(invalid);
+      return;
+    }
+
+    const matches = await bcrypt.compare(secret, hash);
+    if (!matches) {
+      res.status(401).json(invalid);
+      return;
+    }
+
+    if (user.isSuspended) {
+      res.status(403).json({ error: "AccountSuspended", message: "Your account has been suspended by an administrator." });
+      return;
+    }
+    if (user.systemRole !== "GYM_OWNER") {
+      res.status(403).json({ error: "AccessDenied", message: "This portal is for gym partners." });
+      return;
+    }
+
+    const token = signToken({
+      dbUserId: user.id,
+      systemRole: user.systemRole,
+    });
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        username: user.portalUsername,
+        role: user.systemRole,
+      },
+    });
+  } catch (err: unknown) {
+    console.error("[AuthPortal Gym Signin Error]", err instanceof Error ? err.message : "Signin failed");
+    res.status(500).json({ error: "InternalServerError", message: "Signin failed." });
+  }
+});
 
 export default router;

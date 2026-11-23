@@ -180,7 +180,7 @@ router.get("/me", auth_1.requireAuth, async (req, res) => {
                 cycleNumber: user.membership.cycleNumber || 1,
                 maxCycles: user.membership.maxCycles || 12,
                 mandatoryVisits: user.membership.mandatoryVisits || ((user.membership.cycleNumber || 1) <= 4 ? 10 : 15),
-                completedVisits: Math.max(user.membership.completedVisits || 0, (user.membership.mandatoryVisits || 10) - (user.membership.primaryGymVisits ?? 10)),
+                completedVisits: Math.max(user.membership.completedVisits || 0, totalWorkouts || 0),
             }
             : null,
         stats: {

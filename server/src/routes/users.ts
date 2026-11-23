@@ -190,7 +190,7 @@ router.get(
                     mandatoryVisits: user.membership.mandatoryVisits || ((user.membership.cycleNumber || 1) <= 4 ? 10 : 15),
                     completedVisits: Math.max(
                         user.membership.completedVisits || 0,
-                        (user.membership.mandatoryVisits || 10) - (user.membership.primaryGymVisits ?? 10)
+                        totalWorkouts || 0
                     ),
                 }
                 : null,

@@ -322,7 +322,9 @@ export default function ProfileScreen() {
               const visitsLeft = typeof visitsRemaining === "number" && visitsRemaining <= mandatoryVisits
                 ? Math.max(0, visitsRemaining)
                 : (typeof membershipInfo?.mandatoryVisitsRemaining === "number" ? membershipInfo.mandatoryVisitsRemaining : mandatoryVisits);
-              const cycleCompletedVisits = Math.max(membershipInfo?.completedVisits ?? 0, mandatoryVisits - visitsLeft);
+              const cycleCompletedVisits = typeof membershipInfo?.completedVisits === "number"
+                ? membershipInfo.completedVisits
+                : 0;
               const totalVisitsCount = Math.max(totalWorkouts || 0, cycleCompletedVisits);
               return (
                 <View style={profileStyles.userStatsRow}>

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { View, Text, Modal, Pressable, StyleSheet, Animated, Easing } from "react-native";
+import { View, Text, Modal, Pressable, StyleSheet, Animated, Easing, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -113,34 +113,34 @@ export default function CancelBookingSheet({
   const run = () => {
     if (busy || phase === "working" || phase === "done") return;
     setBusy(true);
-    setHint("");
     setPhase("working");
+    setHint("Cancelling your booking... Please wait");
     clearTimers();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
 
-    const showSlow = setTimeout(() => setHint("Thank you for being patient."), SLOW_HINT_MS);
+    const showSlow = setTimeout(() => setHint("Thank you for being patient, finalizing cancellation..."), 1200);
     timers.current.push(showSlow);
 
-    afterPaint(() => {
-      void (async () => {
-        try {
-          await onConfirmRef.current();
-          clearTimers();
-          setPhase("done");
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-          const close = setTimeout(() => {
-            setBusy(false);
-            if (onDoneRef.current) onDoneRef.current();
-            else onKeepRef.current();
-          }, SUCCESS_HOLD_MS);
-          timers.current.push(close);
-        } catch (error) {
-          clearTimers();
+    // Immediate execution on very first tap without deferral lag
+    (async () => {
+      try {
+        await onConfirmRef.current();
+        clearTimers();
+        setPhase("done");
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        const close = setTimeout(() => {
           setBusy(false);
-          setFailure(failureCopy(error));
-          setPhase("failed");
-        }
-      })();
-    });
+          if (onDoneRef.current) onDoneRef.current();
+          else onKeepRef.current();
+        }, SUCCESS_HOLD_MS);
+        timers.current.push(close);
+      } catch (error) {
+        clearTimers();
+        setBusy(false);
+        setFailure(failureCopy(error));
+        setPhase("failed");
+      }
+    })();
   };
 
   const spinRotate = spin.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
@@ -180,10 +180,12 @@ export default function CancelBookingSheet({
           ) : null}
 
           {phase === "working" ? (
-            <Reanimated.View entering={FadeIn.duration(280)} style={styles.center}>
-              <Animated.View style={[styles.ring, { transform: [{ rotate: spinRotate }] }]} />
+            <Reanimated.View entering={FadeIn.duration(200)} style={styles.center}>
+              <View style={styles.spinnerWrap}>
+                <ActivityIndicator size="large" color="#1F7A3E" />
+              </View>
               <Text style={styles.workingTitle}>Cancelling your booking</Text>
-              <Text style={styles.hint}>{hint}</Text>
+              <Text style={styles.hint}>{hint || "Please wait while we update your booking..."}</Text>
             </Reanimated.View>
           ) : null}
 
@@ -290,6 +292,14 @@ const styles = StyleSheet.create({
   solidText: { color: "#ffffff", fontSize: 16, fontWeight: "600" },
   pressed: { transform: [{ scale: 0.97 }] },
   center: { alignItems: "center", paddingTop: 26 },
+  spinnerWrap: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: TINT,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   ring: {
     width: 68,
     height: 68,

@@ -386,9 +386,21 @@ export default function AdminUsersPage() {
             <div className="space-y-3 mb-8">
               {historyModal.data?.bookings?.length > 0 ? (
                 historyModal.data.bookings.map((b: any) => (
-                  <div key={b.id} className="p-3 bg-gray-50 rounded-xl flex justify-between">
-                    <span className="font-bold">{b.gym?.name}</span>
-                    <span className="text-gray-500 text-sm">{new Date(b.createdAt).toLocaleDateString()}</span>
+                  <div key={b.id} className="p-3 bg-gray-50 rounded-xl flex items-center justify-between">
+                    <div>
+                      <span className="font-bold text-gray-900">{b.gym?.name}</span>
+                      <div className="text-gray-500 text-xs mt-0.5">
+                        {new Date(b.visitDate || b.createdAt).toLocaleDateString()} {b.timeSlot ? `• ${b.timeSlot}` : ""}
+                      </div>
+                    </div>
+                    <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
+                      b.status === "CANCELLED" ? "bg-red-50 text-red-700 border border-red-200" :
+                      b.status === "COMPLETED" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" :
+                      b.status === "CHECKED_IN" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" :
+                      "bg-blue-50 text-blue-700 border border-blue-200"
+                    }`}>
+                      {b.status}
+                    </span>
                   </div>
                 ))
               ) : (

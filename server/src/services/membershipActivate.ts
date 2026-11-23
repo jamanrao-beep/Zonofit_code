@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import prisma from "../lib/prisma";
 import { membershipTaxBranches } from "../lib/taxDocuments";
 import { createError } from "../middleware/errorHandler";
+import { visitPayoutInr } from "../lib/gymCommercial";
 
 type Tx = Prisma.TransactionClient;
 
@@ -152,6 +153,24 @@ export async function activatePaidMembership(tx: Tx, userId: string, input: Memb
       amount: remainingCreditsToAdd,
       balanceAfter: updatedWallet.balance,
       description: `Membership ${nextCycleNumber} of 12 activated — ${initialVisits} visits at ${gym.name}, ${remainingCreditsToAdd} credits added.`,
+    },
+  });
+
+  // Upfront 10-visit lump sum payment for the partner gym (due within 48-72 hours)
+  const singleVisitPayout = visitPayoutInr(gym);
+  const upfrontPayoutPaise = Math.round(initialVisits * singleVisitPayout * 100);
+  const userRow = await tx.user.findUnique({ where: { id: userId }, select: { name: true, phone: true } });
+
+  await (tx as any).gymPayout.create({
+    data: {
+      gymId: gym.id,
+      payoutType: "UPFRONT_10_VISITS",
+      visitCount: initialVisits,
+      amountPaise: Math.max(100, upfrontPayoutPaise),
+      status: "PENDING",
+      periodStart: now,
+      periodEnd: new Date(now.getTime() + 72 * 60 * 60 * 1000), // 72-hour settlement window
+      description: `Upfront ${initialVisits}-visit lump sum for ${userRow?.name || "Member"}'s membership (Cycle ${nextCycleNumber}) at ${gym.name}`,
     },
   });
 

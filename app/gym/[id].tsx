@@ -71,6 +71,8 @@ export default function GymDetailScreen() {
     image?: string;
     address?: string;
     price?: string;
+    city?: string;
+    restricted?: string;
   }>();
   const id = params.id;
   const isFromOnboarding = useAuthStore(state => state.isViewingOnboardingGym);
@@ -155,10 +157,29 @@ export default function GymDetailScreen() {
 
   const isPrimaryGym = Boolean(primaryGymId && primaryGymId === id);
   const isMandatoryVisit = isPrimaryGym && visitsRemaining > 0;
+  const isUdaipurGym = Boolean(
+    params.city?.toLowerCase()?.trim() === "udaipur" ||
+    live?.city?.toLowerCase()?.trim() === "udaipur" ||
+    (typeof params.address === "string" && /udaipur/i.test(params.address)) ||
+    (typeof live?.address === "string" && /udaipur/i.test(live.address || "")) ||
+    params.restricted === "true"
+  );
+  const isRestrictedInUdaipur = isUdaipurGym && !isPrimaryGym && !isGuest && !isFromOnboarding;
 
   const handleOpenBooking = () => {
     if (!loaded || !live) {
       Alert.alert("Gym unavailable", loaded ? "This gym could not be loaded." : "Gym details are still loading.");
+      return;
+    }
+    if (isRestrictedInUdaipur) {
+      Alert.alert(
+        "Booking Restricted in Udaipur",
+        "As per ZonoFit membership rules, visits within Udaipur are restricted exclusively to your designated Primary Gym.\n\nYou can use your network credits when visiting partner gyms in other cities (such as Delhi NCR, Mumbai, Jaipur).",
+        [
+          { text: "Select Another City", onPress: () => ackPush(router, "/partner-cities") },
+          { text: "Close", style: "cancel" },
+        ]
+      );
       return;
     }
     if (isGuest) {
@@ -359,6 +380,52 @@ export default function GymDetailScreen() {
             </View>
           )}
 
+          {isRestrictedInUdaipur && (
+            <View style={{
+              backgroundColor: '#FEF2F2',
+              borderRadius: 16,
+              padding: 14,
+              marginBottom: 16,
+              borderWidth: 1,
+              borderColor: '#FCA5A5',
+              flexDirection: 'row',
+              alignItems: 'flex-start',
+              gap: 12,
+            }}>
+              <View style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: '#FEE2E2',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                <Ionicons name="lock-closed" size={18} color="#DC2626" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#991B1B' }}>
+                  Restricted in Udaipur
+                </Text>
+                <Text style={{ fontSize: 12, color: '#7F1D1D', marginTop: 4, lineHeight: 18 }}>
+                  Visits within Udaipur are restricted exclusively to your designated Primary Gym. Network credits can only be used at partner gyms in other cities.
+                </Text>
+                <Pressable
+                  onPress={() => ackPush(router, "/partner-cities")}
+                  style={{
+                    alignSelf: 'flex-start',
+                    marginTop: 8,
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    backgroundColor: '#DC2626',
+                    borderRadius: 8,
+                  }}
+                >
+                  <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '700' }}>Select Another City</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
+
           {loaded && !live && (
             <View style={{ backgroundColor: '#F9FAFB', borderRadius: 14, padding: 14, marginBottom: 16 }}>
               <Text style={{ color: '#374151', fontWeight: '600' }}>This gym profile is not available right now.</Text>
@@ -520,6 +587,45 @@ export default function GymDetailScreen() {
         >
           <Text style={styles.bottomLabel}>{openingNext ? "Opening..." : "Next"}</Text>
           <Ionicons name="arrow-forward" size={18} color="white" />
+        </Pressable>
+      ) : isRestrictedInUdaipur ? (
+        <Pressable 
+          onPress={() => {
+            Alert.alert(
+              "Booking Restricted in Udaipur",
+              "As per ZonoFit membership rules, visits within Udaipur are restricted exclusively to your designated Primary Gym.\n\nYou can use your network credits when visiting partner gyms in other cities (such as Delhi NCR, Mumbai, Jaipur).",
+              [
+                { text: "Select Another City", onPress: () => ackPush(router, "/partner-cities") },
+                { text: "Close", style: "cancel" },
+              ]
+            );
+          }}
+          style={[styles.bookBar, {
+            bottom: Math.max(insets.bottom, 16),
+            backgroundColor: '#DC2626',
+            shadowColor: '#DC2626',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 8,
+            elevation: 4,
+          }]}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+            <Ionicons name="lock-closed" size={24} color="white" />
+            <View style={{ marginLeft: 12, flex: 1 }}>
+              <Text style={{ color: 'white', fontSize: 13, fontWeight: '700' }}>
+                Locked in Udaipur
+              </Text>
+              <Text style={{ color: 'white', fontSize: 12, opacity: 0.9 }}>
+                Local visits restricted to Primary Gym
+              </Text>
+            </View>
+          </View>
+          <View style={{ width: 1, height: 32, backgroundColor: 'rgba(255,255,255,0.3)', marginHorizontal: 12 }} />
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={{ color: 'white', fontSize: 13, fontWeight: '700', marginRight: 4 }}>RESTRICTED</Text>
+            <Ionicons name="alert-circle" size={16} color="white" />
+          </View>
         </Pressable>
       ) : (
         <Pressable 

@@ -31,8 +31,8 @@ export default function SignupPage() {
         <div className="wrap">
           <div className="card">
             <h2>Partner access</h2>
-            <p className="sub">ZonoFit creates this login and gives the email and password to the gym.</p>
-            <p className="sub">Open signup is closed. If you already have that login, sign in and enter the code sent to the inbox.</p>
+            <p className="sub">ZonoFit creates this login and gives the gym a username, password, and passkey.</p>
+            <p className="sub">Open signup is closed. If you already have that login, sign in with the username and either the password or the passkey.</p>
             <Link href="/auth/login" className="go">
               <span className="tx">Sign in</span>
             </Link>

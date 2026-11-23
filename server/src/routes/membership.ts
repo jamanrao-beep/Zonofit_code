@@ -89,17 +89,13 @@ router.get(
     const primaryGymVisits = typeof membership.primaryGymVisits === "number"
       ? membership.primaryGymVisits
       : mandatoryVisits;
-    let completedVisits = Math.max(
-      0,
-      membership.completedVisits ?? 0,
-      mandatoryVisits - primaryGymVisits
-    );
-    if ((membership.completedVisits ?? 0) < completedVisits) {
-      await prisma.membership.update({
-        where: { id: membership.id },
-        data: { completedVisits },
-      });
-    }
+    const verifiedVisitsCount = await prisma.booking.count({
+      where: {
+        userId: req.dbUserId!,
+        status: { in: ["CHECKED_IN", "COMPLETED"] },
+      },
+    });
+    const completedVisits = Math.max(0, membership.completedVisits ?? 0, verifiedVisitsCount);
     const mandatoryVisitsRemaining = Math.max(0, primaryGymVisits);
 
     // PRD Rules:

@@ -95,8 +95,9 @@ export default function PartnerGymsScreen() {
     }, [])
   );
 
-  const openGym = (gym: { id: string; name: string; image?: string; address?: string; membershipPrice?: number }) => {
+  const openGym = (gym: { id: string; name: string; image?: string; address?: string; membershipPrice?: number; city?: string }) => {
     if (openingLock.current) return;
+    const isRestricted = Boolean(isUdaipur && !isGuest && (!primaryGym || gym.id !== primaryGym.id));
     const started = ackRoute("Opening…", () => {
       router.push({
         pathname: `/gym/${gym.id}`,
@@ -105,6 +106,8 @@ export default function PartnerGymsScreen() {
           address: gym.address || "",
           image: gym.image || "",
           price: gym.membershipPrice ? String(gym.membershipPrice) : "",
+          city: gym.city || selectedCity || "Udaipur",
+          restricted: isRestricted ? "true" : "false",
         },
       } as any);
     }, () => {
@@ -680,12 +683,12 @@ export default function PartnerGymsScreen() {
                 <Pressable
                   key={gym.id}
                     onPress={() => {
-                      if (isUdaipur && !isGuest) {
+                      if (isUdaipur && !isGuest && (!primaryGym || gym.id !== primaryGym.id)) {
                         Alert.alert(
                           "Udaipur Restriction",
                           `You cannot visit ${gym.name} in Udaipur. As per policy, local visits are restricted to your Primary Gym. Network credits can be used in other cities (e.g. Delhi NCR, Mumbai, Jaipur) when traveling.`,
                           [
-                            { text: "View Details", onPress: () => openGym(gym) },
+                            { text: "View Details (Read Only)", onPress: () => openGym(gym) },
                             { text: "Select Another City", onPress: () => ackPush(router, "/partner-cities") },
                             { text: "Close", style: "cancel" }
                           ]
@@ -787,8 +790,9 @@ export default function PartnerGymsScreen() {
                               "Udaipur Restriction",
                               "You cannot visit other gyms in Udaipur. Your ZonoFit membership allows local visits only at your designated Primary Gym. Network credits can be used in other cities (e.g. Delhi NCR, Mumbai, Jaipur) when traveling.",
                               [
-                                { text: "Got It", style: "cancel" },
-                                { text: "Select Another City", onPress: () => ackPush(router, "/partner-cities") }
+                                { text: "View Details (Read Only)", onPress: () => openGym(gym) },
+                                { text: "Select Another City", onPress: () => ackPush(router, "/partner-cities") },
+                                { text: "Got It", style: "cancel" }
                               ]
                             )}
                             style={styles.lockedPillBtn}
