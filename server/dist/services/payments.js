@@ -36,7 +36,6 @@ async function grantPurchase(tx, order, referenceId) {
 }
 /**
  * Applies a confirmed Pine Labs order once.
- * The stored gateway order id is the `razorpayOrderId` column.
  * `paidPaise` must match the order when the gateway reports an amount.
  */
 async function fulfillPaymentOrder(input) {
@@ -44,8 +43,8 @@ async function fulfillPaymentOrder(input) {
         const order = await tx.paymentOrder.findFirst({
             where: {
                 OR: [
-                    { razorpayOrderId: input.razorpayOrderId },
-                    { metaJson: { contains: input.razorpayOrderId } },
+                    { gatewayOrderId: input.gatewayOrderId },
+                    { metaJson: { contains: input.gatewayOrderId } },
                 ],
             },
         });
@@ -61,11 +60,11 @@ async function fulfillPaymentOrder(input) {
         }
         if (order.status === "CREATED") {
             const claimed = await tx.paymentOrder.updateMany({
-                where: { razorpayOrderId: order.razorpayOrderId, status: "CREATED" },
+                where: { gatewayOrderId: order.gatewayOrderId, status: "CREATED" },
                 data: { status: "PAID" },
             });
             if (claimed.count !== 1) {
-                const latest = await tx.paymentOrder.findUnique({ where: { razorpayOrderId: order.razorpayOrderId } });
+                const latest = await tx.paymentOrder.findUnique({ where: { gatewayOrderId: order.gatewayOrderId } });
                 if (latest?.status === "FULFILLED")
                     return latest;
                 throw (0, errorHandler_1.createError)("Payment is already being processed.", 409, "PaymentConflict");
@@ -97,7 +96,7 @@ async function fulfillPaymentOrder(input) {
             await grantPurchase(tx, order, input.referenceId);
         }
         return tx.paymentOrder.update({
-            where: { razorpayOrderId: order.razorpayOrderId },
+            where: { gatewayOrderId: order.gatewayOrderId },
             data: { status: "FULFILLED" },
         });
     });

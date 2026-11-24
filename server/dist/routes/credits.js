@@ -244,7 +244,7 @@ router.post("/create-order", auth_1.requireAuth, [
         await prisma_1.default.paymentOrder.create({
             data: {
                 userId: req.dbUserId,
-                razorpayOrderId: pluralOrder.orderId,
+                gatewayOrderId: pluralOrder.orderId,
                 amountPaise,
                 creditsToAdd: credits,
                 purpose: "CREDITS",
@@ -370,7 +370,7 @@ router.post("/create-cash-order", auth_1.requireAuth, [
         await prisma_1.default.paymentOrder.create({
             data: {
                 userId: req.dbUserId,
-                razorpayOrderId: pluralOrder.orderId,
+                gatewayOrderId: pluralOrder.orderId,
                 amountPaise,
                 creditsToAdd: 0,
                 cashToAddPaise: amountPaise,

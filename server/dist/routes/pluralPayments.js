@@ -73,7 +73,7 @@ router.post("/webhook", async (req, res) => {
             return;
         }
         await (0, payments_1.fulfillPaymentOrder)({
-            razorpayOrderId: paid.orderId,
+            gatewayOrderId: paid.orderId,
             referenceId: paid.paymentId,
             paidPaise: paid.amountPaise,
         });
@@ -111,7 +111,7 @@ router.post("/verify", auth_1.requireAuth, [(0, express_validator_1.body)("order
         const order = await prisma_1.default.paymentOrder.findFirst({
             where: {
                 OR: [
-                    { razorpayOrderId: orderId },
+                    { gatewayOrderId: orderId },
                     { metaJson: { contains: orderId } },
                 ],
             },
@@ -128,7 +128,7 @@ router.post("/verify", auth_1.requireAuth, [(0, express_validator_1.body)("order
             res.json({ success: true, status: "FULFILLED", message: "Payment already verified and fulfilled." });
             return;
         }
-        const paid = await (0, plural_1.confirmPluralPayment)(order.razorpayOrderId);
+        const paid = await (0, plural_1.confirmPluralPayment)(order.gatewayOrderId);
         if (!paid) {
             res.status(400).json({
                 success: false,
@@ -138,7 +138,7 @@ router.post("/verify", auth_1.requireAuth, [(0, express_validator_1.body)("order
             return;
         }
         await (0, payments_1.fulfillPaymentOrder)({
-            razorpayOrderId: order.razorpayOrderId,
+            gatewayOrderId: order.gatewayOrderId,
             referenceId: paid.paymentId,
             paidPaise: paid.amountPaise,
             userId: req.dbUserId,

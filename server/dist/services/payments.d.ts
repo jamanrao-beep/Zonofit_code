@@ -8,11 +8,10 @@ export interface PaymentMeta {
 }
 /**
  * Applies a confirmed Pine Labs order once.
- * The stored gateway order id is the `razorpayOrderId` column.
  * `paidPaise` must match the order when the gateway reports an amount.
  */
 export declare function fulfillPaymentOrder(input: {
-    razorpayOrderId: string;
+    gatewayOrderId: string;
     referenceId: string;
     paidPaise?: number;
     userId?: string;

@@ -164,7 +164,7 @@ model User {
 model PaymentOrder {
   id              String   @id @default(uuid())
   userId          String
-  razorpayOrderId String   @unique // Pine Labs order id. The column name is historical.
+  gatewayOrderId  String   @unique
   amountPaise     Int
   creditsToAdd    Int
   cashToAddPaise  Int      @default(0)

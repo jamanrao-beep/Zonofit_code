@@ -15,7 +15,7 @@ export interface PaymentMeta {
 
 async function grantPurchase(
   tx: any,
-  order: { userId: string; creditsToAdd: number; cashToAddPaise: number; razorpayOrderId: string },
+  order: { userId: string; creditsToAdd: number; cashToAddPaise: number; gatewayOrderId: string },
   referenceId: string
 ) {
   const wallet = await tx.creditWallet.findUnique({ where: { userId: order.userId } });
@@ -46,11 +46,10 @@ async function grantPurchase(
 
 /**
  * Applies a confirmed Pine Labs order once.
- * The stored gateway order id is the `razorpayOrderId` column.
  * `paidPaise` must match the order when the gateway reports an amount.
  */
 export async function fulfillPaymentOrder(input: {
-  razorpayOrderId: string;
+  gatewayOrderId: string;
   referenceId: string;
   paidPaise?: number;
   userId?: string;
@@ -59,8 +58,8 @@ export async function fulfillPaymentOrder(input: {
     const order = await (tx as any).paymentOrder.findFirst({
       where: {
         OR: [
-          { razorpayOrderId: input.razorpayOrderId },
-          { metaJson: { contains: input.razorpayOrderId } },
+          { gatewayOrderId: input.gatewayOrderId },
+          { metaJson: { contains: input.gatewayOrderId } },
         ],
       },
     });
@@ -75,11 +74,11 @@ export async function fulfillPaymentOrder(input: {
 
     if (order.status === "CREATED") {
       const claimed = await (tx as any).paymentOrder.updateMany({
-        where: { razorpayOrderId: order.razorpayOrderId, status: "CREATED" },
+        where: { gatewayOrderId: order.gatewayOrderId, status: "CREATED" },
         data: { status: "PAID" },
       });
       if (claimed.count !== 1) {
-        const latest = await (tx as any).paymentOrder.findUnique({ where: { razorpayOrderId: order.razorpayOrderId } });
+        const latest = await (tx as any).paymentOrder.findUnique({ where: { gatewayOrderId: order.gatewayOrderId } });
         if (latest?.status === "FULFILLED") return latest;
         throw createError("Payment is already being processed.", 409, "PaymentConflict");
       }
@@ -112,7 +111,7 @@ export async function fulfillPaymentOrder(input: {
     }
 
     return (tx as any).paymentOrder.update({
-      where: { razorpayOrderId: order.razorpayOrderId },
+      where: { gatewayOrderId: order.gatewayOrderId },
       data: { status: "FULFILLED" },
     });
   });

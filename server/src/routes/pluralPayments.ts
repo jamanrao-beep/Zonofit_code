@@ -78,7 +78,7 @@ router.post("/webhook", async (req: Request, res: Response): Promise<void> => {
       return;
     }
     await fulfillPaymentOrder({
-      razorpayOrderId: paid.orderId,
+      gatewayOrderId: paid.orderId,
       referenceId: paid.paymentId,
       paidPaise: paid.amountPaise,
     });
@@ -124,7 +124,7 @@ router.post(
       const order = await (prisma as any).paymentOrder.findFirst({
         where: {
           OR: [
-            { razorpayOrderId: orderId },
+            { gatewayOrderId: orderId },
             { metaJson: { contains: orderId } },
           ],
         },
@@ -143,7 +143,7 @@ router.post(
         return;
       }
 
-      const paid = await confirmPluralPayment(order.razorpayOrderId);
+      const paid = await confirmPluralPayment(order.gatewayOrderId);
       if (!paid) {
         res.status(400).json({
           success: false,
@@ -154,7 +154,7 @@ router.post(
       }
 
       await fulfillPaymentOrder({
-        razorpayOrderId: order.razorpayOrderId,
+        gatewayOrderId: order.gatewayOrderId,
         referenceId: paid.paymentId,
         paidPaise: paid.amountPaise,
         userId: req.dbUserId,

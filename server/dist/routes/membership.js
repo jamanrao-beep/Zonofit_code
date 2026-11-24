@@ -202,7 +202,7 @@ router.post("/create-order", auth_1.requireAuth, [
         await prisma_1.default.paymentOrder.create({
             data: {
                 userId: req.dbUserId,
-                razorpayOrderId: pluralOrder.orderId,
+                gatewayOrderId: pluralOrder.orderId,
                 amountPaise: chargePaise,
                 creditsToAdd: 0,
                 cashToAddPaise: 0,
@@ -269,7 +269,7 @@ router.post("/activate", auth_1.requireAuth, async (req, res) => {
         const order = await prisma_1.default.paymentOrder.findFirst({
             where: {
                 OR: [
-                    { razorpayOrderId: orderLookupId },
+                    { gatewayOrderId: orderLookupId },
                     { metaJson: { contains: orderLookupId } },
                 ],
             },
@@ -287,7 +287,7 @@ router.post("/activate", auth_1.requireAuth, async (req, res) => {
             return;
         }
         if (order.status !== "FULFILLED") {
-            const paid = await (0, plural_1.confirmPluralPayment)(order.razorpayOrderId);
+            const paid = await (0, plural_1.confirmPluralPayment)(order.gatewayOrderId);
             if (!paid) {
                 res.status(402).json({
                     error: "PaymentPending",
@@ -296,7 +296,7 @@ router.post("/activate", auth_1.requireAuth, async (req, res) => {
                 return;
             }
             await (0, payments_1.fulfillPaymentOrder)({
-                razorpayOrderId: order.razorpayOrderId,
+                gatewayOrderId: order.gatewayOrderId,
                 referenceId: paid.paymentId,
                 paidPaise: paid.amountPaise,
                 userId: req.dbUserId,

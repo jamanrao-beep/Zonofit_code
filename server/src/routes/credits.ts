@@ -290,7 +290,7 @@ router.post(
       await (prisma as any).paymentOrder.create({
         data: {
           userId: req.dbUserId!,
-          razorpayOrderId: pluralOrder.orderId,
+          gatewayOrderId: pluralOrder.orderId,
           amountPaise,
           creditsToAdd: credits,
           purpose: "CREDITS",
@@ -436,7 +436,7 @@ router.post(
       await (prisma as any).paymentOrder.create({
         data: {
           userId: req.dbUserId!,
-          razorpayOrderId: pluralOrder.orderId,
+          gatewayOrderId: pluralOrder.orderId,
           amountPaise,
           creditsToAdd: 0,
           cashToAddPaise: amountPaise,

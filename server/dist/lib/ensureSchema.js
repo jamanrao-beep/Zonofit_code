@@ -170,6 +170,26 @@ const STATEMENTS = [
     "ALTER TABLE `gym_payouts` ADD COLUMN `description` TEXT NULL",
     "ALTER TABLE `gym_payouts` ADD COLUMN `referenceNote` VARCHAR(191) NULL",
     "UPDATE `gyms` SET `state` = 'Rajasthan' WHERE LOWER(`city`) = 'udaipur' AND (`state` IS NULL OR `state` = 'Maharashtra' OR `state` = '')",
+    "ALTER TABLE `users` ADD COLUMN `city` VARCHAR(191) NULL",
+    "ALTER TABLE `users` ADD COLUMN `state` VARCHAR(191) NULL",
+    "ALTER TABLE `users` ADD COLUMN `address` TEXT NULL",
+    "ALTER TABLE `users` ADD COLUMN `pincode` VARCHAR(32) NULL",
+    "ALTER TABLE `gyms` ADD COLUMN `authMode` VARCHAR(32) NULL DEFAULT 'BOTH'",
+    "ALTER TABLE `gyms` ADD COLUMN `deskPin` VARCHAR(64) NULL",
+    `CREATE TABLE IF NOT EXISTS \`location_alerts\` (
+    \`id\` VARCHAR(191) NOT NULL,
+    \`userId\` VARCHAR(191) NOT NULL,
+    \`gymId\` VARCHAR(191) NOT NULL,
+    \`distanceMeters\` DOUBLE NOT NULL,
+    \`status\` VARCHAR(64) NOT NULL DEFAULT 'FLAGGED',
+    \`detectedAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    \`adminNotes\` TEXT NULL,
+    PRIMARY KEY (\`id\`),
+    INDEX \`location_alerts_userId_idx\` (\`userId\`),
+    INDEX \`location_alerts_gymId_idx\` (\`gymId\`),
+    INDEX \`location_alerts_status_idx\` (\`status\`),
+    INDEX \`location_alerts_detectedAt_idx\` (\`detectedAt\`)
+  ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
 ];
 function safeDbMessage(err) {
     const message = String(err?.message ?? "");
@@ -177,8 +197,45 @@ function safeDbMessage(err) {
         return "database error";
     return message.slice(0, 240);
 }
+async function columnExists(table, column) {
+    const rows = await prisma_1.default.$queryRaw `
+    SELECT COUNT(*) AS n
+    FROM information_schema.columns
+    WHERE table_schema = DATABASE()
+      AND table_name = ${table}
+      AND column_name = ${column}
+  `;
+    return Number(rows[0]?.n ?? 0) > 0;
+}
+async function indexExists(table, index) {
+    const rows = await prisma_1.default.$queryRaw `
+    SELECT COUNT(*) AS n
+    FROM information_schema.statistics
+    WHERE table_schema = DATABASE()
+      AND table_name = ${table}
+      AND index_name = ${index}
+  `;
+    return Number(rows[0]?.n ?? 0) > 0;
+}
+/** Renames the old gateway column in place. Existing Pine Labs order ids stay on the same rows. */
+async function renamePaymentOrderColumn() {
+    try {
+        const hasOld = await columnExists("payment_orders", "razorpayOrderId");
+        const hasNew = await columnExists("payment_orders", "gatewayOrderId");
+        if (hasOld && !hasNew) {
+            await prisma_1.default.$executeRawUnsafe("ALTER TABLE `payment_orders` CHANGE `razorpayOrderId` `gatewayOrderId` VARCHAR(191) NOT NULL");
+        }
+        if (await indexExists("payment_orders", "payment_orders_razorpayOrderId_key")) {
+            await prisma_1.default.$executeRawUnsafe("ALTER TABLE `payment_orders` RENAME INDEX `payment_orders_razorpayOrderId_key` TO `payment_orders_gatewayOrderId_key`");
+        }
+    }
+    catch (err) {
+        console.warn("[ensureSchema]", safeDbMessage(err));
+    }
+}
 /** Adds columns and tables introduced after the first MySQL deploy. Safe to run on every boot. */
 async function ensureSchema() {
+    await renamePaymentOrderColumn();
     for (const sql of STATEMENTS) {
         try {
             await prisma_1.default.$executeRawUnsafe(sql);

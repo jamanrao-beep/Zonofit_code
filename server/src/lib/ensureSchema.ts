@@ -195,8 +195,51 @@ function safeDbMessage(err: unknown): string {
   return message.slice(0, 240);
 }
 
+async function columnExists(table: string, column: string): Promise<boolean> {
+  const rows = await prisma.$queryRaw<Array<{ n: bigint | number }>>`
+    SELECT COUNT(*) AS n
+    FROM information_schema.columns
+    WHERE table_schema = DATABASE()
+      AND table_name = ${table}
+      AND column_name = ${column}
+  `;
+  return Number(rows[0]?.n ?? 0) > 0;
+}
+
+async function indexExists(table: string, index: string): Promise<boolean> {
+  const rows = await prisma.$queryRaw<Array<{ n: bigint | number }>>`
+    SELECT COUNT(*) AS n
+    FROM information_schema.statistics
+    WHERE table_schema = DATABASE()
+      AND table_name = ${table}
+      AND index_name = ${index}
+  `;
+  return Number(rows[0]?.n ?? 0) > 0;
+}
+
+/** Renames the old gateway column in place. Existing Pine Labs order ids stay on the same rows. */
+async function renamePaymentOrderColumn(): Promise<void> {
+  try {
+    const hasOld = await columnExists("payment_orders", "razorpayOrderId");
+    const hasNew = await columnExists("payment_orders", "gatewayOrderId");
+    if (hasOld && !hasNew) {
+      await prisma.$executeRawUnsafe(
+        "ALTER TABLE `payment_orders` CHANGE `razorpayOrderId` `gatewayOrderId` VARCHAR(191) NOT NULL"
+      );
+    }
+    if (await indexExists("payment_orders", "payment_orders_razorpayOrderId_key")) {
+      await prisma.$executeRawUnsafe(
+        "ALTER TABLE `payment_orders` RENAME INDEX `payment_orders_razorpayOrderId_key` TO `payment_orders_gatewayOrderId_key`"
+      );
+    }
+  } catch (err: unknown) {
+    console.warn("[ensureSchema]", safeDbMessage(err));
+  }
+}
+
 /** Adds columns and tables introduced after the first MySQL deploy. Safe to run on every boot. */
 export async function ensureSchema(): Promise<void> {
+  await renamePaymentOrderColumn();
   for (const sql of STATEMENTS) {
     try {
       await prisma.$executeRawUnsafe(sql);
