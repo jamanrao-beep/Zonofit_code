@@ -335,13 +335,19 @@ router.patch(
             return;
         }
 
-        const { name, phone, email, dob, avatarUrl, expoPushToken } = req.body as {
+        const { name, phone, email, dob, avatarUrl, expoPushToken, gender, emergencyContact, city, state, address, pincode } = req.body as {
             name?: string;
             phone?: string;
             email?: string;
             dob?: string;
             avatarUrl?: string;
             expoPushToken?: string;
+            gender?: string;
+            emergencyContact?: string;
+            city?: string;
+            state?: string;
+            address?: string;
+            pincode?: string;
         };
 
         const current = await prisma.user.findUnique({
@@ -423,8 +429,28 @@ router.patch(
                     ...(nextDob !== undefined && { dob: nextDob }),
                     ...(avatarUrl !== undefined && { avatarUrl }),
                     ...(expoPushToken !== undefined && { expoPushToken }),
+                    ...(gender !== undefined && { gender }),
+                    ...(emergencyContact !== undefined && { emergencyContact }),
+                    ...(city !== undefined && { city }),
+                    ...(state !== undefined && { state }),
+                    ...(address !== undefined && { address }),
+                    ...(pincode !== undefined && { pincode }),
                 },
-                select: { id: true, name: true, phone: true, avatarUrl: true, email: true, dob: true, expoPushToken: true },
+                select: { 
+                    id: true, 
+                    name: true, 
+                    phone: true, 
+                    avatarUrl: true, 
+                    email: true, 
+                    dob: true, 
+                    expoPushToken: true,
+                    gender: true,
+                    emergencyContact: true,
+                    city: true,
+                    state: true,
+                    address: true,
+                    pincode: true,
+                },
             });
             res.json({ user: { ...updated, dob: formatDob(updated.dob) } });
         } catch (err: unknown) {

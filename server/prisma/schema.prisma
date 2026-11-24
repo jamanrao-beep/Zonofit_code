@@ -107,6 +107,10 @@ model User {
   gender           String?
   dob              DateTime?
   emergencyContact String?
+  city             String?
+  state            String?
+  address          String?   @db.Text
+  pincode          String?
 
   // Portal Authentication
   systemRole     SystemRole @default(MEMBER)
@@ -143,6 +147,7 @@ model User {
   featureFeedbacks   FeatureFeedback[]
   paymentOrders      PaymentOrder[]
   notifications      Notification[]
+  locationAlerts     LocationAlert[]
   gymsOwned          Gym[]               @relation("GymOwner")
   savedGyms          SavedGym[]
 
@@ -379,9 +384,34 @@ model Gym {
   gstNumber            String?
   invoicePrefix        String?
 
+  // Front-Desk & Portal Authentication (* internal)
+  authMode             String?   @default("BOTH") // "BOTH" | "PASSWORD" | "PIN"
+  deskPin              String?   // 4-6 digit quick desk PIN
+
+  locationAlerts       LocationAlert[]
+
   @@index([city])
   @@index([isActive])
   @@map("gyms")
+}
+
+model LocationAlert {
+  id             String   @id @default(uuid())
+  userId         String
+  gymId          String
+  distanceMeters Float
+  status         String   @default("FLAGGED") // FLAGGED, VERIFIED_UNBOOKED, RESOLVED, CONTACTED
+  detectedAt     DateTime @default(now())
+  adminNotes     String?  @db.Text
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gym  Gym  @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([gymId])
+  @@index([status])
+  @@index([detectedAt])
+  @@map("location_alerts")
 }
 
 model SavedGym {

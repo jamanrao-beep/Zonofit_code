@@ -167,6 +167,26 @@ const STATEMENTS = [
   "ALTER TABLE `gym_payouts` ADD COLUMN `description` TEXT NULL",
   "ALTER TABLE `gym_payouts` ADD COLUMN `referenceNote` VARCHAR(191) NULL",
   "UPDATE `gyms` SET `state` = 'Rajasthan' WHERE LOWER(`city`) = 'udaipur' AND (`state` IS NULL OR `state` = 'Maharashtra' OR `state` = '')",
+  "ALTER TABLE `users` ADD COLUMN `city` VARCHAR(191) NULL",
+  "ALTER TABLE `users` ADD COLUMN `state` VARCHAR(191) NULL",
+  "ALTER TABLE `users` ADD COLUMN `address` TEXT NULL",
+  "ALTER TABLE `users` ADD COLUMN `pincode` VARCHAR(32) NULL",
+  "ALTER TABLE `gyms` ADD COLUMN `authMode` VARCHAR(32) NULL DEFAULT 'BOTH'",
+  "ALTER TABLE `gyms` ADD COLUMN `deskPin` VARCHAR(64) NULL",
+  `CREATE TABLE IF NOT EXISTS \`location_alerts\` (
+    \`id\` VARCHAR(191) NOT NULL,
+    \`userId\` VARCHAR(191) NOT NULL,
+    \`gymId\` VARCHAR(191) NOT NULL,
+    \`distanceMeters\` DOUBLE NOT NULL,
+    \`status\` VARCHAR(64) NOT NULL DEFAULT 'FLAGGED',
+    \`detectedAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    \`adminNotes\` TEXT NULL,
+    PRIMARY KEY (\`id\`),
+    INDEX \`location_alerts_userId_idx\` (\`userId\`),
+    INDEX \`location_alerts_gymId_idx\` (\`gymId\`),
+    INDEX \`location_alerts_status_idx\` (\`status\`),
+    INDEX \`location_alerts_detectedAt_idx\` (\`detectedAt\`)
+  ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
 ];
 
 function safeDbMessage(err: unknown): string {

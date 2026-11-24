@@ -40,17 +40,19 @@ export function cleanPortalUsername(value: unknown): string | null {
   return username;
 }
 
-/** Admin-assigned gym portal passkey. Any characters, stored only as a hash. */
+/** Admin-assigned gym portal passkey or 4-6 digit quick desk PIN. Stored only as a hash. */
 export function cleanOwnerPasskey(value: unknown): string | null {
   if (typeof value !== "string") return null;
-  if (value.length < 6 || value.length > 72) return null;
-  return value;
+  const pin = value.trim();
+  if (pin.length < 4 || pin.length > 72) return null;
+  return pin;
 }
 
 export type OwnerCredentialInput = {
   username: string | null;
   password: string | null;
   passkey: string | null;
+  authMode: "BOTH" | "PASSWORD" | "PIN";
   usernameProvided: boolean;
   passwordProvided: boolean;
   passkeyProvided: boolean;
@@ -60,16 +62,25 @@ export function readOwnerCredentials(body: {
   ownerUsername?: unknown;
   ownerPassword?: unknown;
   ownerPasskey?: unknown;
+  ownerPin?: unknown;
+  authMode?: unknown;
 }): { ok: true; value: OwnerCredentialInput } | { ok: false; message: string } {
   const usernameRaw = typeof body.ownerUsername === "string" ? body.ownerUsername : "";
   const passwordRaw = typeof body.ownerPassword === "string" ? body.ownerPassword : "";
-  const passkeyRaw = typeof body.ownerPasskey === "string" ? body.ownerPasskey : "";
+  const pinInput = body.ownerPin !== undefined ? body.ownerPin : body.ownerPasskey;
+  const passkeyRaw = typeof pinInput === "string" ? pinInput : "";
+  const rawAuthMode = typeof body.authMode === "string" ? body.authMode.toUpperCase() : "BOTH";
+  const authMode: "BOTH" | "PASSWORD" | "PIN" =
+    rawAuthMode === "PASSWORD" || rawAuthMode === "PIN" ? rawAuthMode : "BOTH";
+
   const usernameProvided = usernameRaw.trim() !== "";
   const passwordProvided = passwordRaw.length > 0;
-  const passkeyProvided = passkeyRaw.length > 0;
+  const passkeyProvided = passkeyRaw.trim().length > 0;
+
   const username = usernameProvided ? cleanPortalUsername(usernameRaw) : null;
   const password = passwordProvided ? cleanOwnerPassword(passwordRaw) : null;
   const passkey = passkeyProvided ? cleanOwnerPasskey(passkeyRaw) : null;
+
   if (usernameProvided && !username) {
     return { ok: false, message: "Username must be 3 to 64 characters, with no spaces. Symbols are allowed." };
   }
@@ -77,11 +88,12 @@ export function readOwnerCredentials(body: {
     return { ok: false, message: "Password must be 8 to 72 characters." };
   }
   if (passkeyProvided && !passkey) {
-    return { ok: false, message: "Passkey must be 6 to 72 characters." };
+    return { ok: false, message: "Desk PIN or passkey must be at least 4 characters (e.g. 4-6 digit PIN)." };
   }
+
   return {
     ok: true,
-    value: { username, password, passkey, usernameProvided, passwordProvided, passkeyProvided },
+    value: { username, password, passkey, authMode, usernameProvided, passwordProvided, passkeyProvided },
   };
 }
 
@@ -102,11 +114,11 @@ function internalOwnerEmail(): string {
 
 export async function createGymOwner(
   db: OwnerClient,
-  input: { username: string; password: string; passkey: string; name: string },
+  input: { username: string; password?: string | null; passkey?: string | null; name: string },
 ) {
   const [passwordHash, passkeyHash] = await Promise.all([
-    bcrypt.hash(input.password, 12),
-    bcrypt.hash(input.passkey, 12),
+    input.password ? bcrypt.hash(input.password, 12) : Promise.resolve(null),
+    input.passkey ? bcrypt.hash(input.passkey, 12) : Promise.resolve(null),
   ]);
   const referralCode = await generateUniqueReferralCode();
   return db.user.create({

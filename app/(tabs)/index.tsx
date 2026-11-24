@@ -27,6 +27,7 @@ import CancelBookingSheet from "@/components/CancelBookingSheet";
 import { SwipeableTabScreen } from "@/components/SwipeableTabScreen";
 import { promptGuestAccount } from "@/lib/guestAccount";
 import { ackPush, ackRoute } from "@/lib/tapAck";
+import { pingLocationProximity } from "@/lib/proximityCheck";
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -151,6 +152,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
+    pingLocationProximity().catch(() => {});
   }, []);
 
   const askCancelToday = () => {

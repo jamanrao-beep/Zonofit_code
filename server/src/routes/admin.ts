@@ -192,16 +192,22 @@ router.get("/users", requireAuth, requireAdmin, async (req: Request, res: Respon
       prisma.user.findMany({
         where,
         include: {
-          membership: true,
+          membership: {
+            include: {
+              plan: { select: { id: true, name: true, monthlyCredits: true } },
+              primaryGym: { select: { id: true, name: true, city: true } }
+            }
+          },
           wallet: true,
           gymsOwned: {
-            select: { id: true, name: true, city: true }
+            select: { id: true, name: true, city: true, authMode: true, deskPin: true }
           },
           _count: {
             select: {
               bookings: {
                 where: { status: { in: ["CONFIRMED", "CHECKED_IN", "COMPLETED"] } }
-              }
+              },
+              locationAlerts: true,
             }
           }
         },
@@ -409,6 +415,8 @@ router.post("/gyms", requireAuth, requireAdmin, async (req: Request, res: Respon
       ownerUsername,
       ownerPassword,
       ownerPasskey,
+      ownerPin,
+      authMode,
     } = req.body;
 
     if (!name || !address) {
@@ -416,17 +424,29 @@ router.post("/gyms", requireAuth, requireAdmin, async (req: Request, res: Respon
       return;
     }
 
-    const creds = readOwnerCredentials({ ownerUsername, ownerPassword, ownerPasskey });
+    const creds = readOwnerCredentials({ ownerUsername, ownerPassword, ownerPasskey, ownerPin, authMode });
     if (!creds.ok) {
       res.status(400).json({ error: "OwnerLoginRequired", message: creds.message });
       return;
     }
-    const { username: loginUsername, password: loginPassword, passkey: loginPasskey } = creds.value;
-    if (!loginUsername || !loginPassword || !loginPasskey) {
+    const { username: loginUsername, password: loginPassword, passkey: loginPasskey, authMode: gymAuthMode } = creds.value;
+    if (!loginUsername) {
       res.status(400).json({
         error: "OwnerLoginRequired",
-        message: "Set a username, a password of 8 to 72 characters, and a passkey of 6 to 72 characters. You will give all three to the gym owner.",
+        message: "Set a portal username or Gym ID for partner login.",
       });
+      return;
+    }
+    if (gymAuthMode === "PASSWORD" && !loginPassword) {
+      res.status(400).json({ error: "OwnerLoginRequired", message: "Password of 8 to 72 characters is required for password login mode." });
+      return;
+    }
+    if (gymAuthMode === "PIN" && !loginPasskey) {
+      res.status(400).json({ error: "OwnerLoginRequired", message: "A 4 to 6 digit desk PIN is required for PIN login mode." });
+      return;
+    }
+    if (gymAuthMode === "BOTH" && !loginPassword && !loginPasskey) {
+      res.status(400).json({ error: "OwnerLoginRequired", message: "Provide at least a password or a desk PIN (or both)." });
       return;
     }
 
@@ -514,6 +534,8 @@ router.post("/gyms", requireAuth, requireAdmin, async (req: Request, res: Respon
             isVerified: isVerified !== undefined ? !!isVerified : true,
             requiresVerification: requiresVerification !== undefined ? !!requiresVerification : false,
             isActive: isActive !== undefined ? !!isActive : true,
+            authMode: gymAuthMode,
+            deskPin: loginPasskey || req.body.deskPin || null,
             partnerSince: new Date(),
           },
         });
@@ -640,6 +662,9 @@ router.put("/gyms/:id", requireAuth, requireAdmin, async (req: Request, res: Res
       ownerUsername,
       ownerPassword,
       ownerPasskey,
+      ownerPin,
+      authMode,
+      deskPin,
     } = req.body;
 
     const existingGym = await prisma.gym.findUnique({ where: { id: gymId } });
@@ -663,12 +688,12 @@ router.put("/gyms/:id", requireAuth, requireAdmin, async (req: Request, res: Res
     const lngVal = lng !== undefined ? parseFloat(lng) : existingGym.lng;
 
     let ownerId = existingGym.ownerId;
-    const creds = readOwnerCredentials({ ownerUsername, ownerPassword, ownerPasskey });
+    const creds = readOwnerCredentials({ ownerUsername, ownerPassword, ownerPasskey, ownerPin, authMode: authMode || existingGym.authMode });
     if (!creds.ok) {
       res.status(400).json({ error: "OwnerLoginRequired", message: creds.message });
       return;
     }
-    const { username: nextUsername, password: nextPassword, passkey: nextPasskey } = creds.value;
+    const { username: nextUsername, password: nextPassword, passkey: nextPasskey, authMode: gymAuthMode } = creds.value;
     const anyCredential = creds.value.usernameProvided || creds.value.passwordProvided || creds.value.passkeyProvided;
     const ownerRow = ownerId
       ? await prisma.user.findUnique({
@@ -680,11 +705,11 @@ router.put("/gyms/:id", requireAuth, requireAdmin, async (req: Request, res: Res
       res.status(404).json({ error: "NotFound", message: "This gym's owner account is missing." });
       return;
     }
-    const hasLogin = Boolean(ownerRow?.portalUsername && ownerRow.passwordHash && ownerRow.passkeyHash);
-    if (!hasLogin && anyCredential && (!nextUsername || !nextPassword || !nextPasskey)) {
+    const hasLogin = Boolean(ownerRow?.portalUsername && (ownerRow.passwordHash || ownerRow.passkeyHash));
+    if (!hasLogin && anyCredential && !nextUsername) {
       res.status(400).json({
         error: "OwnerLoginRequired",
-        message: "This gym has no partner login yet. Set a username, a password of 8 to 72 characters, and a passkey of 6 to 72 characters.",
+        message: "Set a portal username or Gym ID for partner login.",
       });
       return;
     }
@@ -709,7 +734,7 @@ router.put("/gyms/:id", requireAuth, requireAdmin, async (req: Request, res: Res
     try {
       gym = await prisma.$transaction(async (tx) => {
         const nextName = typeof ownerName === "string" && ownerName.trim() ? ownerName.trim() : undefined;
-        if (!ownerId && nextUsername && nextPassword && nextPasskey) {
+        if (!ownerId && nextUsername && (nextPassword || nextPasskey)) {
           const createdOwner = await createGymOwner(tx, {
             username: nextUsername,
             password: nextPassword,
@@ -778,6 +803,8 @@ router.put("/gyms/:id", requireAuth, requireAdmin, async (req: Request, res: Res
             isGstRegistered: isGstRegistered !== undefined ? !!isGstRegistered : existingGym.isGstRegistered,
             gstNumber: isGstRegistered === false ? null : (gstNumber !== undefined ? gstNumber : existingGym.gstNumber),
             invoicePrefix: invoicePrefix !== undefined ? invoicePrefix : existingGym.invoicePrefix,
+            authMode: authMode !== undefined ? authMode : existingGym.authMode,
+            deskPin: deskPin !== undefined ? deskPin : (nextPasskey || existingGym.deskPin),
 
             lat: latVal,
             lng: lngVal,
@@ -1251,18 +1278,159 @@ router.put("/settings", requireAuth, requireAdmin, async (req: Request, res: Res
 router.get("/users/:id/history", requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
     const userId = req.params.id as string;
-    const bookings = await prisma.booking.findMany({
-      where: { userId },
-      include: { gym: { select: { name: true, city: true } } },
-      orderBy: { createdAt: "desc" },
-      take: 20
+    const [user, bookings, transactions, locationAlerts] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          membership: {
+            include: {
+              plan: true,
+              primaryGym: { select: { id: true, name: true, city: true, address: true } }
+            }
+          },
+          wallet: true,
+          gymsOwned: {
+            select: { id: true, name: true, city: true, authMode: true, deskPin: true }
+          },
+          _count: {
+            select: {
+              bookings: { where: { status: { in: ["CONFIRMED", "CHECKED_IN", "COMPLETED"] } } },
+              locationAlerts: true,
+            }
+          }
+        }
+      }),
+      prisma.booking.findMany({
+        where: { userId },
+        include: { gym: { select: { name: true, city: true, address: true } } },
+        orderBy: { createdAt: "desc" },
+        take: 20
+      }),
+      prisma.creditTransaction.findMany({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+        take: 15
+      }),
+      prisma.locationAlert.findMany({
+        where: { userId },
+        include: { gym: { select: { name: true, city: true } } },
+        orderBy: { detectedAt: "desc" },
+        take: 10
+      })
+    ]);
+
+    if (!user) {
+      res.status(404).json({ error: "NotFound", message: "User not found." });
+      return;
+    }
+
+    res.json({ user, bookings, transactions, locationAlerts });
+  } catch (err: any) {
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
+// ─── GET /api/admin/location-alerts ───────────────────────────────────────────
+router.get("/location-alerts", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const status = req.query.status as string | undefined;
+    const page = Math.max(1, parseInt((req.query.page as string) || "1", 10));
+    const limit = Math.max(1, Math.min(100, parseInt((req.query.limit as string) || "10", 10)));
+    const search = ((req.query.search as string) || "").trim();
+
+    const where: any = {};
+    if (status && status !== "ALL") {
+      where.status = status;
+    }
+    if (search) {
+      where.OR = [
+        { user: { name: { contains: search } } },
+        { user: { phone: { contains: search } } },
+        { user: { email: { contains: search } } },
+        { gym: { name: { contains: search } } },
+        { gym: { city: { contains: search } } },
+      ];
+    }
+
+    const [alerts, total, countsByStatus] = await Promise.all([
+      prisma.locationAlert.findMany({
+        where,
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+              email: true,
+              avatarUrl: true,
+              dob: true,
+              membership: {
+                select: { status: true, plan: { select: { name: true } } }
+              }
+            }
+          },
+          gym: {
+            select: {
+              id: true,
+              name: true,
+              city: true,
+              address: true,
+              contactPhone: true,
+            }
+          }
+        },
+        orderBy: { detectedAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.locationAlert.count({ where }),
+      prisma.locationAlert.groupBy({
+        by: ["status"],
+        _count: { _all: true },
+      }),
+    ]);
+
+    const totalPages = Math.ceil(total / limit) || 1;
+    const counts = countsByStatus.reduce((acc, curr) => {
+      acc[curr.status] = curr._count._all;
+      return acc;
+    }, {} as Record<string, number>);
+
+    res.json({
+      alerts,
+      pagination: { page, limit, total, totalPages },
+      counts: {
+        ALL: Object.values(counts).reduce((a, b) => a + b, 0),
+        FLAGGED: counts.FLAGGED || 0,
+        CONTACTED: counts.CONTACTED || 0,
+        RESOLVED: counts.RESOLVED || 0,
+      }
     });
-    const transactions = await prisma.creditTransaction.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-      take: 10
+  } catch (err: any) {
+    console.error("[Admin Location Alerts Error]", err);
+    res.status(500).json({ error: "ServerError", message: err.message });
+  }
+});
+
+// ─── PATCH /api/admin/location-alerts/:id ─────────────────────────────────────
+router.patch("/location-alerts/:id", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const alertId = req.params.id as string;
+    const { status, adminNotes } = req.body;
+
+    const updated = await prisma.locationAlert.update({
+      where: { id: alertId },
+      data: {
+        ...(status ? { status } : {}),
+        ...(adminNotes !== undefined ? { adminNotes } : {}),
+      },
+      include: {
+        user: { select: { id: true, name: true, phone: true } },
+        gym: { select: { id: true, name: true } },
+      }
     });
-    res.json({ bookings, transactions });
+
+    res.json({ success: true, alert: updated });
   } catch (err: any) {
     res.status(500).json({ error: "ServerError", message: err.message });
   }

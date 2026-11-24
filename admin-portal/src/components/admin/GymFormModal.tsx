@@ -51,6 +51,10 @@ export default function GymFormModal({ isOpen, onClose, onSuccess, initialData }
   const [ownerUsername, setOwnerUsername] = useState(initialData?.owner?.portalUsername || "");
   const [ownerPassword, setOwnerPassword] = useState("");
   const [ownerPasskey, setOwnerPasskey] = useState("");
+  const [deskPin, setDeskPin] = useState(initialData?.deskPin || "");
+  const [authMode, setAuthMode] = useState<"BOTH" | "PASSWORD" | "PIN">(
+    initialData?.authMode === "PASSWORD" || initialData?.authMode === "PIN" ? initialData.authMode : "BOTH"
+  );
   const hasExistingLogin = Boolean(initialData?.owner?.portalUsername);
   const storedBank = (() => {
     const raw = initialData?.bankDetails || initialData?.bankDetailsJson;
@@ -233,7 +237,10 @@ export default function GymFormModal({ isOpen, onClose, onSuccess, initialData }
         ownerName: ownerName.trim() || undefined,
         ownerUsername: username || undefined,
         ownerPassword: ownerPassword || undefined,
-        ownerPasskey: ownerPasskey || undefined,
+        ownerPasskey: deskPin.trim() || ownerPasskey || undefined,
+        ownerPin: deskPin.trim() || undefined,
+        deskPin: deskPin.trim() || undefined,
+        authMode,
         bankDetails,
         cappingMode,
         maxDailyVisits: cappingMode === "DAILY_TOTAL" ? Number(maxDailyVisits) : null,
@@ -375,50 +382,105 @@ export default function GymFormModal({ isOpen, onClose, onSuccess, initialData }
                   className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
+              {/* Login Method / Auth Mode Selection */}
+              <div className="md:col-span-2 bg-slate-800/60 p-3.5 rounded-xl border border-slate-700/60">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-200 uppercase">
+                      * Desk Login Authentication Mode
+                    </label>
+                    <span className="text-[11px] text-slate-400">
+                      Choose whether gym staff log in using Password, Quick Desk PIN, or Both.
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-700">
+                    <button
+                      type="button"
+                      onClick={() => setAuthMode("BOTH")}
+                      className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
+                        authMode === "BOTH"
+                          ? "bg-emerald-600 text-white shadow-sm"
+                          : "text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      Password OR PIN
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAuthMode("PASSWORD")}
+                      className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
+                        authMode === "PASSWORD"
+                          ? "bg-emerald-600 text-white shadow-sm"
+                          : "text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      Password Only
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAuthMode("PIN")}
+                      className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
+                        authMode === "PIN"
+                          ? "bg-emerald-600 text-white shadow-sm"
+                          : "text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      PIN Only
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-slate-300 uppercase mb-1.5">
-                  * Owner username
+                  * Portal Username / ID
                 </label>
                 <input
                   type="text"
                   autoComplete="off"
-                  placeholder="e.g. Iron#01"
+                  placeholder="e.g. Iron#01 or ZONO-001"
                   value={ownerUsername}
                   onChange={(e) => setOwnerUsername(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
                 />
               </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-300 uppercase mb-1.5">
-                  * Owner password
-                </label>
-                <input
-                  type="text"
-                  autoComplete="off"
-                  placeholder={hasExistingLogin ? "Leave blank to keep the current password" : "8 to 72 characters"}
-                  value={ownerPassword}
-                  onChange={(e) => setOwnerPassword(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-300 uppercase mb-1.5">
-                  * Owner passkey
-                </label>
-                <input
-                  type="text"
-                  autoComplete="off"
-                  placeholder={hasExistingLogin ? "Leave blank to keep the current passkey" : "6 to 72 characters"}
-                  value={ownerPasskey}
-                  onChange={(e) => setOwnerPasskey(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
+
+              {authMode !== "PIN" && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 uppercase mb-1.5">
+                    * Manager Password {authMode === "BOTH" ? "(Optional if PIN set)" : ""}
+                  </label>
+                  <input
+                    type="text"
+                    autoComplete="off"
+                    placeholder={hasExistingLogin ? "Leave blank to keep current password" : "8 to 72 characters"}
+                    value={ownerPassword}
+                    onChange={(e) => setOwnerPassword(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              )}
+
+              {authMode !== "PASSWORD" && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 uppercase mb-1.5">
+                    * Quick Desk PIN {authMode === "BOTH" ? "(Optional if password set)" : ""}
+                  </label>
+                  <input
+                    type="text"
+                    autoComplete="off"
+                    maxLength={10}
+                    placeholder={initialData?.deskPin ? `Current PIN: ${initialData.deskPin} (or new 4-6 digit)` : "4 to 6 digit quick entry PIN (e.g. 1234)"}
+                    value={deskPin}
+                    onChange={(e) => setDeskPin(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono tracking-widest"
+                  />
+                </div>
+              )}
             </div>
             <p className="text-[11px] text-slate-400 -mt-2">
-              {hasExistingLogin
-                ? "The owner signs in with this username and either the password or the passkey. Leave a secret blank to keep it. No email code is sent."
-                : "Required for a new gym. Give the owner this username, password, and passkey. They sign in with the username and either secret. Symbols are allowed in the username. No email code is sent."}
+              Staff and managers can log in using their username and {authMode === "BOTH" ? "either their password OR their quick desk PIN" : authMode === "PIN" ? "their quick 4-6 digit desk PIN" : "their secure password"}.
             </p>
 
             {/* * Visit Capping Model: Mutually Exclusive (NO overlap) */}
