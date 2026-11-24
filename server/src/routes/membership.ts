@@ -6,7 +6,7 @@ import { membershipTaxBranches } from "../lib/taxDocuments";
 import { quotedFreeMonth, redeemFreeMonth, redeemOpenFreeMonth } from "../lib/referralRewards";
 import { activatePaidMembership, quotePaidMembership, type MembershipActivationInput } from "../services/membershipActivate";
 import { fulfillPaymentOrder, getRazorpay, getRazorpayConfig, isRazorpayConfigured, verifyCheckoutSignature } from "../services/payments";
-import { createPluralOrder, getPluralOrderStatus, isPluralConfigured } from "../services/plural";
+import { confirmPluralPayment, createPluralOrder, isPluralConfigured } from "../services/plural";
 import { sendPushNotification } from "../services/notifications";
 
 const router = Router();
@@ -370,18 +370,12 @@ router.post(
         if (order.status !== "FULFILLED") {
           if (isPluralConfigured()) {
             try {
-              const pluralOrder = await getPluralOrderStatus(orderLookupId);
-              const pluralStatus = (pluralOrder?.status || "").toUpperCase();
-              if (
-                pluralStatus === "CHARGED" ||
-                pluralStatus === "CAPTURED" ||
-                pluralStatus === "SUCCESS" ||
-                pluralStatus === "SUCCESSFUL" ||
-                pluralStatus === "PROCESSED"
-              ) {
+              const paid = await confirmPluralPayment(order.razorpayOrderId);
+              if (paid) {
                 await fulfillPaymentOrder({
                   razorpayOrderId: order.razorpayOrderId,
-                  referenceId: pluralOrder?.payment_id || `plrl_${Date.now()}`,
+                  referenceId: paid.paymentId,
+                  paidPaise: paid.amountPaise,
                   userId: req.dbUserId,
                 });
               }

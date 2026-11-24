@@ -13,10 +13,10 @@ import { usePatientHint } from "@/lib/usePatientHint";
 export default function PaymentResultScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ status?: string; order_id?: string }>();
-  const isSuccess = params.status === "success";
-  const orderId = params.order_id;
+  const orderId = typeof params.order_id === "string" ? params.order_id : "";
 
-  const [verifying, setVerifying] = useState(isSuccess);
+  const [verifying, setVerifying] = useState(Boolean(orderId));
+  const [paid, setPaid] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const patient = usePatientHint(verifying);
 
@@ -24,27 +24,34 @@ export default function PaymentResultScreen() {
     let mounted = true;
 
     async function syncPayment() {
-      if (!isSuccess || !orderId) {
+      if (!orderId) {
         setVerifying(false);
         return;
       }
 
       try {
         const token = useAuthStore.getState().token;
-        if (token) {
-          // Verify with server
-          await apiFetch("/api/payments/plural/verify", {
-            method: "POST",
-            token,
-            body: JSON.stringify({ orderId }),
-          }).catch(() => {});
-
-          // Refresh wallet and profile
-          await Promise.all([
-            useCreditsStore.getState().fetchWallet(token, { force: true }),
-            useUserStore.getState().fetchProfile(token),
-          ]);
+        if (!token) {
+          if (mounted) setErrorMsg("Sign in again to confirm this payment.");
+          return;
         }
+
+        const verifyRes = await apiFetch("/api/payments/plural/verify", {
+          method: "POST",
+          token,
+          body: JSON.stringify({ orderId }),
+        });
+        const confirmed = Boolean(verifyRes?.success || verifyRes?.status === "FULFILLED");
+        if (!confirmed) {
+          if (mounted) setErrorMsg(verifyRes?.message || "Payment is not confirmed yet.");
+          return;
+        }
+
+        if (mounted) setPaid(true);
+        await Promise.all([
+          useCreditsStore.getState().fetchWallet(token, { force: true }),
+          useUserStore.getState().fetchProfile(token),
+        ]);
       } catch (err: any) {
         if (mounted) setErrorMsg(err?.message || "Payment sync failed");
       } finally {
@@ -57,7 +64,7 @@ export default function PaymentResultScreen() {
     return () => {
       mounted = false;
     };
-  }, [isSuccess, orderId]);
+  }, [orderId]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -70,7 +77,7 @@ export default function PaymentResultScreen() {
               {patient ? "Thank you for being patient." : "Securing your fitness credits and membership status."}
             </Text>
           </>
-        ) : isSuccess ? (
+        ) : paid ? (
           <>
             <View style={[styles.iconCircle, styles.successCircle]}>
               <Ionicons name="checkmark" size={36} color="#166534" />
@@ -93,7 +100,7 @@ export default function PaymentResultScreen() {
             </View>
             <Text style={styles.title}>Payment Incomplete</Text>
             <Text style={styles.subtitle}>
-              {errorMsg || "The transaction was not completed. No money was deducted, or pending refunds will be settled."}
+              {errorMsg || "Pine Labs has not confirmed this payment yet. If money left your account, open the wallet again in a minute."}
             </Text>
             <Pressable
               style={[styles.button, styles.failBtn]}

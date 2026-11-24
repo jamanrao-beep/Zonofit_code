@@ -1,6 +1,7 @@
+import type { IncomingHttpHeaders } from "http";
 /**
- * Plural by Pine Labs API Configuration
- * Supports both UAT / Sandbox and Production environments.
+ * Plural by Pine Labs hosted checkout.
+ * UAT and production use different hosts and different dashboard credentials.
  */
 export interface PluralConfig {
     clientId: string;
@@ -10,13 +11,6 @@ export interface PluralConfig {
     baseUrl: string;
     isUat: boolean;
 }
-export declare function getPluralConfig(): PluralConfig | null;
-export declare function isPluralConfigured(): boolean;
-/**
- * Generates an OAuth2 Bearer Access Token from Plural using client credentials.
- * Automatically caches token in memory until expiration.
- */
-export declare function getPluralAccessToken(): Promise<string>;
 export interface CreateOrderParams {
     merchantReference: string;
     amountPaise: number;
@@ -34,16 +28,54 @@ export interface PluralOrderResult {
     currency: string;
     merchantReference: string;
 }
+export interface PluralOrderSnapshot {
+    orderId: string;
+    merchantReference: string | null;
+    merchantId: string | null;
+    status: string;
+    amountPaise: number | null;
+    currency: string;
+    paymentId: string | null;
+}
+export interface ConfirmedPluralPayment {
+    orderId: string;
+    merchantReference: string | null;
+    paymentId: string;
+    amountPaise: number;
+}
+export declare function getPluralConfig(): PluralConfig | null;
+export declare function isPluralConfigured(): boolean;
 /**
- * Creates an order on Plural by Pine Labs and returns the Hosted Checkout redirect URL.
+ * Bearer token for Pine Labs. Cached until shortly before it expires.
+ */
+export declare function getPluralAccessToken(): Promise<string>;
+/**
+ * Creates a hosted-checkout order and returns the Pine Labs redirect URL.
+ * Credits are not granted here.
  */
 export declare function createPluralOrder(params: CreateOrderParams): Promise<PluralOrderResult>;
 /**
- * Verifies an incoming webhook HMAC-SHA256 signature from Plural.
+ * Standard Webhooks signature: HMAC-SHA256 over webhook-id.timestamp.rawBody.
+ * The header is a space-separated list of `v1,<base64>` values.
  */
-export declare function verifyPluralWebhookSignature(rawBody: Buffer | string, signature: string | undefined): boolean;
+export declare function verifyPluralWebhookSignature(rawBody: Buffer | string, headers: IncomingHttpHeaders): boolean;
 /**
- * Queries Plural server-to-server for definitive status of an order.
+ * Return-URL signature. Pine Labs signs the sorted key=value pairs.
+ * Their sample hex-decodes the secret; the written steps use the secret itself.
+ * Either match is accepted. The caller still confirms the order with Get Order.
  */
-export declare function getPluralOrderStatus(orderId: string): Promise<any>;
+export declare function verifyPluralReturnSignature(fields: Record<string, string>, signature: string | undefined): boolean;
+/**
+ * Reads an order from a Get Order body (`{ data }`) or a webhook `data` object.
+ */
+export declare function readPluralOrder(payload: unknown): PluralOrderSnapshot | null;
+/**
+ * Fetches the Pine Labs order. Status lives under data.status.
+ */
+export declare function getPluralOrderStatus(orderId: string): Promise<unknown>;
+/**
+ * A paid hosted checkout with pre_auth false is status PROCESSED.
+ * AUTHORIZED is not captured and does not grant credits.
+ */
+export declare function confirmPluralPayment(orderId: string): Promise<ConfirmedPluralPayment | null>;
 //# sourceMappingURL=plural.d.ts.map

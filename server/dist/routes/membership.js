@@ -302,16 +302,12 @@ router.post("/activate", auth_1.requireAuth, async (req, res) => {
             if (order.status !== "FULFILLED") {
                 if ((0, plural_1.isPluralConfigured)()) {
                     try {
-                        const pluralOrder = await (0, plural_1.getPluralOrderStatus)(orderLookupId);
-                        const pluralStatus = (pluralOrder?.status || "").toUpperCase();
-                        if (pluralStatus === "CHARGED" ||
-                            pluralStatus === "CAPTURED" ||
-                            pluralStatus === "SUCCESS" ||
-                            pluralStatus === "SUCCESSFUL" ||
-                            pluralStatus === "PROCESSED") {
+                        const paid = await (0, plural_1.confirmPluralPayment)(order.razorpayOrderId);
+                        if (paid) {
                             await (0, payments_1.fulfillPaymentOrder)({
                                 razorpayOrderId: order.razorpayOrderId,
-                                referenceId: pluralOrder?.payment_id || `plrl_${Date.now()}`,
+                                referenceId: paid.paymentId,
+                                paidPaise: paid.amountPaise,
                                 userId: req.dbUserId,
                             });
                         }

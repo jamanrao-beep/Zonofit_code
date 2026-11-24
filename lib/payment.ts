@@ -47,21 +47,20 @@ export async function handlePaymentCheckout(
       console.warn("[Payment] Browser session finished or dismissed:", browserErr);
     }
 
-    // After browser closes, query backend server-to-server for verified fulfillment
-    if (orderId) {
-      const verifyRes = await apiFetch("/api/payments/plural/verify", {
-        method: "POST",
-        token: options?.token,
-        body: JSON.stringify({ orderId }),
-      });
-
-      if (verifyRes?.success || verifyRes?.status === "FULFILLED") {
-        return { success: true, orderId };
-      }
-      throw new Error(verifyRes?.message || "Payment is pending or was not completed.");
+    if (!orderId) {
+      throw new Error("Payment could not be confirmed.");
     }
 
-    return { success: true, orderId };
+    const verifyRes = await apiFetch("/api/payments/plural/verify", {
+      method: "POST",
+      token: options?.token,
+      body: JSON.stringify({ orderId }),
+    });
+
+    if (verifyRes?.success || verifyRes?.status === "FULFILLED") {
+      return { success: true, orderId };
+    }
+    throw new Error(verifyRes?.message || "Payment is pending or was not completed.");
   }
 
   // 3. Fallback to Razorpay if orderData contains keyId and razorpayOrderId

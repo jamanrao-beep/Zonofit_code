@@ -8,7 +8,10 @@ exports.isPluralConfigured = isPluralConfigured;
 exports.getPluralAccessToken = getPluralAccessToken;
 exports.createPluralOrder = createPluralOrder;
 exports.verifyPluralWebhookSignature = verifyPluralWebhookSignature;
+exports.verifyPluralReturnSignature = verifyPluralReturnSignature;
+exports.readPluralOrder = readPluralOrder;
 exports.getPluralOrderStatus = getPluralOrderStatus;
+exports.confirmPluralPayment = confirmPluralPayment;
 const crypto_1 = __importDefault(require("crypto"));
 const errorHandler_1 = require("../middleware/errorHandler");
 let cachedToken = null;
@@ -37,25 +40,27 @@ function getPluralConfig() {
 function isPluralConfigured() {
     return getPluralConfig() !== null;
 }
-/**
- * Generates an OAuth2 Bearer Access Token from Plural using client credentials.
- * Automatically caches token in memory until expiration.
- */
-async function getPluralAccessToken() {
-    const config = getPluralConfig();
-    if (!config) {
-        throw (0, errorHandler_1.createError)("Plural payment gateway is not configured.", 503, "PluralNotConfigured");
-    }
-    const now = Date.now();
-    if (cachedToken && cachedToken.expiresAt > now + 60000) {
-        return cachedToken.token;
-    }
+function requestHeaders(token) {
+    const headers = {
+        accept: "application/json",
+        "Request-Timestamp": new Date().toISOString(),
+        "Request-ID": crypto_1.default.randomUUID(),
+    };
+    if (token)
+        headers.Authorization = `Bearer ${token}`;
+    return headers;
+}
+function safeGatewayError(text) {
+    return text
+        .replace(/client_secret"\s*:\s*"[^"]*"/gi, 'client_secret":"[redacted]"')
+        .slice(0, 300);
+}
+async function requestToken(config) {
     const res = await fetch(`${config.baseUrl}/api/auth/v1/token`, {
         method: "POST",
         headers: {
-            "Content-Type": "application/json",
-            "Request-Timestamp": new Date().toISOString(),
-            "Request-ID": `req_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+            ...requestHeaders(),
+            "content-type": "application/json",
         },
         body: JSON.stringify({
             client_id: config.clientId,
@@ -65,73 +70,123 @@ async function getPluralAccessToken() {
     });
     if (!res.ok) {
         const errorText = await res.text();
-        console.error("[Plural] Auth token request failed:", res.status, errorText);
-        throw (0, errorHandler_1.createError)(`Plural authentication failed: ${res.statusText}`, 502, "PluralAuthFailed");
+        console.error("[Plural] Auth token request failed:", res.status, safeGatewayError(errorText));
+        throw (0, errorHandler_1.createError)("Pine Labs authentication failed.", 502, "PluralAuthFailed");
     }
     const data = await res.json();
     if (!data.access_token) {
-        throw (0, errorHandler_1.createError)("Plural did not return an access token.", 502, "PluralAuthFailed");
+        throw (0, errorHandler_1.createError)("Pine Labs did not return an access token.", 502, "PluralAuthFailed");
     }
     const ttlMs = (data.expires_in || 3600) * 1000;
     cachedToken = {
         token: data.access_token,
-        expiresAt: now + ttlMs,
+        expiresAt: Date.now() + ttlMs,
+        clientId: config.clientId,
     };
     return data.access_token;
 }
 /**
- * Creates an order on Plural by Pine Labs and returns the Hosted Checkout redirect URL.
+ * Bearer token for Pine Labs. Cached until shortly before it expires.
+ */
+async function getPluralAccessToken() {
+    const config = getPluralConfig();
+    if (!config) {
+        throw (0, errorHandler_1.createError)("Plural payment gateway is not configured.", 503, "PluralNotConfigured");
+    }
+    const now = Date.now();
+    if (cachedToken &&
+        cachedToken.clientId === config.clientId &&
+        cachedToken.expiresAt > now + 60_000) {
+        return cachedToken.token;
+    }
+    return requestToken(config);
+}
+function splitName(name) {
+    const parts = (name || "").trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0)
+        return { first: "Member", last: "ZonoFit" };
+    if (parts.length === 1)
+        return { first: parts[0].slice(0, 40), last: "Member" };
+    return { first: parts[0].slice(0, 40), last: parts.slice(1).join(" ").slice(0, 40) };
+}
+function customerPayload(params) {
+    const { first, last } = splitName(params.customerName);
+    const email = params.customerEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(params.customerEmail)
+        ? params.customerEmail
+        : "member@zonofit.com";
+    const digits = (params.customerPhone || "").replace(/\D/g, "");
+    const customer = {
+        email_id: email,
+        first_name: first,
+        last_name: last,
+        customer_id: params.userId.slice(0, 50),
+    };
+    if (digits.length >= 10) {
+        customer.mobile_number = digits.slice(-10);
+        customer.country_code = "91";
+    }
+    return customer;
+}
+/**
+ * Creates a hosted-checkout order and returns the Pine Labs redirect URL.
+ * Credits are not granted here.
  */
 async function createPluralOrder(params) {
     const config = getPluralConfig();
     if (!config) {
         throw (0, errorHandler_1.createError)("Plural payment gateway is not configured.", 503, "PluralNotConfigured");
     }
-    const token = await getPluralAccessToken();
+    if (!Number.isInteger(params.amountPaise) || params.amountPaise < 100) {
+        throw (0, errorHandler_1.createError)("Pine Labs requires a payment of at least ₹1.", 400, "AmountTooSmall");
+    }
     const publicApiUrl = (process.env.PUBLIC_API_URL || "https://api.zonofit.com").replace(/\/$/, "");
     const callbackUrl = params.callbackUrl || `${publicApiUrl}/api/payments/plural/callback`;
-    const failureUrl = params.failureUrl || `${publicApiUrl}/api/payments/plural/callback?status=failed`;
+    const failureUrl = params.failureUrl || callbackUrl;
     const payload = {
         merchant_order_reference: params.merchantReference,
         order_amount: {
             value: params.amountPaise,
             currency: "INR",
         },
+        integration_mode: "REDIRECT",
+        pre_auth: false,
+        allowed_payment_methods: ["CARD", "UPI", "NETBANKING", "WALLET"],
+        notes: "ZonoFit",
         callback_url: callbackUrl,
         failure_callback_url: failureUrl,
+        purchase_details: {
+            customer: customerPayload(params),
+        },
     };
-    if (params.customerPhone || params.customerEmail) {
-        payload.customer = {
-            customer_id: params.userId,
-            mobile_number: params.customerPhone ? params.customerPhone.replace(/\D/g, "").slice(-10) : undefined,
-            email: params.customerEmail || undefined,
-            name: params.customerName || undefined,
-        };
-    }
-    if (config.merchantId) {
-        payload.merchant_id = config.merchantId;
-    }
-    const res = await fetch(`${config.baseUrl}/api/checkout/v1/orders`, {
+    const send = async (token) => fetch(`${config.baseUrl}/api/checkout/v1/orders`, {
         method: "POST",
         headers: {
-            "Authorization": `Bearer ${token}`,
-            "Content-Type": "application/json",
-            "Request-Timestamp": new Date().toISOString(),
-            "Request-ID": `order_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+            ...requestHeaders(token),
+            "content-type": "application/json",
         },
         body: JSON.stringify(payload),
     });
+    let token = await getPluralAccessToken();
+    let res = await send(token);
+    if (res.status === 401) {
+        cachedToken = null;
+        token = await requestToken(config);
+        res = await send(token);
+    }
     if (!res.ok) {
         const errorText = await res.text();
-        console.error("[Plural] Create order failed:", res.status, errorText);
-        throw (0, errorHandler_1.createError)(`Failed to create Plural order: ${res.statusText}`, 502, "PluralOrderFailed");
+        console.error("[Plural] Create order failed:", res.status, safeGatewayError(errorText));
+        throw (0, errorHandler_1.createError)("Pine Labs could not start checkout.", 502, "PluralOrderFailed");
     }
     const data = await res.json();
-    const orderId = data.order_id || data.id || params.merchantReference;
-    const redirectUrl = data.redirect_url || data.payment_link || data.checkout_url || data.url;
-    if (!redirectUrl) {
-        console.error("[Plural] Missing redirect URL in response:", data);
-        throw (0, errorHandler_1.createError)("Plural did not provide a checkout redirect URL.", 502, "PluralRedirectMissing");
+    if (typeof data.response_code === "number" && data.response_code !== 200) {
+        throw (0, errorHandler_1.createError)("Pine Labs could not start checkout.", 502, "PluralOrderFailed");
+    }
+    const orderId = data.order_id || data.data?.order_id;
+    const redirectUrl = data.redirect_url || data.data?.redirect_url;
+    if (!orderId || !redirectUrl) {
+        console.error("[Plural] Checkout response was missing order_id or redirect_url.");
+        throw (0, errorHandler_1.createError)("Pine Labs did not provide a checkout link.", 502, "PluralRedirectMissing");
     }
     return {
         orderId,
@@ -141,40 +196,167 @@ async function createPluralOrder(params) {
         merchantReference: params.merchantReference,
     };
 }
-/**
- * Verifies an incoming webhook HMAC-SHA256 signature from Plural.
- */
-function verifyPluralWebhookSignature(rawBody, signature) {
-    const config = getPluralConfig();
-    const secret = config?.webhookSecret || process.env.PLURAL_WEBHOOK_SECRET;
-    if (!secret || !signature)
-        return false;
-    const bodyBuffer = Buffer.isBuffer(rawBody) ? rawBody : Buffer.from(rawBody);
-    const expected = crypto_1.default.createHmac("sha256", secret).update(bodyBuffer).digest("hex");
-    const actualBuf = Buffer.from(signature);
-    const expectedBuf = Buffer.from(expected);
-    if (actualBuf.length !== expectedBuf.length)
-        return false;
-    return crypto_1.default.timingSafeEqual(actualBuf, expectedBuf);
+function headerValue(headers, name) {
+    const value = headers[name];
+    if (Array.isArray(value))
+        return value[0] || "";
+    return typeof value === "string" ? value : "";
+}
+function webhookKeyBytes(secret) {
+    if (secret.startsWith("whsec_")) {
+        const decoded = Buffer.from(secret.slice(6), "base64");
+        return decoded.length > 0 ? decoded : null;
+    }
+    // Pine Labs base64-encodes the dashboard secret and then decodes it again.
+    // The HMAC key is the secret's raw UTF-8 bytes.
+    return Buffer.from(secret, "utf8");
 }
 /**
- * Queries Plural server-to-server for definitive status of an order.
+ * Standard Webhooks signature: HMAC-SHA256 over webhook-id.timestamp.rawBody.
+ * The header is a space-separated list of `v1,<base64>` values.
+ */
+function verifyPluralWebhookSignature(rawBody, headers) {
+    const secret = process.env.PLURAL_WEBHOOK_SECRET?.trim() || process.env.PLURAL_CLIENT_SECRET?.trim();
+    if (!secret || secret.length < 5)
+        return false;
+    const id = headerValue(headers, "webhook-id");
+    const timestamp = headerValue(headers, "webhook-timestamp");
+    const signature = headerValue(headers, "webhook-signature");
+    if (!id || !/^[0-9]+$/.test(timestamp) || !signature)
+        return false;
+    const key = webhookKeyBytes(secret);
+    if (!key)
+        return false;
+    const body = Buffer.isBuffer(rawBody) ? rawBody : Buffer.from(rawBody);
+    const message = Buffer.concat([Buffer.from(`${id}.${timestamp}.`, "utf8"), body]);
+    const expected = crypto_1.default.createHmac("sha256", key).update(message).digest();
+    const candidates = signature.split(/\s+/).filter((part) => part.startsWith("v1,"));
+    return candidates.some((part) => {
+        const received = Buffer.from(part.slice(3), "base64");
+        if (received.length !== expected.length)
+            return false;
+        return crypto_1.default.timingSafeEqual(received, expected);
+    });
+}
+function hmacHex(key, message) {
+    return crypto_1.default.createHmac("sha256", key).update(message, "utf8").digest("hex");
+}
+/**
+ * Return-URL signature. Pine Labs signs the sorted key=value pairs.
+ * Their sample hex-decodes the secret; the written steps use the secret itself.
+ * Either match is accepted. The caller still confirms the order with Get Order.
+ */
+function verifyPluralReturnSignature(fields, signature) {
+    const secret = process.env.PLURAL_CLIENT_SECRET?.trim() || process.env.PLURAL_WEBHOOK_SECRET?.trim();
+    if (!secret || secret.length < 5 || !signature)
+        return false;
+    const payload = Object.keys(fields)
+        .filter((key) => key !== "signature" && fields[key] !== "")
+        .sort()
+        .map((key) => `${key}=${fields[key]}`)
+        .join("&");
+    if (!payload)
+        return false;
+    const actual = signature.trim().toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(actual))
+        return false;
+    const keys = [Buffer.from(secret, "utf8")];
+    if (/^[0-9a-fA-F]+$/.test(secret) && secret.length % 2 === 0) {
+        keys.push(Buffer.from(secret, "hex"));
+    }
+    const actualBuf = Buffer.from(actual, "hex");
+    return keys.some((key) => {
+        const expected = Buffer.from(hmacHex(key, payload), "hex");
+        return expected.length === actualBuf.length && crypto_1.default.timingSafeEqual(actualBuf, expected);
+    });
+}
+function readPaise(value) {
+    if (typeof value === "number" && Number.isInteger(value) && value > 0)
+        return value;
+    if (typeof value === "string" && /^\d+$/.test(value)) {
+        const parsed = Number(value);
+        if (Number.isInteger(parsed) && parsed > 0)
+            return parsed;
+    }
+    return null;
+}
+/**
+ * Reads an order from a Get Order body (`{ data }`) or a webhook `data` object.
+ */
+function readPluralOrder(payload) {
+    if (!payload || typeof payload !== "object")
+        return null;
+    const root = payload;
+    const source = root.data && typeof root.data === "object" ? root.data : root;
+    const orderId = typeof source.order_id === "string" ? source.order_id : "";
+    const status = typeof source.status === "string" ? source.status.toUpperCase() : "";
+    if (!orderId || !status)
+        return null;
+    const amount = source.order_amount && typeof source.order_amount === "object"
+        ? source.order_amount
+        : undefined;
+    const payments = Array.isArray(source.payments) ? source.payments : [];
+    const paidPayment = payments.find((item) => {
+        if (!item || typeof item !== "object")
+            return false;
+        return String(item.status || "").toUpperCase() === "PROCESSED";
+    });
+    const firstPayment = payments[0];
+    const paymentId = typeof paidPayment?.id === "string"
+        ? paidPayment.id
+        : typeof firstPayment?.id === "string"
+            ? firstPayment.id
+            : null;
+    return {
+        orderId,
+        merchantReference: typeof source.merchant_order_reference === "string" ? source.merchant_order_reference : null,
+        merchantId: typeof source.merchant_id === "string" ? source.merchant_id : null,
+        status,
+        amountPaise: readPaise(amount?.value),
+        currency: typeof amount?.currency === "string" ? amount.currency.toUpperCase() : "INR",
+        paymentId,
+    };
+}
+/**
+ * Fetches the Pine Labs order. Status lives under data.status.
  */
 async function getPluralOrderStatus(orderId) {
     const config = getPluralConfig();
     if (!config)
-        throw (0, errorHandler_1.createError)("Plural not configured.", 503);
-    const token = await getPluralAccessToken();
-    const res = await fetch(`${config.baseUrl}/api/checkout/v1/orders/${encodeURIComponent(orderId)}`, {
+        throw (0, errorHandler_1.createError)("Plural payment gateway is not configured.", 503, "PluralNotConfigured");
+    const send = async (token) => fetch(`${config.baseUrl}/api/pay/v1/orders/${encodeURIComponent(orderId)}`, {
         method: "GET",
-        headers: {
-            "Authorization": `Bearer ${token}`,
-            "Content-Type": "application/json",
-        },
+        headers: requestHeaders(token),
     });
+    let token = await getPluralAccessToken();
+    let res = await send(token);
+    if (res.status === 401) {
+        cachedToken = null;
+        token = await requestToken(config);
+        res = await send(token);
+    }
     if (!res.ok) {
-        throw (0, errorHandler_1.createError)(`Failed to fetch Plural order status: ${res.statusText}`, res.status);
+        const errorText = await res.text();
+        console.error("[Plural] Order lookup failed:", res.status, safeGatewayError(errorText));
+        throw (0, errorHandler_1.createError)("Pine Labs could not confirm this order.", res.status === 404 ? 404 : 502, "PluralStatusFailed");
     }
     return res.json();
+}
+/**
+ * A paid hosted checkout with pre_auth false is status PROCESSED.
+ * AUTHORIZED is not captured and does not grant credits.
+ */
+async function confirmPluralPayment(orderId) {
+    const snapshot = readPluralOrder(await getPluralOrderStatus(orderId));
+    if (!snapshot || snapshot.status !== "PROCESSED")
+        return null;
+    if (snapshot.currency !== "INR" || snapshot.amountPaise == null)
+        return null;
+    return {
+        orderId: snapshot.orderId,
+        merchantReference: snapshot.merchantReference,
+        paymentId: snapshot.paymentId || `plural_${snapshot.orderId}`,
+        amountPaise: snapshot.amountPaise,
+    };
 }
 //# sourceMappingURL=plural.js.map
