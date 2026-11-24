@@ -264,7 +264,7 @@ Per the Decision Making rules below, don't just add these — recommend them whe
 | QR pass generation | `react-native-qrcode-svg` | User's bookable visit pass shown at the gym |
 | QR/camera scanning | `expo-camera` (with barcode scanning) | Only if staff-side scanning ever lives in this app — usually this belongs to the separate Gym Dashboard, confirm scope first |
 | Push notifications | `expo-notifications` | Booking reminders, low-credit alerts, membership-expiry alerts, achievement unlocks |
-| Payments | Razorpay (webview/checkout SDK) or similar | Credit Purchase System — India-first payment rails |
+| Payments | Pine Labs Plural hosted checkout | Credit Purchase System — India-first payment rails |
 
 ### Explicitly Not Needed
 

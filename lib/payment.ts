@@ -8,13 +8,8 @@ export interface CheckoutResult {
 }
 
 /**
- * Handles cross-platform payment checkout.
- * 
- * Supports:
- * 1. Plural by Pine Labs: Hosted Checkout via in-app browser with UPI Intent (GPay, PhonePe, Paytm),
- *    Credit/Debit Cards, Net Banking, and Wallets.
- * 2. Direct Accept: Development/testing bypass when no payment gateway is configured.
- * 3. Razorpay fallback: Native bridge if Razorpay keys are provided.
+ * Opens Pine Labs hosted checkout, then asks the API to confirm the order.
+ * A covered referral month arrives as directAccepted and does not open a browser.
  */
 export async function handlePaymentCheckout(
   orderData: any,
@@ -63,46 +58,5 @@ export async function handlePaymentCheckout(
     throw new Error(verifyRes?.message || "Payment is pending or was not completed.");
   }
 
-  // 3. Fallback to Razorpay if orderData contains keyId and razorpayOrderId
-  if (orderData.keyId && orderData.razorpayOrderId) {
-    let RazorpayCheckout: any;
-    try {
-      RazorpayCheckout = require("react-native-razorpay").default;
-    } catch {
-      throw new Error("Card payments require the ZonoFit native app.");
-    }
-
-    if (!RazorpayCheckout?.open) {
-      throw new Error("Card payments need the ZonoFit app on a phone.");
-    }
-
-    const payment = await RazorpayCheckout.open({
-      description: options?.description || "ZonoFit Payment",
-      currency: orderData.currency || "INR",
-      key: orderData.keyId,
-      amount: orderData.amount,
-      name: "ZonoFit",
-      order_id: orderData.razorpayOrderId,
-      theme: { color: "#059669" },
-    });
-
-    if (options?.token) {
-      await apiFetch("/api/credits/confirm", {
-        method: "POST",
-        token: options.token,
-        body: JSON.stringify({
-          razorpayOrderId: orderData.razorpayOrderId,
-          razorpayPaymentId: payment.razorpay_payment_id,
-          razorpaySignature: payment.razorpay_signature,
-        }),
-      });
-    }
-
-    return {
-      success: true,
-      orderId: orderData.razorpayOrderId,
-    };
-  }
-
-  throw new Error(orderData.message || "Payment gateway could not be initiated.");
+  throw new Error("Payment could not be started.");
 }

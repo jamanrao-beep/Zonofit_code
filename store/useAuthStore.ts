@@ -414,40 +414,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const gymLookup = FALLBACK_NETWORK_GYMS.find((g) => g.id === gymId);
       const gymName = options?.gymName || useGuestStore.getState().selectedGymName || useUserStore.getState().primaryGymName || gymLookup?.name;
 
-      let order: any = null;
-      let isDirectAccepted = false;
-
-      try {
-        order = await apiFetch("/api/membership/create-order", {
-          method: "POST",
-          token,
-          body: JSON.stringify({
-            primaryGymId: gymId,
-            gymName,
-            ...(plan && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(plan) ? { planId: plan } : {}),
-          }),
-        });
-        if (order?.directAccepted) {
-          isDirectAccepted = true;
-        }
-      } catch (orderErr: any) {
-        const errMsg = orderErr?.message || "";
-        if (
-          errMsg.includes("Card payments are not configured") ||
-          errMsg.includes("PaymentsNotConfigured") ||
-          errMsg.includes("not configured")
-        ) {
-          console.warn("[Onboarding] Payment gateway unconfigured on server. Proceeding with direct accept for testing.");
-          isDirectAccepted = true;
-        } else {
-          throw orderErr;
-        }
-      }
+      const order = await apiFetch("/api/membership/create-order", {
+        method: "POST",
+        token,
+        body: JSON.stringify({
+          primaryGymId: gymId,
+          gymName,
+          ...(plan && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(plan) ? { planId: plan } : {}),
+        }),
+      });
 
       let membership = order?.membership;
       let newCreditBalance = order?.newCreditBalance;
 
-      if (!isDirectAccepted) {
+      if (!order?.directAccepted) {
         await handlePaymentCheckout(order, {
           description: `ZonoFit membership at ${order?.gymName || gymName || "your gym"}`,
           token,
@@ -468,30 +448,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         newCreditBalance = activated?.newCreditBalance;
       }
 
-      if (isDirectAccepted && !membership) {
-        try {
-          const activated = await apiFetch("/api/membership/activate", {
-            method: "POST",
-            token,
-            silent: true,
-            body: JSON.stringify({
-              directAccept: true,
-              primaryGymId: gymId,
-              gymName,
-              planId: plan,
-            }),
-          });
-          membership = activated?.membership;
-          newCreditBalance = activated?.newCreditBalance;
-        } catch {
-          membership = {
-            primaryGymId: gymId,
-            plan: { name: plan || "Monthly" },
-            status: "ACTIVE",
-            primaryGymVisits: options?.visits || 10,
-          };
-          newCreditBalance = options?.credits || 420;
-        }
+      if (!membership?.status) {
+        throw new Error("Membership was not activated.");
       }
 
       const updatedUser: User = {
@@ -518,8 +476,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         primaryGymId: updatedUser.primaryGym,
         primaryGymName: membership?.primaryGym?.name || order?.gymName || gymName,
         planName: membership?.plan?.name || plan || "Monthly",
-        membershipStatus: membership?.status || "ACTIVE",
-        visitsRemaining: typeof membership?.primaryGymVisits === "number" ? membership.primaryGymVisits : (options?.visits || 10),
+        membershipStatus: membership.status,
+        ...(typeof membership.primaryGymVisits === "number" ? { visitsRemaining: membership.primaryGymVisits } : {}),
       });
       if (typeof newCreditBalance === "number") {
         useCreditsStore.setState({ credits: newCreditBalance });

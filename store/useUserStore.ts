@@ -4,7 +4,6 @@ import * as SecureStore from "expo-secure-store";
 import { apiFetch, uploadProfilePicture, invalidateApiCache } from "@/lib/api";
 import { useCreditsStore } from "./useCreditsStore";
 import { useAuthStore } from "./useAuthStore";
-import { calculateMembershipBreakdown } from "@/constants/credits";
 
 const secureStorage = {
   getItem: async (name: string): Promise<string | null> => {
@@ -267,106 +266,15 @@ export const useUserStore = create<UserState>()(
     progressPercentage: Math.min(100, Math.round(((state.totalWorkouts + 1) / 75) * 100)),
   })),
 
-  updatePlan: async (planId: string, amountPaidPaise: number, primaryGymId?: string) => {
-    // Single common monthly membership
-    const planName = "Monthly Membership";
-    const currentCycle = get().currentMonth || 1;
-    const resolvedPrice = (typeof amountPaidPaise === "number" && amountPaidPaise > 0) ? Math.round(amountPaidPaise / 100) : 3000;
-    const breakdown = calculateMembershipBreakdown(resolvedPrice, currentCycle);
-    const visits = breakdown.mandatoryVisitsCount;
+  updatePlan: async () => ({
+    success: false,
+    message: "Pay for membership from checkout. Pine Labs confirms the payment before access starts.",
+  }),
 
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(planId || "");
-    const resolvedPlanId = isUuid ? planId : "755fb72b-6174-44a9-9456-e4747dc46095";
-    const resolvedGymId = primaryGymId || "83431d3a-313a-450c-b78e-62732160b6ef";
-
-    const resolvedAmount = (typeof amountPaidPaise === "number" && amountPaidPaise > 0)
-      ? amountPaidPaise
-      : 199900;
-
-    try {
-      const token = useAuthStore.getState().token;
-      const data = await apiFetch("/api/membership/activate", {
-        method: "POST",
-        token,
-        body: JSON.stringify({
-          directAccept: true,
-          planId: resolvedPlanId,
-          primaryGymId: resolvedGymId,
-          referenceId: "pay_" + Date.now().toString(),
-          amountPaidPaise: resolvedAmount,
-        }),
-      });
-
-      const returnedPlan = data.membership?.plan;
-      const finalPlanName = returnedPlan?.name || planName;
-      const finalVisits = typeof data.membership?.primaryGymVisits === "number"
-        ? data.membership.primaryGymVisits
-        : (typeof returnedPlan?.visitsPerMonth === "number" ? returnedPlan.visitsPerMonth : visits);
-      const finalStatus = data.membership?.status || "ACTIVE";
-      const finalExpiry = data.membership?.endDate
-        ? new Date(data.membership.endDate).toLocaleDateString()
-        : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString();
-
-      const gymName = data.membership?.primaryGym?.name || data.membership?.gymName || "FitZone Pro";
-
-      noteProfileMutation();
-      set({
-        planName: finalPlanName,
-        visitsRemaining: finalVisits,
-        primaryGymId: resolvedGymId,
-        primaryGymName: gymName,
-        membershipStatus: finalStatus,
-        membershipExpiry: finalExpiry,
-      });
-
-      // Update credits store
-      if (typeof data.newCreditBalance === "number") {
-        useCreditsStore.getState().noteLocalWalletChange();
-        useCreditsStore.setState({ credits: data.newCreditBalance });
-      }
-
-      if (token) {
-        useCreditsStore.getState().fetchWallet(token, { force: true });
-      }
-
-      return { success: true, message: data.message || `Upgraded to ${finalPlanName} plan!` };
-    } catch (err: any) {
-      return { success: false, message: err?.message || "Membership payment was not confirmed." };
-    }
-  },
-
-  purchaseGymPlan: async (gymPlanId: string, amountPaidPaise: number) => {
-    try {
-      const token = useAuthStore.getState().token;
-      const data = await apiFetch("/api/membership/activate", {
-        method: "POST",
-        token,
-        body: JSON.stringify({
-          directAccept: true,
-          gymPlanId,
-          referenceId: "pay_" + Date.now().toString(),
-          amountPaidPaise,
-        }),
-      });
-
-      noteProfileMutation();
-      set({
-        planName: data.membership?.gymPlan?.name || data.membership?.plan?.name || "Plan",
-        visitsRemaining: typeof data.membership?.primaryGymVisits === "number" ? data.membership.primaryGymVisits : 10,
-        membershipStatus: data.membership?.status || "ACTIVE",
-        membershipExpiry: data.membership?.endDate ? new Date(data.membership.endDate).toLocaleDateString() : "N/A",
-      });
-
-      const walletData = await apiFetch("/api/credits/balance", { token });
-      if (walletData && walletData.balance !== undefined) {
-        useCreditsStore.getState().noteLocalWalletChange();
-        useCreditsStore.setState({ credits: walletData.balance });
-      }
-      return { success: true, message: "Gym plan purchased successfully." };
-    } catch (err: any) {
-      return { success: false, message: err?.message || "Gym plan payment was not confirmed." };
-    }
-  },
+  purchaseGymPlan: async () => ({
+    success: false,
+    message: "Pay for membership from checkout. Pine Labs confirms the payment before access starts.",
+  }),
 
   uploadAvatar: async (uri: string) => {
     try {

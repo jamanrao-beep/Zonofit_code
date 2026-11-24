@@ -1,5 +1,3 @@
-import crypto from "crypto";
-import Razorpay from "razorpay";
 import prisma from "../lib/prisma";
 import { createError } from "../middleware/errorHandler";
 import { redeemFreeMonth } from "../lib/referralRewards";
@@ -13,52 +11,6 @@ export interface PaymentMeta {
   gymName?: string | null;
   freeMonthId?: string | null;
   waiverPaise?: number;
-}
-
-function badSecret(value: string | undefined): boolean {
-  if (!value) return true;
-  const trimmed = value.trim();
-  return trimmed.length < 8 || /placeholder/i.test(trimmed);
-}
-
-export function isRazorpayConfigured(): boolean {
-  const keyId = process.env.RAZORPAY_KEY_ID?.trim();
-  const keySecret = process.env.RAZORPAY_KEY_SECRET?.trim();
-  return !badSecret(keyId) && !badSecret(keySecret);
-}
-
-export function getRazorpayConfig() {
-  const keyId = process.env.RAZORPAY_KEY_ID?.trim();
-  const keySecret = process.env.RAZORPAY_KEY_SECRET?.trim();
-  if (badSecret(keyId) || badSecret(keySecret)) {
-    throw createError("Card payments are not configured on the server.", 503, "PaymentsNotConfigured");
-  }
-  return { keyId: keyId!, keySecret: keySecret! };
-}
-
-export function getRazorpay() {
-  const { keyId, keySecret } = getRazorpayConfig();
-  return new Razorpay({ key_id: keyId, key_secret: keySecret });
-}
-
-function safeEqual(actual: string, expected: string): boolean {
-  const actualBuf = Buffer.from(actual);
-  const expectedBuf = Buffer.from(expected);
-  if (actualBuf.length !== expectedBuf.length) return false;
-  return crypto.timingSafeEqual(actualBuf, expectedBuf);
-}
-
-export function verifyCheckoutSignature(orderId: string, paymentId: string, signature: string): boolean {
-  const { keySecret } = getRazorpayConfig();
-  const expected = crypto.createHmac("sha256", keySecret).update(`${orderId}|${paymentId}`).digest("hex");
-  return safeEqual(signature, expected);
-}
-
-export function verifyWebhookSignature(rawBody: Buffer, header: string | undefined): boolean {
-  const secret = process.env.RAZORPAY_WEBHOOK_SECRET?.trim();
-  if (badSecret(secret) || !header) return false;
-  const expected = crypto.createHmac("sha256", secret!).update(rawBody).digest("hex");
-  return safeEqual(header, expected);
 }
 
 async function grantPurchase(
@@ -93,7 +45,8 @@ async function grantPurchase(
 }
 
 /**
- * Marks a Razorpay order paid and applies credits, cash, or membership once.
+ * Applies a confirmed Pine Labs order once.
+ * The stored gateway order id is the `razorpayOrderId` column.
  * `paidPaise` must match the order when the gateway reports an amount.
  */
 export async function fulfillPaymentOrder(input: {

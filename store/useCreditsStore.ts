@@ -316,30 +316,11 @@ export const useCreditsStore = create<CreditsState>()(
   buyCredits: async (creditsAmount, _inrCost) => {
     try {
       const token = useAuthStore.getState().token;
-      let orderData: any = null;
-      try {
-        orderData = await apiFetch("/api/credits/create-order", {
-          method: "POST",
-          token,
-          body: JSON.stringify({ credits: creditsAmount }),
-        });
-      } catch (err: any) {
-        if (err?.message?.includes("Card payments") || err?.message?.includes("not configured")) {
-          get().noteLocalWalletChange();
-          set((s) => ({ credits: s.credits + creditsAmount }));
-          return { success: true, message: `Test mode: ${creditsAmount} credits added directly.` };
-        }
-        throw err;
-      }
-
-      if (orderData?.directAccepted) {
-        const newTotal = typeof orderData.newCreditBalance === "number"
-          ? orderData.newCreditBalance
-          : get().credits + creditsAmount;
-        get().noteLocalWalletChange();
-        set({ credits: newTotal });
-        return { success: true, message: orderData.message || `Successfully purchased ${creditsAmount} credits.` };
-      }
+      const orderData = await apiFetch("/api/credits/create-order", {
+        method: "POST",
+        token,
+        body: JSON.stringify({ credits: creditsAmount }),
+      });
 
       await confirmPaymentOrder(orderData, "Purchase " + creditsAmount + " ZonoFit Credits");
       return { success: true, message: "Successfully purchased " + creditsAmount + " credits." };
@@ -352,27 +333,11 @@ export const useCreditsStore = create<CreditsState>()(
   topUpCash: async (amountINR) => {
     try {
       const token = useAuthStore.getState().token;
-      let orderData: any = null;
-      try {
-        orderData = await apiFetch("/api/credits/create-cash-order", {
-          method: "POST",
-          token,
-          body: JSON.stringify({ amountINR }),
-        });
-      } catch (err: any) {
-        if (err?.message?.includes("Card payments") || err?.message?.includes("not configured")) {
-          set((s) => ({ cashBalance: s.cashBalance + amountINR }));
-          return { success: true, message: `Test mode: ₹${amountINR} cash added directly.` };
-        }
-        throw err;
-      }
-
-      if (orderData?.directAccepted) {
-        if (typeof orderData.newCashBalance === "number") {
-          set({ cashBalance: orderData.newCashBalance });
-        }
-        return { success: true, message: orderData.message || `Successfully added ₹${amountINR}.` };
-      }
+      const orderData = await apiFetch("/api/credits/create-cash-order", {
+        method: "POST",
+        token,
+        body: JSON.stringify({ amountINR }),
+      });
 
       await confirmPaymentOrder(orderData, "Top up Rs " + amountINR);
       return { success: true, message: "Successfully added Rs " + amountINR + "." };

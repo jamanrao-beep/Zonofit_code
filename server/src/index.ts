@@ -212,11 +212,10 @@ function assertBootSecrets(): void {
 
 function warnMissingProviderKeys(): void {
     const hasPlural = (process.env.PLURAL_CLIENT_ID?.trim()?.length ?? 0) >= 5 && (process.env.PLURAL_CLIENT_SECRET?.trim()?.length ?? 0) >= 5;
-    const hasRazorpay = (process.env.RAZORPAY_KEY_ID?.trim()?.length ?? 0) >= 8 && (process.env.RAZORPAY_KEY_SECRET?.trim()?.length ?? 0) >= 8;
 
     const missing: string[] = [];
-    if (!hasPlural && !hasRazorpay) {
-        missing.push("PLURAL_CLIENT_ID & PLURAL_CLIENT_SECRET (or RAZORPAY_KEY_ID)");
+    if (!hasPlural) {
+        missing.push("PLURAL_CLIENT_ID & PLURAL_CLIENT_SECRET");
     }
     const apiTxt = process.env.APITXT_AUTH_KEY?.trim() ?? "";
     if (apiTxt.length < 8 || /placeholder/i.test(apiTxt)) missing.push("APITXT_AUTH_KEY");

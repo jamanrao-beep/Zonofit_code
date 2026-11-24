@@ -127,10 +127,6 @@ PLURAL_ENV=production        # Use "uat" for test/sandbox environment
 # Webhook URL: https://api.zonofit.com/api/payments/plural/webhook
 # Return URL:  https://api.zonofit.com/api/payments/plural/callback
 
-# (Optional fallback) Razorpay keys if running dual gateway:
-# RAZORPAY_KEY_ID=...
-# RAZORPAY_KEY_SECRET=...
-# RAZORPAY_WEBHOOK_SECRET=...
 ADMIN_EMAIL=...        # only used by seed-admin.ts
 ADMIN_PASSWORD=...     # only used by seed-admin.ts
 ```
@@ -209,7 +205,7 @@ Phones that already have the old APK still call the previous server until you sh
 - The API refuses to start unless `JWT_SECRET` is a unique value of at least 32 characters.
   Put that value only in the Hostinger `server/.env`. Old tokens stop working after the secret changes.
 - Copy `server/.env` onto the host. From `server/`, run `npm run rotate-admin` so the live admin hash matches `ADMIN_PASSWORD`. Until that script runs, the old admin password still works.
-- In the Hostinger panel, set a new MySQL password and update `DATABASE_URL` on the host. Create new Razorpay keys and set `APITXT_AUTH_KEY`, `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, and `RAZORPAY_WEBHOOK_SECRET`. Do not put those values in git. Restart the API afterwards.
+- In the Hostinger panel, set a new MySQL password and update `DATABASE_URL` on the host. Set `APITXT_AUTH_KEY` and the `PLURAL_*` values. Do not put those values in git. Restart the API afterwards.
 - Email codes are sent from `zonofitofficial@gmail.com`. Put the 16-letter Google app password in the host `server/.env` as `GMAIL_APP_PASSWORD`. Optional `GMAIL_USER` overrides the sender. Do not put that password in git.
 - The committed baseline migration is for a new empty database only. The existing Hostinger database uses `ensureSchema` on boot. Do not run `prisma migrate deploy` or `prisma db push` against it.
 - Uploads live on the server disk. `mysqldump` does not include them. Back up `server/uploads/` as well.

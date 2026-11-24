@@ -3,61 +3,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.isRazorpayConfigured = isRazorpayConfigured;
-exports.getRazorpayConfig = getRazorpayConfig;
-exports.getRazorpay = getRazorpay;
-exports.verifyCheckoutSignature = verifyCheckoutSignature;
-exports.verifyWebhookSignature = verifyWebhookSignature;
 exports.fulfillPaymentOrder = fulfillPaymentOrder;
-const crypto_1 = __importDefault(require("crypto"));
-const razorpay_1 = __importDefault(require("razorpay"));
 const prisma_1 = __importDefault(require("../lib/prisma"));
 const errorHandler_1 = require("../middleware/errorHandler");
 const referralRewards_1 = require("../lib/referralRewards");
 const membershipActivate_1 = require("./membershipActivate");
 const notifications_1 = require("./notifications");
-function badSecret(value) {
-    if (!value)
-        return true;
-    const trimmed = value.trim();
-    return trimmed.length < 8 || /placeholder/i.test(trimmed);
-}
-function isRazorpayConfigured() {
-    const keyId = process.env.RAZORPAY_KEY_ID?.trim();
-    const keySecret = process.env.RAZORPAY_KEY_SECRET?.trim();
-    return !badSecret(keyId) && !badSecret(keySecret);
-}
-function getRazorpayConfig() {
-    const keyId = process.env.RAZORPAY_KEY_ID?.trim();
-    const keySecret = process.env.RAZORPAY_KEY_SECRET?.trim();
-    if (badSecret(keyId) || badSecret(keySecret)) {
-        throw (0, errorHandler_1.createError)("Card payments are not configured on the server.", 503, "PaymentsNotConfigured");
-    }
-    return { keyId: keyId, keySecret: keySecret };
-}
-function getRazorpay() {
-    const { keyId, keySecret } = getRazorpayConfig();
-    return new razorpay_1.default({ key_id: keyId, key_secret: keySecret });
-}
-function safeEqual(actual, expected) {
-    const actualBuf = Buffer.from(actual);
-    const expectedBuf = Buffer.from(expected);
-    if (actualBuf.length !== expectedBuf.length)
-        return false;
-    return crypto_1.default.timingSafeEqual(actualBuf, expectedBuf);
-}
-function verifyCheckoutSignature(orderId, paymentId, signature) {
-    const { keySecret } = getRazorpayConfig();
-    const expected = crypto_1.default.createHmac("sha256", keySecret).update(`${orderId}|${paymentId}`).digest("hex");
-    return safeEqual(signature, expected);
-}
-function verifyWebhookSignature(rawBody, header) {
-    const secret = process.env.RAZORPAY_WEBHOOK_SECRET?.trim();
-    if (badSecret(secret) || !header)
-        return false;
-    const expected = crypto_1.default.createHmac("sha256", secret).update(rawBody).digest("hex");
-    return safeEqual(header, expected);
-}
 async function grantPurchase(tx, order, referenceId) {
     const wallet = await tx.creditWallet.findUnique({ where: { userId: order.userId } });
     if (!wallet)
@@ -84,7 +35,8 @@ async function grantPurchase(tx, order, referenceId) {
     });
 }
 /**
- * Marks a Razorpay order paid and applies credits, cash, or membership once.
+ * Applies a confirmed Pine Labs order once.
+ * The stored gateway order id is the `razorpayOrderId` column.
  * `paidPaise` must match the order when the gateway reports an amount.
  */
 async function fulfillPaymentOrder(input) {

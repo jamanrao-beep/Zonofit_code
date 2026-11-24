@@ -3,9 +3,9 @@ import { body, validationResult } from "express-validator";
 import prisma from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
 import { membershipTaxBranches } from "../lib/taxDocuments";
-import { quotedFreeMonth, redeemFreeMonth, redeemOpenFreeMonth } from "../lib/referralRewards";
+import { quotedFreeMonth, redeemFreeMonth } from "../lib/referralRewards";
 import { activatePaidMembership, quotePaidMembership, type MembershipActivationInput } from "../services/membershipActivate";
-import { fulfillPaymentOrder, getRazorpay, getRazorpayConfig, isRazorpayConfigured, verifyCheckoutSignature } from "../services/payments";
+import { fulfillPaymentOrder } from "../services/payments";
 import { confirmPluralPayment, createPluralOrder, isPluralConfigured } from "../services/plural";
 import { sendPushNotification } from "../services/notifications";
 
@@ -132,7 +132,7 @@ router.get(
 // ─── POST /api/membership/create-order ───────────────────────────────────────
 /**
  * Starts a membership payment. The price comes from the database plan.
- * If card payments are not configured on the server, directly accepts and activates for testing.
+ * A covered referral month activates here. Every other charge opens Pine Labs.
  */
 router.post(
   "/create-order",
@@ -177,8 +177,7 @@ router.post(
         gymPlanId: quote.gymPlanId,
       };
 
-      // A covered month activates now. So does a server that has no card checkout.
-      if (chargePaise === 0 || !isRazorpayConfigured()) {
+      if (chargePaise === 0) {
         const activationResult = await activateAndMaybeRedeem(
           req.dbUserId!,
           activationInput,
@@ -191,13 +190,10 @@ router.post(
           `Your membership at ${activationResult.gym.name} is active! ${activationResult.initialVisits} primary visits and ${activationResult.remainingCreditsToAdd} credits added to your wallet.`
         ).catch(() => {});
 
-        const covered = chargePaise === 0 && offer.waiverPaise > 0;
         res.status(200).json({
           directAccepted: true,
           success: true,
-          message: covered
-            ? "Your free referral month is active."
-            : "Membership activated directly for testing (card payments not configured).",
+          message: "Your free referral month is active.",
           membership: hideSupplierGstin({
             ...activationResult.membership,
             gymName: activationResult.gym.name,
@@ -221,78 +217,40 @@ router.post(
         return;
       }
 
-      if (isPluralConfigured()) {
-        const merchantReference = `mem_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-        const user = await prisma.user.findUnique({
-          where: { id: req.dbUserId! },
-          select: { phone: true, email: true, name: true },
-        });
-
-        const pluralOrder = await createPluralOrder({
-          merchantReference,
-          amountPaise: chargePaise,
-          userId: req.dbUserId!,
-          customerPhone: user?.phone || undefined,
-          customerEmail: user?.email || undefined,
-          customerName: user?.name || undefined,
-        });
-
-        await (prisma as any).paymentOrder.create({
-          data: {
-            userId: req.dbUserId!,
-            razorpayOrderId: pluralOrder.orderId,
-            amountPaise: chargePaise,
-            creditsToAdd: 0,
-            cashToAddPaise: 0,
-            purpose: "MEMBERSHIP",
-            metaJson: JSON.stringify({
-              merchantReference,
-              gateway: "PLURAL",
-              planId: quote.planId,
-              gymPlanId: quote.gymPlanId,
-              primaryGymId,
-              gymName: gymName || quote.gym.name,
-              tax,
-              ...(offer.freeMonthId && offer.waiverPaise > 0
-                ? { freeMonthId: offer.freeMonthId, waiverPaise: offer.waiverPaise }
-                : {}),
-            }),
-            status: "CREATED",
-          },
-        });
-
-        res.status(200).json({
-          gateway: "PLURAL",
-          orderId: pluralOrder.orderId,
-          razorpayOrderId: pluralOrder.orderId,
-          redirectUrl: pluralOrder.redirectUrl,
-          amount: chargePaise,
-          waiverPaise: offer.waiverPaise,
-          currency: "INR",
-          gymId: quote.gym.id,
-          gymName: quote.gym.name,
-          tax,
+      if (!isPluralConfigured()) {
+        res.status(503).json({
+          error: "PaymentsNotConfigured",
+          message: "Card payments are not configured.",
         });
         return;
       }
 
-      const razorpay = getRazorpay();
-      const { keyId } = getRazorpayConfig();
-      const order = await razorpay.orders.create({
-        amount: chargePaise,
-        currency: "INR",
-        receipt: `mem_${Date.now()}`,
+      const merchantReference = `mem_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const user = await prisma.user.findUnique({
+        where: { id: req.dbUserId! },
+        select: { phone: true, email: true, name: true },
+      });
+
+      const pluralOrder = await createPluralOrder({
+        merchantReference,
+        amountPaise: chargePaise,
+        userId: req.dbUserId!,
+        customerPhone: user?.phone || undefined,
+        customerEmail: user?.email || undefined,
+        customerName: user?.name || undefined,
       });
 
       await (prisma as any).paymentOrder.create({
         data: {
           userId: req.dbUserId!,
-          razorpayOrderId: order.id,
+          razorpayOrderId: pluralOrder.orderId,
           amountPaise: chargePaise,
           creditsToAdd: 0,
           cashToAddPaise: 0,
           purpose: "MEMBERSHIP",
           metaJson: JSON.stringify({
+            merchantReference,
+            gateway: "PLURAL",
             planId: quote.planId,
             gymPlanId: quote.gymPlanId,
             primaryGymId,
@@ -307,8 +265,10 @@ router.post(
       });
 
       res.status(200).json({
-        razorpayOrderId: order.id,
-        keyId,
+        gateway: "PLURAL",
+        orderId: pluralOrder.orderId,
+        razorpayOrderId: pluralOrder.orderId,
+        redirectUrl: pluralOrder.redirectUrl,
         amount: chargePaise,
         waiverPaise: offer.waiverPaise,
         currency: "INR",
@@ -328,35 +288,33 @@ router.post(
 
 // ─── POST /api/membership/activate ───────────────────────────────────────────
 /**
- * Confirms a payment and grants the membership.
- * In testing or when card payments are not configured, directly activates.
+ * Confirms a Pine Labs membership payment and returns the activated membership.
+ * A missing or unpaid order does not grant access.
  */
 router.post(
   "/activate",
   requireAuth,
   async (req: Request, res: Response): Promise<void> => {
-    const {
-      razorpayOrderId,
-      razorpayPaymentId,
-      razorpaySignature,
-      directAccept,
-      primaryGymId,
-      gymName,
-      planId,
-      gymPlanId,
-    } = req.body as {
-      razorpayOrderId?: string;
-      razorpayPaymentId?: string;
-      razorpaySignature?: string;
-      directAccept?: boolean;
-      primaryGymId?: string;
-      gymName?: string;
-      planId?: string;
-      gymPlanId?: string;
-    };
+    const orderLookupId = (req.body?.orderId || req.body?.razorpayOrderId) as string | undefined;
+    const gymName = typeof req.body?.gymName === "string" ? req.body.gymName : undefined;
 
-    const orderLookupId = req.body.orderId || razorpayOrderId;
-    if (orderLookupId) {
+    if (!orderLookupId || typeof orderLookupId !== "string") {
+      res.status(400).json({
+        error: "OrderRequired",
+        message: "A Pine Labs payment is required before membership can start.",
+      });
+      return;
+    }
+
+    if (!isPluralConfigured()) {
+      res.status(503).json({
+        error: "PaymentsNotConfigured",
+        message: "Card payments are not configured.",
+      });
+      return;
+    }
+
+    try {
       const order = await (prisma as any).paymentOrder.findFirst({
         where: {
           OR: [
@@ -366,113 +324,35 @@ router.post(
         },
       });
 
-      if (order) {
-        if (order.status !== "FULFILLED") {
-          if (isPluralConfigured()) {
-            try {
-              const paid = await confirmPluralPayment(order.razorpayOrderId);
-              if (paid) {
-                await fulfillPaymentOrder({
-                  razorpayOrderId: order.razorpayOrderId,
-                  referenceId: paid.paymentId,
-                  paidPaise: paid.amountPaise,
-                  userId: req.dbUserId,
-                });
-              }
-            } catch (pErr: any) {
-              console.warn("[membership/activate] Plural check:", pErr.message);
-            }
-          } else if (!isRazorpayConfigured()) {
-            // Dev mode auto-fulfill
-            await fulfillPaymentOrder({
-              razorpayOrderId: order.razorpayOrderId,
-              referenceId: `dev_${Date.now()}`,
-              userId: req.dbUserId,
-            });
-          }
-        }
+      if (!order) {
+        res.status(404).json({ error: "OrderNotFound", message: "Payment order not found." });
+        return;
+      }
+      if (order.userId !== req.dbUserId) {
+        res.status(403).json({ error: "Forbidden", message: "This payment does not belong to you." });
+        return;
+      }
+      if (order.purpose !== "MEMBERSHIP") {
+        res.status(400).json({ error: "WrongOrder", message: "This payment is not a membership order." });
+        return;
+      }
 
-        const membership = await prisma.membership.findUnique({
-          where: { userId: req.dbUserId! },
-          include: { plan: true, gymPlan: true, primaryGym: true },
-        });
-        const wallet = await prisma.creditWallet.findUnique({ where: { userId: req.dbUserId! } });
-
-        if (membership) {
-          res.status(200).json({
-            membership: hideSupplierGstin({
-              ...membership,
-              gymName: membership.primaryGym?.name || gymName,
-              plan: membership.plan
-                ? { ...membership.plan, priceINR: membership.plan.priceInPaise / 100 }
-                : null,
-              cycleNumber: membership.cycleNumber,
-              maxCycles: 12,
-            }),
-            newCreditBalance: wallet?.balance ?? 0,
-            message: "Membership activated successfully.",
+      if (order.status !== "FULFILLED") {
+        const paid = await confirmPluralPayment(order.razorpayOrderId);
+        if (!paid) {
+          res.status(402).json({
+            error: "PaymentPending",
+            message: "Pine Labs has not confirmed this payment yet.",
           });
           return;
         }
-      }
-    }
-
-    try {
-      if (
-        !isRazorpayConfigured() ||
-        directAccept ||
-        !razorpaySignature ||
-        razorpayOrderId?.startsWith("mock_")
-      ) {
-        // Direct accept mode for testing. An open free month is used after the cycle is granted.
-        const targetGymId = primaryGymId || "83431d3a-313a-450c-b78e-62732160b6ef";
-        const granted = await prisma.$transaction(async (tx) => {
-          const activated = await activatePaidMembership(tx, req.dbUserId!, {
-            primaryGymId: targetGymId,
-            gymName,
-            planId,
-            gymPlanId,
-          });
-          const waiverPaise = await redeemOpenFreeMonth(tx, req.dbUserId!, activated.pricePaise);
-          return { activated, waiverPaise };
+        await fulfillPaymentOrder({
+          razorpayOrderId: order.razorpayOrderId,
+          referenceId: paid.paymentId,
+          paidPaise: paid.amountPaise,
+          userId: req.dbUserId,
         });
-        const result = granted.activated;
-        const chargePaise = result.pricePaise - granted.waiverPaise;
-
-        res.status(201).json({
-          membership: hideSupplierGstin({
-            ...result.membership,
-            gymName: result.gym.name,
-            plan: result.membership.plan
-              ? { ...result.membership.plan, priceINR: result.membership.plan.priceInPaise / 100 }
-              : null,
-            cycleNumber: result.nextCycleNumber,
-            maxCycles: 12,
-          }),
-          newCreditBalance: result.wallet.balance,
-          amount: chargePaise,
-          waiverPaise: granted.waiverPaise,
-          tax: membershipTaxBranches({
-            grossPaise: chargePaise,
-            gymGstRegistered: result.gym.isGstRegistered === true,
-          }),
-          message: granted.waiverPaise > 0 && chargePaise === 0
-            ? "Your free referral month is active."
-            : "Membership activated (test mode direct accept).",
-        });
-        return;
       }
-
-      if (!verifyCheckoutSignature(razorpayOrderId!, razorpayPaymentId!, razorpaySignature)) {
-        res.status(400).json({ error: "InvalidSignature", message: "Payment could not be verified." });
-        return;
-      }
-
-      await fulfillPaymentOrder({
-        razorpayOrderId: razorpayOrderId!,
-        referenceId: razorpayPaymentId!,
-        userId: req.dbUserId,
-      });
 
       const membership = await prisma.membership.findUnique({
         where: { userId: req.dbUserId! },
@@ -480,19 +360,26 @@ router.post(
       });
       const wallet = await prisma.creditWallet.findUnique({ where: { userId: req.dbUserId! } });
 
-      res.status(201).json({
-        membership: membership
-          ? hideSupplierGstin({
-              ...membership,
-              plan: membership.plan
-                ? { ...membership.plan, priceINR: membership.plan.priceInPaise / 100 }
-                : null,
-              cycleNumber: membership.cycleNumber,
-              maxCycles: 12,
-            })
-          : null,
+      if (!membership) {
+        res.status(400).json({
+          error: "ActivationFailed",
+          message: "Membership was not activated.",
+        });
+        return;
+      }
+
+      res.status(200).json({
+        membership: hideSupplierGstin({
+          ...membership,
+          gymName: membership.primaryGym?.name || gymName,
+          plan: membership.plan
+            ? { ...membership.plan, priceINR: membership.plan.priceInPaise / 100 }
+            : null,
+          cycleNumber: membership.cycleNumber,
+          maxCycles: 12,
+        }),
         newCreditBalance: wallet?.balance ?? 0,
-        message: "Membership activated.",
+        message: "Membership activated successfully.",
       });
     } catch (err: any) {
       const status = err.statusCode || err.status || 500;
