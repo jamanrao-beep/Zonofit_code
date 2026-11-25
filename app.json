@@ -85,7 +85,10 @@
         "expo-build-properties",
         {
           "android": {
-            "usesCleartextTraffic": false
+            "usesCleartextTraffic": false,
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "extraProguardRules": "-keepattributes *Annotation*\n-keepattributes EnclosingMethod\n-keepattributes InnerClasses\n-keepattributes Signature\n-keepattributes SourceFile,LineNumberTable\n-keepclassmembers,allowobfuscation class * { @expo.modules.core.interfaces.DoNotStrip *; }\n-keepclassmembers,allowobfuscation class * { @com.facebook.proguard.annotations.DoNotStrip *; }\n-keepclassmembers,allowobfuscation class * { @com.facebook.react.uimanager.annotations.ReactProp *; }\n-keepclassmembers,allowobfuscation class * { @com.facebook.react.uimanager.annotations.ReactPropGroup *; }\n-keep class com.facebook.react.turbomodule.** { *; }\n-keep class com.facebook.react.bridge.** { *; }\n-dontwarn com.facebook.react.**\n-keep class com.swmansion.reanimated.** { *; }\n-keep class com.swmansion.gesturehandler.** { *; }\n-dontwarn com.swmansion.reanimated.**\n-keep class expo.modules.** { *; }\n-dontwarn expo.modules.**\n-dontwarn okhttp3.**\n-dontwarn okio.**\n-dontwarn androidx.browser.**"
           }
         }
       ]
