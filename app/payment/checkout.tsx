@@ -134,6 +134,12 @@ const INJECTED_CHECKOUT_JS = `
     const btn = findContinueBtn();
     if (!btn) return;
 
+    // Do NOT alter button if it is currently processing/submitting
+    const text = (btn.innerText || btn.textContent || btn.value || '').trim().toLowerCase();
+    if (text.includes('processing') || text.includes('please wait') || btn.getAttribute('data-processing') === 'true') {
+      return;
+    }
+
     let alertBox = document.getElementById('__zonofit_val_alert__');
     if (!alertBox && btn.parentNode) {
       alertBox = document.createElement('div');
@@ -165,6 +171,10 @@ const INJECTED_CHECKOUT_JS = `
     if (!btn) return;
 
     if (e.target === btn || btn.contains(e.target)) {
+      const text = (btn.innerText || btn.textContent || btn.value || '').trim().toLowerCase();
+      if (text.includes('processing') || text.includes('please wait') || btn.getAttribute('data-processing') === 'true') {
+        return;
+      }
       const missing = getMissingFields();
       if (missing.length > 0) {
         e.preventDefault();
@@ -196,12 +206,13 @@ const INJECTED_CHECKOUT_JS = `
         missing[0].input.scrollIntoView({ behavior: 'smooth', block: 'center' });
         try { missing[0].input.focus(); } catch (_) {}
         return false;
+      } else {
+        btn.setAttribute('data-processing', 'true');
       }
     }
   }
 
   document.addEventListener('click', handleButtonClick, true);
-  document.addEventListener('touchend', handleButtonClick, true);
   document.addEventListener('input', updateButtonState, true);
   document.addEventListener('change', updateButtonState, true);
   document.addEventListener('focusin', updateButtonState, true);
@@ -410,6 +421,17 @@ export default function PaymentCheckoutScreen() {
           <Text style={styles.title}>Pay in ZonoFit</Text>
           <Text style={styles.subtitle}>Card, UPI, or net banking</Text>
         </View>
+        <Pressable
+          onPress={() => {
+            if (redirectUrl) Linking.openURL(redirectUrl).catch(() => {});
+          }}
+          hitSlop={10}
+          accessibilityLabel="Open in Browser"
+          style={styles.openBrowser}
+        >
+          <Ionicons name="globe-outline" size={16} color="#14582D" />
+          <Text style={styles.openBrowserText}>Browser</Text>
+        </Pressable>
       </View>
       {orderId ? (
         <View style={styles.upi}>
@@ -456,10 +478,12 @@ export default function PaymentCheckoutScreen() {
           domStorageEnabled
           thirdPartyCookiesEnabled
           sharedCookiesEnabled
-          setSupportMultipleWindows={false}
           nestedScrollEnabled
           overScrollMode="always"
           showsVerticalScrollIndicator
+          javaScriptCanOpenWindowsAutomatically
+          mixedContentMode="always"
+          allowsInlineMediaPlayback
           injectedJavaScriptBeforeContentLoaded={INJECTED_CHECKOUT_JS}
           injectedJavaScript={INJECTED_CHECKOUT_JS}
           keyboardDisplayRequiresUserAction={false}
@@ -499,6 +523,22 @@ const styles = StyleSheet.create({
   headerText: { flex: 1 },
   title: { fontSize: 16, fontWeight: "700", color: "#111827" },
   subtitle: { fontSize: 12, color: "#6B7280", marginTop: 1 },
+  openBrowser: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#F0FDF4",
+    borderColor: "#CDE5D4",
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  openBrowserText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#14582D",
+  },
   upi: {
     paddingHorizontal: 16,
     paddingVertical: 8,
