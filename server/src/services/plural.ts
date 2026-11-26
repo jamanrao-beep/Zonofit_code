@@ -182,18 +182,19 @@ function customerPayload(params: CreateOrderParams): Record<string, unknown> {
     customer.country_code = "91";
   }
 
-  // Always supply billing_address so Pine Labs skips the address prompt and opens directly to payment methods (QR, UPI, Cards, NetBanking)
-  const addressObj = {
-    address1: (params.customerAddress || "ZonoFit Member").slice(0, 100),
-    address2: "",
-    address3: "",
-    city: (params.customerCity || "Patna").slice(0, 50),
-    state: (params.customerState || "Bihar").slice(0, 50),
-    country: "India",
-    pincode: (params.customerPincode || "800001").replace(/\D/g, "").slice(0, 6) || "800001",
-  };
-  customer.billing_address = addressObj;
-  customer.shipping_address = addressObj;
+  if (params.customerAddress && params.customerCity && params.customerPincode) {
+    const addressObj = {
+      address1: params.customerAddress.slice(0, 100),
+      address2: "",
+      address3: "",
+      city: params.customerCity.slice(0, 50),
+      state: (params.customerState || "").slice(0, 50),
+      country: "India",
+      pincode: params.customerPincode.replace(/\D/g, "").slice(0, 6),
+    };
+    customer.billing_address = addressObj;
+    customer.shipping_address = addressObj;
+  }
   return customer;
 }
 
@@ -214,15 +215,15 @@ export async function createPluralOrder(params: CreateOrderParams): Promise<Plur
   const callbackUrl = params.callbackUrl || `${publicApiUrl}/api/payments/plural/callback`;
   const failureUrl = params.failureUrl || callbackUrl;
 
-  const billingAddr = {
-    address1: (params.customerAddress || "ZonoFit Member").slice(0, 100),
+  const billingAddr = (params.customerAddress && params.customerCity && params.customerPincode) ? {
+    address1: params.customerAddress.slice(0, 100),
     address2: "",
     address3: "",
-    city: (params.customerCity || "Patna").slice(0, 50),
-    state: (params.customerState || "Bihar").slice(0, 50),
+    city: params.customerCity.slice(0, 50),
+    state: (params.customerState || "").slice(0, 50),
     country: "India",
-    pincode: (params.customerPincode || "800001").replace(/\D/g, "").slice(0, 6) || "800001",
-  };
+    pincode: params.customerPincode.replace(/\D/g, "").slice(0, 6),
+  } : undefined;
 
   const payload: Record<string, unknown> = {
     merchant_order_reference: params.merchantReference,
@@ -237,8 +238,7 @@ export async function createPluralOrder(params: CreateOrderParams): Promise<Plur
     failure_callback_url: failureUrl,
     purchase_details: {
       customer: customerPayload(params),
-      billing_address: billingAddr,
-      shipping_address: billingAddr,
+      ...(billingAddr ? { billing_address: billingAddr, shipping_address: billingAddr } : {}),
     },
   };
 
