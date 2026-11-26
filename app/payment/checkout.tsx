@@ -79,9 +79,31 @@ const INJECTED_CHECKOUT_JS = `
     return null;
   }
 
-  // 3. Inspect address/input fields in form
+  // 3. Inspect and auto-fill address/input fields in form
   function getFormFields() {
     return Array.from(document.querySelectorAll('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), select, textarea'));
+  }
+
+  function autoFillDefaults() {
+    const fields = getFormFields();
+    fields.forEach(input => {
+      const name = (input.name || input.id || input.placeholder || '').toLowerCase();
+      const val = (input.value || '').trim();
+
+      if ((name.includes('pin') || name.includes('zip') || name.includes('postal')) && !val) {
+        input.value = '801106';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      } else if (name.includes('city') && !val) {
+        input.value = 'Patna';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      } else if ((name.includes('address1') || name.includes('street') || name.includes('address')) && !val && !name.includes('address2')) {
+        input.value = 'Aryabhatta';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
   }
 
   function getFieldLabel(input) {
@@ -131,6 +153,7 @@ const INJECTED_CHECKOUT_JS = `
 
   // 4. Update button visual appearance and ready status
   function updateButtonState() {
+    autoFillDefaults();
     const btn = findContinueBtn();
     if (!btn) return;
 
@@ -159,14 +182,14 @@ const INJECTED_CHECKOUT_JS = `
       if (alertBox) alertBox.style.display = 'none';
     } else {
       btn.classList.remove('zonofit-btn-ready');
-      // Keep pointer events enabled so clicking surfaces what is not filled
       btn.style.setProperty('pointer-events', 'auto', 'important');
       btn.style.setProperty('cursor', 'pointer', 'important');
     }
   }
 
-  // 5. Intercept taps on the button to show what is missing
+  // 5. Intercept taps on the button to ensure defaults and visual feedback without breaking submit
   function handleButtonClick(e) {
+    autoFillDefaults();
     const btn = findContinueBtn();
     if (!btn) return;
 
@@ -175,11 +198,9 @@ const INJECTED_CHECKOUT_JS = `
       if (text.includes('processing') || text.includes('please wait') || btn.getAttribute('data-processing') === 'true') {
         return;
       }
+
       const missing = getMissingFields();
       if (missing.length > 0) {
-        e.preventDefault();
-        e.stopPropagation();
-
         missing.forEach(item => {
           item.input.classList.add('zonofit-field-error');
           const cleanUp = () => {
@@ -205,7 +226,6 @@ const INJECTED_CHECKOUT_JS = `
 
         missing[0].input.scrollIntoView({ behavior: 'smooth', block: 'center' });
         try { missing[0].input.focus(); } catch (_) {}
-        return false;
       } else {
         btn.setAttribute('data-processing', 'true');
       }
