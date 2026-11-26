@@ -177,16 +177,17 @@ function VisitRing({ progress, label }: { progress: number; label: string }) {
   const r = (size - stroke) / 2;
   const cx = size / 2;
   const shown = Math.min(1, Math.max(0, progress));
-  const arc = Skia.Path.Make();
-  if (shown > 0.01) {
-    arc.addArc({ x: cx - r, y: cx - r, width: r * 2, height: r * 2 }, -90, 360 * shown);
-  }
+  const arc = shown > 0.01
+    ? Skia.PathBuilder.Make()
+        .addArc({ x: cx - r, y: cx - r, width: r * 2, height: r * 2 }, -90, 360 * shown)
+        .build()
+    : null;
 
   return (
     <View style={{ width: size, height: size }}>
       <Canvas style={{ width: size, height: size }}>
         <Circle cx={cx} cy={cx} r={r} style="stroke" strokeWidth={stroke} color="#E3E9E6" />
-        {shown > 0.01 ? (
+        {arc ? (
           <Path path={arc} style="stroke" strokeWidth={stroke} color={GREEN_MID} strokeCap="round" />
         ) : null}
       </Canvas>

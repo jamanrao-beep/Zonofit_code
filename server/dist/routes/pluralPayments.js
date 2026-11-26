@@ -157,6 +157,130 @@ router.post("/verify", auth_1.requireAuth, [(0, express_validator_1.body)("order
         });
     }
 });
+const upiIntentJobs = new Map();
+const upiIntentCache = new Map();
+function readMeta(raw) {
+    if (typeof raw !== "string" || !raw)
+        return {};
+    try {
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === "object" ? parsed : {};
+    }
+    catch {
+        return {};
+    }
+}
+/**
+ * POST /api/payments/plural/upi-intent
+ * Returns Pine Labs' UPI app link for this order. The amount comes from the
+ * stored order. Opening the link does not grant credits.
+ */
+router.post("/upi-intent", auth_1.requireAuth, [(0, express_validator_1.body)("orderId").isString().notEmpty().withMessage("Order ID required.")], async (req, res) => {
+    const errors = (0, express_validator_1.validationResult)(req);
+    if (!errors.isEmpty()) {
+        res.status(400).json({ error: "ValidationError", details: errors.array() });
+        return;
+    }
+    if (!(0, plural_1.isPluralConfigured)()) {
+        res.status(503).json({ error: "PluralNotConfigured", message: "Card payments are not configured." });
+        return;
+    }
+    const { orderId } = req.body;
+    if (!/^[A-Za-z0-9_-]{1,80}$/.test(orderId)) {
+        res.status(400).json({ error: "ValidationError", message: "Order ID required." });
+        return;
+    }
+    try {
+        const order = await prisma_1.default.paymentOrder.findFirst({
+            where: { gatewayOrderId: orderId, userId: req.dbUserId },
+        });
+        if (!order) {
+            res.status(404).json({ error: "OrderNotFound", message: "Payment order not found." });
+            return;
+        }
+        if (order.status === "FULFILLED") {
+            res.json({ success: true, status: "FULFILLED", upiUrl: null });
+            return;
+        }
+        if (order.status !== "CREATED") {
+            res.status(409).json({ error: "PaymentConflict", message: "This payment can no longer be started." });
+            return;
+        }
+        if (!Number.isInteger(order.amountPaise) || order.amountPaise < 100) {
+            res.status(400).json({ error: "AmountTooSmall", message: "This payment cannot be opened in a UPI app." });
+            return;
+        }
+        const remembered = upiIntentCache.get(order.gatewayOrderId);
+        const rememberedUrl = remembered ? (0, plural_1.challengeUrlForAmount)(remembered, order.amountPaise) : null;
+        if (rememberedUrl) {
+            res.json({ upiUrl: rememberedUrl });
+            return;
+        }
+        const running = upiIntentJobs.get(order.gatewayOrderId);
+        const job = running || (async () => {
+            const fresh = await prisma_1.default.paymentOrder.findFirst({
+                where: { gatewayOrderId: order.gatewayOrderId, userId: req.dbUserId, status: "CREATED" },
+            });
+            if (!fresh)
+                return null;
+            const meta = readMeta(fresh.metaJson);
+            const cached = typeof meta.upiChallengeUrl === "string"
+                ? (0, plural_1.challengeUrlForAmount)(meta.upiChallengeUrl, fresh.amountPaise)
+                : null;
+            if (cached) {
+                upiIntentCache.set(fresh.gatewayOrderId, cached);
+                return cached;
+            }
+            if (meta.upiIntentBlocked === true)
+                return null;
+            const challenge = await (0, plural_1.createPluralUpiIntent)(fresh.gatewayOrderId, fresh.amountPaise);
+            if (challenge.url)
+                upiIntentCache.set(fresh.gatewayOrderId, challenge.url);
+            const nextMeta = {
+                ...readMeta(fresh.metaJson),
+                ...(challenge.url
+                    ? { upiChallengeUrl: challenge.url }
+                    : challenge.blockRetry
+                        ? { upiIntentBlocked: true }
+                        : {}),
+            };
+            if (challenge.url || challenge.blockRetry) {
+                try {
+                    await prisma_1.default.paymentOrder.update({
+                        where: { gatewayOrderId: fresh.gatewayOrderId },
+                        data: { metaJson: JSON.stringify(nextMeta) },
+                    });
+                }
+                catch (saveErr) {
+                    const message = saveErr instanceof Error ? saveErr.message : "error";
+                    console.error("[Plural UPI] Saved the app link in memory only:", message);
+                }
+            }
+            return challenge.url;
+        })().finally(() => {
+            upiIntentJobs.delete(order.gatewayOrderId);
+        });
+        if (!running)
+            upiIntentJobs.set(order.gatewayOrderId, job);
+        const upiUrl = await job;
+        if (!upiUrl) {
+            res.status(502).json({
+                error: "UpiIntentUnavailable",
+                message: "UPI app pay is not available for this payment. Use the page below.",
+            });
+            return;
+        }
+        res.json({ upiUrl });
+    }
+    catch (err) {
+        const coded = err;
+        console.error("[Plural UPI] Could not create an app link:", coded.message || "error");
+        res.status(500).json({
+            error: "UpiIntentFailed",
+            message: "UPI app pay is not available for this payment. Use the page below.",
+        });
+    }
+});
 /**
  * GET/POST /api/payments/plural/callback
  * Browser return from hosted checkout. This page does not grant credits.

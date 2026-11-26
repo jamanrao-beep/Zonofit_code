@@ -346,5 +346,97 @@ router.post("/undo", auth_1.requireAuth, [(0, express_validator_1.body)("booking
         res.status(status).json({ error: err.code || "UndoFailed", message: err.message || "Could not undo check-in." });
     }
 });
+function haversineDistanceMeters(lat1, lon1, lat2, lon2) {
+    const R = 6371e3;
+    const φ1 = (lat1 * Math.PI) / 180;
+    const φ2 = (lat2 * Math.PI) / 180;
+    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+        Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+}
+// ─── POST /api/checkin/proximity-ping ─────────────────────────────────────────
+/**
+ * Physical location verification: Checks if the user is at a partner gym.
+ * If user is within 150m of a partner gym and does NOT have an active booking today,
+ * records a LocationAlert for administrative verification / fraud prevention.
+ */
+router.post("/proximity-ping", auth_1.requireAuth, async (req, res) => {
+    try {
+        const lat = typeof req.body?.lat === "number" ? req.body.lat : parseFloat(req.body?.lat);
+        const lng = typeof req.body?.lng === "number" ? req.body.lng : parseFloat(req.body?.lng);
+        if (Number.isNaN(lat) || Number.isNaN(lng)) {
+            res.status(400).json({ error: "InvalidCoordinates", message: "Valid lat and lng required." });
+            return;
+        }
+        const activeGyms = await prisma_1.default.gym.findMany({
+            where: { isActive: true },
+            select: { id: true, name: true, city: true, address: true, lat: true, lng: true },
+        });
+        let closestGym = null;
+        let minDistance = Infinity;
+        for (const gym of activeGyms) {
+            const dist = haversineDistanceMeters(lat, lng, gym.lat, gym.lng);
+            if (dist < minDistance) {
+                minDistance = dist;
+                closestGym = gym;
+            }
+        }
+        const GEOFENCE_RADIUS_METERS = 150;
+        const isNearGym = closestGym && minDistance <= GEOFENCE_RADIUS_METERS;
+        if (!isNearGym || !closestGym) {
+            res.json({
+                withinGeofence: false,
+                distanceMeters: Math.round(minDistance),
+            });
+            return;
+        }
+        const todayStart = startOfTodayInKolkata();
+        const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+        const activeBooking = await prisma_1.default.booking.findFirst({
+            where: {
+                userId: req.dbUserId,
+                gymId: closestGym.id,
+                visitDate: { gte: todayStart, lt: todayEnd },
+                status: { in: ["CONFIRMED", "CHECKED_IN", "COMPLETED"] },
+            },
+        });
+        let alertLogged = false;
+        if (!activeBooking) {
+            // Flag anomalous physical visit without booking
+            const recentAlert = await prisma_1.default.locationAlert.findFirst({
+                where: {
+                    userId: req.dbUserId,
+                    gymId: closestGym.id,
+                    detectedAt: { gte: new Date(Date.now() - 3 * 60 * 60 * 1000) },
+                },
+            });
+            if (!recentAlert) {
+                await prisma_1.default.locationAlert.create({
+                    data: {
+                        userId: req.dbUserId,
+                        gymId: closestGym.id,
+                        distanceMeters: Math.round(minDistance),
+                        status: "FLAGGED",
+                    },
+                });
+                alertLogged = true;
+            }
+        }
+        res.json({
+            withinGeofence: true,
+            gym: { id: closestGym.id, name: closestGym.name, city: closestGym.city },
+            distanceMeters: Math.round(minDistance),
+            hasActiveBooking: Boolean(activeBooking),
+            alertLogged,
+        });
+    }
+    catch (err) {
+        console.error("[ProximityPing Error]", err);
+        res.status(500).json({ error: "ServerError", message: err.message || "Failed to process proximity check" });
+    }
+});
 exports.default = router;
 //# sourceMappingURL=checkin.js.map

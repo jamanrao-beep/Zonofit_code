@@ -304,7 +304,7 @@ router.patch("/me", auth_1.requireAuth, [
         res.status(400).json({ error: "ValidationError", details: errors.array() });
         return;
     }
-    const { name, phone, email, dob, avatarUrl, expoPushToken } = req.body;
+    const { name, phone, email, dob, avatarUrl, expoPushToken, gender, emergencyContact, city, state, address, pincode } = req.body;
     const current = await prisma_1.default.user.findUnique({
         where: { id: req.dbUserId },
         select: { email: true },
@@ -382,8 +382,28 @@ router.patch("/me", auth_1.requireAuth, [
                 ...(nextDob !== undefined && { dob: nextDob }),
                 ...(avatarUrl !== undefined && { avatarUrl }),
                 ...(expoPushToken !== undefined && { expoPushToken }),
+                ...(gender !== undefined && { gender }),
+                ...(emergencyContact !== undefined && { emergencyContact }),
+                ...(city !== undefined && { city }),
+                ...(state !== undefined && { state }),
+                ...(address !== undefined && { address }),
+                ...(pincode !== undefined && { pincode }),
             },
-            select: { id: true, name: true, phone: true, avatarUrl: true, email: true, dob: true, expoPushToken: true },
+            select: {
+                id: true,
+                name: true,
+                phone: true,
+                avatarUrl: true,
+                email: true,
+                dob: true,
+                expoPushToken: true,
+                gender: true,
+                emergencyContact: true,
+                city: true,
+                state: true,
+                address: true,
+                pincode: true,
+            },
         });
         res.json({ user: { ...updated, dob: formatDob(updated.dob) } });
     }

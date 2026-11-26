@@ -18,6 +18,10 @@ export interface CreateOrderParams {
     customerPhone?: string;
     customerEmail?: string;
     customerName?: string;
+    customerAddress?: string;
+    customerCity?: string;
+    customerState?: string;
+    customerPincode?: string;
     callbackUrl?: string;
     failureUrl?: string;
 }
@@ -54,6 +58,25 @@ export declare function getPluralAccessToken(): Promise<string>;
  * Credits are not granted here.
  */
 export declare function createPluralOrder(params: CreateOrderParams): Promise<PluralOrderResult>;
+/**
+ * A Pine Labs UPI INTENT link. The amount in `am` is rupees and must match the order.
+ * The query string is kept as Pine Labs sent it.
+ */
+export declare function challengeUrlForAmount(url: string, amountPaise: number): string | null;
+/**
+ * Reads `challenge_url` from a Create Payment response and checks the amount.
+ */
+export declare function readPluralUpiChallenge(payload: unknown, amountPaise: number): string | null;
+export interface PluralUpiIntentResult {
+    url: string | null;
+    /** A 200 response that is not payable. Do not call Create Payment again for this order. */
+    blockRetry: boolean;
+}
+/**
+ * Asks Pine Labs for a UPI app link for an existing order.
+ * A missing link does not grant credits.
+ */
+export declare function createPluralUpiIntent(orderId: string, amountPaise: number): Promise<PluralUpiIntentResult>;
 /**
  * Standard Webhooks signature: HMAC-SHA256 over webhook-id.timestamp.rawBody.
  * The header is a space-separated list of `v1,<base64>` values.

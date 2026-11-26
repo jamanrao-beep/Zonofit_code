@@ -42,19 +42,11 @@ export function SkiaProgressRing({
   const startAngle = -Math.PI / 2;
   const endAngle = startAngle + 2 * Math.PI * Math.min(Math.max(progress, 0), 1);
 
-  const arcPath = Skia.Path.Make();
-  arcPath.addArc(
-    { x: cx - r, y: cy - r, width: r * 2, height: r * 2 },
-    -90,
-    360 * Math.min(Math.max(progress, 0), 1)
-  );
-
-  const trackPath = Skia.Path.Make();
-  trackPath.addArc(
-    { x: cx - r, y: cy - r, width: r * 2, height: r * 2 },
-    0,
-    360
-  );
+  const oval = { x: cx - r, y: cy - r, width: r * 2, height: r * 2 };
+  const arcPath = Skia.PathBuilder.Make()
+    .addArc(oval, -90, 360 * Math.min(Math.max(progress, 0), 1))
+    .build();
+  const trackPath = Skia.PathBuilder.Make().addArc(oval, 0, 360).build();
 
   return (
     <View style={{ width: size, height: size, position: "relative" }}>

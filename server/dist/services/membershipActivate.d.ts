@@ -47,16 +47,16 @@ export declare function activatePaidMembership(tx: Tx, userId: string, input: Me
         primaryGym: {
             name: string;
             id: string;
+            city: string;
+            state: string;
+            address: string;
+            pincode: string | null;
             createdAt: Date;
             updatedAt: Date;
             description: string | null;
             logoUrl: string | null;
             coverImageUrl: string | null;
             tagline: string | null;
-            address: string;
-            city: string;
-            pincode: string | null;
-            state: string;
             landmark: string | null;
             area: string | null;
             lat: number;
@@ -109,6 +109,8 @@ export declare function activatePaidMembership(tx: Tx, userId: string, input: Me
             isGstRegistered: boolean | null;
             gstNumber: string | null;
             invoicePrefix: string | null;
+            authMode: string | null;
+            deskPin: string | null;
         } | null;
     } & {
         id: string;
@@ -143,16 +145,16 @@ export declare function activatePaidMembership(tx: Tx, userId: string, input: Me
     gym: {
         name: string;
         id: string;
+        city: string;
+        state: string;
+        address: string;
+        pincode: string | null;
         createdAt: Date;
         updatedAt: Date;
         description: string | null;
         logoUrl: string | null;
         coverImageUrl: string | null;
         tagline: string | null;
-        address: string;
-        city: string;
-        pincode: string | null;
-        state: string;
         landmark: string | null;
         area: string | null;
         lat: number;
@@ -205,6 +207,8 @@ export declare function activatePaidMembership(tx: Tx, userId: string, input: Me
         isGstRegistered: boolean | null;
         gstNumber: string | null;
         invoicePrefix: string | null;
+        authMode: string | null;
+        deskPin: string | null;
     };
     nextCycleNumber: number;
     inrWalletDeductedPaise: number;
@@ -228,16 +232,16 @@ export declare function quotePaidMembership(userId: string, input: MembershipAct
     gym: {
         name: string;
         id: string;
+        city: string;
+        state: string;
+        address: string;
+        pincode: string | null;
         createdAt: Date;
         updatedAt: Date;
         description: string | null;
         logoUrl: string | null;
         coverImageUrl: string | null;
         tagline: string | null;
-        address: string;
-        city: string;
-        pincode: string | null;
-        state: string;
         landmark: string | null;
         area: string | null;
         lat: number;
@@ -290,6 +294,8 @@ export declare function quotePaidMembership(userId: string, input: MembershipAct
         isGstRegistered: boolean | null;
         gstNumber: string | null;
         invoicePrefix: string | null;
+        authMode: string | null;
+        deskPin: string | null;
     };
     planId: string | null;
     gymPlanId: string | null;

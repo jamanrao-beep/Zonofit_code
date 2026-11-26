@@ -132,20 +132,17 @@ async function burnGymSecretCompare(secret) {
 router.post("/gym-signin", async (req, res) => {
     try {
         const password = typeof req.body?.password === "string" ? req.body.password : "";
-        const passkey = typeof req.body?.passkey === "string" ? req.body.passkey : "";
+        const passkey = typeof req.body?.passkey === "string"
+            ? req.body.passkey
+            : (typeof req.body?.pin === "string" ? req.body.pin : "");
         const username = (0, gymOwner_1.cleanPortalUsername)(req.body?.username);
         const rawName = typeof req.body?.username === "string" ? req.body.username.trim() : "";
         if (!rawName) {
-            res.status(400).json({ error: "ValidationError", message: "Enter the username ZonoFit gave this gym." });
+            res.status(400).json({ error: "ValidationError", message: "Enter the username or Gym ID." });
             return;
         }
-        if (password && passkey) {
-            res.status(400).json({ error: "ValidationError", message: "Use the password or the passkey, not both." });
-            return;
-        }
-        const secret = passkey || password;
-        if (!secret) {
-            res.status(400).json({ error: "ValidationError", message: "Enter the password or the passkey." });
+        if (!password && !passkey) {
+            res.status(400).json({ error: "ValidationError", message: "Enter your password or desk PIN." });
             return;
         }
         const bucket = gymLoginBucket(username || rawName.slice(0, 64));
@@ -154,20 +151,53 @@ router.post("/gym-signin", async (req, res) => {
             return;
         }
         const invalid = { error: "InvalidCredentials", message: "That username or secret is not right." };
-        if (!username || secret.length > 72) {
-            await burnGymSecretCompare(secret.slice(0, 72));
+        if (!username) {
             res.status(401).json(invalid);
             return;
         }
-        const user = await prisma_1.default.user.findFirst({ where: { portalUsername: username } });
-        const hash = passkey ? user?.passkeyHash : user?.passwordHash;
-        if (!user || !hash) {
-            await burnGymSecretCompare(secret);
+        let user = await prisma_1.default.user.findFirst({
+            where: { portalUsername: username },
+            include: { gymsOwned: { select: { authMode: true, deskPin: true } } }
+        });
+        // Fallback: look up by gym customGymId
+        if (!user) {
+            const gymByCode = await prisma_1.default.gym.findUnique({
+                where: { customGymId: username },
+                include: { owner: true }
+            });
+            if (gymByCode?.owner) {
+                user = await prisma_1.default.user.findFirst({
+                    where: { id: gymByCode.owner.id },
+                    include: { gymsOwned: { select: { authMode: true, deskPin: true } } }
+                });
+            }
+        }
+        if (!user) {
+            await burnGymSecretCompare(password || passkey);
             res.status(401).json(invalid);
             return;
         }
-        const matches = await bcryptjs_1.default.compare(secret, hash);
-        if (!matches) {
+        let authenticated = false;
+        // Check password if provided
+        if (password && user.passwordHash) {
+            const pwMatch = await bcryptjs_1.default.compare(password, user.passwordHash);
+            if (pwMatch)
+                authenticated = true;
+        }
+        // Check passkey / PIN if provided
+        if (passkey) {
+            if (user.passkeyHash) {
+                const pinMatch = await bcryptjs_1.default.compare(passkey, user.passkeyHash);
+                if (pinMatch)
+                    authenticated = true;
+            }
+            // Check gym deskPin if set
+            const gymWithPin = user.gymsOwned?.find(g => g.deskPin === passkey);
+            if (gymWithPin)
+                authenticated = true;
+        }
+        if (!authenticated) {
+            await burnGymSecretCompare(password || passkey);
             res.status(401).json(invalid);
             return;
         }

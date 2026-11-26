@@ -1,5 +1,5 @@
-import * as WebBrowser from "expo-web-browser";
 import { apiFetch } from "./api";
+import { openInAppCheckout } from "./inAppCheckout";
 
 export interface CheckoutResult {
   success: boolean;
@@ -8,8 +8,8 @@ export interface CheckoutResult {
 }
 
 /**
- * Opens Pine Labs hosted checkout, then asks the API to confirm the order.
- * A covered referral month arrives as directAccepted and does not open a browser.
+ * Opens Pine Labs checkout inside the app, then asks the API to confirm the order.
+ * A covered referral month arrives as directAccepted and does not open checkout.
  */
 export async function handlePaymentCheckout(
   orderData: any,
@@ -31,15 +31,9 @@ export async function handlePaymentCheckout(
   if (orderData.redirectUrl) {
     const orderId = orderData.orderId || orderData.razorpayOrderId;
     try {
-      // Opens Chrome Custom Tab (Android) or ASWebAuthenticationSession / SFSafari (iOS)
-      // When Pine Labs finishes, it redirects to api.zonofit.com/api/payments/plural/callback
-      // which auto-triggers the deep link "zonofit://payment/success?order_id=..."
-      await WebBrowser.openAuthSessionAsync(
-        orderData.redirectUrl,
-        "zonofit://payment"
-      );
-    } catch (browserErr) {
-      console.warn("[Payment] Browser session finished or dismissed:", browserErr);
+      await openInAppCheckout(orderData.redirectUrl, orderId);
+    } catch (checkoutErr) {
+      console.warn("[Payment] In-app checkout closed:", checkoutErr);
     }
 
     if (!orderId) {

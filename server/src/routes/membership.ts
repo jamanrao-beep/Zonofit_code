@@ -228,7 +228,7 @@ router.post(
       const merchantReference = `mem_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       const user = await prisma.user.findUnique({
         where: { id: req.dbUserId! },
-        select: { phone: true, email: true, name: true },
+        select: { phone: true, email: true, name: true, address: true, city: true, state: true, pincode: true },
       });
 
       const pluralOrder = await createPluralOrder({
@@ -238,6 +238,10 @@ router.post(
         customerPhone: user?.phone || undefined,
         customerEmail: user?.email || undefined,
         customerName: user?.name || undefined,
+        customerAddress: user?.address || undefined,
+        customerCity: user?.city || undefined,
+        customerState: user?.state || undefined,
+        customerPincode: user?.pincode || undefined,
       });
 
       await (prisma as any).paymentOrder.create({

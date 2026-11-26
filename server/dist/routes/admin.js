@@ -178,16 +178,22 @@ router.get("/users", auth_1.requireAuth, requireAdmin, async (req, res) => {
             prisma_1.default.user.findMany({
                 where,
                 include: {
-                    membership: true,
+                    membership: {
+                        include: {
+                            plan: { select: { id: true, name: true, monthlyCredits: true } },
+                            primaryGym: { select: { id: true, name: true, city: true } }
+                        }
+                    },
                     wallet: true,
                     gymsOwned: {
-                        select: { id: true, name: true, city: true }
+                        select: { id: true, name: true, city: true, authMode: true, deskPin: true }
                     },
                     _count: {
                         select: {
                             bookings: {
                                 where: { status: { in: ["CONFIRMED", "CHECKED_IN", "COMPLETED"] } }
-                            }
+                            },
+                            locationAlerts: true,
                         }
                     }
                 },
@@ -351,22 +357,34 @@ router.post("/gyms", auth_1.requireAuth, requireAdmin, async (req, res) => {
         // * star internal
         customGymId, ownerName, bankDetails, cappingMode, maxDailyVisits, maxSlotVisits, payoutModel, payoutCommissionRate, payoutFixedPerVisit, paymentCycle, isGstRegistered, gstNumber, invoicePrefix, 
         // public / user facing
-        name, description, address, city, state, landmark, googleMapsUrl, contactPhone, monthlyPrice, weekdayHours, weekendHours, facilities, slots, logoUrl, exteriorImageUrl, interiorImageUrls, lat, lng, isVerified, requiresVerification, isActive, ownerUsername, ownerPassword, ownerPasskey, } = req.body;
+        name, description, address, city, state, landmark, googleMapsUrl, contactPhone, monthlyPrice, weekdayHours, weekendHours, facilities, slots, logoUrl, exteriorImageUrl, interiorImageUrls, lat, lng, isVerified, requiresVerification, isActive, ownerUsername, ownerPassword, ownerPasskey, ownerPin, authMode, } = req.body;
         if (!name || !address) {
             res.status(400).json({ error: "ValidationError", message: "Gym Name and Full Address are required." });
             return;
         }
-        const creds = (0, gymOwner_1.readOwnerCredentials)({ ownerUsername, ownerPassword, ownerPasskey });
+        const creds = (0, gymOwner_1.readOwnerCredentials)({ ownerUsername, ownerPassword, ownerPasskey, ownerPin, authMode });
         if (!creds.ok) {
             res.status(400).json({ error: "OwnerLoginRequired", message: creds.message });
             return;
         }
-        const { username: loginUsername, password: loginPassword, passkey: loginPasskey } = creds.value;
-        if (!loginUsername || !loginPassword || !loginPasskey) {
+        const { username: loginUsername, password: loginPassword, passkey: loginPasskey, authMode: gymAuthMode } = creds.value;
+        if (!loginUsername) {
             res.status(400).json({
                 error: "OwnerLoginRequired",
-                message: "Set a username, a password of 8 to 72 characters, and a passkey of 6 to 72 characters. You will give all three to the gym owner.",
+                message: "Set a portal username or Gym ID for partner login.",
             });
+            return;
+        }
+        if (gymAuthMode === "PASSWORD" && !loginPassword) {
+            res.status(400).json({ error: "OwnerLoginRequired", message: "Password of 8 to 72 characters is required for password login mode." });
+            return;
+        }
+        if (gymAuthMode === "PIN" && !loginPasskey) {
+            res.status(400).json({ error: "OwnerLoginRequired", message: "A 4 to 6 digit desk PIN is required for PIN login mode." });
+            return;
+        }
+        if (gymAuthMode === "BOTH" && !loginPassword && !loginPasskey) {
+            res.status(400).json({ error: "OwnerLoginRequired", message: "Provide at least a password or a desk PIN (or both)." });
             return;
         }
         const priceM = asInt(monthlyPrice, 3000);
@@ -447,6 +465,8 @@ router.post("/gyms", auth_1.requireAuth, requireAdmin, async (req, res) => {
                         isVerified: isVerified !== undefined ? !!isVerified : true,
                         requiresVerification: requiresVerification !== undefined ? !!requiresVerification : false,
                         isActive: isActive !== undefined ? !!isActive : true,
+                        authMode: gymAuthMode,
+                        deskPin: loginPasskey || req.body.deskPin || null,
                         partnerSince: new Date(),
                     },
                 });
@@ -533,7 +553,7 @@ router.put("/gyms/:id/slots", auth_1.requireAuth, requireAdmin, async (req, res)
 router.put("/gyms/:id", auth_1.requireAuth, requireAdmin, async (req, res) => {
     try {
         const gymId = req.params.id;
-        const { customGymId, ownerName, bankDetails, cappingMode, maxDailyVisits, maxSlotVisits, payoutModel, payoutCommissionRate, payoutFixedPerVisit, paymentCycle, isGstRegistered, gstNumber, invoicePrefix, name, description, address, city, state, landmark, googleMapsUrl, contactPhone, monthlyPrice, weekdayHours, weekendHours, facilities, slots, logoUrl, exteriorImageUrl, interiorImageUrls, lat, lng, isVerified, requiresVerification, isActive, ownerUsername, ownerPassword, ownerPasskey, } = req.body;
+        const { customGymId, ownerName, bankDetails, cappingMode, maxDailyVisits, maxSlotVisits, payoutModel, payoutCommissionRate, payoutFixedPerVisit, paymentCycle, isGstRegistered, gstNumber, invoicePrefix, name, description, address, city, state, landmark, googleMapsUrl, contactPhone, monthlyPrice, weekdayHours, weekendHours, facilities, slots, logoUrl, exteriorImageUrl, interiorImageUrls, lat, lng, isVerified, requiresVerification, isActive, ownerUsername, ownerPassword, ownerPasskey, ownerPin, authMode, deskPin, } = req.body;
         const existingGym = await prisma_1.default.gym.findUnique({ where: { id: gymId } });
         if (!existingGym) {
             res.status(404).json({ error: "NotFound", message: "Gym not found" });
@@ -550,12 +570,12 @@ router.put("/gyms/:id", auth_1.requireAuth, requireAdmin, async (req, res) => {
         const latVal = lat !== undefined ? parseFloat(lat) : existingGym.lat;
         const lngVal = lng !== undefined ? parseFloat(lng) : existingGym.lng;
         let ownerId = existingGym.ownerId;
-        const creds = (0, gymOwner_1.readOwnerCredentials)({ ownerUsername, ownerPassword, ownerPasskey });
+        const creds = (0, gymOwner_1.readOwnerCredentials)({ ownerUsername, ownerPassword, ownerPasskey, ownerPin, authMode: authMode || existingGym.authMode });
         if (!creds.ok) {
             res.status(400).json({ error: "OwnerLoginRequired", message: creds.message });
             return;
         }
-        const { username: nextUsername, password: nextPassword, passkey: nextPasskey } = creds.value;
+        const { username: nextUsername, password: nextPassword, passkey: nextPasskey, authMode: gymAuthMode } = creds.value;
         const anyCredential = creds.value.usernameProvided || creds.value.passwordProvided || creds.value.passkeyProvided;
         const ownerRow = ownerId
             ? await prisma_1.default.user.findUnique({
@@ -567,11 +587,11 @@ router.put("/gyms/:id", auth_1.requireAuth, requireAdmin, async (req, res) => {
             res.status(404).json({ error: "NotFound", message: "This gym's owner account is missing." });
             return;
         }
-        const hasLogin = Boolean(ownerRow?.portalUsername && ownerRow.passwordHash && ownerRow.passkeyHash);
-        if (!hasLogin && anyCredential && (!nextUsername || !nextPassword || !nextPasskey)) {
+        const hasLogin = Boolean(ownerRow?.portalUsername && (ownerRow.passwordHash || ownerRow.passkeyHash));
+        if (!hasLogin && anyCredential && !nextUsername) {
             res.status(400).json({
                 error: "OwnerLoginRequired",
-                message: "This gym has no partner login yet. Set a username, a password of 8 to 72 characters, and a passkey of 6 to 72 characters.",
+                message: "Set a portal username or Gym ID for partner login.",
             });
             return;
         }
@@ -594,7 +614,7 @@ router.put("/gyms/:id", auth_1.requireAuth, requireAdmin, async (req, res) => {
         try {
             gym = await prisma_1.default.$transaction(async (tx) => {
                 const nextName = typeof ownerName === "string" && ownerName.trim() ? ownerName.trim() : undefined;
-                if (!ownerId && nextUsername && nextPassword && nextPasskey) {
+                if (!ownerId && nextUsername && (nextPassword || nextPasskey)) {
                     const createdOwner = await (0, gymOwner_1.createGymOwner)(tx, {
                         username: nextUsername,
                         password: nextPassword,
@@ -658,6 +678,8 @@ router.put("/gyms/:id", auth_1.requireAuth, requireAdmin, async (req, res) => {
                         isGstRegistered: isGstRegistered !== undefined ? !!isGstRegistered : existingGym.isGstRegistered,
                         gstNumber: isGstRegistered === false ? null : (gstNumber !== undefined ? gstNumber : existingGym.gstNumber),
                         invoicePrefix: invoicePrefix !== undefined ? invoicePrefix : existingGym.invoicePrefix,
+                        authMode: authMode !== undefined ? authMode : existingGym.authMode,
+                        deskPin: deskPin !== undefined ? deskPin : (nextPasskey || existingGym.deskPin),
                         lat: latVal,
                         lng: lngVal,
                         isVerified: isVerified !== undefined ? !!isVerified : existingGym.isVerified,
@@ -1103,18 +1125,151 @@ router.put("/settings", auth_1.requireAuth, requireAdmin, async (req, res) => {
 router.get("/users/:id/history", auth_1.requireAuth, requireAdmin, async (req, res) => {
     try {
         const userId = req.params.id;
-        const bookings = await prisma_1.default.booking.findMany({
-            where: { userId },
-            include: { gym: { select: { name: true, city: true } } },
-            orderBy: { createdAt: "desc" },
-            take: 20
+        const [user, bookings, transactions, locationAlerts] = await Promise.all([
+            prisma_1.default.user.findUnique({
+                where: { id: userId },
+                include: {
+                    membership: {
+                        include: {
+                            plan: true,
+                            primaryGym: { select: { id: true, name: true, city: true, address: true } }
+                        }
+                    },
+                    wallet: true,
+                    gymsOwned: {
+                        select: { id: true, name: true, city: true, authMode: true, deskPin: true }
+                    },
+                    _count: {
+                        select: {
+                            bookings: { where: { status: { in: ["CONFIRMED", "CHECKED_IN", "COMPLETED"] } } },
+                            locationAlerts: true,
+                        }
+                    }
+                }
+            }),
+            prisma_1.default.booking.findMany({
+                where: { userId },
+                include: { gym: { select: { name: true, city: true, address: true } } },
+                orderBy: { createdAt: "desc" },
+                take: 20
+            }),
+            prisma_1.default.creditTransaction.findMany({
+                where: { userId },
+                orderBy: { createdAt: "desc" },
+                take: 15
+            }),
+            prisma_1.default.locationAlert.findMany({
+                where: { userId },
+                include: { gym: { select: { name: true, city: true } } },
+                orderBy: { detectedAt: "desc" },
+                take: 10
+            })
+        ]);
+        if (!user) {
+            res.status(404).json({ error: "NotFound", message: "User not found." });
+            return;
+        }
+        res.json({ user, bookings, transactions, locationAlerts });
+    }
+    catch (err) {
+        res.status(500).json({ error: "ServerError", message: err.message });
+    }
+});
+// ─── GET /api/admin/location-alerts ───────────────────────────────────────────
+router.get("/location-alerts", auth_1.requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const status = req.query.status;
+        const page = Math.max(1, parseInt(req.query.page || "1", 10));
+        const limit = Math.max(1, Math.min(100, parseInt(req.query.limit || "10", 10)));
+        const search = (req.query.search || "").trim();
+        const where = {};
+        if (status && status !== "ALL") {
+            where.status = status;
+        }
+        if (search) {
+            where.OR = [
+                { user: { name: { contains: search } } },
+                { user: { phone: { contains: search } } },
+                { user: { email: { contains: search } } },
+                { gym: { name: { contains: search } } },
+                { gym: { city: { contains: search } } },
+            ];
+        }
+        const [alerts, total, countsByStatus] = await Promise.all([
+            prisma_1.default.locationAlert.findMany({
+                where,
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            name: true,
+                            phone: true,
+                            email: true,
+                            avatarUrl: true,
+                            dob: true,
+                            membership: {
+                                select: { status: true, plan: { select: { name: true } } }
+                            }
+                        }
+                    },
+                    gym: {
+                        select: {
+                            id: true,
+                            name: true,
+                            city: true,
+                            address: true,
+                            contactPhone: true,
+                        }
+                    }
+                },
+                orderBy: { detectedAt: "desc" },
+                skip: (page - 1) * limit,
+                take: limit,
+            }),
+            prisma_1.default.locationAlert.count({ where }),
+            prisma_1.default.locationAlert.groupBy({
+                by: ["status"],
+                _count: { _all: true },
+            }),
+        ]);
+        const totalPages = Math.ceil(total / limit) || 1;
+        const counts = countsByStatus.reduce((acc, curr) => {
+            acc[curr.status] = curr._count._all;
+            return acc;
+        }, {});
+        res.json({
+            alerts,
+            pagination: { page, limit, total, totalPages },
+            counts: {
+                ALL: Object.values(counts).reduce((a, b) => a + b, 0),
+                FLAGGED: counts.FLAGGED || 0,
+                CONTACTED: counts.CONTACTED || 0,
+                RESOLVED: counts.RESOLVED || 0,
+            }
         });
-        const transactions = await prisma_1.default.creditTransaction.findMany({
-            where: { userId },
-            orderBy: { createdAt: "desc" },
-            take: 10
+    }
+    catch (err) {
+        console.error("[Admin Location Alerts Error]", err);
+        res.status(500).json({ error: "ServerError", message: err.message });
+    }
+});
+// ─── PATCH /api/admin/location-alerts/:id ─────────────────────────────────────
+router.patch("/location-alerts/:id", auth_1.requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const alertId = req.params.id;
+        const { status, adminNotes } = req.body;
+        const updated = await prisma_1.default.locationAlert.update({
+            where: { id: alertId },
+            data: {
+                ...(status ? { status } : {}),
+                ...(adminNotes !== undefined ? { adminNotes } : {}),
+            },
+            include: {
+                user: { select: { id: true, name: true, phone: true } },
+                gym: { select: { id: true, name: true } },
+            }
         });
-        res.json({ bookings, transactions });
+        res.json({ success: true, alert: updated });
     }
     catch (err) {
         res.status(500).json({ error: "ServerError", message: err.message });

@@ -7,6 +7,9 @@ exports.getPluralConfig = getPluralConfig;
 exports.isPluralConfigured = isPluralConfigured;
 exports.getPluralAccessToken = getPluralAccessToken;
 exports.createPluralOrder = createPluralOrder;
+exports.challengeUrlForAmount = challengeUrlForAmount;
+exports.readPluralUpiChallenge = readPluralUpiChallenge;
+exports.createPluralUpiIntent = createPluralUpiIntent;
 exports.verifyPluralWebhookSignature = verifyPluralWebhookSignature;
 exports.verifyPluralReturnSignature = verifyPluralReturnSignature;
 exports.readPluralOrder = readPluralOrder;
@@ -125,6 +128,19 @@ function customerPayload(params) {
         customer.mobile_number = digits.slice(-10);
         customer.country_code = "91";
     }
+    if (params.customerAddress || params.customerCity || params.customerPincode) {
+        const addressObj = {
+            address1: (params.customerAddress || "Fitness Center").slice(0, 100),
+            address2: "",
+            address3: "",
+            city: (params.customerCity || "Patna").slice(0, 50),
+            state: (params.customerState || "Bihar").slice(0, 50),
+            country: "India",
+            pincode: (params.customerPincode || "800001").replace(/\D/g, "").slice(0, 6) || "800001",
+        };
+        customer.billing_address = addressObj;
+        customer.shipping_address = addressObj;
+    }
     return customer;
 }
 /**
@@ -142,6 +158,15 @@ async function createPluralOrder(params) {
     const publicApiUrl = (process.env.PUBLIC_API_URL || "https://api.zonofit.com").replace(/\/$/, "");
     const callbackUrl = params.callbackUrl || `${publicApiUrl}/api/payments/plural/callback`;
     const failureUrl = params.failureUrl || callbackUrl;
+    const billingAddr = (params.customerAddress || params.customerCity || params.customerPincode) ? {
+        address1: (params.customerAddress || "Fitness Center").slice(0, 100),
+        address2: "",
+        address3: "",
+        city: (params.customerCity || "Patna").slice(0, 50),
+        state: (params.customerState || "Bihar").slice(0, 50),
+        country: "India",
+        pincode: (params.customerPincode || "800001").replace(/\D/g, "").slice(0, 6) || "800001",
+    } : undefined;
     const payload = {
         merchant_order_reference: params.merchantReference,
         order_amount: {
@@ -156,6 +181,7 @@ async function createPluralOrder(params) {
         failure_callback_url: failureUrl,
         purchase_details: {
             customer: customerPayload(params),
+            ...(billingAddr ? { billing_address: billingAddr } : {}),
         },
     };
     const send = async (token) => fetch(`${config.baseUrl}/api/checkout/v1/orders`, {
@@ -195,6 +221,148 @@ async function createPluralOrder(params) {
         currency: "INR",
         merchantReference: params.merchantReference,
     };
+}
+function rupeesQueryToPaise(amount) {
+    if (!/^\d+(\.\d{1,2})?$/.test(amount))
+        return null;
+    const [whole, fraction = ""] = amount.split(".");
+    const paise = Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
+    return Number.isInteger(paise) && paise > 0 ? paise : null;
+}
+function challengeQuery(url) {
+    const match = url.match(/^upi:\/\/pay\?([^#\s]+)$/i);
+    if (!match || url.length > 2000)
+        return null;
+    return new URLSearchParams(match[1]);
+}
+/**
+ * A Pine Labs UPI INTENT link. The amount in `am` is rupees and must match the order.
+ * The query string is kept as Pine Labs sent it.
+ */
+function challengeUrlForAmount(url, amountPaise) {
+    if (!Number.isInteger(amountPaise) || amountPaise < 100)
+        return null;
+    const query = challengeQuery(url);
+    if (!query)
+        return null;
+    const payee = query.get("pa");
+    const amount = query.get("am");
+    if (!payee || !amount)
+        return null;
+    if (rupeesQueryToPaise(amount) !== amountPaise)
+        return null;
+    return url;
+}
+function reportedPaise(payload) {
+    const amounts = [];
+    const collect = (value) => {
+        if (!value || typeof value !== "object")
+            return;
+        const amount = value;
+        if (typeof amount.currency === "string" && amount.currency.toUpperCase() !== "INR")
+            return;
+        const paise = readPaise(amount.value);
+        if (paise != null)
+            amounts.push(paise);
+    };
+    collect(payload.order_amount);
+    const payments = Array.isArray(payload.payments) ? payload.payments : [];
+    for (const payment of payments) {
+        if (payment && typeof payment === "object") {
+            collect(payment.payment_amount);
+        }
+    }
+    if (amounts.length === 0)
+        return null;
+    if (!amounts.every((value) => value === amounts[0]))
+        return -1;
+    return amounts[0];
+}
+/**
+ * Reads `challenge_url` from a Create Payment response and checks the amount.
+ */
+function readPluralUpiChallenge(payload, amountPaise) {
+    if (!payload || typeof payload !== "object")
+        return null;
+    const root = payload;
+    const data = root.data && typeof root.data === "object" ? root.data : root;
+    const url = typeof data.challenge_url === "string" ? data.challenge_url : "";
+    const matched = challengeUrlForAmount(url, amountPaise);
+    if (!matched)
+        return null;
+    const reported = reportedPaise(data);
+    if (reported === -1 || (reported != null && reported !== amountPaise))
+        return null;
+    return matched;
+}
+/**
+ * Asks Pine Labs for a UPI app link for an existing order.
+ * A missing link does not grant credits.
+ */
+async function createPluralUpiIntent(orderId, amountPaise) {
+    const config = getPluralConfig();
+    if (!config || !/^[A-Za-z0-9_-]{1,80}$/.test(orderId))
+        return { url: null, blockRetry: false };
+    if (!Number.isInteger(amountPaise) || amountPaise < 100)
+        return { url: null, blockRetry: false };
+    const payload = {
+        payments: [
+            {
+                merchant_payment_reference: crypto_1.default.randomUUID(),
+                payment_method: "UPI",
+                payment_amount: {
+                    value: amountPaise,
+                    currency: "INR",
+                },
+                payment_option: {
+                    upi_details: {
+                        txn_mode: "INTENT",
+                    },
+                },
+            },
+        ],
+    };
+    const send = async (token) => fetch(`${config.baseUrl}/api/pay/v1/orders/${encodeURIComponent(orderId)}/payments`, {
+        method: "POST",
+        headers: {
+            ...requestHeaders(token),
+            "content-type": "application/json",
+        },
+        body: JSON.stringify(payload),
+    });
+    try {
+        let token = await getPluralAccessToken();
+        let res = await send(token);
+        if (res.status === 401) {
+            cachedToken = null;
+            token = await requestToken(config);
+            res = await send(token);
+        }
+        const bodyText = await res.text();
+        if (!res.ok) {
+            console.error("[Plural] UPI intent failed:", res.status, safeGatewayError(bodyText));
+            return { url: null, blockRetry: false };
+        }
+        let body = null;
+        try {
+            body = JSON.parse(bodyText);
+        }
+        catch {
+            console.error("[Plural] UPI intent response was not JSON.");
+            return { url: null, blockRetry: true };
+        }
+        const challengeUrl = readPluralUpiChallenge(body, amountPaise);
+        if (!challengeUrl) {
+            console.error("[Plural] UPI intent response had no payable link for this amount.");
+            return { url: null, blockRetry: true };
+        }
+        return { url: challengeUrl, blockRetry: false };
+    }
+    catch (err) {
+        const message = err instanceof Error ? err.message : "error";
+        console.error("[Plural] UPI intent failed:", message);
+        return { url: null, blockRetry: false };
+    }
 }
 function headerValue(headers, name) {
     const value = headers[name];

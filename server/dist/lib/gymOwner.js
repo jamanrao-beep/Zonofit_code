@@ -54,21 +54,25 @@ function cleanPortalUsername(value) {
         return null;
     return username;
 }
-/** Admin-assigned gym portal passkey. Any characters, stored only as a hash. */
+/** Admin-assigned gym portal passkey or 4-6 digit quick desk PIN. Stored only as a hash. */
 function cleanOwnerPasskey(value) {
     if (typeof value !== "string")
         return null;
-    if (value.length < 6 || value.length > 72)
+    const pin = value.trim();
+    if (pin.length < 4 || pin.length > 72)
         return null;
-    return value;
+    return pin;
 }
 function readOwnerCredentials(body) {
     const usernameRaw = typeof body.ownerUsername === "string" ? body.ownerUsername : "";
     const passwordRaw = typeof body.ownerPassword === "string" ? body.ownerPassword : "";
-    const passkeyRaw = typeof body.ownerPasskey === "string" ? body.ownerPasskey : "";
+    const pinInput = body.ownerPin !== undefined ? body.ownerPin : body.ownerPasskey;
+    const passkeyRaw = typeof pinInput === "string" ? pinInput : "";
+    const rawAuthMode = typeof body.authMode === "string" ? body.authMode.toUpperCase() : "BOTH";
+    const authMode = rawAuthMode === "PASSWORD" || rawAuthMode === "PIN" ? rawAuthMode : "BOTH";
     const usernameProvided = usernameRaw.trim() !== "";
     const passwordProvided = passwordRaw.length > 0;
-    const passkeyProvided = passkeyRaw.length > 0;
+    const passkeyProvided = passkeyRaw.trim().length > 0;
     const username = usernameProvided ? cleanPortalUsername(usernameRaw) : null;
     const password = passwordProvided ? cleanOwnerPassword(passwordRaw) : null;
     const passkey = passkeyProvided ? cleanOwnerPasskey(passkeyRaw) : null;
@@ -79,11 +83,11 @@ function readOwnerCredentials(body) {
         return { ok: false, message: "Password must be 8 to 72 characters." };
     }
     if (passkeyProvided && !passkey) {
-        return { ok: false, message: "Passkey must be 6 to 72 characters." };
+        return { ok: false, message: "Desk PIN or passkey must be at least 4 characters (e.g. 4-6 digit PIN)." };
     }
     return {
         ok: true,
-        value: { username, password, passkey, usernameProvided, passwordProvided, passkeyProvided },
+        value: { username, password, passkey, authMode, usernameProvided, passwordProvided, passkeyProvided },
     };
 }
 function accountConflictMessage(err) {
@@ -103,8 +107,8 @@ function internalOwnerEmail() {
 }
 async function createGymOwner(db, input) {
     const [passwordHash, passkeyHash] = await Promise.all([
-        bcryptjs_1.default.hash(input.password, 12),
-        bcryptjs_1.default.hash(input.passkey, 12),
+        input.password ? bcryptjs_1.default.hash(input.password, 12) : Promise.resolve(null),
+        input.passkey ? bcryptjs_1.default.hash(input.passkey, 12) : Promise.resolve(null),
     ]);
     const referralCode = await (0, referral_1.generateUniqueReferralCode)();
     return db.user.create({
