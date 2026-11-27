@@ -142,6 +142,10 @@ router.post(
     body("gymName").optional().isString(),
     body("planId").optional().isString(),
     body("gymPlanId").optional().isString(),
+    body("address").optional().isString(),
+    body("city").optional().isString(),
+    body("state").optional().isString(),
+    body("pincode").optional().isString(),
   ],
   async (req: Request, res: Response): Promise<void> => {
     const errors = validationResult(req);
@@ -150,11 +154,15 @@ router.post(
       return;
     }
 
-    const { primaryGymId, gymName, planId, gymPlanId } = req.body as {
+    const { primaryGymId, gymName, planId, gymPlanId, address, city, state, pincode } = req.body as {
       primaryGymId: string;
       gymName?: string;
       planId?: string;
       gymPlanId?: string;
+      address?: string;
+      city?: string;
+      state?: string;
+      pincode?: string;
     };
 
     try {
@@ -231,6 +239,23 @@ router.post(
         select: { phone: true, email: true, name: true, address: true, city: true, state: true, pincode: true },
       });
 
+      const customerAddress = address?.trim() || user?.address || undefined;
+      const customerCity = city?.trim() || user?.city || undefined;
+      const customerState = state?.trim() || user?.state || undefined;
+      const customerPincode = pincode?.trim() || user?.pincode || undefined;
+
+      if (address?.trim() || city?.trim() || pincode?.trim()) {
+        await prisma.user.update({
+          where: { id: req.dbUserId! },
+          data: {
+            ...(address?.trim() ? { address: address.trim() } : {}),
+            ...(city?.trim() ? { city: city.trim() } : {}),
+            ...(state?.trim() ? { state: state.trim() } : {}),
+            ...(pincode?.trim() ? { pincode: pincode.trim() } : {}),
+          },
+        }).catch(() => {});
+      }
+
       const pluralOrder = await createPluralOrder({
         merchantReference,
         amountPaise: chargePaise,
@@ -238,10 +263,10 @@ router.post(
         customerPhone: user?.phone || undefined,
         customerEmail: user?.email || undefined,
         customerName: user?.name || undefined,
-        customerAddress: user?.address || undefined,
-        customerCity: user?.city || undefined,
-        customerState: user?.state || undefined,
-        customerPincode: user?.pincode || undefined,
+        customerAddress,
+        customerCity,
+        customerState,
+        customerPincode,
       });
 
       await (prisma as any).paymentOrder.create({

@@ -1,5 +1,5 @@
+import * as WebBrowser from "expo-web-browser";
 import { apiFetch } from "./api";
-import { openInAppCheckout } from "./inAppCheckout";
 
 export interface CheckoutResult {
   success: boolean;
@@ -8,8 +8,9 @@ export interface CheckoutResult {
 }
 
 /**
- * Opens Pine Labs checkout inside the app, then asks the API to confirm the order.
- * A covered referral month arrives as directAccepted and does not open checkout.
+ * Opens Pine Labs checkout in a secure Chrome Custom Tab / Safari Auth Session.
+ * Natively supports UPI app intents (GPay, PhonePe, Paytm), Card 3DS OTPs, and QR codes.
+ * When payment finishes, it redirects to zonofit://payment, closing the browser automatically.
  */
 export async function handlePaymentCheckout(
   orderData: any,
@@ -31,9 +32,12 @@ export async function handlePaymentCheckout(
   if (orderData.redirectUrl) {
     const orderId = orderData.orderId || orderData.razorpayOrderId;
     try {
-      await openInAppCheckout(orderData.redirectUrl, orderId);
-    } catch (checkoutErr) {
-      console.warn("[Payment] In-app checkout closed:", checkoutErr);
+      await WebBrowser.openAuthSessionAsync(
+        orderData.redirectUrl,
+        "zonofit://payment"
+      );
+    } catch (browserErr) {
+      console.warn("[Payment] Browser session finished or dismissed:", browserErr);
     }
 
     if (!orderId) {

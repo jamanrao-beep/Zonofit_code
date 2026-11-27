@@ -119,6 +119,10 @@ export default function OrderSummaryScreen() {
             credits: walletCreditsCount,
             gymName: displayGymName,
             cycleNumber: currentCycle,
+            address: selectedAddress ? `${selectedAddress.flatHouse}, ${selectedAddress.areaStreet}` : undefined,
+            city: selectedAddress?.city || city,
+            state: selectedAddress?.state,
+            pincode: selectedAddress?.pincode,
           });
           if (token) {
             await fetchWallet(token, { force: true });

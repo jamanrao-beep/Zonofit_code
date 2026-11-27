@@ -124,13 +124,17 @@ router.post("/create-order", auth_1.requireAuth, [
     (0, express_validator_1.body)("gymName").optional().isString(),
     (0, express_validator_1.body)("planId").optional().isString(),
     (0, express_validator_1.body)("gymPlanId").optional().isString(),
+    (0, express_validator_1.body)("address").optional().isString(),
+    (0, express_validator_1.body)("city").optional().isString(),
+    (0, express_validator_1.body)("state").optional().isString(),
+    (0, express_validator_1.body)("pincode").optional().isString(),
 ], async (req, res) => {
     const errors = (0, express_validator_1.validationResult)(req);
     if (!errors.isEmpty()) {
         res.status(400).json({ error: "ValidationError", details: errors.array() });
         return;
     }
-    const { primaryGymId, gymName, planId, gymPlanId } = req.body;
+    const { primaryGymId, gymName, planId, gymPlanId, address, city, state, pincode } = req.body;
     try {
         const quote = await (0, membershipActivate_1.quotePaidMembership)(req.dbUserId, {
             primaryGymId,
@@ -191,6 +195,21 @@ router.post("/create-order", auth_1.requireAuth, [
             where: { id: req.dbUserId },
             select: { phone: true, email: true, name: true, address: true, city: true, state: true, pincode: true },
         });
+        const customerAddress = address?.trim() || user?.address || undefined;
+        const customerCity = city?.trim() || user?.city || undefined;
+        const customerState = state?.trim() || user?.state || undefined;
+        const customerPincode = pincode?.trim() || user?.pincode || undefined;
+        if (address?.trim() || city?.trim() || pincode?.trim()) {
+            await prisma_1.default.user.update({
+                where: { id: req.dbUserId },
+                data: {
+                    ...(address?.trim() ? { address: address.trim() } : {}),
+                    ...(city?.trim() ? { city: city.trim() } : {}),
+                    ...(state?.trim() ? { state: state.trim() } : {}),
+                    ...(pincode?.trim() ? { pincode: pincode.trim() } : {}),
+                },
+            }).catch(() => { });
+        }
         const pluralOrder = await (0, plural_1.createPluralOrder)({
             merchantReference,
             amountPaise: chargePaise,
@@ -198,10 +217,10 @@ router.post("/create-order", auth_1.requireAuth, [
             customerPhone: user?.phone || undefined,
             customerEmail: user?.email || undefined,
             customerName: user?.name || undefined,
-            customerAddress: user?.address || undefined,
-            customerCity: user?.city || undefined,
-            customerState: user?.state || undefined,
-            customerPincode: user?.pincode || undefined,
+            customerAddress,
+            customerCity,
+            customerState,
+            customerPincode,
         });
         await prisma_1.default.paymentOrder.create({
             data: {

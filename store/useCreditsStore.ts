@@ -316,10 +316,20 @@ export const useCreditsStore = create<CreditsState>()(
   buyCredits: async (creditsAmount, _inrCost) => {
     try {
       const token = useAuthStore.getState().token;
+      const { useAddressStore } = require("./useAddressStore");
+      const addr = useAddressStore.getState().addresses.find((a: any) => a.isDefault) || useAddressStore.getState().addresses[0];
       const orderData = await apiFetch("/api/credits/create-order", {
         method: "POST",
         token,
-        body: JSON.stringify({ credits: creditsAmount }),
+        body: JSON.stringify({
+          credits: creditsAmount,
+          ...(addr ? {
+            address: `${addr.flatHouse}, ${addr.areaStreet}`,
+            city: addr.city,
+            state: addr.state,
+            pincode: addr.pincode,
+          } : {}),
+        }),
       });
 
       await confirmPaymentOrder(orderData, "Purchase " + creditsAmount + " ZonoFit Credits");

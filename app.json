@@ -21,7 +21,7 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.zonofit.fitness",
-      "versionCode": 5,
+      "versionCode": 7,
       "allowBackup": false,
       "permissions": [
         "android.permission.CAMERA",

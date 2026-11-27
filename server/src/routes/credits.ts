@@ -232,6 +232,10 @@ router.post(
     body("credits")
       .isInt({ min: 10 })
       .withMessage("Minimum purchase is 10 credits and must be a whole number."),
+    body("address").optional().isString(),
+    body("city").optional().isString(),
+    body("state").optional().isString(),
+    body("pincode").optional().isString(),
   ],
   async (req: Request, res: Response): Promise<void> => {
     const errors = validationResult(req);
@@ -278,6 +282,30 @@ router.post(
         select: { phone: true, email: true, name: true, address: true, city: true, state: true, pincode: true },
       });
 
+      const { address, city, state, pincode } = req.body as {
+        address?: string;
+        city?: string;
+        state?: string;
+        pincode?: string;
+      };
+
+      const customerAddress = address?.trim() || user?.address || undefined;
+      const customerCity = city?.trim() || user?.city || undefined;
+      const customerState = state?.trim() || user?.state || undefined;
+      const customerPincode = pincode?.trim() || user?.pincode || undefined;
+
+      if (address?.trim() || city?.trim() || pincode?.trim()) {
+        await prisma.user.update({
+          where: { id: req.dbUserId! },
+          data: {
+            ...(address?.trim() ? { address: address.trim() } : {}),
+            ...(city?.trim() ? { city: city.trim() } : {}),
+            ...(state?.trim() ? { state: state.trim() } : {}),
+            ...(pincode?.trim() ? { pincode: pincode.trim() } : {}),
+          },
+        }).catch(() => {});
+      }
+
       const pluralOrder = await createPluralOrder({
         merchantReference,
         amountPaise,
@@ -285,10 +313,10 @@ router.post(
         customerPhone: user?.phone || undefined,
         customerEmail: user?.email || undefined,
         customerName: user?.name || undefined,
-        customerAddress: user?.address || undefined,
-        customerCity: user?.city || undefined,
-        customerState: user?.state || undefined,
-        customerPincode: user?.pincode || undefined,
+        customerAddress,
+        customerCity,
+        customerState,
+        customerPincode,
       });
 
       await (prisma as any).paymentOrder.create({

@@ -47,7 +47,17 @@ interface AuthState {
     city: string,
     gymId: string,
     plan: string,
-    options?: { price?: number; visits?: number; credits?: number; gymName?: string; cycleNumber?: number }
+    options?: {
+      price?: number;
+      visits?: number;
+      credits?: number;
+      gymName?: string;
+      cycleNumber?: number;
+      address?: string;
+      city?: string;
+      state?: string;
+      pincode?: string;
+    }
   ) => Promise<void>;
   googleSignIn: (idToken: string, referralCode?: string) => Promise<{ success: boolean; isOnboarded: boolean }>;
   signInWithEmail: (input: {
@@ -421,6 +431,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           primaryGymId: gymId,
           gymName,
           ...(plan && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(plan) ? { planId: plan } : {}),
+          ...(options?.address ? { address: options.address } : {}),
+          ...(options?.city ? { city: options.city } : {}),
+          ...(options?.state ? { state: options.state } : {}),
+          ...(options?.pincode ? { pincode: options.pincode } : {}),
         }),
       });
 
