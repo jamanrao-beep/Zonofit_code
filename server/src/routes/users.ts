@@ -12,11 +12,29 @@ import { REFERRAL_GOAL, REFERRAL_VISIT_CREDITS, referralSnapshot } from "../lib/
 import { verifyOTP } from "../lib/otpStore";
 
 function parseDob(value: string): Date | null {
-    const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value.trim());
-    if (!match) return null;
-    const day = Number(match[1]);
-    const month = Number(match[2]);
-    const year = Number(match[3]);
+    if (!value || typeof value !== "string") return null;
+    const trimmed = value.trim();
+    let day: number, month: number, year: number;
+
+    const slashMatch = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(trimmed);
+    const dashMatch = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(trimmed);
+
+    if (slashMatch) {
+        day = Number(slashMatch[1]);
+        month = Number(slashMatch[2]);
+        year = Number(slashMatch[3]);
+    } else if (dashMatch) {
+        year = Number(dashMatch[1]);
+        month = Number(dashMatch[2]);
+        day = Number(dashMatch[3]);
+    } else {
+        const d = new Date(trimmed);
+        if (isNaN(d.getTime())) return null;
+        year = d.getUTCFullYear();
+        month = d.getUTCMonth() + 1;
+        day = d.getUTCDate();
+    }
+
     const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
     if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
     if (year < 1900 || date.getTime() > Date.now()) return null;

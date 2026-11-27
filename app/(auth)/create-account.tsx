@@ -398,6 +398,7 @@ export default function CreateAccountScreen() {
     try {
       await updateProfile({
         name: name.trim(),
+        phone: phone.trim(),
         email: email.trim().toLowerCase(),
         dob: `${day.padStart(2, "0")}/${month.padStart(2, "0")}/${year}`,
       });

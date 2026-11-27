@@ -12,26 +12,24 @@ import { useAuthStore } from "@/store/useAuthStore";
 const MOBILE_BROWSER =
   "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36";
 
-const INJECTED_CHECKOUT_JS = `
+const KEEP_IN_APP_JS = `
 (function() {
-  if (window.__zonofit_injected) return;
-  window.__zonofit_injected = true;
-
-  // Add scroll clearance so the button and security badges are completely visible and scrollable
-  const style = document.createElement('style');
-  style.id = '__zonofit_checkout_style__';
-  style.textContent = \`
-    html, body {
-      padding-bottom: 200px !important;
-      min-height: 100% !important;
-      overflow-y: auto !important;
-      -webkit-overflow-scrolling: touch !important;
+  if (window.__zonofitPay) return;
+  window.__zonofitPay = true;
+  window.open = function(url) {
+    if (typeof url === "string" && /^https?:/i.test(url)) {
+      window.location.href = url;
     }
-    .content, .checkout-container, main, form, .form-container, #root, #app {
-      padding-bottom: 160px !important;
-    }
-  \`;
-  (document.head || document.documentElement).appendChild(style);
+    return null;
+  };
+  document.addEventListener("click", function(event) {
+    var node = event.target;
+    while (node && node.tagName !== "A") node = node.parentElement;
+    if (!node || node.target !== "_blank" || !node.href) return;
+    if (!/^https?:/i.test(node.href)) return;
+    event.preventDefault();
+    window.location.href = node.href;
+  }, true);
 })();
 true;
 `;
@@ -75,7 +73,8 @@ export default function PaymentCheckoutScreen() {
   const [upiBusy, setUpiBusy] = useState(false);
   const [upiNote, setUpiNote] = useState("");
   const [upiError, setUpiError] = useState("");
-  const [showUpi, setShowUpi] = useState(true);
+  const [showUpi, setShowUpi] = useState(false);
+  const webRef = useRef<WebView>(null);
 
   const close = useCallback(() => {
     if (closed.current) return;
@@ -187,6 +186,10 @@ export default function PaymentCheckoutScreen() {
     }
   }, [close, orderId, pollPaid, upiBusy]);
 
+  const loadInPage = useCallback((url: string) => {
+    webRef.current?.injectJavaScript(`window.location.href = ${JSON.stringify(url)}; true;`);
+  }, []);
+
   const handleUrl = useCallback((url: string): boolean => {
     if (!url || url === "about:blank") return true;
     if (isReturnUrl(url)) {
@@ -194,14 +197,22 @@ export default function PaymentCheckoutScreen() {
       return false;
     }
     if (/^https?:/i.test(url)) return true;
-    if (lastExternal.current !== url) {
-      lastExternal.current = url;
+
+    const next = externalPaymentUrl(url);
+    if (/^https?:/i.test(next)) {
+      loadInPage(next);
+      return false;
+    }
+    if (/^(googlechrome|chrome|googlechromes):/i.test(next)) return false;
+    if (!/^(upi|tez|gpay|phonepe|paytm|paytmmp|credpay):/i.test(next)) return false;
+    if (lastExternal.current !== next) {
+      lastExternal.current = next;
       waitingForUpi.current = true;
-      Linking.openURL(externalPaymentUrl(url)).catch(() => {});
+      Linking.openURL(next).catch(() => {});
       void pollPaid();
     }
     return false;
-  }, [close, pollPaid]);
+  }, [close, loadInPage, pollPaid]);
 
   const onShouldStart = useCallback((request: { url: string }) => {
     return handleUrl(request.url);
@@ -234,17 +245,6 @@ export default function PaymentCheckoutScreen() {
           <Text style={styles.title}>Pay in ZonoFit</Text>
           <Text style={styles.subtitle}>Card, UPI, or net banking</Text>
         </View>
-        <Pressable
-          onPress={() => {
-            if (redirectUrl) Linking.openURL(redirectUrl).catch(() => {});
-          }}
-          hitSlop={10}
-          accessibilityLabel="Open in Browser"
-          style={styles.openBrowser}
-        >
-          <Ionicons name="globe-outline" size={16} color="#14582D" />
-          <Text style={styles.openBrowserText}>Browser</Text>
-        </Pressable>
       </View>
       {orderId ? (
         <View style={styles.upi}>
@@ -284,6 +284,7 @@ export default function PaymentCheckoutScreen() {
       ) : null}
       <View style={styles.web}>
         <WebView
+          ref={webRef}
           source={{ uri: redirectUrl }}
           userAgent={MOBILE_BROWSER}
           originWhitelist={["*"]}
@@ -294,14 +295,16 @@ export default function PaymentCheckoutScreen() {
           nestedScrollEnabled
           overScrollMode="always"
           showsVerticalScrollIndicator
-          javaScriptCanOpenWindowsAutomatically
+          setSupportMultipleWindows={false}
           mixedContentMode="always"
           allowsInlineMediaPlayback
-          injectedJavaScriptBeforeContentLoaded={INJECTED_CHECKOUT_JS}
-          injectedJavaScript={INJECTED_CHECKOUT_JS}
-          keyboardDisplayRequiresUserAction={false}
+          injectedJavaScriptBeforeContentLoaded={KEEP_IN_APP_JS}
           onShouldStartLoadWithRequest={onShouldStart}
           onNavigationStateChange={onNavigation}
+          onOpenWindow={(event) => {
+            const url = event.nativeEvent.targetUrl;
+            if (url && /^https?:/i.test(url)) loadInPage(url);
+          }}
           onLoadEnd={() => setLoading(false)}
           onError={() => setLoading(false)}
           startInLoadingState
@@ -336,22 +339,6 @@ const styles = StyleSheet.create({
   headerText: { flex: 1 },
   title: { fontSize: 16, fontWeight: "700", color: "#111827" },
   subtitle: { fontSize: 12, color: "#6B7280", marginTop: 1 },
-  openBrowser: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "#F0FDF4",
-    borderColor: "#CDE5D4",
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-  },
-  openBrowserText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#14582D",
-  },
   upi: {
     paddingHorizontal: 16,
     paddingVertical: 8,

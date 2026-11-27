@@ -42,7 +42,7 @@ interface AuthState {
   sendOTP: (phone: string, isSignIn?: boolean) => Promise<void>;
   verifyOTP: (code: string, isSignIn?: boolean, extras?: { referralCode?: string; attachPhone?: boolean }) => Promise<boolean>;
   checkUserExists: (phone?: string, email?: string) => Promise<{ exists: boolean; phoneExists: boolean; emailExists: boolean; isOnboarded: boolean; user?: any }>;
-  updateProfile: (details: { name: string, dob?: string, email?: string, referral?: string }) => Promise<void>;
+  updateProfile: (details: { name: string; dob?: string; email?: string; referral?: string; phone?: string }) => Promise<void>;
   completeOnboarding: (
     city: string,
     gymId: string,
@@ -362,10 +362,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const existingUser = get().user;
+      const updatedPhone = details.phone?.trim() || get().verificationPhone || existingUser?.phone || "";
       const updatedUser: User = {
         id: existingUser?.id || "usr_" + Date.now(),
         username: details.name,
-        phone: get().verificationPhone || existingUser?.phone || "",
+        phone: updatedPhone,
         email: details.email || existingUser?.email,
         authMethod: existingUser?.authMethod || "phone",
         dob: details.dob,
@@ -385,7 +386,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         token,
         body: JSON.stringify({
           name: details.name,
-          phone: updatedUser.phone,
+          ...(updatedPhone ? { phone: updatedPhone } : {}),
           ...(details.email ? { email: details.email } : {}),
           ...(details.dob ? { dob: details.dob } : {}),
         }),

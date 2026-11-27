@@ -31,7 +31,17 @@ import {
 function formatDobDisplay(dob: string | Date | null | undefined): { text: string; ageText: string } {
   if (!dob) return { text: "Not provided", ageText: "" };
   try {
-    const d = new Date(dob);
+    let d: Date;
+    if (typeof dob === "string") {
+      const slash = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(dob.trim());
+      if (slash) {
+        d = new Date(Date.UTC(Number(slash[3]), Number(slash[2]) - 1, Number(slash[1]), 12, 0, 0));
+      } else {
+        d = new Date(dob);
+      }
+    } else {
+      d = new Date(dob);
+    }
     if (isNaN(d.getTime())) return { text: String(dob), ageText: "" };
     const text = d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
     const diffMs = Date.now() - d.getTime();

@@ -182,20 +182,28 @@ function customerPayload(params: CreateOrderParams): Record<string, unknown> {
     customer.country_code = "91";
   }
 
-  if (params.customerAddress && params.customerCity && params.customerPincode) {
-    const addressObj = {
-      address1: params.customerAddress.slice(0, 100),
-      address2: "",
-      address3: "",
-      city: params.customerCity.slice(0, 50),
-      state: (params.customerState || "").slice(0, 50),
-      country: "India",
-      pincode: params.customerPincode.replace(/\D/g, "").slice(0, 6),
-    };
-    customer.billing_address = addressObj;
-    customer.shipping_address = addressObj;
+  const address = billingAddress(params);
+  if (address) {
+    customer.billing_address = address;
+    customer.shipping_address = address;
   }
   return customer;
+}
+
+function billingAddress(params: CreateOrderParams): Record<string, string> | null {
+  const address1 = params.customerAddress?.trim().slice(0, 100) || "";
+  const city = params.customerCity?.trim().slice(0, 50) || "";
+  const pincode = (params.customerPincode || "").replace(/\D/g, "");
+  if (!address1 || !city || pincode.length !== 6) return null;
+  const address: Record<string, string> = {
+    address1,
+    city,
+    country: "India",
+    pincode,
+  };
+  const state = params.customerState?.trim().slice(0, 50) || "";
+  if (state) address.state = state;
+  return address;
 }
 
 /**
@@ -215,16 +223,6 @@ export async function createPluralOrder(params: CreateOrderParams): Promise<Plur
   const callbackUrl = params.callbackUrl || `${publicApiUrl}/api/payments/plural/callback`;
   const failureUrl = params.failureUrl || callbackUrl;
 
-  const billingAddr = (params.customerAddress && params.customerCity && params.customerPincode) ? {
-    address1: params.customerAddress.slice(0, 100),
-    address2: "",
-    address3: "",
-    city: params.customerCity.slice(0, 50),
-    state: (params.customerState || "").slice(0, 50),
-    country: "India",
-    pincode: params.customerPincode.replace(/\D/g, "").slice(0, 6),
-  } : undefined;
-
   const payload: Record<string, unknown> = {
     merchant_order_reference: params.merchantReference,
     order_amount: {
@@ -233,12 +231,12 @@ export async function createPluralOrder(params: CreateOrderParams): Promise<Plur
     },
     integration_mode: "REDIRECT",
     pre_auth: false,
+    allowed_payment_methods: ["CARD", "UPI", "NETBANKING", "WALLET"],
     notes: "ZonoFit",
     callback_url: callbackUrl,
     failure_callback_url: failureUrl,
     purchase_details: {
       customer: customerPayload(params),
-      ...(billingAddr ? { billing_address: billingAddr, shipping_address: billingAddr } : {}),
     },
   };
 
