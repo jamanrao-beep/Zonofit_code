@@ -73,8 +73,8 @@ export default function PaymentCheckoutScreen() {
   const [upiBusy, setUpiBusy] = useState(false);
   const [upiNote, setUpiNote] = useState("");
   const [upiError, setUpiError] = useState("");
-  const [showUpi, setShowUpi] = useState(true);
-  const [showQrModal, setShowQrModal] = useState(false);
+  const [showUpi, setShowUpi] = useState(false);
+  const [showQrInline, setShowQrInline] = useState(false);
   const [qrUpiUrl, setQrUpiUrl] = useState("");
   const webRef = useRef<WebView>(null);
 
@@ -188,8 +188,18 @@ export default function PaymentCheckoutScreen() {
     }
   }, [close, orderId, pollPaid, upiBusy]);
 
-  const showQrCode = useCallback(async () => {
+  const toggleQrCode = useCallback(async () => {
+    if (showQrInline) {
+      setShowQrInline(false);
+      return;
+    }
     if (!orderId || upiBusy) return;
+    if (qrUpiUrl) {
+      setShowQrInline(true);
+      waitingForUpi.current = true;
+      void pollPaid();
+      return;
+    }
     setUpiBusy(true);
     setUpiError("");
     try {
@@ -213,7 +223,7 @@ export default function PaymentCheckoutScreen() {
         return;
       }
       setQrUpiUrl(rawUrl);
-      setShowQrModal(true);
+      setShowQrInline(true);
       waitingForUpi.current = true;
       void pollPaid();
     } catch {
@@ -221,7 +231,7 @@ export default function PaymentCheckoutScreen() {
     } finally {
       setUpiBusy(false);
     }
-  }, [close, orderId, pollPaid, upiBusy]);
+  }, [close, orderId, pollPaid, qrUpiUrl, showQrInline, upiBusy]);
 
   const loadInPage = useCallback((url: string) => {
     webRef.current?.injectJavaScript(`window.location.href = ${JSON.stringify(url)}; true;`);
@@ -301,13 +311,15 @@ export default function PaymentCheckoutScreen() {
               <Text style={styles.upiCopy}>Scan QR code or tap an app to pay with amount pre-filled.</Text>
               <View style={styles.upiRow}>
                 <Pressable
-                  onPress={() => { void showQrCode(); }}
+                  onPress={() => { void toggleQrCode(); }}
                   disabled={upiBusy}
-                  style={[styles.upiButton, styles.qrButton]}
-                  accessibilityLabel="Show Dynamic QR Code"
+                  style={[styles.upiButton, showQrInline ? styles.qrButtonActive : styles.qrButton]}
+                  accessibilityLabel="Show QR Code"
                 >
-                  <Ionicons name="qr-code-outline" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
-                  <Text style={[styles.upiButtonText, styles.qrButtonText]}>Show QR</Text>
+                  <Ionicons name="qr-code-outline" size={13} color={showQrInline ? "#FFFFFF" : "#14582D"} style={{ marginRight: 3 }} />
+                  <Text style={[styles.upiButtonText, showQrInline ? styles.qrButtonActiveText : styles.qrButtonText]}>
+                    {showQrInline ? "Hide QR" : "Show QR"}
+                  </Text>
                 </Pressable>
                 {UPI_APPS.map((app) => (
                   <Pressable
@@ -321,6 +333,39 @@ export default function PaymentCheckoutScreen() {
                   </Pressable>
                 ))}
               </View>
+
+              {/* Compact Inline QR Code Card (Does NOT cover the screen) */}
+              {showQrInline ? (
+                <View style={styles.smallQrCard}>
+                  <View style={styles.smallQrRow}>
+                    <View style={styles.smallQrImageWrapper}>
+                      {qrUpiUrl ? (
+                        <Image
+                          source={{
+                            uri: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=4&data=${encodeURIComponent(qrUpiUrl)}`,
+                          }}
+                          style={styles.smallQrImage}
+                          resizeMode="contain"
+                        />
+                      ) : (
+                        <ActivityIndicator size="small" color="#14582D" />
+                      )}
+                    </View>
+                    <View style={styles.smallQrDetails}>
+                      <Text style={styles.smallQrTitle}>Scan to Pay</Text>
+                      <Text style={styles.smallQrCopy}>GPay, PhonePe, Paytm, or any banking app</Text>
+                      <View style={styles.smallQrLive}>
+                        <ActivityIndicator size="small" color="#14582D" style={{ transform: [{ scale: 0.75 }] }} />
+                        <Text style={styles.smallQrLiveText}>Auto-confirms on pay</Text>
+                      </View>
+                      <Pressable onPress={() => setShowQrInline(false)} style={styles.smallQrCloseBtn}>
+                        <Text style={styles.smallQrCloseText}>Close QR</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                </View>
+              ) : null}
+
               {upiBusy ? <ActivityIndicator size="small" color="#14582D" style={styles.upiSpinner} /> : null}
               {upiNote ? <Text style={styles.upiNote}>{upiNote}</Text> : null}
               {upiError ? <Text style={styles.upiError}>{upiError}</Text> : null}
@@ -328,67 +373,6 @@ export default function PaymentCheckoutScreen() {
           ) : null}
         </View>
       ) : null}
-
-      {/* Dynamic UPI QR Code Modal */}
-      <Modal
-        visible={showQrModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowQrModal(false)}
-      >
-        <View style={styles.qrOverlay}>
-          <View style={styles.qrCard}>
-            <View style={styles.qrHeader}>
-              <View style={styles.qrHeaderLeft}>
-                <Ionicons name="qr-code" size={20} color="#14582D" />
-                <Text style={styles.qrTitle}>Scan & Pay with Any UPI</Text>
-              </View>
-              <Pressable
-                onPress={() => setShowQrModal(false)}
-                hitSlop={8}
-                style={styles.qrClose}
-                accessibilityLabel="Close QR"
-              >
-                <Ionicons name="close" size={20} color="#6B7280" />
-              </Pressable>
-            </View>
-
-            <Text style={styles.qrSubtitle}>
-              Scan using Google Pay, PhonePe, Paytm, BHIM, or any banking app.
-            </Text>
-
-            <View style={styles.qrImageContainer}>
-              {qrUpiUrl ? (
-                <Image
-                  source={{
-                    uri: `https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=8&data=${encodeURIComponent(qrUpiUrl)}`,
-                  }}
-                  style={styles.qrImage}
-                  resizeMode="contain"
-                />
-              ) : (
-                <ActivityIndicator size="large" color="#14582D" />
-              )}
-            </View>
-
-            <View style={styles.qrStatusRow}>
-              <ActivityIndicator size="small" color="#14582D" />
-              <Text style={styles.qrStatusText}>Waiting for payment confirmation…</Text>
-            </View>
-
-            <Text style={styles.qrHelperText}>
-              Amount is automatically filled. This screen closes as soon as paid.
-            </Text>
-
-            <Pressable
-              onPress={() => setShowQrModal(false)}
-              style={styles.qrDismissBtn}
-            >
-              <Text style={styles.qrDismissBtnText}>Close QR Code</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
       <View style={styles.web}>
         <WebView
           ref={webRef}
@@ -483,6 +467,19 @@ const styles = StyleSheet.create({
   },
   upiButtonText: { fontSize: 12, fontWeight: "700", color: "#14582D" },
   qrButton: {
+    backgroundColor: "#F0FDF4",
+    borderColor: "#A7F3D0",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    flex: 1.15,
+  },
+  qrButtonText: {
+    color: "#14582D",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  qrButtonActive: {
     backgroundColor: "#14582D",
     borderColor: "#14582D",
     flexDirection: "row",
@@ -490,115 +487,78 @@ const styles = StyleSheet.create({
     gap: 2,
     flex: 1.15,
   },
-  qrButtonText: {
+  qrButtonActiveText: {
     color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "800",
   },
-  qrOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.65)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  qrCard: {
-    width: "100%",
-    maxWidth: 340,
+  smallQrCard: {
+    marginTop: 10,
     backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    padding: 22,
-    alignItems: "center",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#DCFCE7",
+    padding: 10,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
   },
-  qrHeader: {
-    width: "100%",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  qrHeaderLeft: {
+  smallQrRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 12,
   },
-  qrTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#111827",
-  },
-  qrClose: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#F3F4F6",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  qrSubtitle: {
-    fontSize: 12,
-    color: "#4B5563",
-    textAlign: "center",
-    marginTop: 8,
-    lineHeight: 16,
-  },
-  qrImageContainer: {
-    width: 236,
-    height: 236,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    borderWidth: 1.5,
+  smallQrImageWrapper: {
+    width: 96,
+    height: 96,
+    borderRadius: 10,
+    backgroundColor: "#F9FAFB",
+    borderWidth: 1,
     borderColor: "#E5E7EB",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
   },
-  qrImage: {
-    width: 220,
-    height: 220,
+  smallQrImage: {
+    width: 88,
+    height: 88,
   },
-  qrStatusRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 16,
-    backgroundColor: "#F0FDF4",
-    borderColor: "#DCFCE7",
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+  smallQrDetails: {
+    flex: 1,
   },
-  qrStatusText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#166534",
+  smallQrTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#111827",
   },
-  qrHelperText: {
+  smallQrCopy: {
     fontSize: 11,
-    color: "#6B7280",
-    textAlign: "center",
-    marginTop: 10,
+    color: "#4B5563",
+    marginTop: 2,
     lineHeight: 15,
   },
-  qrDismissBtn: {
-    marginTop: 14,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+  smallQrLive: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 6,
   },
-  qrDismissBtnText: {
-    fontSize: 12,
-    color: "#6B7280",
+  smallQrLiveText: {
+    fontSize: 11,
+    color: "#166534",
     fontWeight: "600",
+  },
+  smallQrCloseBtn: {
+    alignSelf: "flex-start",
+    marginTop: 6,
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    backgroundColor: "#F3F4F6",
+  },
+  smallQrCloseText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#4B5563",
   },
   upiSpinner: { marginTop: 6 },
   upiNote: { fontSize: 11, color: "#14582D", marginTop: 6, lineHeight: 15 },
