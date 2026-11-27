@@ -143,9 +143,13 @@ function billingAddress(params) {
         return null;
     const address = {
         address1,
+        address2: "",
         city,
         country: "India",
         pincode,
+        full_name: (params.customerName || "ZonoFit Member").slice(0, 80),
+        address_type: "Home",
+        address_category: "billing",
     };
     const state = params.customerState?.trim().slice(0, 50) || "";
     if (state)
@@ -167,6 +171,7 @@ async function createPluralOrder(params) {
     const publicApiUrl = (process.env.PUBLIC_API_URL || "https://api.zonofit.com").replace(/\/$/, "");
     const callbackUrl = params.callbackUrl || `${publicApiUrl}/api/payments/plural/callback`;
     const failureUrl = params.failureUrl || callbackUrl;
+    const addr = billingAddress(params);
     const payload = {
         merchant_order_reference: params.merchantReference,
         order_amount: {
@@ -181,6 +186,7 @@ async function createPluralOrder(params) {
         failure_callback_url: failureUrl,
         purchase_details: {
             customer: customerPayload(params),
+            ...(addr ? { billing_address: addr, shipping_address: addr } : {}),
         },
     };
     const send = async (token) => fetch(`${config.baseUrl}/api/checkout/v1/orders`, {

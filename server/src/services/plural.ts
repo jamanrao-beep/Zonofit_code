@@ -197,9 +197,13 @@ function billingAddress(params: CreateOrderParams): Record<string, string> | nul
   if (!address1 || !city || pincode.length !== 6) return null;
   const address: Record<string, string> = {
     address1,
+    address2: "",
     city,
     country: "India",
     pincode,
+    full_name: (params.customerName || "ZonoFit Member").slice(0, 80),
+    address_type: "Home",
+    address_category: "billing",
   };
   const state = params.customerState?.trim().slice(0, 50) || "";
   if (state) address.state = state;
@@ -223,6 +227,7 @@ export async function createPluralOrder(params: CreateOrderParams): Promise<Plur
   const callbackUrl = params.callbackUrl || `${publicApiUrl}/api/payments/plural/callback`;
   const failureUrl = params.failureUrl || callbackUrl;
 
+  const addr = billingAddress(params);
   const payload: Record<string, unknown> = {
     merchant_order_reference: params.merchantReference,
     order_amount: {
@@ -237,6 +242,7 @@ export async function createPluralOrder(params: CreateOrderParams): Promise<Plur
     failure_callback_url: failureUrl,
     purchase_details: {
       customer: customerPayload(params),
+      ...(addr ? { billing_address: addr, shipping_address: addr } : {}),
     },
   };
 
